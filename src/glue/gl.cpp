@@ -280,6 +280,26 @@
 #include "glue/gl_wgl.h"
 #include "threads/threadsutilp.h"
 
+// OpenGL 3.0+ constants are not available in some legacy platform headers.
+#ifndef GL_NUM_EXTENSIONS
+#define GL_NUM_EXTENSIONS 0x821D
+#endif
+#ifndef GL_CONTEXT_FLAGS
+#define GL_CONTEXT_FLAGS 0x821E
+#endif
+#ifndef GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT
+#define GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT 0x0001
+#endif
+#ifndef GL_CONTEXT_PROFILE_MASK
+#define GL_CONTEXT_PROFILE_MASK 0x9126
+#endif
+#ifndef GL_CONTEXT_CORE_PROFILE_BIT
+#define GL_CONTEXT_CORE_PROFILE_BIT 0x00000001
+#endif
+#ifndef GL_CONTEXT_COMPATIBILITY_PROFILE_BIT
+#define GL_CONTEXT_COMPATIBILITY_PROFILE_BIT 0x00000002
+#endif
+
 /* ********************************************************************** */
 
 #ifdef __cplusplus
@@ -2258,6 +2278,8 @@ static void check_egl()
 #endif
 }
 
+static SbBool glglue_detect_context_legacy_rendering(const cc_glglue * glue);
+
 /* We're basically using the Singleton pattern to instantiate and
    return OpenGL-glue "object structs". We're constructing one
    instance for each OpenGL context, though.  */
@@ -2440,13 +2462,24 @@ cc_glglue_instance(int contextid)
       }
     }
 
+    // Cache the legacy-rendering capability before querying limits.  Some legacy
+    // limits, such as GL_MAX_LIGHTS, are invalid in a core profile and
+    // would otherwise leave a stale GL error for later capability queries.
+    gi->context_supports_legacy_rendering = glglue_detect_context_legacy_rendering(gi);
+    gi->legacy_rendering_support_cached = TRUE;
+
     /* read some limits */
 
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gltmp);
     gi->max_texture_size = gltmp;
 
-    glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
-    gi->max_lights = (int) gltmp;
+    if (gi->context_supports_legacy_rendering) {
+      glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
+      gi->max_lights = (int) gltmp;
+    }
+    else {
+      gi->max_lights = 0;
+    }
 
     {
       GLfloat vals[2];
@@ -2587,6 +2620,89 @@ cc_glglue_isdirect(const cc_glglue * w)
   return w->glx.isdirect;
 }
 
+static SbBool
+glglue_detect_context_legacy_rendering(const cc_glglue * glue)
+{
+  if (glue == NULL || glue->versionstr == NULL) {
+    return FALSE;
+  }
+
+  // OpenGL ES has no desktop legacy rendering. Its version numbers
+  // overlap the desktop versions, so reject it before querying desktop-only
+  // profile state.
+  if (strncmp(glue->versionstr, "OpenGL ES", 9) == 0) {
+    return FALSE;
+  }
+
+  unsigned int major, minor, release;
+  cc_glglue_glversion(glue, &major, &minor, &release);
+
+  // An unparseable version string is not evidence that legacy GL is
+  // available.  Keep the boundary conservative when a driver reports an
+  // unexpected version format.
+  if (major == 0) {
+    return FALSE;
+  }
+
+  if (major < 2 || (major == 2 && minor <= 1)) {
+    return TRUE;
+  }
+
+  if (major == 3 && minor == 0) {
+    GLint flags = 0;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    return (flags & GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT) == 0;
+  }
+
+  if (major == 3 && minor == 1) {
+    if (glue->extensionsstr != NULL) {
+      return coin_glglue_extension_available(glue->extensionsstr,
+                                             "GL_ARB_compatibility");
+    }
+    COIN_PFNGLGETSTRINGIPROC glGetStringi = glue->glGetStringi;
+    if (glGetStringi == NULL) {
+      glGetStringi = reinterpret_cast<COIN_PFNGLGETSTRINGIPROC>(
+        cc_glglue_getprocaddress(glue, "glGetStringi"));
+    }
+    if (glGetStringi != NULL) {
+      GLint extensionsNum = 0;
+      glGetIntegerv(GL_NUM_EXTENSIONS, &extensionsNum);
+      for (GLint i = 0; i < extensionsNum; ++i) {
+        const auto extensionName =
+          reinterpret_cast<const char *>(glGetStringi(GL_EXTENSIONS, i));
+        if (extensionName &&
+            strcmp(extensionName, "GL_ARB_compatibility") == 0) {
+          return TRUE;
+        }
+      }
+      return FALSE;
+    }
+    return FALSE;
+  }
+
+  GLint profile = 0;
+  glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile);
+
+  // A desktop GL 3.2+ context must select exactly one of these profiles.
+  // Treat an unknown/empty mask as unsupported instead of accidentally
+  // enabling legacy traversal.
+  return (profile & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT) != 0 &&
+    (profile & GL_CONTEXT_CORE_PROFILE_BIT) == 0;
+}
+
+/* Returns TRUE if the current OpenGL context supports legacy rendering. */
+SbBool cc_glglue_context_supports_legacy_rendering(const cc_glglue * glue)
+{
+  if (glue == NULL) {
+    return FALSE;
+  }
+  if (!glue->legacy_rendering_support_cached) {
+    cc_glglue * mutable_glue = const_cast<cc_glglue *>(glue);
+    mutable_glue->context_supports_legacy_rendering = glglue_detect_context_legacy_rendering(glue);
+    mutable_glue->legacy_rendering_support_cached = TRUE;
+  }
+  return glue->context_supports_legacy_rendering;
+}
 
 /*!
   Whether glPolygonOffset() is available or not: either we're on OpenGL
