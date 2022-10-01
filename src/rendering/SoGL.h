@@ -171,6 +171,8 @@ sogl_render_pointset(const SoGLCoordinateElement * coords,
 
 SbBool sogl_glerror_debugging(void);
 
+SbBool sogl_context_supports_legacy_rendering(const SoState * state);
+
 void sogl_autocache_update(SoState * state, const int numprimitives, 
                            SbBool didusevbo);
 
