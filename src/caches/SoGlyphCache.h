@@ -59,7 +59,7 @@ public:
   SoGlyphCache(SoState * state);
   virtual ~SoGlyphCache();
 
-  void readFontspec(SoState * state);
+  void readFontspec(SoState * state, float sizefactor = 1.0f);
   const cc_font_specification * getCachedFontspec(void) const;
 
   void addGlyph(cc_glyph2d * glyph);

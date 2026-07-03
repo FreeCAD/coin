@@ -137,7 +137,7 @@
 /*!
   The default SbViewportRegion constructor initializes the viewport to
   fully cover a [100, 100] size window with 72 pixels per inch
-  resolution.
+  resolution and a device pixel ratio of 1.0.
 */
 SbViewportRegion::SbViewportRegion(void)
   : winsize(100, 100),
@@ -145,6 +145,7 @@ SbViewportRegion::SbViewportRegion(void)
     vpsize(1.0f, 1.0f)
 {
   this->pixperinch = 72.0f;
+  this->devicepixelratio = 1.0f;
 }
 
 /*!
@@ -173,6 +174,7 @@ SbViewportRegion::SbViewportRegion(short width, short height)
 #endif // COIN_DEBUG
 
   this->pixperinch = 72.0f;
+  this->devicepixelratio = 1.0f;
 }
 
 /*!
@@ -201,6 +203,7 @@ SbViewportRegion::SbViewportRegion(SbVec2s winsizearg)
 #endif // COIN_DEBUG
 
   this->pixperinch = 72.0f;
+  this->devicepixelratio = 1.0f;
 }
 
 /*!
@@ -561,6 +564,44 @@ SbViewportRegion::getPixelsPerPoint(void) const
 }
 
 /*!
+  Set the ratio between framebuffer pixels and logical window pixels.
+  Default value is 1.0.
+
+  This value is independent of the physical screen resolution stored in
+  setPixelsPerInch(). HiDPI-aware window system bindings should set it
+  from their device-pixel-ratio or backing-scale factor.
+
+  \sa getDevicePixelRatio().
+ */
+void
+SbViewportRegion::setDevicePixelRatio(float ratio)
+{
+#if COIN_DEBUG
+  if (ratio<=0.0f) {
+    SoDebugError::postWarning("SbViewportRegion::setDevicePixelRatio",
+                              "ratio value (%f) should be >0.0f. "
+                              "Clamped to 1.0f.", ratio);
+    ratio=1.0f;
+  }
+#else // !COIN_DEBUG
+  if (ratio<=0.0f) ratio=1.0f;
+#endif // !COIN_DEBUG
+
+  this->devicepixelratio = ratio;
+}
+
+/*!
+  Get the ratio between framebuffer pixels and logical window pixels.
+
+  \sa setDevicePixelRatio().
+ */
+float
+SbViewportRegion::getDevicePixelRatio(void) const
+{
+  return this->devicepixelratio;
+}
+
+/*!
   \relates SbViewportRegion
   Compares two SbViewportRegion instances for equality.
 */
@@ -571,7 +612,8 @@ operator==(const SbViewportRegion & reg1, const SbViewportRegion & reg2)
     reg1.winsize == reg2.winsize &&
     reg1.getViewportOriginPixels() == reg2.getViewportOriginPixels() &&
     reg1.getViewportSizePixels() == reg2.getViewportSizePixels() &&
-    reg1.pixperinch == reg2.pixperinch;
+    reg1.pixperinch == reg2.pixperinch &&
+    reg1.devicepixelratio == reg2.devicepixelratio;
 }
 
 /*!
@@ -612,5 +654,6 @@ SbViewportRegion::print(FILE * fp) const
   (void)fprintf( fp, "  aspectratio: %f\n", this->getViewportAspectRatio() );
   (void)fprintf( fp, "  ppi:         %f\n", this->getPixelsPerInch() );
   (void)fprintf( fp, "  ppp:         %f\n", this->getPixelsPerPoint() );
+  (void)fprintf( fp, "  dpr:         %f\n", this->getDevicePixelRatio() );
 #endif // COIN_DEBUG
 }
