@@ -100,7 +100,7 @@ if(COIN_BUILD_DOCUMENTATION)
 # ############################################################################
 # Install built documentation files
 # ############################################################################
-  if(NOT COIN_BUILD_MAC_FRAMEWORK)
+  if(COIN_INSTALL AND NOT COIN_BUILD_MAC_FRAMEWORK)
     install(DIRECTORY "${CMAKE_BINARY_DIR}/html" DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT documentation REGEX ".*\\.(chm|qch)" EXCLUDE)
     if(COIN_BUILD_DOCUMENTATION_CHM)
       install(FILES "${CMAKE_BINARY_DIR}/html/${PROJECT_NAME}.chm" DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT documentation)
@@ -213,7 +213,7 @@ if(COIN_BUILD_AWESOME_DOCUMENTATION)
 # ############################################################################
 # Install built documentation files
 # ############################################################################
-  if(NOT COIN_BUILD_MAC_FRAMEWORK)
+  if(COIN_INSTALL AND NOT COIN_BUILD_MAC_FRAMEWORK)
     install(DIRECTORY "${CMAKE_BINARY_DIR}/html_awesome" DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT documentation REGEX ".*\\.(chm|qch)" EXCLUDE)
   endif()
 endif()

@@ -93,6 +93,7 @@ option(COIN_BUILD_TESTS "Build unit tests when ON (default), skips them when OFF
 option(COIN_BUILD_DOCUMENTATION "Build and install API documentation (requires Doxygen)." OFF)
 option(COIN_BUILD_AWESOME_DOCUMENTATION "Build and install API documentation in new modern style (requires Doxygen)." OFF)
 option(COIN_BUILD_EXAMPLES "Build examples when ON (default), skips them when OFF." OFF)
+option(COIN_INSTALL "Generate install rules for Coin runtime, development, and package files." ON)
 cmake_dependent_option(COIN_BUILD_INTERNAL_DOCUMENTATION "Document internal code not part of the API." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_MAN "Build Coin man pages." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_QTHELP "Build QtHelp documentation." OFF "COIN_BUILD_DOCUMENTATION" OFF)
@@ -143,6 +144,7 @@ report_prepare(
   COIN_BUILD_DOCUMENTATION_CHM
   COIN_BUILD_EGL
   COIN_BUILD_AWESOME_DOCUMENTATION
+  COIN_INSTALL
   COIN_THREADSAFE
   HAVE_VRML97
   COIN_HAVE_JAVASCRIPT
@@ -958,6 +960,6 @@ endif()
 
 # ############################################################################
 # New CPACK section, please see the README file inside cpack.d directory.
-if (COIN_USE_CPACK)
+if (COIN_USE_CPACK AND COIN_INSTALL)
   add_subdirectory(cpack.d)
 endif()

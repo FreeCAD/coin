@@ -354,11 +354,15 @@ if(COIN_BUILD_MAC_FRAMEWORK)
 # Install framework target
 # ############################################################################
 
+if(COIN_INSTALL)
   install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}
     FRAMEWORK DESTINATION . COMPONENT development
   )
+endif()
 
 else()
+
+if(COIN_INSTALL)
 
 # ############################################################################
 # Install headers
@@ -406,9 +410,13 @@ else()
   endif()
 endif()
 
+endif()
+
 # ############################################################################
 # Install config package and pkgconfig file
 # ############################################################################
+
+if(COIN_INSTALL)
 
 if(COIN_BUILD_MAC_FRAMEWORK)
   set(COIN_CONFIG_PACKAGE_LOCATION ${COIN_MAC_FRAMEWORK_NAME}.framework/Resources/CMake)
@@ -460,3 +468,5 @@ install(EXPORT ${PROJECT_NAME}
   FILE ${COIN_CONFIG_PACKAGE_BASENAME}-export.cmake
   COMPONENT development
 )
+
+endif()
