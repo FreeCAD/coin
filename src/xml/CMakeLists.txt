@@ -1,4 +1,4 @@
-if(NOT EXPAT_FOUND)
+if(NOT COIN_USE_SYSTEM_EXPAT)
 	add_subdirectory(expat)
 endif()
 
