@@ -172,48 +172,47 @@ $(function(){initNavTree('SoMaterialBundle_8h_source.html',''); initResizable();
 <div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span> </div>
 <div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span><span class="preprocessor">#include &lt;Inventor/bundles/SoBundle.h&gt;</span></div>
 <div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span><span class="preprocessor">#include &lt;Inventor/SbBasic.h&gt;</span></div>
-<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span><span class="preprocessor">#include &lt;Inventor/system/inttypes.h&gt;</span></div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
-<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span><span class="keyword">class </span><a class="code hl_class" href="classSoGLLazyElement.html">SoGLLazyElement</a>;</div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span> </div>
-<div class="foldopen" id="foldopen00042" data-start="{" data-end="};">
-<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="classSoMaterialBundle.html">   42</a></span><span class="keyword">class </span>COIN_DLL_API <a class="code hl_class" href="classSoMaterialBundle.html">SoMaterialBundle</a> : <span class="keyword">public</span> <a class="code hl_class" href="classSoBundle.html">SoBundle</a> {</div>
-<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span>  <span class="keyword">typedef</span> <a class="code hl_class" href="classSoBundle.html">SoBundle</a> <a class="code hl_class" href="classSoBundle.html">inherited</a>;</div>
-<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span><span class="keyword">public</span>:</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>  <a class="code hl_class" href="classSoMaterialBundle.html">SoMaterialBundle</a>(<a class="code hl_class" href="classSoAction.html">SoAction</a> *action);</div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>  <a class="code hl_class" href="classSoMaterialBundle.html">~SoMaterialBundle</a>();</div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span> </div>
-<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>  <span class="keywordtype">void</span> setUpMultiple(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>  <span class="keywordtype">void</span> sendFirst(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>  <span class="keywordtype">void</span> forceSend(<span class="keyword">const</span> <span class="keywordtype">int</span> index);</div>
-<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>  SbBool isColorOnly(<span class="keywordtype">void</span>) <span class="keyword">const</span>;</div>
-<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>  </div>
-<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>  <span class="keywordtype">void</span> send(<span class="keyword">const</span> <span class="keywordtype">int</span> index, <span class="keyword">const</span> SbBool betweenbeginend);</div>
-<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>  </div>
-<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span><span class="keyword">private</span>:</div>
-<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span> </div>
-<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>  <span class="keywordtype">void</span> reallySend(<span class="keyword">const</span> <span class="keywordtype">int</span> index);</div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>  <span class="keywordtype">void</span> setupElements(<span class="keyword">const</span> SbBool isbetweenbeginend);</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>  SbBool firsttime;</div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>  SbBool coloronly;</div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>  <span class="keywordtype">int</span> currindex;</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>  <span class="keyword">const</span> <a class="code hl_class" href="classSoGLLazyElement.html">SoGLLazyElement</a> * lazyelem;</div>
-<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>};</div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span> </div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span><span class="keyword">class </span><a class="code hl_class" href="classSoGLLazyElement.html">SoGLLazyElement</a>;</div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span> </div>
+<div class="foldopen" id="foldopen00041" data-start="{" data-end="};">
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="classSoMaterialBundle.html">   41</a></span><span class="keyword">class </span>COIN_DLL_API <a class="code hl_class" href="classSoMaterialBundle.html">SoMaterialBundle</a> : <span class="keyword">public</span> <a class="code hl_class" href="classSoBundle.html">SoBundle</a> {</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>  <span class="keyword">typedef</span> <a class="code hl_class" href="classSoBundle.html">SoBundle</a> <a class="code hl_class" href="classSoBundle.html">inherited</a>;</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span><span class="keyword">public</span>:</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>  <a class="code hl_class" href="classSoMaterialBundle.html">SoMaterialBundle</a>(<a class="code hl_class" href="classSoAction.html">SoAction</a> *action);</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>  <a class="code hl_class" href="classSoMaterialBundle.html">~SoMaterialBundle</a>();</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span> </div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>  <span class="keywordtype">void</span> setUpMultiple(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>  <span class="keywordtype">void</span> sendFirst(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>  <span class="keywordtype">void</span> forceSend(<span class="keyword">const</span> <span class="keywordtype">int</span> index);</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>  SbBool isColorOnly(<span class="keywordtype">void</span>) <span class="keyword">const</span>;</div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>  </div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>  <span class="keywordtype">void</span> send(<span class="keyword">const</span> <span class="keywordtype">int</span> index, <span class="keyword">const</span> SbBool betweenbeginend);</div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>  </div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span><span class="keyword">private</span>:</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span> </div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span>  <span class="keywordtype">void</span> reallySend(<span class="keyword">const</span> <span class="keywordtype">int</span> index);</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>  <span class="keywordtype">void</span> setupElements(<span class="keyword">const</span> SbBool isbetweenbeginend);</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>  SbBool firsttime;</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>  SbBool coloronly;</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>  <span class="keywordtype">int</span> currindex;</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>  <span class="keyword">const</span> <a class="code hl_class" href="classSoGLLazyElement.html">SoGLLazyElement</a> * lazyelem;</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>};</div>
 </div>
-<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
-<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><span class="preprocessor">#endif </span><span class="comment">// !COIN_SOMATERIALBUNDLE_H</span></div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span> </div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span><span class="preprocessor">#endif </span><span class="comment">// !COIN_SOMATERIALBUNDLE_H</span></div>
 <div class="ttc" id="aclassSoAction_html"><div class="ttname"><a href="classSoAction.html">SoAction</a></div><div class="ttdoc">The SoAction class is the base class for all traversal actions.</div><div class="ttdef"><b>Definition</b> SoAction.h:77</div></div>
 <div class="ttc" id="aclassSoBundle_html"><div class="ttname"><a href="classSoBundle.html">SoBundle</a></div><div class="ttdoc">The SoBundle class is the superclass for all bundle classes.</div><div class="ttdef"><b>Definition</b> SoBundle.h:42</div></div>
 <div class="ttc" id="aclassSoGLLazyElement_html"><div class="ttname"><a href="classSoGLLazyElement.html">SoGLLazyElement</a></div><div class="ttdoc">The SoGLLazyElement class is meant to optimize GL rendering.</div><div class="ttdef"><b>Definition</b> SoGLLazyElement.h:43</div></div>
-<div class="ttc" id="aclassSoMaterialBundle_html"><div class="ttname"><a href="classSoMaterialBundle.html">SoMaterialBundle</a></div><div class="ttdoc">The SoMaterialBundle class simplifies material handling.</div><div class="ttdef"><b>Definition</b> SoMaterialBundle.h:42</div></div>
+<div class="ttc" id="aclassSoMaterialBundle_html"><div class="ttname"><a href="classSoMaterialBundle.html">SoMaterialBundle</a></div><div class="ttdoc">The SoMaterialBundle class simplifies material handling.</div><div class="ttdef"><b>Definition</b> SoMaterialBundle.h:41</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li><li class="navelem"><a class="el" href="dir_469ed70aca823fd8322768ad54869f94.html">Inventor</a></li><li class="navelem"><a class="el" href="dir_d72bde9fdbd5b28b0f87d91900dbf4f8.html">bundles</a></li><li class="navelem"><b>SoMaterialBundle.h</b></li>
-    <li class="footer">Generated on Thu Jul 9 2026 16:10:26 for Coin by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.10.0 </li>
+    <li class="footer">Generated on Thu Jul 9 2026 19:34:11 for Coin by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.10.0 </li>
   </ul>
 </div>
 </body>
