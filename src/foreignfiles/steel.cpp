@@ -55,7 +55,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <Inventor/system/inttypes.h>
+#include <stdint.h>
 
 #include "steel.h"
 #include "coindefs.h"
@@ -186,7 +186,7 @@
 #ifndef FLEXINT_H
 #define FLEXINT_H
 
-/* C99 systems have <inttypes.h>. Non-C99 systems may or may not. */
+/* C99 systems have <stdint.h>. Non-C99 systems may or may not. */
 
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 
@@ -197,7 +197,7 @@
 #define __STDC_LIMIT_MACROS 1
 #endif
 
-#include <inttypes.h>
+#include <stdint.h>
 typedef int8_t flex_int8_t;
 typedef uint8_t flex_uint8_t;
 typedef int16_t flex_int16_t;

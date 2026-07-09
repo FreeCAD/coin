@@ -33,7 +33,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-#include <Inventor/system/inttypes.h>
 #include <Inventor/SbBasic.h>
 #include <Inventor/SbString.h>
 #include <cstdio>

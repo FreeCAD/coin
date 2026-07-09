@@ -42,7 +42,6 @@
 //
 
 #include <Inventor/SbBasic.h>
-#include <Inventor/system/inttypes.h>
 
 class SoShape;
 class SoAction;
