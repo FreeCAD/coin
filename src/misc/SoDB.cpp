@@ -266,9 +266,8 @@ SoDB::init(void)
   // only think of possibilities for problems in the binary .iv import
   // and export code. 20010308 mortene.
 #if 0
-  // Sanity checks: if anything here breaks, either
-  // include/Inventor/system/inttypes.h.in or the bitwidth define
-  // configure tests need fixing. Keep these tests around.
+  // Sanity checks: if anything here breaks, our fixed-width integer
+  // type assumptions need fixing. Keep these tests around.
 
   // Sanity check: if the int type is not equal to 32 bits everything
   // probably goes to hell. FIXME: remove this check when we are no

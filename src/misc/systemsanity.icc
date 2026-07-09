@@ -22,12 +22,8 @@ SoDB_compileTimeAsserts(void)
   COIN_CT_ASSERT(sizeof(int16_t) == 2);
   COIN_CT_ASSERT(sizeof(uint32_t) == 4);
   COIN_CT_ASSERT(sizeof(int32_t) == 4);
-#ifdef HAVE_UINT64_T
   COIN_CT_ASSERT(sizeof(uint64_t) == 8);
-#endif // HAVE_UINT64_T
-#ifdef HAVE_INT64_T
   COIN_CT_ASSERT(sizeof(int64_t) == 8);
-#endif // HAVE_INT64_T
 
   // This now obsoleted sanity check used to be necessary because if
   // the unsigned long type is less than the pointer size (which is

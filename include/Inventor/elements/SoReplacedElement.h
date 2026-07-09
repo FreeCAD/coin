@@ -34,7 +34,6 @@
 \**************************************************************************/
 
 #include <Inventor/elements/SoSubElement.h>
-#include <Inventor/system/inttypes.h>
 
 class COIN_DLL_API SoReplacedElement : public SoElement {
   typedef SoElement inherited;

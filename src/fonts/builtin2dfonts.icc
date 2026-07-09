@@ -1,5 +1,5 @@
 
-#include <Inventor/system/inttypes.h>
+#include <stdint.h>
 
 #define COIN_FONT_13_WIDTH   (7)
 #define COIN_FONT_17_WIDTH  (10)

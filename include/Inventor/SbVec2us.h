@@ -34,7 +34,6 @@
 \**************************************************************************/
 
 #include <Inventor/SbBasic.h>
-#include <Inventor/system/inttypes.h>
 #ifndef NDEBUG
 #include <Inventor/errors/SoDebugError.h>
 #endif // !NDEBUG

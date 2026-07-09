@@ -55,7 +55,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <Inventor/system/inttypes.h>
+#include <stdint.h>
 
 #include "steel.h"
 }
