@@ -81,18 +81,12 @@ static const SbBool TRUE = 1;
 
 /* *********************************************************************** */
 
-/* Include this to 1) be compatible with Open Inventor's SbBasic.h, 2)
- * provide a way for application programmers to get hold of the type
- * definitions without explicitly including inttypes.h.
- *
- * The latter point is important because the inttypes.h file in SGI
- * and TGS Open Inventor is placed _below_ the Inventor/ directory in
- * the header files hierarchy. This is a stupid thing to do because it
- * could easily conflict with the inttypes.h file installed as part of
- * the C library on many systems (like GNU/Linux's glibc, for
- * instance).
+/* Include these to 1) be compatible with Open Inventor's SbBasic.h, 2)
+ * provide the standard size/difference and fixed-width integer types
+ * used throughout Coin headers.
  */
-#include <Inventor/system/inttypes.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /* Internal note for Coin developers: in other sourcefiles in Coin, we
  * depend on math.h being included through SbBasic.h. It is done this

@@ -48,9 +48,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif /* HAVE_UNISTD_H */
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif /* HAVE_SYS_TYPES_H */
 
 #ifdef HAVE_FONTCONFIG
 #include <fontconfig/fontconfig.h>

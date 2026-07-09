@@ -12,21 +12,6 @@
 /* define this to the libCoin beta version letter */
 #define COIN_BETA_VERSION @COIN_BETA_VERSION@
 
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_INT16_T @COIN_INT16_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_INT32_T @COIN_INT32_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_INT64_T @COIN_INT64_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_INT8_T @COIN_INT8_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_INTPTR_T @COIN_INTPTR_T@
-
 /* Define when building Mac OS X framework */
 #cmakedefine COIN_MACOSX_FRAMEWORK
 
@@ -60,21 +45,6 @@
 
 /* System dependent thread ID type */
 #define COIN_THREADID_TYPE @COIN_THREADID_TYPE@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_UINT16_T @COIN_UINT16_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_UINT32_T @COIN_UINT32_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_UINT64_T @COIN_UINT64_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_UINT8_T @COIN_UINT8_T@
-
-/* define this to a type of the indicated bitwidth */
-#cmakedefine COIN_UINTPTR_T @COIN_UINTPTR_T@
 
 /* define to "remove" conflicting IN_PATH define from <sys/unistd.h> */
 #cmakedefine COIN_UNDEF_IN_PATH_HACK
@@ -202,24 +172,6 @@
 /* Define to use ilogb() */
 #cmakedefine HAVE_ILOGB
 
-/* define this if the type is available on the system */
-#cmakedefine HAVE_INT16_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_INT32_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_INT64_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_INT8_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_INTPTR_T 1
-
-/* Define to 1 if you have the <inttypes.h> header file. */
-#cmakedefine HAVE_INTTYPES_H 1
-
 /* Define to 1 if you have the <io.h> header file. */
 #cmakedefine HAVE_IO_H 1
 
@@ -292,12 +244,6 @@
 /* define if you have the SpiderMonkey library */
 #cmakedefine HAVE_SPIDERMONKEY_VIA_LINKTIME_LINKING
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#cmakedefine HAVE_STDDEF_H 1
-
-/* Define to 1 if you have the <stdint.h> header file. */
-#cmakedefine HAVE_STDINT_H 1
-
 /* Define to 1 if you have the <stdlib.h> header file. */
 #cmakedefine HAVE_STDLIB_H 1
 
@@ -328,9 +274,6 @@
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
 
-/* Define to 1 if you have the <sys/types.h> header file. */
-#cmakedefine HAVE_SYS_TYPES_H 1
-
 /* Define to 1 if you have the <sys/unistd.h> header file. */
 #cmakedefine HAVE_SYS_UNISTD_H 1
 
@@ -345,21 +288,6 @@
 
 /* Define to 1 if you have the <tlhelp32.h> header file. */
 #cmakedefine HAVE_TLHELP32_H 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_UINT16_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_UINT32_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_UINT64_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_UINT8_T 1
-
-/* define this if the type is available on the system */
-#cmakedefine HAVE_UINTPTR_T 1
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H 1

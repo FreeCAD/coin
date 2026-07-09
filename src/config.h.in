@@ -12,30 +12,6 @@
 /* define this to the libCoin beta version letter */
 #undef COIN_BETA_VERSION
 
-/* Build system. */
-#undef COIN_CONFIGURE_BUILD
-
-/* Build host system. */
-#undef COIN_CONFIGURE_HOST
-
-/* Build target system. */
-#undef COIN_CONFIGURE_TARGET
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_INT16_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_INT32_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_INT64_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_INT8_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_INTPTR_T
-
 /* Define when building Mac OS X framework */
 #undef COIN_MACOSX_FRAMEWORK
 
@@ -62,21 +38,6 @@
 
 /* System dependent thread ID type */
 #undef COIN_THREADID_TYPE
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_UINT16_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_UINT32_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_UINT64_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_UINT8_T
-
-/* define this to a type of the indicated bitwidth */
-#undef COIN_UINTPTR_T
 
 /* define to "remove" conflicting IN_PATH define from <sys/unistd.h> */
 #undef COIN_UNDEF_IN_PATH_HACK
@@ -213,24 +174,6 @@
 /* Define to use ilogb() */
 #undef HAVE_ILOGB
 
-/* define this if the type is available on the system */
-#undef HAVE_INT16_T
-
-/* define this if the type is available on the system */
-#undef HAVE_INT32_T
-
-/* define this if the type is available on the system */
-#undef HAVE_INT64_T
-
-/* define this if the type is available on the system */
-#undef HAVE_INT8_T
-
-/* define this if the type is available on the system */
-#undef HAVE_INTPTR_T
-
-/* Define to 1 if you have the <inttypes.h> header file. */
-#undef HAVE_INTTYPES_H
-
 /* Define to 1 if you have the <io.h> header file. */
 #undef HAVE_IO_H
 
@@ -303,12 +246,6 @@
 /* define if you have the SpiderMonkey library */
 #undef HAVE_SPIDERMONKEY_VIA_LINKTIME_LINKING
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#undef HAVE_STDDEF_H
-
-/* Define to 1 if you have the <stdint.h> header file. */
-#undef HAVE_STDINT_H
-
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
@@ -339,9 +276,6 @@
 /* Define to 1 if you have the <sys/time.h> header file. */
 #undef HAVE_SYS_TIME_H
 
-/* Define to 1 if you have the <sys/types.h> header file. */
-#undef HAVE_SYS_TYPES_H
-
 /* Define to 1 if you have the <sys/unistd.h> header file. */
 #undef HAVE_SYS_UNISTD_H
 
@@ -356,21 +290,6 @@
 
 /* Define to 1 if you have the <tlhelp32.h> header file. */
 #undef HAVE_TLHELP32_H
-
-/* define this if the type is available on the system */
-#undef HAVE_UINT16_T
-
-/* define this if the type is available on the system */
-#undef HAVE_UINT32_T
-
-/* define this if the type is available on the system */
-#undef HAVE_UINT64_T
-
-/* define this if the type is available on the system */
-#undef HAVE_UINT8_T
-
-/* define this if the type is available on the system */
-#undef HAVE_UINTPTR_T
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
