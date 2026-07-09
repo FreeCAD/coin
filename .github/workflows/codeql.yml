@@ -3,9 +3,9 @@ name: "CodeQL"
 on:
   workflow_dispatch:  # Allow manual triggers
   push:
-    branches: [ "master" ]
+    branches: [ "master", "freecad-master" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "freecad-master" ]
   schedule:
     - cron: '21 10 * * 4'
 
