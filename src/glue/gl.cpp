@@ -2399,8 +2399,12 @@ cc_glglue_instance(int contextid)
     gi->max_texture_size = gltmp;
 
     if (gi->context_supports_legacy_rendering) {
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
       gi->max_lights = (int) gltmp;
+#else
+      gi->max_lights = 0;
+#endif
     }
     else {
       gi->max_lights = 0;
@@ -5062,10 +5066,20 @@ cc_glglue_is_texture_size_legal(const cc_glglue * glw,
   switch (bytespertexel) {
   default:
   case 1:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
     format = internalformat = GL_LUMINANCE;
+#else
+    internalformat = GL_R8;
+    format = GL_RED;
+#endif
     break;
   case 2:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
     format = internalformat = GL_LUMINANCE_ALPHA;
+#else
+    internalformat = GL_RG8;
+    format = GL_RG;
+#endif
     break;
   case 3:
     format = internalformat = GL_RGB8;
@@ -5143,10 +5157,18 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
   if (compress) {
     switch (numcomponents) {
     case 1:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       format = GL_COMPRESSED_LUMINANCE_ARB;
+#else
+      format = GL_COMPRESSED_RED;
+#endif
       break;
     case 2:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       format = GL_COMPRESSED_LUMINANCE_ALPHA_ARB;
+#else
+      format = GL_COMPRESSED_RG;
+#endif
       break;
     case 3:
       format = GL_COMPRESSED_RGB_ARB;
@@ -5161,10 +5183,18 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
     SbBool usenewenums = glglue_allow_newer_opengl(glw) && cc_glglue_glversion_matches_at_least(glw,1,1,0);
     switch (numcomponents) {
     case 1:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       format = usenewenums ? GL_LUMINANCE8 : GL_LUMINANCE;
+#else
+      format = GL_R8;
+#endif
       break;
     case 2:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       format = usenewenums ? GL_LUMINANCE8_ALPHA8 : GL_LUMINANCE_ALPHA;
+#else
+      format = GL_RG8;
+#endif
       break;
     case 3:
       format = usenewenums ? GL_RGB8 : GL_RGB;
@@ -5187,10 +5217,18 @@ GLenum coin_glglue_get_texture_format(const cc_glglue * COIN_UNUSED_ARG(glw), in
   GLenum format;
   switch (numcomponents) {
   case 1:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
     format = GL_LUMINANCE;
+#else
+    format = GL_RED;
+#endif
     break;
   case 2:
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
     format = GL_LUMINANCE_ALPHA;
+#else
+    format = GL_RG;
+#endif
     break;
   case 3:
     format = GL_RGB;

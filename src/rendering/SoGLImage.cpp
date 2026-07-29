@@ -248,6 +248,21 @@ static int COIN_TEX2_USE_GLTEXSUBIMAGE = -1;
 static int COIN_TEX2_USE_SGIS_GENERATE_MIPMAP = -1;
 static int COIN_ENABLE_CONFORMANT_GL_CLAMP = -1;
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+static void
+set_core_texture_swizzle(const GLenum target, const int numcomponents)
+{
+  if (numcomponents == 1) {
+    const GLint swizzle[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
+    glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
+  }
+  else if (numcomponents == 2) {
+    const GLint swizzle[] = { GL_RED, GL_RED, GL_RED, GL_GREEN };
+    glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
+  }
+}
+#endif
+
 // *************************************************************************
 
 // buffer used for creating mipmap images
@@ -1816,6 +1831,9 @@ SoGLImageP::reallyCreateTexture(SoState *state,
 
       fast_mipmap(state, w, h, d, numComponents, texture, FALSE, compress);
     }
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+    set_core_texture_swizzle(GL_TEXTURE_3D, numComponents);
+#endif
   }
   else { // 2D textures
     SbBool mipmapimage = mipmap;
@@ -1830,26 +1848,31 @@ SoGLImageP::reallyCreateTexture(SoState *state,
     glTexParameteri(target, GL_TEXTURE_WRAP_T,
                     translate_wrap(state, this->wrapt));
 
-    if (mipmap && (this->flags & SoGLImage::RECTANGLE)) {
-      mipmapimage = FALSE;
-      if (SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
-        glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+    if (sogl_context_supports_legacy_rendering(state))
+    {
+      if (mipmap && (this->flags & SoGLImage::RECTANGLE)) {
+        mipmapimage = FALSE;
+        if (SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
+          glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+        }
+        else mipmapfilter = FALSE;
       }
-      else mipmapfilter = FALSE;
+      // prefer GL_SGIS_generate_mipmap to glGenerateMipmap. It seems to
+      // be better supported in drivers.
+      else if (mipmap && SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
+        glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+        mipmapimage = FALSE;
+      }
     }
-    // prefer GL_SGIS_generate_mipmap to glGenerateMipmap. It seems to
-    // be better supported in drivers.
-    else if (mipmap && SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
-      glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
-      mipmapimage = FALSE;
-    }
-    // using glGenerateMipmap() while creating a display list is not
-    // supported (even if the display list is never used). This is
-    // probably because the OpenGL driver creates each mipmap level by
-    // rendering it using normal OpenGL calls.
-    else if (mipmap && SoGLDriverDatabase::isSupported(glw, SO_GL_GENERATE_MIPMAP) && !state->isCacheOpen()) {
-      mipmapimage = FALSE;
-      generatemipmap = TRUE; // delay until after the texture image is set up
+    if (mipmapimage) {
+      // using glGenerateMipmap() while creating a display list is not
+      // supported (even if the display list is never used). This is
+      // probably because the OpenGL driver creates each mipmap level by
+      // rendering it using normal OpenGL calls.
+      if (mipmap && SoGLDriverDatabase::isSupported(glw, SO_GL_GENERATE_MIPMAP) && !state->isCacheOpen()) {
+        mipmapimage = FALSE;
+        generatemipmap = TRUE; // delay until after the texture image is set up
+      }
     }
     if ((this->quality > COIN_TEX2_ANISOTROPIC_LIMIT) &&
         SoGLDriverDatabase::isSupported(glw, SO_GL_ANISOTROPIC_FILTERING)) {
@@ -1886,6 +1909,9 @@ SoGLImageP::reallyCreateTexture(SoState *state,
       //                                         GL_UNSIGNED_BYTE, texture);
       fast_mipmap(state, w, h, numComponents, texture, FALSE, compress);
     }
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+    set_core_texture_swizzle(target, numComponents);
+#endif
     // apply the texture filters
     this->applyFilter(mipmapfilter);
   }
