@@ -67,6 +67,7 @@
 #include <Inventor/misc/SoState.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/C/tidbits.h>
+#include "rendering/SoGL.h"
 #include "rendering/SoVBO.h"
 #include <coindefs.h> // COIN_OBSOLETED
 
@@ -267,7 +268,9 @@ SoGLLazyElement::sendVertexOrdering(const VertexOrdering ordering) const
 inline void
 SoGLLazyElement::sendTwosideLighting(const SbBool onoff) const
 {
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, onoff ? GL_TRUE : GL_FALSE);
+#endif
   this->glstate.twoside = (int32_t) onoff;
   this->cachebitmask |= TWOSIDE_MASK;
 }
@@ -282,19 +285,21 @@ SoGLLazyElement::sendBackfaceCulling(const SbBool onoff) const
 }
 
 static inline void
-send_gl_material(GLenum pname, const SbColor & color)
+send_gl_material(SoState* state, GLenum pname, const SbColor & color)
 {
   GLfloat col[4];
   color.getValue(col[0], col[1], col[2]);
   col[3] = 1.0f;
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   glMaterialfv(GL_FRONT_AND_BACK, pname, col);
+#endif
 }
 
 
 inline void
 SoGLLazyElement::sendAmbient(const SbColor & color) const
 {
-  send_gl_material(GL_AMBIENT, color);
+  send_gl_material(this->state, GL_AMBIENT, color);
   this->glstate.ambient = color;
   this->cachebitmask |= AMBIENT_MASK;
 }
@@ -302,7 +307,7 @@ SoGLLazyElement::sendAmbient(const SbColor & color) const
 inline void
 SoGLLazyElement::sendEmissive(const SbColor & color) const
 {
-  send_gl_material(GL_EMISSION, color);
+  send_gl_material(this->state, GL_EMISSION, color);
   this->glstate.emissive = color;
   this->cachebitmask |= EMISSIVE_MASK;
 }
@@ -310,7 +315,7 @@ SoGLLazyElement::sendEmissive(const SbColor & color) const
 inline void
 SoGLLazyElement::sendSpecular(const SbColor & color) const
 {
-  send_gl_material(GL_SPECULAR, color);
+  send_gl_material(this->state, GL_SPECULAR, color);
   this->glstate.specular = color;
   this->cachebitmask |= SPECULAR_MASK;
 }
@@ -318,7 +323,9 @@ SoGLLazyElement::sendSpecular(const SbColor & color) const
 inline void
 SoGLLazyElement::sendShininess(const float shine) const
 {
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shine*128.0f);
+#endif
   this->glstate.shininess = shine;
   this->cachebitmask |= SHININESS_MASK;
 }
@@ -326,6 +333,7 @@ SoGLLazyElement::sendShininess(const float shine) const
 inline void
 SoGLLazyElement::sendTransparency(const int stipplenum) const
 {
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   if (stipplenum == 0) {
     glDisable(GL_POLYGON_STIPPLE);
   }
@@ -333,6 +341,7 @@ SoGLLazyElement::sendTransparency(const int stipplenum) const
     if (this->glstate.stipplenum <= 0) glEnable(GL_POLYGON_STIPPLE);
     glPolygonStipple(stipple_patterns[stipplenum]);
   }
+#endif
   this->glstate.stipplenum = stipplenum;
   this->cachebitmask |= TRANSPARENCY_MASK;
 }
@@ -347,6 +356,7 @@ SoGLLazyElement::enableBlending(const int sfactor, const int dfactor) const
   this->glstate.blend_dfactor = dfactor;
   this->glstate.alpha_blend_sfactor = 0;
   this->glstate.alpha_blend_dfactor = 0;
+  this->glstate.separateblending = FALSE;
   this->cachebitmask |= BLENDING_MASK;
 }
 
@@ -371,6 +381,7 @@ SoGLLazyElement::enableSeparateBlending(const cc_glglue * glue,
   this->glstate.blend_dfactor = dfactor;
   this->glstate.alpha_blend_sfactor = alpha_sfactor;
   this->glstate.alpha_blend_dfactor = alpha_dfactor;
+  this->glstate.separateblending = TRUE;
   this->cachebitmask |= BLENDING_MASK;
 }
 
@@ -398,6 +409,7 @@ SoGLLazyElement::init(SoState * stateptr)
   this->glstate.blend_dfactor = -1;
   this->glstate.alpha_blend_sfactor = -1;
   this->glstate.alpha_blend_dfactor = -1;
+  this->glstate.separateblending = -1;
   this->glstate.stipplenum = -1;
   this->glstate.vertexordering = -1;
   this->glstate.twoside = -1;
@@ -422,14 +434,14 @@ SoGLLazyElement::init(SoState * stateptr)
   // a cache though.
   this->cachebitmask = 0;
 
-  glDisable(GL_POLYGON_STIPPLE);
-
-  GLboolean rgba;
-  glGetBooleanv(GL_RGBA_MODE, &rgba);
-  if (!rgba) this->colorindex = TRUE;
-  else {
-    this->sendPackedDiffuse(0xccccccff);
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  if (sogl_legacy_rendering_available(sogl_current_glue())) {
+    glDisable(GL_POLYGON_STIPPLE);
+    GLboolean rgba;
+    glGetBooleanv(GL_RGBA_MODE, &rgba);
+    if (!rgba) this->colorindex = TRUE;
   }
+#endif
 }
 
 void
@@ -518,15 +530,19 @@ SoGLLazyElement::sendDiffuseByIndex(const int index) const
 #endif // COIN_DEBUG
 
   if (this->colorindex) {
-    glIndexi((GLint)this->coinstate.colorindexarray[safeindex]);
-  }
-  else {
-    uint32_t col = this->packedpointer[safeindex] | this->transpmask;
-    // this test is really not necessary. SoMaterialBundle does the
-    // same test.  We also need to send the color here to work around
-    // an nVIDIA bug
-    // if (col != this->glstate.diffuse)
-    this->sendPackedDiffuse(col);
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+      glIndexi((GLint)this->coinstate.colorindexarray[safeindex]);
+#endif
+      {
+        // Color-index rendering is only available in compatibility builds.
+      }
+    } else {
+      uint32_t col = this->packedpointer[safeindex] | this->transpmask;
+      // this test is really not necessary. SoMaterialBundle does the
+      // same test.  We also need to send the color here to work around
+      // an nVIDIA bug
+      // if (col != this->glstate.diffuse)
+      this->sendPackedDiffuse(col);
   }
 }
 
@@ -580,7 +596,11 @@ SoGLLazyElement::send(const SoState * stateptr, uint32_t mask) const
           // we always send the first diffuse color for the first
           // material in an open cache
           if (this->colorindex) {
-            glIndexi((GLint)this->coinstate.colorindexarray[0]);
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+              glIndexi((GLint)this->coinstate.colorindexarray[0]);
+#else
+              // Color-index rendering is only available in compatibility builds.
+#endif
           }
           else {
             this->sendPackedDiffuse(this->packedpointer[0]|this->transpmask);
@@ -617,9 +637,9 @@ SoGLLazyElement::send(const SoState * stateptr, uint32_t mask) const
               this->coinstate.blend_sfactor != this->glstate.blend_sfactor ||
               this->coinstate.blend_dfactor != this->glstate.blend_dfactor ||
               this->coinstate.alpha_blend_sfactor != this->glstate.alpha_blend_sfactor ||
-              this->coinstate.alpha_blend_dfactor != this->glstate.alpha_blend_dfactor) {
-            if ((this->coinstate.alpha_blend_sfactor != 0) &&
-                (this->coinstate.alpha_blend_dfactor != 0)) {
+              this->coinstate.alpha_blend_dfactor != this->glstate.alpha_blend_dfactor ||
+              this->coinstate.separateblending != this->glstate.separateblending) {
+            if (this->coinstate.separateblending) {
               this->enableSeparateBlending(cc_glglue_instance(SoGLCacheContextElement::get((SoState*)stateptr)),
                                            this->coinstate.blend_sfactor,
                                            this->coinstate.blend_dfactor,
@@ -729,6 +749,7 @@ SoGLLazyElement::reset(SoState * stateptr,  uint32_t mask) const
         elem->glstate.blend_dfactor = -1;
         elem->glstate.alpha_blend_sfactor = -1;
         elem->glstate.alpha_blend_dfactor = -1;
+        elem->glstate.separateblending = -1;
         break;
       case TRANSPARENCY_CASE:
         elem->glstate.stipplenum = -1;
@@ -1071,6 +1092,7 @@ SoGLLazyElement::postCacheCall(const SoState * state, const GLState * poststate)
         elem->glstate.blend_dfactor = poststate->blend_dfactor;
         elem->glstate.alpha_blend_sfactor = poststate->alpha_blend_sfactor;
         elem->glstate.alpha_blend_dfactor = poststate->alpha_blend_dfactor;
+        elem->glstate.separateblending = poststate->separateblending;
         break;
       case TRANSPARENCY_CASE:
         elem->glstate.stipplenum = poststate->stipplenum;
@@ -1155,7 +1177,8 @@ SoGLLazyElement::preCacheCall(const SoState * state, const GLState * prestate)
           if (curr.blend_sfactor != prestate->blend_sfactor ||
               curr.blend_dfactor != prestate->blend_dfactor ||
               curr.alpha_blend_sfactor != prestate->alpha_blend_sfactor ||
-              curr.alpha_blend_dfactor != prestate->alpha_blend_dfactor) {
+              curr.alpha_blend_dfactor != prestate->alpha_blend_dfactor ||
+              curr.separateblending != prestate->separateblending) {
             GLLAZY_DEBUG("blending failed");
             return FALSE;
           }

@@ -44,7 +44,7 @@
 
 #include <Inventor/elements/SoGLLinePatternElement.h>
 #include "coindefs.h"
-
+#include "rendering/SoGL.h"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -82,6 +82,7 @@ void
 SoGLLinePatternElement::init(SoState * state)
 {
   inherited::init(state);
+  this->state = state;
 }
 
 /*!
@@ -95,6 +96,7 @@ SoGLLinePatternElement::push(SoState * state)
     this->getNextInStack();
 
   this->data = prev->data;
+  this->state = state;
   // capture element since we might or might not change the GL state
   prev->capture(state);
 }
@@ -129,6 +131,7 @@ SoGLLinePatternElement::setElt(int32_t pattern)
 void
 SoGLLinePatternElement::updategl()
 {
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   //
   // FIXME: store flag to keep enable/disable state, pederb 990624
   //
@@ -141,4 +144,7 @@ SoGLLinePatternElement::updategl()
     glEnable(GL_LINE_STIPPLE);
     glLineStipple((GLint) (this->data >> 16), (GLushort) (this->data & 0xffff));
   }
+#else
+  (void)this;
+#endif
 }

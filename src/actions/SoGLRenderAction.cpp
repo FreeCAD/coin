@@ -1029,6 +1029,28 @@ SoGLRenderAction::getSortedLayersNumPasses() const
 void
 SoGLRenderAction::beginTraversal(SoNode * node)
 {
+  // SoAction::apply() has already created the state by the time this
+  // defensive boundary is reached. Keep the capability check independent of
+  // that state, and perform it before any state recreation for a context
+  // generation change.
+  if (!sogl_legacy_rendering_available(sogl_current_glue())) {
+    SoDebugError::postWarning(
+      "SoGLRenderAction::beginTraversal",
+      "legacy OpenGL traversal requested without a compatibility context");
+    this->setTerminated(TRUE);
+    return;
+  }
+
+  const uint64_t contextgeneration =
+    SoGLCacheContextElement::getContextStateGeneration(PRIVATE(this)->cachecontext);
+  if (contextgeneration != PRIVATE(this)->cachecontextgeneration) {
+    PRIVATE(this)->cachecontextgeneration = contextgeneration;
+    this->invalidateState();
+    // SoAction::apply() creates the state before entering beginTraversal(),
+    // but invalidating it here leaves the action without a state. Recreate it
+    // before any GL traversal code accesses the state directly.
+    (void) this->getState();
+  }
   if (PRIVATE(this)->cachedprofilingsg == NULL) {
     if (node->isOfType(SoGroup::getClassTypeId()) &&
         (coin_assert_cast<SoGroup *>(node))->getNumChildren() > 0) {
