@@ -152,11 +152,10 @@ SoGLLightIdElement::increment(SoState * const state,
 
                                   maxl);
       }
-#endif
       return -1;
+#endif
     }
     glEnable((GLenum)((int32_t)GL_LIGHT0 + element->data));
-
     return element->data;
   }
   return -1;
