@@ -32,12 +32,16 @@ set(COIN_GLELEMENTS_FILES
 )
 
 # build library
-if(COIN_BUILD_SINGLE_LIB)
-	foreach(SRCFILE ${COIN_GLELEMENTS_FILES})
-		set(COIN_SOURCE ${COIN_SOURCE} elements/GL/${SRCFILE} CACHE INTERNAL "COIN_SOURCE")
-	endforeach(SRCFILE)
-else()
-	if(COIN_BUILD_LEGACY_GL_RENDERER)
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	if(COIN_BUILD_SINGLE_LIB)
+		foreach(SRCFILE ${COIN_GLELEMENTS_FILES})
+			set(COIN_SOURCE
+				${COIN_SOURCE}
+				elements/GL/${SRCFILE}
+				CACHE INTERNAL "COIN_SOURCE"
+			)
+		endforeach()
+	else()
 		add_library(glelements OBJECT ${COIN_GLELEMENTS_FILES})
 	endif()
 endif()
