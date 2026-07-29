@@ -1,22 +1,22 @@
 /**************************************************************************\
  * Copyright (c) Kongsberg Oil & Gas Technologies AS
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  * Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- * 
+ *
  * Redistributions in binary form must reproduce the above copyright
  * notice, this list of conditions and the following disclaimer in the
  * documentation and/or other materials provided with the distribution.
- * 
+ *
  * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -71,14 +71,14 @@
 
   \verbatim
   #Inventor V2.1 ascii
-  
+
   DEF mycam PerspectiveCamera { }
-  
+
   TransformSeparator {
      SoRotation { rotation = USE mycam.orientation }
      DirectionalLight { direction 0 0 -1 }
   }
-  
+
   Cube { }
   \endverbatim
 
@@ -107,6 +107,7 @@
 #include <Inventor/system/gl.h>
 
 #include "nodes/SoSubNodeP.h"
+#include "rendering/SoGL.h"
 
 // *************************************************************************
 
@@ -155,52 +156,70 @@ SoDirectionalLight::initClass(void)
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void)action;
+  return;
+#else
   if (!this->on.getValue()) return;
 
   SoState * state = action->getState();
-  int idx = SoGLLightIdElement::increment(state);
+    int idx = SoGLLightIdElement::increment(state);
 
-  if (idx < 0) {
+    if (idx < 0) {
 #if COIN_DEBUG
-    SoDebugError::postWarning("SoDirectionalLight::GLRender",
-                              "Max # of OpenGL lights exceeded :(");
+      SoDebugError::postWarning("SoDirectionalLight::GLRender",
+                                "Max # of OpenGL lights exceeded :(");
 #endif // COIN_DEBUG
-    return;
-  }
+      return;
+    }
 
+    SoLightElement::add(state, this, SoModelMatrixElement::get(state) *
+                        SoViewingMatrixElement::get(state));
 
-  SoLightElement::add(state, this, SoModelMatrixElement::get(state) * 
-                      SoViewingMatrixElement::get(state));
-  
-  GLenum light = (GLenum) (idx + GL_LIGHT0);
-  
-  SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);
-  // disable ambient contribution from this light source
-  glLightfv(light, GL_AMBIENT, lightcolor.getValue()); 
-  
-  lightcolor.setRGB(this->color.getValue());
-  lightcolor *= this->intensity.getValue();
+    GLenum light = (GLenum) (idx + GL_LIGHT0);
 
-  glLightfv(light, GL_DIFFUSE, lightcolor.getValue());
-  glLightfv(light, GL_SPECULAR, lightcolor.getValue());
+    SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);
+    // disable ambient contribution from this light source
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+    glLightfv(light, GL_AMBIENT, lightcolor.getValue());
+#else
+    (void)state;
+#endif
 
-  // GL directional light is specified towards light source
-  SbVec3f dir = - this->direction.getValue();
-  if (dir.normalize() == 0.0f) {
-#if COIN_DEBUG
-    SoDebugError::postWarning("SoDirectionalLight::GLRender",
-                              "Direction is a null vector.");
-#endif // COIN_DEBUG
-  }
-  // directional when w = 0.0
-  SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
-  glLightfv(light, GL_POSITION, dirvec.getValue());
+    lightcolor.setRGB(this->color.getValue());
+    lightcolor *= this->intensity.getValue();
 
-  glLightf(light, GL_SPOT_EXPONENT, 0.0);
-  glLightf(light, GL_SPOT_CUTOFF, 180.0);
-  glLightf(light, GL_CONSTANT_ATTENUATION, 1);
-  glLightf(light, GL_LINEAR_ATTENUATION, 0);
-  glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+    glLightfv(light, GL_DIFFUSE, lightcolor.getValue());
+    glLightfv(light, GL_SPECULAR, lightcolor.getValue());
+#else
+    (void)light;
+#endif
+
+    // GL directional light is specified towards light source
+    SbVec3f dir = - this->direction.getValue();
+    if (dir.normalize() == 0.0f) {
+  #if COIN_DEBUG
+      SoDebugError::postWarning("SoDirectionalLight::GLRender",
+                                "Direction is a null vector.");
+  #endif // COIN_DEBUG
+    }
+
+    // directional when w = 0.0
+    SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
+
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+    glLightfv(light, GL_POSITION, dirvec.getValue());
+
+    glLightf(light, GL_SPOT_EXPONENT, 0.0);
+    glLightf(light, GL_SPOT_CUTOFF, 180.0);
+    glLightf(light, GL_CONSTANT_ATTENUATION, 1);
+    glLightf(light, GL_LINEAR_ATTENUATION, 0);
+    glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
+#else
+    (void)light;
+#endif
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 // *************************************************************************
