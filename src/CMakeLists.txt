@@ -160,8 +160,7 @@ endif()
 
 # Create the library target
 if(COIN_BUILD_SINGLE_LIB)
-  add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES}
-    ${COIN_SINGLE_LIB_EXTRA_OBJECTS})
+  add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES})
 else()
   if(NOT COIN_USE_SYSTEM_EXPAT)
     set(expat_target $<TARGET_OBJECTS:expat>)
@@ -210,6 +209,11 @@ else()
     $<TARGET_OBJECTS:xml>
   )
 endif()
+
+# The retained renderer uses C++17 internally. Keep this requirement private
+# so Coin's installed headers remain usable by C++11 applications.
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
 # Export a Coin::Coin target when the library is built as a cmake subdirectory
 # so that the same target can be linked using find_package and this method
@@ -281,6 +285,14 @@ target_include_directories(${PROJECT_NAME}
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
 )
+
+if(WIN32)
+  # Core-profile public headers use the vendored Khronos declarations on
+  # Windows, where the SDK does not provide GL/glcorearb.h.
+  target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/glue/khronos>
+  )
+endif()
 
 if (COIN_BUILD_SHARED_LIBS)
   target_link_libraries(${PROJECT_NAME} PRIVATE ${COIN_TARGET_LINK_LIBRARIES})
@@ -377,6 +389,11 @@ if(COIN_INSTALL)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/Inventor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor COMPONENT development FILES_MATCHING PATTERN "*.h")
   install(DIRECTORY ${CMAKE_BINARY_DIR}/include/Inventor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor COMPONENT development FILES_MATCHING PATTERN "*.h")
   install(FILES ${PROJECT_SOURCE_DIR}/include/SoWinEnterScope.h ${PROJECT_SOURCE_DIR}/include/SoWinLeaveScope.h ${PROJECT_SOURCE_DIR}/include/SoDebug.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT development)
+
+  if(WIN32)
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/glue/khronos/GL/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/GL COMPONENT development FILES_MATCHING PATTERN "*.h")
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/glue/khronos/KHR/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/KHR COMPONENT development FILES_MATCHING PATTERN "*.h")
+  endif()
 
 # ############################################################################
 # Install data files

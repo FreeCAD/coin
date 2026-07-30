@@ -308,6 +308,20 @@
 #ifndef GL_CONTEXT_COMPATIBILITY_PROFILE_BIT
 #define GL_CONTEXT_COMPATIBILITY_PROFILE_BIT 0x00000002
 #endif
+
+// These legacy texture and lighting enums are absent from core-profile
+// headers, but the profile-neutral glue still needs their numeric values for
+// compatibility-context paths.
+#ifndef GL_MAX_LIGHTS
+#define GL_MAX_LIGHTS 0x0D31
+#endif
+#ifndef GL_LUMINANCE8
+#define GL_LUMINANCE8 0x8040
+#endif
+#ifndef GL_LUMINANCE8_ALPHA8
+#define GL_LUMINANCE8_ALPHA8 0x8045
+#endif
+
 #ifdef __APPLE__
 #ifndef GL_DEBUG_OUTPUT
 #define GL_DEBUG_OUTPUT 0x92E0

@@ -2876,7 +2876,7 @@ void SoGLRenderAction::setLineSmoothing(const SbBool smooth) { PRIVATE(this)->li
 SbBool SoGLRenderAction::isLineSmoothing(void) const { return PRIVATE(this)->lineSmoothing; }
 void SoGLRenderAction::setPointSmoothing(const SbBool smooth) { PRIVATE(this)->pointSmoothing = smooth; }
 SbBool SoGLRenderAction::isPointSmoothing(void) const { return PRIVATE(this)->pointSmoothing; }
-void SoGLRenderAction::setNumPasses(const int num) { PRIVATE(this)->numpasses = std::max(1, num); }
+void SoGLRenderAction::setNumPasses(const int num) { PRIVATE(this)->numpasses = (std::max)(1, num); }
 int SoGLRenderAction::getNumPasses(void) const { return PRIVATE(this)->numpasses; }
 void SoGLRenderAction::setPassUpdate(const SbBool flag) { PRIVATE(this)->passupdate = flag; }
 SbBool SoGLRenderAction::isPassUpdate(void) const { return PRIVATE(this)->passupdate; }
@@ -2886,7 +2886,7 @@ uint32_t SoGLRenderAction::getCacheContext(void) const { return PRIVATE(this)->c
 void SoGLRenderAction::addDelayedPath(SoPath * COIN_UNUSED_ARG(path)) { }
 SbBool SoGLRenderAction::isRenderingDelayedPaths(void) const { return FALSE; }
 SbBool SoGLRenderAction::handleTransparency(SbBool COIN_UNUSED_ARG(istransparent)) { return FALSE; }
-void SoGLRenderAction::setCurPass(const int passnum, const int passes) { PRIVATE(this)->currentpass = passnum; PRIVATE(this)->numpasses = std::max(1, passes); }
+void SoGLRenderAction::setCurPass(const int passnum, const int passes) { PRIVATE(this)->currentpass = passnum; PRIVATE(this)->numpasses = (std::max)(1, passes); }
 int SoGLRenderAction::getCurPass(void) const { return PRIVATE(this)->currentpass; }
 SbBool SoGLRenderAction::abortNow(void) { return TRUE; }
 void SoGLRenderAction::setRenderingIsRemote(SbBool remote) { PRIVATE(this)->renderingisremote = remote; }
@@ -2894,7 +2894,7 @@ SbBool SoGLRenderAction::getRenderingIsRemote(void) const { return PRIVATE(this)
 void SoGLRenderAction::invalidateState(void) { inherited::invalidateState(); }
 void SoGLRenderAction::addPreRenderCallback(SoGLPreRenderCB *, void *) { }
 void SoGLRenderAction::removePreRenderCallback(SoGLPreRenderCB *, void *) { }
-void SoGLRenderAction::setSortedLayersNumPasses(int num) { PRIVATE(this)->sortedlayersblendpasses = std::max(1, num); }
+void SoGLRenderAction::setSortedLayersNumPasses(int num) { PRIVATE(this)->sortedlayersblendpasses = (std::max)(1, num); }
 int SoGLRenderAction::getSortedLayersNumPasses(void) const { return PRIVATE(this)->sortedlayersblendpasses; }
 void SoGLRenderAction::setSortedObjectOrderStrategy(const SortedObjectOrderStrategy, SoGLSortedObjectOrderCB *, void *) { }
 void SoGLRenderAction::setDelayedObjDepthWrite(SbBool write) { PRIVATE(this)->delayedobjdepthwrite = write; }
