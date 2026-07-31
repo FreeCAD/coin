@@ -5,11 +5,6 @@ set(COIN_RENDERING_FILES
 	SoGLDriverDatabase.cpp
 	SoGLImage.cpp
 	SoGLCubeMapImage.cpp
-	SoGLNurbs.cpp
-	SoRenderBackend.cpp
-	SoRenderIR.cpp
-	SoGLRenderBackend.cpp
-	SoIDPickBuffer.cpp
 	SoRenderManager.cpp
 	SoRenderManagerP.cpp
 	SoOffscreenRenderer.cpp
@@ -20,6 +15,10 @@ set(COIN_RENDERING_FILES
 	SoVertexArrayIndexer.cpp
 	CoinOffscreenGLCanvas.cpp
 )
+
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	list(APPEND COIN_RENDERING_FILES SoGLNurbs.cpp)
+endif()
 
 # Files excluded from public API documentation, included in complete documentation.
 set(COIN_RENDERING_INTERNAL_FILES

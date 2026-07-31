@@ -588,6 +588,11 @@ SoRenderManager::removeSuperimposition(Superimposition * s)
 void
 SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) clearwindow;
+  (void) clearzbuffer;
+  return;
+#else
   // FIXME: according to a user, TGS Inventor seems to disable the
   // redraw SoOneShotSensor while the scene graph is being rendered,
   // which Coin does not do. SGI Inventor probably has the same
@@ -656,6 +661,7 @@ SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
     // let SoGLRenderAction handle the accumulation buffer
     this->render(PRIVATE(this)->glaction, TRUE, clearwindow, clearzbuffer);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -671,6 +677,13 @@ SoRenderManager::render(SoGLRenderAction * action,
                         const SbBool clearwindow,
                         const SbBool clearzbuffer)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  (void) initmatrices;
+  (void) clearwindow;
+  (void) clearzbuffer;
+  return;
+#else
   SbBool clearwindow_tmp = clearwindow; // make sure we only clear the color buffer once
   PRIVATE(this)->invokePreRenderCallbacks();
 
@@ -698,6 +711,7 @@ SoRenderManager::render(SoGLRenderAction * action,
   }
 
   PRIVATE(this)->invokePostRenderCallbacks();
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -720,6 +734,13 @@ SoRenderManager::actuallyRender(SoGLRenderAction * action,
                                 const SbBool clearwindow,
                                 const SbBool clearzbuffer)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  (void) initmatrices;
+  (void) clearwindow;
+  (void) clearzbuffer;
+  return;
+#else
   GLbitfield mask = 0;
   if (clearwindow) mask |= GL_COLOR_BUFFER_BIT;
   if (clearzbuffer) mask |= GL_DEPTH_BUFFER_BIT;
@@ -766,6 +787,7 @@ SoRenderManager::actuallyRender(SoGLRenderAction * action,
       ((SoSFTime *)realtime)->setValue(SbTime::getTimeOfDay());
     }
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -780,6 +802,12 @@ SoRenderManager::renderScene( SoGLRenderAction * action,
                               SoNode * scene,
                               uint32_t clearmask)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  (void) scene;
+  (void) clearmask;
+  return;
+#else
   if (clearmask) {
     if (clearmask & GL_COLOR_BUFFER_BIT) {
       if (PRIVATE(this)->isrgbmode) {
@@ -802,6 +830,7 @@ SoRenderManager::renderScene( SoGLRenderAction * action,
   }
 
   action->apply(scene);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -815,6 +844,13 @@ SoRenderManager::renderSingle(SoGLRenderAction * action,
                               SbBool clearwindow,
                               SbBool clearzbuffer)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  (void) initmatrices;
+  (void) clearwindow;
+  (void) clearzbuffer;
+  return;
+#else
   SoState * state = action->getState();
   state->push();
 
@@ -951,6 +987,7 @@ SoRenderManager::renderSingle(SoGLRenderAction * action,
     break;
   }
   state->pop();
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -964,6 +1001,13 @@ SoRenderManager::renderStereo(SoGLRenderAction * action,
                               SbBool clearwindow,
                               SbBool clearzbuffer)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  (void) initmatrices;
+  (void) clearwindow;
+  (void) clearzbuffer;
+  return;
+#else
   if (!PRIVATE(this)->camera) return;
 
   this->clearBuffers(TRUE, TRUE);
@@ -1039,6 +1083,7 @@ SoRenderManager::renderStereo(SoGLRenderAction * action,
     assert(0 && "unknown stereo mode");
     break;
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
@@ -1073,6 +1118,9 @@ SoRenderManager::setAutoClipping(AutoClippingStrategy autoclipping)
 void
 SoRenderManager::initStencilBufferForInterleavedStereo(void)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  return;
+#else
   const SbViewportRegion & currentvp = PRIVATE(this)->glaction->getViewportRegion();
   if (PRIVATE(this)->stereostencilmaskvp == currentvp) { return; } // the common case
 
@@ -1164,6 +1212,7 @@ SoRenderManager::initStencilBufferForInterleavedStereo(void)
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 /*!
