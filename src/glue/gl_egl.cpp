@@ -156,6 +156,7 @@ struct eglglue_contextdata {
   EGLContext context;
   EGLSurface surface;
   EGLConfig config;
+  EGLDisplay previousDisplay;
   EGLContext previousContext;
   EGLSurface previousDrawSurface;
   EGLSurface previousReadSurface;
@@ -173,6 +174,7 @@ eglglue_contextdata_init(unsigned int width, unsigned int height)
   ctx->context = EGL_NO_CONTEXT;
   ctx->surface = EGL_NO_SURFACE;
   ctx->config = (EGLConfig) 0;
+  ctx->previousDisplay = EGL_NO_DISPLAY;
   ctx->previousContext = EGL_NO_CONTEXT;
   ctx->previousDrawSurface = EGL_NO_SURFACE;
   ctx->previousReadSurface = EGL_NO_SURFACE;
@@ -448,18 +450,13 @@ eglglue_context_make_current(void * ctx)
     return FALSE;
   }
 
-  // A context and its surfaces can only be restored through the display they
-  // belong to. The EGL backend uses one display, so discard foreign current
-  // state rather than passing it to eglMakeCurrent() with the wrong display.
-  if (eglGetCurrentDisplay() == display) {
-    context->previousContext = eglGetCurrentContext();
-    context->previousDrawSurface = eglGetCurrentSurface(EGL_DRAW);
-    context->previousReadSurface = eglGetCurrentSurface(EGL_READ);
-  } else {
-    context->previousContext = EGL_NO_CONTEXT;
-    context->previousDrawSurface = EGL_NO_SURFACE;
-    context->previousReadSurface = EGL_NO_SURFACE;
-  }
+  // Save the complete current EGL binding. The application may be using a
+  // different display from Coin's offscreen display, and EGL requires the
+  // display associated with a context when restoring it.
+  context->previousDisplay = eglGetCurrentDisplay();
+  context->previousContext = eglGetCurrentContext();
+  context->previousDrawSurface = eglGetCurrentSurface(EGL_DRAW);
+  context->previousReadSurface = eglGetCurrentSurface(EGL_READ);
 
   if (eglMakeCurrent(display, context->surface, context->surface, context->context) == EGL_FALSE) {
       cc_debugerror_post("eglglue_context_make_current",
@@ -486,26 +483,26 @@ eglglue_context_reinstate_previous(void * ctx)
     return;
   }
 
-  // Release the offscreen context even when there was no previous EGL
-  // context. Leaving it current makes the next offscreen context operation
-  // observe a stale context handle.
-  eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-  if (context->previousContext != EGL_NO_CONTEXT) {
-    if (eglMakeCurrent(display,
-                       context->previousDrawSurface,
-                       context->previousReadSurface,
-                       context->previousContext) == EGL_TRUE) {
+  // Restore the previous binding directly. This also releases Coin's
+  // offscreen context when the previous binding was EGL_NO_CONTEXT, while
+  // preserving applications whose context belongs to another EGL display.
+  EGLDisplay previousDisplay = context->previousDisplay;
+  if (previousDisplay == EGL_NO_DISPLAY) {
+    previousDisplay = display;
+  }
+  if (eglMakeCurrent(previousDisplay,
+                     context->previousDrawSurface,
+                     context->previousReadSurface,
+                     context->previousContext) == EGL_TRUE) {
       if (coin_glglue_debug()) {
         cc_debugerror_postinfo("eglglue_context_make_current",
                                "EGL Context (0x%X)\n",
                                context->context);
       }
-    } else {
-      cc_debugerror_post("eglglue_context_make_current",
-                         "eglMakeCurrent failed: %s",
-                         eglErrorString(eglGetError()));
-    }
+  } else {
+    cc_debugerror_post("eglglue_context_make_current",
+                       "eglMakeCurrent failed: %s",
+                       eglErrorString(eglGetError()));
   }
 }
 
