@@ -349,6 +349,11 @@ SoPrimitiveVertexCache::close(SoState * state)
 void
 SoPrimitiveVertexCache::renderTriangles(SoState * state, const int arrays) const
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) state;
+  (void) arrays;
+  return;
+#else
   int lastenabled = -1;
   const int n = this->getNumTriangleIndices();
   if (n == 0) return;
@@ -403,11 +408,17 @@ SoPrimitiveVertexCache::renderTriangles(SoState * state, const int arrays) const
     SoGLLazyElement::getInstance(state)->reset(state,
                                                SoLazyElement::DIFFUSE_MASK);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 void
 SoPrimitiveVertexCache::renderLines(SoState * state, const int arrays) const
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) state;
+  (void) arrays;
+  return;
+#else
   // FIXME: VBO support for lines, pederb 2004-02-24
   int lastenabled = -1;
   const int n = this->getNumLineIndices();
@@ -443,11 +454,17 @@ SoPrimitiveVertexCache::renderLines(SoState * state, const int arrays) const
     SoGLLazyElement::getInstance(state)->reset(state,
                                                SoLazyElement::DIFFUSE_MASK);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 void
 SoPrimitiveVertexCache::renderPoints(SoState * state, const int arrays) const
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) state;
+  (void) arrays;
+  return;
+#else
   // FIXME: VBO support for points, pederb 2004-02-24
   int lastenabled = -1;
   const int n = this->getNumPointIndices();
@@ -483,6 +500,7 @@ SoPrimitiveVertexCache::renderPoints(SoState * state, const int arrays) const
     SoGLLazyElement::getInstance(state)->reset(state,
                                                SoLazyElement::DIFFUSE_MASK);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 
@@ -940,6 +958,8 @@ SoPrimitiveVertexCacheP::addVertex(const Vertex & v)
   }
 }
 
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+
 void
 SoPrimitiveVertexCacheP::enableArrays(const cc_glglue * glue,
                                       const SbBool color, const SbBool normal,
@@ -1132,5 +1152,7 @@ SoPrimitiveVertexCacheP::renderImmediate(const cc_glglue * glue,
     glVertex3fv(reinterpret_cast<const GLfloat *>(&vertexptr[idx]));
   }
 }
+
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 
 #undef PRIVATE

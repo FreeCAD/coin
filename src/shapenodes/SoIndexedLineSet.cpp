@@ -233,6 +233,10 @@ SoIndexedLineSet::findNormalBinding(SoState* state)
 void
 SoIndexedLineSet::GLRender(SoGLRenderAction * action)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  return;
+#else
   if (this->coordIndex.getNum() < 2) return;
   SoState * state = action->getState();
 
@@ -412,8 +416,10 @@ SoIndexedLineSet::GLRender(SoGLRenderAction * action)
   }
   // send approx number of lines for autocache handling
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, didrenderasvbo);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
+  // Documented in superclass.
 // Documented in superclass.
 SbBool
 SoIndexedLineSet::generateDefaultNormals(SoState *, SoNormalBundle *)

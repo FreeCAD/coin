@@ -333,6 +333,10 @@ SoText2::initClass(void)
 void
 SoText2::GLRender(SoGLRenderAction * action)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  return;
+#else
   if (!this->shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -565,8 +569,10 @@ SoText2::GLRender(SoGLRenderAction * action)
   // don't auto cache SoText2 nodes.
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
+  // **************************************************************************
 // **************************************************************************
 
 // doc in super
@@ -972,6 +978,12 @@ SoText2P::computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
 void
 SoText2P::setRasterPos3f(GLfloat x, GLfloat y, GLfloat z)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) x;
+  (void) y;
+  (void) z;
+  return;
+#else
   float rpx = x >= 0 ? x : 0;
   int offvp = x < 0 ? 1 : 0;
   float offsetx = x >= 0 ? 0 : x;
@@ -982,6 +994,7 @@ SoText2P::setRasterPos3f(GLfloat x, GLfloat y, GLfloat z)
 
   glRasterPos3f(rpx,rpy,z);
   if (offvp) { glBitmap(0, 0, 0, 0,offsetx,offsety, NULL); }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 #undef PRIVATE

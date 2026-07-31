@@ -207,6 +207,10 @@ SoCone::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec3f &
 void
 SoCone::GLRender(SoGLRenderAction * action)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  return;
+#else
   if (!shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -252,8 +256,10 @@ SoCone::GLRender(SoGLRenderAction * action)
 #if COIN_DEBUG && 0 // debug
   SoDebugError::postInfo("SoCone::GLRender", "end");
 #endif // debug
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
+  /*!
 /*!
   Add a \a part to the cone.
 

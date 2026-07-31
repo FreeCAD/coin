@@ -543,31 +543,3 @@ SoGLCacheContextElement::getUniqueCacheContext(void)
   CC_MUTEX_UNLOCK(glcache_mutex);
   return id;
 }
-
-uint64_t
-SoGLCacheContextElement::getContextStateGeneration(uint32_t contextid)
-{
-  CC_MUTEX_LOCK(glcache_mutex);
-  uint64_t & generation = context_state_generations[contextid];
-  if (generation == 0) {
-    generation = 1;
-  }
-  const uint64_t result = generation;
-  CC_MUTEX_UNLOCK(glcache_mutex);
-  return result;
-}
-
-void
-SoGLCacheContextElement::invalidateContextState(uint32_t contextid)
-{
-  CC_MUTEX_LOCK(glcache_mutex);
-  uint64_t & generation = context_state_generations[contextid];
-  if (generation == 0) {
-    generation = 1;
-  }
-  ++generation;
-  if (generation == 0) {
-    generation = 1;
-  }
-  CC_MUTEX_UNLOCK(glcache_mutex);
-}

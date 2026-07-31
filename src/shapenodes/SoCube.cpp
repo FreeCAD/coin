@@ -137,6 +137,10 @@ SoCube::initClass(void)
 void
 SoCube::GLRender(SoGLRenderAction * action)
 {
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+  (void) action;
+  return;
+#else
   if (!this->shouldGLRender(action)) return;
   SoState * state = action->getState();
 
@@ -185,8 +189,10 @@ SoCube::GLRender(SoGLRenderAction * action)
                    depth.getValue(),
                    &mb,
                    flags, state);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
+  // Doc in parent.
 // Doc in parent.
 void
 SoCube::generatePrimitives(SoAction * action)
