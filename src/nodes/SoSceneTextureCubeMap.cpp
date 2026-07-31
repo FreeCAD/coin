@@ -67,6 +67,8 @@
 #include <Inventor/threads/SbMutex.h>
 #endif // COIN_THREADSAFE
 
+#include "nodes/SoSubNodeP.h"
+
 // *************************************************************************
 
 /*!

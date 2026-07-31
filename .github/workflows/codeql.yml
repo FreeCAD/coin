@@ -25,14 +25,15 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: recursive
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: c-cpp
+        build-mode: manual
         config: |
           #disable-default-queries: true
           #queries:
@@ -62,6 +63,6 @@ jobs:
       run: cmake --build cmake_build_dir --target all --config Release -- -j4
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:c-cpp"
