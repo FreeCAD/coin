@@ -8,6 +8,17 @@ on:
   #  branches: [ master ]
 
 jobs:
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12
+
   ubuntu-runtime:
     name: Ubuntu CI (${{ matrix.renderer }})
     runs-on: ubuntu-latest
@@ -37,6 +48,13 @@ jobs:
             -DCMAKE_CXX_FLAGS="-Werror"
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
+      - name: Check installed package
+        run: |
+          cmake -S testsuite/installed-package-smoke -B installed-package-smoke \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/cmake_install_dir"
+          cmake --build installed-package-smoke --config Release -- -j4
       - name: Run tests (default context)
         if: matrix.renderer == 'GL compatibility'
         run: ctest -C Release -VV
@@ -81,26 +99,14 @@ jobs:
           cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target INSTALL --config Release -- /nologo /verbosity:minimal /maxcpucount:2 /property:MultiProcessorCompilation=true
-      - name: Check installed core headers
-        if: matrix.renderer == 'GL core'
+      - name: Check installed package
         shell: pwsh
         run: |
-          $checkDir = Join-Path $env:RUNNER_TEMP "coin-installed-header-check"
-          New-Item -ItemType Directory -Force -Path $checkDir | Out-Null
-          @"
-          #include <Inventor/system/gl.h>
-          int main() { return 0; }
-          "@ | Set-Content -Encoding utf8NoBOM -Path (Join-Path $checkDir "main.cpp")
+          $smokeSource = Join-Path $env:GITHUB_WORKSPACE "testsuite/installed-package-smoke"
+          $smokeBuild = Join-Path $env:RUNNER_TEMP "coin-installed-package-smoke"
           $installedPrefix = (Join-Path $env:GITHUB_WORKSPACE "cmake_install_dir").Replace('\', '/')
-          @"
-          cmake_minimum_required(VERSION 3.15)
-          project(CoinInstalledHeaderCheck LANGUAGES CXX)
-          find_package(Coin CONFIG REQUIRED)
-          add_executable(coin-installed-header-check main.cpp)
-          target_link_libraries(coin-installed-header-check PRIVATE Coin::Coin)
-          "@ | Set-Content -Encoding utf8NoBOM -Path (Join-Path $checkDir "CMakeLists.txt")
-          cmake -S $checkDir -B (Join-Path $checkDir "build") -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$installedPrefix"
-          cmake --build (Join-Path $checkDir "build") --config Release
+          cmake -S $smokeSource -B $smokeBuild -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$installedPrefix"
+          cmake --build $smokeBuild --config Release
       - name: Run tests
         run:  ctest -C Release -VV
         working-directory: cmake_build_dir
@@ -132,6 +138,13 @@ jobs:
           cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
+      - name: Check installed package
+        run: |
+          cmake -S testsuite/installed-package-smoke -B installed-package-smoke \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/cmake_install_dir"
+          cmake --build installed-package-smoke --config Release -- -j4
       - name: Run tests
         run:  ctest -C Release -VV
         working-directory: cmake_build_dir
