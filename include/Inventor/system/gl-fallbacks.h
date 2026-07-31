@@ -30,6 +30,66 @@
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
 
+#ifndef GL_LUMINANCE
+#define GL_LUMINANCE 0x1909
+#endif
+
+#ifndef GL_LUMINANCE_ALPHA
+#define GL_LUMINANCE_ALPHA 0x190A
+#endif
+
+#ifndef GL_QUAD_STRIP
+#define GL_QUAD_STRIP 0x0008
+#endif
+
+#ifndef GL_POLYGON
+#define GL_POLYGON 0x0009
+#endif
+
+#ifndef GL_MAP1_VERTEX_3
+#define GL_MAP1_VERTEX_3 0x0D97
+#endif
+
+#ifndef GL_MAP1_VERTEX_4
+#define GL_MAP1_VERTEX_4 0x0D98
+#endif
+
+#ifndef GL_MAP2_NORMAL
+#define GL_MAP2_NORMAL 0x0DB2
+#endif
+
+#ifndef GL_MAP2_VERTEX_3
+#define GL_MAP2_VERTEX_3 0x0DB7
+#endif
+
+#ifndef GL_MAP2_VERTEX_4
+#define GL_MAP2_VERTEX_4 0x0DB8
+#endif
+
+#ifndef GL_MAP2_TEXTURE_COORD_2
+#define GL_MAP2_TEXTURE_COORD_2 0x0DBA
+#endif
+
+#ifndef GL_MAP2_TEXTURE_COORD_4
+#define GL_MAP2_TEXTURE_COORD_4 0x0DBC
+#endif
+
+#ifndef GL_RED_BITS
+#define GL_RED_BITS 0x0D52
+#endif
+
+#ifndef GL_GREEN_BITS
+#define GL_GREEN_BITS 0x0D53
+#endif
+
+#ifndef GL_BLUE_BITS
+#define GL_BLUE_BITS 0x0D54
+#endif
+
+#ifndef GL_ALPHA_BITS
+#define GL_ALPHA_BITS 0x0D55
+#endif
+
 #ifndef GL_COLOR_ATTACHMENT0_EXT
 #define GL_COLOR_ATTACHMENT0_EXT 0x8CE0
 #endif

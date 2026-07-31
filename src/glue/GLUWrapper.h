@@ -47,6 +47,100 @@
 
 #include <Inventor/system/gl.h>
 
+/* These are GLU protocol values, not fixed-function OpenGL entry points.
+   Keep their definitions available when Coin is built against core OpenGL
+   headers, which intentionally do not include the GLU headers. */
+#ifndef GLU_VERSION
+#define GLU_VERSION 100800
+#endif
+#ifndef GLU_EXTENSIONS
+#define GLU_EXTENSIONS 100801
+#endif
+#ifndef GLU_TESS_BEGIN
+#define GLU_TESS_BEGIN 100100
+#endif
+#ifndef GLU_TESS_VERTEX
+#define GLU_TESS_VERTEX 100101
+#endif
+#ifndef GLU_TESS_END
+#define GLU_TESS_END 100102
+#endif
+#ifndef GLU_TESS_ERROR
+#define GLU_TESS_ERROR 100103
+#endif
+#ifndef GLU_TESS_COMBINE
+#define GLU_TESS_COMBINE 100105
+#endif
+#ifndef GLU_TESS_BEGIN_DATA
+#define GLU_TESS_BEGIN_DATA 100106
+#endif
+#ifndef GLU_TESS_VERTEX_DATA
+#define GLU_TESS_VERTEX_DATA 100107
+#endif
+#ifndef GLU_TESS_ERROR_DATA
+#define GLU_TESS_ERROR_DATA 100109
+#endif
+#ifndef GLU_TESS_MISSING_BEGIN_POLYGON
+#define GLU_TESS_MISSING_BEGIN_POLYGON 100151
+#endif
+#ifndef GLU_TESS_MISSING_END_POLYGON
+#define GLU_TESS_MISSING_END_POLYGON 100154
+#endif
+#ifndef GLU_TESS_MISSING_BEGIN_CONTOUR
+#define GLU_TESS_MISSING_BEGIN_CONTOUR 100152
+#endif
+#ifndef GLU_TESS_MISSING_END_CONTOUR
+#define GLU_TESS_MISSING_END_CONTOUR 100153
+#endif
+#ifndef GLU_TESS_NEED_COMBINE_CALLBACK
+#define GLU_TESS_NEED_COMBINE_CALLBACK 100156
+#endif
+#ifndef GLU_AUTO_LOAD_MATRIX
+#define GLU_AUTO_LOAD_MATRIX 100200
+#endif
+#ifndef GLU_PARAMETRIC_TOLERANCE
+#define GLU_PARAMETRIC_TOLERANCE 100202
+#endif
+#ifndef GLU_PARAMETRIC_ERROR
+#define GLU_PARAMETRIC_ERROR 100201
+#endif
+#ifndef GLU_SAMPLING_METHOD
+#define GLU_SAMPLING_METHOD 100205
+#endif
+#ifndef GLU_U_STEP
+#define GLU_U_STEP 100206
+#endif
+#ifndef GLU_V_STEP
+#define GLU_V_STEP 100207
+#endif
+#ifndef GLU_DOMAIN_DISTANCE
+#define GLU_DOMAIN_DISTANCE 100217
+#endif
+#ifndef GLU_MAP1_TRIM_2
+#define GLU_MAP1_TRIM_2 100210
+#endif
+#ifndef GLU_MAP1_TRIM_3
+#define GLU_MAP1_TRIM_3 100211
+#endif
+#ifndef GLU_DISPLAY_MODE
+#define GLU_DISPLAY_MODE 100204
+#endif
+#ifndef GLU_POINT
+#define GLU_POINT 100010
+#endif
+#ifndef GLU_LINE
+#define GLU_LINE 100011
+#endif
+#ifndef GLU_FILL
+#define GLU_FILL 100012
+#endif
+#ifndef GLU_OUTLINE_POLYGON
+#define GLU_OUTLINE_POLYGON 100240
+#endif
+#ifndef GLU_OUTLINE_PATCH
+#define GLU_OUTLINE_PATCH 100241
+#endif
+
 /* Under Win32, we need to make sure we use the correct calling method
    by using the APIENTRY define for the function signature types (or
    else we'll get weird stack errors). On other platforms, just define
