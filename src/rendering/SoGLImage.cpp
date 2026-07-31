@@ -248,7 +248,6 @@ static int COIN_TEX2_USE_GLTEXSUBIMAGE = -1;
 static int COIN_TEX2_USE_SGIS_GENERATE_MIPMAP = -1;
 static int COIN_ENABLE_CONFORMANT_GL_CLAMP = -1;
 
-#if !COIN_BUILD_LEGACY_GL_RENDERER
 static void
 set_core_texture_swizzle(const GLenum target, const int numcomponents)
 {
@@ -261,7 +260,6 @@ set_core_texture_swizzle(const GLenum target, const int numcomponents)
     glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
   }
 }
-#endif
 
 // *************************************************************************
 
@@ -1803,6 +1801,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
                                 const int border)
 {
   const cc_glglue * glw = sogl_glue_instance(state);
+  const SbBool legacy = sogl_context_supports_legacy_rendering(state);
   this->glsize = SbVec3s((short) w, (short) h, (short) d);
   this->glcomp = numComponents;
 
@@ -1848,9 +1847,9 @@ SoGLImageP::reallyCreateTexture(SoState *state,
 
       fast_mipmap(state, w, h, d, numComponents, texture, FALSE, compress);
     }
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-    set_core_texture_swizzle(GL_TEXTURE_3D, numComponents);
-#endif
+    if (!legacy) {
+      set_core_texture_swizzle(GL_TEXTURE_3D, numComponents);
+    }
   }
   else { // 2D textures
     SbBool mipmapimage = mipmap;
@@ -1941,9 +1940,9 @@ SoGLImageP::reallyCreateTexture(SoState *state,
       //                                         GL_UNSIGNED_BYTE, texture);
       fast_mipmap(state, w, h, numComponents, texture, FALSE, compress);
     }
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-    set_core_texture_swizzle(target, numComponents);
-#endif
+    if (!legacy) {
+      set_core_texture_swizzle(target, numComponents);
+    }
     // apply the texture filters
     this->applyFilter(mipmapfilter);
   }

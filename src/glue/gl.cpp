@@ -5425,24 +5425,25 @@ cc_glglue_is_texture_size_legal(const cc_glglue * glw,
   GLenum internalformat;
   GLenum format;
   GLenum type = GL_UNSIGNED_BYTE;
+  const SbBool legacy = cc_glglue_context_supports_legacy_rendering(glw);
 
   switch (bytespertexel) {
   default:
   case 1:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    format = internalformat = GL_LUMINANCE;
-#else
-    internalformat = GL_R8;
-    format = GL_RED;
-#endif
+    if (legacy) {
+      format = internalformat = GL_LUMINANCE;
+    } else {
+      internalformat = GL_R8;
+      format = GL_RED;
+    }
     break;
   case 2:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    format = internalformat = GL_LUMINANCE_ALPHA;
-#else
-    internalformat = GL_RG8;
-    format = GL_RG;
-#endif
+    if (legacy) {
+      format = internalformat = GL_LUMINANCE_ALPHA;
+    } else {
+      internalformat = GL_RG8;
+      format = GL_RG;
+    }
     break;
   case 3:
     format = internalformat = GL_RGB8;
@@ -5517,21 +5518,14 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
                                               SbBool compress)
 {
   GLenum format;
+  const SbBool legacy = cc_glglue_context_supports_legacy_rendering(glw);
   if (compress) {
     switch (numcomponents) {
     case 1:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      format = GL_COMPRESSED_LUMINANCE_ARB;
-#else
-      format = GL_COMPRESSED_RED;
-#endif
+      format = legacy ? GL_COMPRESSED_LUMINANCE_ARB : GL_COMPRESSED_RED;
       break;
     case 2:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      format = GL_COMPRESSED_LUMINANCE_ALPHA_ARB;
-#else
-      format = GL_COMPRESSED_RG;
-#endif
+      format = legacy ? GL_COMPRESSED_LUMINANCE_ALPHA_ARB : GL_COMPRESSED_RG;
       break;
     case 3:
       format = GL_COMPRESSED_RGB_ARB;
@@ -5546,18 +5540,10 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
     SbBool usenewenums = glglue_allow_newer_opengl(glw) && cc_glglue_glversion_matches_at_least(glw,1,1,0);
     switch (numcomponents) {
     case 1:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      format = usenewenums ? GL_LUMINANCE8 : GL_LUMINANCE;
-#else
-      format = GL_R8;
-#endif
+      format = legacy ? (usenewenums ? GL_LUMINANCE8 : GL_LUMINANCE) : GL_R8;
       break;
     case 2:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      format = usenewenums ? GL_LUMINANCE8_ALPHA8 : GL_LUMINANCE_ALPHA;
-#else
-      format = GL_RG8;
-#endif
+      format = legacy ? (usenewenums ? GL_LUMINANCE8_ALPHA8 : GL_LUMINANCE_ALPHA) : GL_RG8;
       break;
     case 3:
       format = usenewenums ? GL_RGB8 : GL_RGB;
@@ -5575,23 +5561,16 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
   Convert from num components to client texture format for use
   in glTexImage*D's format parameter.
 */
-GLenum coin_glglue_get_texture_format(const cc_glglue * COIN_UNUSED_ARG(glw), int numcomponents)
+GLenum coin_glglue_get_texture_format(const cc_glglue * glw, int numcomponents)
 {
   GLenum format;
+  const SbBool legacy = cc_glglue_context_supports_legacy_rendering(glw);
   switch (numcomponents) {
   case 1:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    format = GL_LUMINANCE;
-#else
-    format = GL_RED;
-#endif
+    format = legacy ? GL_LUMINANCE : GL_RED;
     break;
   case 2:
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    format = GL_LUMINANCE_ALPHA;
-#else
-    format = GL_RG;
-#endif
+    format = legacy ? GL_LUMINANCE_ALPHA : GL_RG;
     break;
   case 3:
     format = GL_RGB;
