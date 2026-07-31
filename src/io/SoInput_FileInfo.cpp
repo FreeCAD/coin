@@ -517,6 +517,15 @@ SoInput_FileInfo::readUnsignedIntegerString()
   return TRUE;
 }
 
+/* This implementation is retained for the deprecated buffer-based API. */
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 /*!
   \deprecated Will not be available in Coin 5 due to absence of bounds checking.
  */
@@ -544,6 +553,12 @@ SoInput_FileInfo::readUnsignedIntegerString(char * str)
   *s = '\0';
   return TRUE;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 SbBool
 SoInput_FileInfo::readUnsignedInteger(uint32_t & l)
