@@ -36,7 +36,9 @@
 #include "SoGLCubeMapImage.cpp"
 #include "SoGLDriverDatabase.cpp"
 #include "SoGLImage.cpp"
+#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
 #include "SoGLNurbs.cpp"
+#endif
 #include "SoOffscreenCGData.cpp"
 #include "SoOffscreenGLXData.cpp"
 #include "SoOffscreenRenderer.cpp"

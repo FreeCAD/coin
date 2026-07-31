@@ -654,7 +654,6 @@ SoGLRenderAction::initClass(void)
   SO_ENABLE(SoGLRenderAction, SoOverrideElement);
   SO_ENABLE(SoGLRenderAction, SoTextureOverrideElement);
   SO_ENABLE(SoGLRenderAction, SoWindowElement);
-  SO_ENABLE(SoGLRenderAction, SoRenderPlacementElement);
   SO_ENABLE(SoGLRenderAction, SoGLViewportRegionElement);
   SO_ENABLE(SoGLRenderAction, SoGLCacheContextElement);
 
@@ -1041,16 +1040,6 @@ SoGLRenderAction::beginTraversal(SoNode * node)
     return;
   }
 
-  const uint64_t contextgeneration =
-    SoGLCacheContextElement::getContextStateGeneration(PRIVATE(this)->cachecontext);
-  if (contextgeneration != PRIVATE(this)->cachecontextgeneration) {
-    PRIVATE(this)->cachecontextgeneration = contextgeneration;
-    this->invalidateState();
-    // SoAction::apply() creates the state before entering beginTraversal(),
-    // but invalidating it here leaves the action without a state. Recreate it
-    // before any GL traversal code accesses the state directly.
-    (void) this->getState();
-  }
   if (PRIVATE(this)->cachedprofilingsg == NULL) {
     if (node->isOfType(SoGroup::getClassTypeId()) &&
         (coin_assert_cast<SoGroup *>(node))->getNumChildren() > 0) {
@@ -1119,16 +1108,12 @@ SoGLRenderAction::beginTraversal(SoNode * node)
     // well).
     glDepthFunc(GL_LEQUAL);
 
-    if (PRIVATE(this)->pointSmoothing) {
+    if (PRIVATE(this)->smoothing) {
       glEnable(GL_POINT_SMOOTH);
-    }
-    else {
-      glDisable(GL_POINT_SMOOTH);
-    }
-    if (PRIVATE(this)->lineSmoothing) {
       glEnable(GL_LINE_SMOOTH);
     }
     else {
+      glDisable(GL_POINT_SMOOTH);
       glDisable(GL_LINE_SMOOTH);
     }
   }
@@ -2708,8 +2693,7 @@ SoGLRenderActionP::renderSortedLayersNV(const SoState * state)
 
 // Core-profile and GLES builds retain the public action type for source and
 // ABI compatibility, but the fixed-function traversal itself is unavailable.
-// Keeping this small stub here makes that boundary explicit: applications
-// must use SoIRRenderAction/SoRenderManager's draw-list pipeline.
+// Keeping this small stub here makes that boundary explicit.
 
 class SoGLRenderActionP {
 public:
@@ -2722,8 +2706,6 @@ public:
   SoGLRenderAction::TransparentDelayedObjectRenderType delayedrendertype =
     SoGLRenderAction::ONE_PASS;
   SbBool smoothing = FALSE;
-  SbBool lineSmoothing = FALSE;
-  SbBool pointSmoothing = FALSE;
   int numpasses = 1;
   SbBool passupdate = FALSE;
   SoGLRenderPassCB * passcallback = NULL;
@@ -2764,13 +2746,9 @@ void SoGLRenderAction::setTransparencyType(const TransparencyType type) { PRIVAT
 SoGLRenderAction::TransparencyType SoGLRenderAction::getTransparencyType(void) const { return PRIVATE(this)->transparencytype; }
 void SoGLRenderAction::setTransparentDelayedObjectRenderType(const TransparentDelayedObjectRenderType type) { PRIVATE(this)->delayedrendertype = type; }
 SoGLRenderAction::TransparentDelayedObjectRenderType SoGLRenderAction::getTransparentDelayedObjectRenderType(void) const { return PRIVATE(this)->delayedrendertype; }
-void SoGLRenderAction::setSmoothing(const SbBool smooth) { PRIVATE(this)->smoothing = smooth; PRIVATE(this)->lineSmoothing = smooth; PRIVATE(this)->pointSmoothing = smooth; }
+void SoGLRenderAction::setSmoothing(const SbBool smooth) { PRIVATE(this)->smoothing = smooth; }
 SbBool SoGLRenderAction::isSmoothing(void) const { return PRIVATE(this)->smoothing; }
-void SoGLRenderAction::setLineSmoothing(const SbBool smooth) { PRIVATE(this)->lineSmoothing = smooth; }
-SbBool SoGLRenderAction::isLineSmoothing(void) const { return PRIVATE(this)->lineSmoothing; }
-void SoGLRenderAction::setPointSmoothing(const SbBool smooth) { PRIVATE(this)->pointSmoothing = smooth; }
-SbBool SoGLRenderAction::isPointSmoothing(void) const { return PRIVATE(this)->pointSmoothing; }
-void SoGLRenderAction::setNumPasses(const int num) { PRIVATE(this)->numpasses = (std::max)(1, num); }
+void SoGLRenderAction::setNumPasses(const int num) { PRIVATE(this)->numpasses = std::max(1, num); }
 int SoGLRenderAction::getNumPasses(void) const { return PRIVATE(this)->numpasses; }
 void SoGLRenderAction::setPassUpdate(const SbBool flag) { PRIVATE(this)->passupdate = flag; }
 SbBool SoGLRenderAction::isPassUpdate(void) const { return PRIVATE(this)->passupdate; }
