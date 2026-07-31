@@ -282,7 +282,7 @@ SoFaceSet::findNormalBinding(SoState * const state) const
   return binding;
 }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 
 namespace { namespace SoGL { namespace FaceSet {
 
@@ -467,7 +467,7 @@ SoFaceSet::initClass(void)
 void
 SoFaceSet::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else

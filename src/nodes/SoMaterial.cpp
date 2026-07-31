@@ -368,7 +368,7 @@ SoMaterial::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoMaterial, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
   SO_ENABLE(SoCallbackAction, SoLazyElement);
 
   SO_ENABLE(SoCallbackAction, SoAmbientColorElement);
@@ -537,6 +537,7 @@ SoMaterial::doAction(SoAction * action)
                                 bitmask & SoLazyElement::SHININESS_MASK ?
                                 SbClamp(this->shininess[0], 0.0f, 1.0f) : dummyval,
                                 istransparent);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
       SoBase::staticDataLock();
       SbBool setvbo = FALSE;
@@ -556,6 +557,7 @@ SoMaterial::doAction(SoAction * action)
         SoGLVBOElement::setColorVBO(state, PRIVATE(this)->vbo);
       }
     }
+#endif
   }
 }
 

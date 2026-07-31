@@ -83,7 +83,7 @@
 
 // *************************************************************************
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 
 // Convenience function for access to OpenGL wrapper from an SoState
 // pointer.
@@ -584,7 +584,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(currs, T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
         glTexCoord3fv((const GLfloat*) &texcoords[j-1]);
 #endif
     }
@@ -612,7 +612,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(currs, T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       texcoords[j] = tmp/2 + SbVec3f(0.5f,0.5f,0.5f);
       glTexCoord3fv((const GLfloat*) &texcoords[j]);
 #endif
@@ -643,7 +643,7 @@ sogl_render_sphere(const float radius,
         glTexCoord2f(S[j], T);
       }
       else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
         glTexCoord3fv((const GLfloat*) &texcoords[j]);
 #endif
       }
@@ -665,7 +665,7 @@ sogl_render_sphere(const float radius,
         glTexCoord2f(S[j], T - dT);
       }
       else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
         texcoords[j] = tmp/2 + SbVec3f(0.5f,0.5f,0.5f);
         glTexCoord3fv((const GLfloat*) &texcoords[j]);
 #endif
@@ -696,7 +696,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(S[j], T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       glTexCoord3fv((const GLfloat*) &texcoords[j]);
 #endif
     }
@@ -732,7 +732,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(S[j+1], T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       glTexCoord3fv((const GLfloat*) &texcoords[j+1]);
 #endif
     }
@@ -858,7 +858,7 @@ sogl_render_cube(const float width,
           material->send(i, TRUE);
         for (int j = 0; j < 4; j++) {
           if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
             glTexCoord3fv(sogl_cube_3dtexcoords[*iptr]);
 #endif
           }
@@ -2384,7 +2384,7 @@ sogl_context_supports_legacy_rendering(const SoState * state)
 SbBool
 sogl_legacy_rendering_available(const cc_glglue * glue)
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   return glue != NULL && cc_glglue_context_supports_legacy_rendering(glue);
 #else
   COIN_UNUSED_ARG(glue);

@@ -211,7 +211,7 @@ SoNurbsCurve::initClass(void)
 void
 SoNurbsCurve::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
@@ -378,7 +378,7 @@ void
 SoNurbsCurveP::doNurbs(SoAction * action,
                        const SbBool glrender, const SbBool drawaspoints)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) glrender;
   (void) drawaspoints;

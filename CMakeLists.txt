@@ -135,6 +135,14 @@ option(COIN_BUILD_LEGACY_GL_RENDERER
   "Build Coin's legacy fixed-function OpenGL renderer."
   ON)
 
+# Store the selected renderer mode in generated headers so every translation
+# unit sees an explicit 0/1 value, including core-only builds.
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 1)
+else()
+  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 0)
+endif()
+
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
 
@@ -758,6 +766,19 @@ macro(coin_check_gl_headers)
     endif()
   else()
     message(STATUS "Legacy GL renderer build disabled; using core profile headers")
+    # Core builds still compile a private compatibility object target for the
+    # legacy GL element ABI. Discover those headers independently from the
+    # public core-profile header selection.
+    if(HAVE_WINDOWS_H)
+      check_include_files("windows.h;GL/gl.h" HAVE_LEGACY_GL_GL_H)
+      check_include_files("windows.h;GL/gl.h;GL/glext.h" HAVE_LEGACY_GL_GLEXT_H)
+    elseif(APPLE AND NOT COIN_BUILD_MAC_X11)
+      check_include_file(OpenGL/gl.h HAVE_LEGACY_OPENGL_GL_H)
+      check_include_file(OpenGL/glext.h HAVE_LEGACY_OPENGL_GLEXT_H)
+    else()
+      check_include_file(GL/gl.h HAVE_LEGACY_GL_GL_H)
+      check_include_files("GL/gl.h;GL/glext.h" HAVE_LEGACY_GL_GLEXT_H)
+    endif()
     if(APPLE AND NOT COIN_BUILD_MAC_X11)
       check_include_file(OpenGL/gl3.h HAVE_OPENGL_GL3_H)
       check_include_file(OpenGL/gl3ext.h HAVE_OPENGL_GL3EXT_H)
@@ -769,6 +790,21 @@ macro(coin_check_gl_headers)
         check_include_file(GL/glcorearb.h HAVE_GL_GLCOREARB_H)
         check_include_file(GL/glext.h HAVE_GL_GLEXT_H)
       endif()
+    endif()
+
+    if(HAVE_LEGACY_GL_GL_H)
+      set(SIM_INCLUDE_LEGACY_GL_H "#include <GL/gl.h>")
+    elseif(HAVE_LEGACY_OPENGL_GL_H)
+      set(SIM_INCLUDE_LEGACY_GL_H "#include <OpenGL/gl.h>")
+    else()
+      set(SIM_INCLUDE_LEGACY_GL_H "#error \"compatibility GL headers are required for the legacy element ABI\"")
+    endif()
+    if(HAVE_LEGACY_GL_GLEXT_H)
+      set(SIM_INCLUDE_LEGACY_GLEXT_H "#include <GL/glext.h>")
+    elseif(HAVE_LEGACY_OPENGL_GLEXT_H)
+      set(SIM_INCLUDE_LEGACY_GLEXT_H "#include <OpenGL/glext.h>")
+    else()
+      set(SIM_INCLUDE_LEGACY_GLEXT_H "/* compatibility GL extension declarations are not available */")
     endif()
   endif()
 endmacro()
@@ -979,6 +1015,8 @@ endif()
 
 if (COIN_BUILD_LEGACY_GL_RENDERER)
   add_compile_definitions(COIN_BUILD_LEGACY_GL_RENDERER=1)
+else()
+  add_compile_definitions(COIN_BUILD_LEGACY_GL_RENDERER=0)
 endif()
 
 # ############################################################################

@@ -92,7 +92,7 @@ SoGLClipPlaneElement::pop(SoState * state,
   const SoGLClipPlaneElement * prev = (const SoGLClipPlaneElement*)
     prevTopElement;
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   // disable used planes
   for (int i = prev->startIndex; i < prev->getNum(); i++)
     glDisable((GLenum)((int)GL_CLIP_PLANE0 + i));
@@ -119,7 +119,7 @@ SoGLClipPlaneElement::getMaxGLPlanes(void)
                             "this function does not know which context this "
                             "information is requested for.");
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   GLint val;
   glGetIntegerv(GL_MAX_CLIP_PLANES, &val);
 
@@ -147,7 +147,7 @@ SoGLClipPlaneElement::addToElt(const SbPlane & plane,
   equation[1] = norm[1];
   equation[2] = norm[2];
   equation[3] = - plane.getDistanceFromOrigin();
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glClipPlane((GLenum)((int)GL_CLIP_PLANE0 + idxadd), equation);
   glEnable((GLenum)((int)GL_CLIP_PLANE0 + idxadd));
 #else

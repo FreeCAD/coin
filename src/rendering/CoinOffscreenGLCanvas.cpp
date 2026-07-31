@@ -331,7 +331,7 @@ CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
                                   unsigned int dstrowsize,
                                   unsigned int nrcomponents) const
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   const cc_glglue * glue = cc_glglue_instance((int) this->renderid);
   const SbBool legacyContext = cc_glglue_context_supports_legacy_rendering(glue);
   if (legacyContext) {
@@ -370,7 +370,7 @@ CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
   //   glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (legacyContext) {
       glPixelTransferi(GL_MAP_COLOR, 0);
       glPixelTransferi(GL_MAP_STENCIL, 0);
@@ -459,7 +459,7 @@ CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
     glPixelStorei(GL_PACK_SKIP_PIXELS, packSkipPixels);
     glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (legacyContext) {
       glPopAttrib();
     }

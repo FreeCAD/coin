@@ -243,7 +243,7 @@ SoIndexedNurbsSurface::computeBBox(SoAction * action,
 void
 SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
@@ -355,7 +355,7 @@ typedef SoNurbsP<SoIndexedNurbsSurface>::coin_nurbs_cbdata coin_ins_cbdata;
 void
 SoIndexedNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) glrender;
   return;

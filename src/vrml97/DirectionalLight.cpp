@@ -141,7 +141,7 @@ SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
     return;
   }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   GLenum light = (GLenum) (idx + GL_LIGHT0);
 
     SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);

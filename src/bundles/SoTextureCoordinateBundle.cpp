@@ -146,6 +146,7 @@ SoTextureCoordinateBundle(SoAction * const action,
     this->coordElt = SoMultiTextureCoordinateElement::getInstance(this->state);
   }
   this->glElt = NULL;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (glrender) {
     SbBool needindices = FALSE;
     if (!needindices && this->isFunction()) {
@@ -159,6 +160,9 @@ SoTextureCoordinateBundle(SoAction * const action,
     this->glElt = static_cast<const SoGLMultiTextureCoordinateElement *>(this->coordElt);
     this->glElt->initMulti(action->getState());
   }
+#else
+  (void)glrender;
+#endif
   if ((this->flags & FLAG_DEFAULT) && !setUpDefault) {
     // FIXME: I couldn't be bothered to support this yet. It is for picking
     // optimization only, I think. pederb, 20000218

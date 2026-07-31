@@ -32,8 +32,17 @@ set(COIN_GLELEMENTS_FILES
 )
 
 # build library
-if(COIN_BUILD_LEGACY_GL_RENDERER)
-	if(COIN_BUILD_SINGLE_LIB)
+if(COIN_BUILD_SINGLE_LIB)
+	if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
+		add_library(glelements_compat OBJECT ${COIN_GLELEMENTS_FILES})
+		target_compile_definitions(glelements_compat PRIVATE
+			COIN_GL_ELEMENTS_COMPATIBILITY=1)
+		set(COIN_SINGLE_LIB_EXTRA_OBJECTS
+			$<TARGET_OBJECTS:glelements_compat>
+			CACHE INTERNAL "COIN_SINGLE_LIB_EXTRA_OBJECTS" FORCE)
+	else()
+		set(COIN_SINGLE_LIB_EXTRA_OBJECTS ""
+			CACHE INTERNAL "COIN_SINGLE_LIB_EXTRA_OBJECTS" FORCE)
 		foreach(SRCFILE ${COIN_GLELEMENTS_FILES})
 			set(COIN_SOURCE
 				${COIN_SOURCE}
@@ -41,8 +50,12 @@ if(COIN_BUILD_LEGACY_GL_RENDERER)
 				CACHE INTERNAL "COIN_SOURCE"
 			)
 		endforeach()
-	else()
-		add_library(glelements OBJECT ${COIN_GLELEMENTS_FILES})
+	endif()
+else()
+	add_library(glelements OBJECT ${COIN_GLELEMENTS_FILES})
+	if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
+		target_compile_definitions(glelements PRIVATE
+			COIN_GL_ELEMENTS_COMPATIBILITY=1)
 	endif()
 endif()
 

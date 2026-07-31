@@ -131,7 +131,7 @@ SoPackedColor::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoPackedColor, SO_FROM_INVENTOR_2_1);
 
   SO_ENABLE(SoCallbackAction, SoLazyElement);
-  SO_ENABLE(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
 }
 
 // Doc from superclass.
@@ -157,6 +157,7 @@ SoPackedColor::doAction(SoAction * action)
                              this->orderedRGBA.getValues(0),
                              PRIVATE(this)->transparent);
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
       SoBase::staticDataLock();
       SbBool setvbo = FALSE;
@@ -201,6 +202,7 @@ SoPackedColor::doAction(SoAction * action)
         SoGLVBOElement::setColorVBO(state, PRIVATE(this)->vbo);
       }    
     }
+#endif
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }

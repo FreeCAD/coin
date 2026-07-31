@@ -137,7 +137,7 @@ SoCube::initClass(void)
 void
 SoCube::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else

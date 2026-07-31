@@ -306,11 +306,11 @@ SoVertexProperty::initClass(void)
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCoordinateElement);
 
-  SO_ENABLE(SoGLRenderAction, SoGLCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLCoordinateElement);
   SO_ENABLE(SoGLRenderAction, SoMaterialBindingElement);
   SO_ENABLE(SoGLRenderAction, SoNormalBindingElement);
-  SO_ENABLE(SoGLRenderAction, SoGLNormalElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLNormalElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
 
   SO_ENABLE(SoPickAction, SoCoordinateElement);
   SO_ENABLE(SoPickAction, SoMaterialBindingElement);
@@ -371,7 +371,11 @@ SoVertexProperty::doAction(SoAction *action)
       }
     }
   }
+#if COIN_BUILD_LEGACY_GL_RENDERER
   const SbBool shouldcreatevbo = glrender ? SoGLVBOElement::shouldCreateVBO(state, this->vertex.getNum()) : FALSE;
+#else
+  const SbBool shouldcreatevbo = FALSE;
+#endif
   this->updateVertex(state, glrender, shouldcreatevbo);
   this->updateNormal(state, overrideflags, glrender, shouldcreatevbo);
   this->updateMaterial(state, overrideflags, glrender, shouldcreatevbo);
@@ -425,6 +429,7 @@ SoVertexProperty::updateVertex(SoState * state, SbBool glrender, SbBool vbo)
   if (num > 0) {    
     SoCoordinateElement::set3(state, this, num,
                               this->vertex.getValues(0));
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (glrender) {
       if (vbo) {
         SbBool dirty = FALSE;
@@ -447,6 +452,7 @@ SoVertexProperty::updateVertex(SoState * state, SbBool glrender, SbBool vbo)
       }
       SoGLVBOElement::setVertexVBO(state, vbo ? PRIVATE(this)->vertexvbo : NULL);
     }
+#endif
   }
 }
 
@@ -478,12 +484,14 @@ SoVertexProperty::updateTexCoord(SoState * state, SbBool glrender, SbBool vbo)
     else {
       for (int i = 0; i < numunits; i++) {
         int32_t unit = this->textureUnit[i];
+#if COIN_BUILD_LEGACY_GL_RENDERER
         if (glrender) {
           // it's important to call this _before_ setting the coordinates
           // on the state.
           SoGLMultiTextureCoordinateElement::setTexGen(state,
                                                        this, unit, NULL);
         }
+#endif
         if (dim == 2) {
           SoMultiTextureCoordinateElement::set2(state, this, unit, numperunit,
                                                 tc2 + i*numperunit);
@@ -493,6 +501,7 @@ SoVertexProperty::updateTexCoord(SoState * state, SbBool glrender, SbBool vbo)
                                                 tc3 + i*numperunit);
         }
       
+#if COIN_BUILD_LEGACY_GL_RENDERER
         if (glrender) {
           SbBool setvbo = FALSE;
 
@@ -529,6 +538,7 @@ SoVertexProperty::updateTexCoord(SoState * state, SbBool glrender, SbBool vbo)
           }
           SoGLVBOElement::setTexCoordVBO(state, 0, setvbo ? PRIVATE(this)->texcoordvbo[i] : NULL);
         }
+#endif
       }
     }
   }
@@ -545,6 +555,7 @@ SoVertexProperty::updateNormal(SoState * state, uint32_t overrideflags, SbBool g
     if (this->isOverride()) {
       SoOverrideElement::setNormalVectorOverride(state, this, TRUE);
     }
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (glrender) {
       SbBool setvbo = FALSE;
       if ((num == numvertex) && vbo) {
@@ -569,6 +580,7 @@ SoVertexProperty::updateNormal(SoState * state, uint32_t overrideflags, SbBool g
       }
       SoGLVBOElement::setNormalVBO(state, setvbo ? PRIVATE(this)->normalvbo : NULL);
     }
+#endif
   }
   if (this->normal.getNum() > 0 && !TEST_OVERRIDE(NORMAL_BINDING, overrideflags)) {
     SoNormalBindingElement::set(state, this,
@@ -594,6 +606,7 @@ SoVertexProperty::updateMaterial(SoState * state, uint32_t overrideflags, SbBool
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (glrender) {
       SbBool setvbo = FALSE;
       if ((num == numvertex) && vbo) {
@@ -633,6 +646,7 @@ SoVertexProperty::updateMaterial(SoState * state, uint32_t overrideflags, SbBool
       }
       SoGLVBOElement::setColorVBO(state, setvbo ? PRIVATE(this)->colorvbo : NULL);
     }
+#endif
   }
   if (num && !TEST_OVERRIDE(MATERIAL_BINDING, overrideflags)) {
     SoMaterialBindingElement::set(state, this,

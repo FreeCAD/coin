@@ -333,7 +333,7 @@ SoText2::initClass(void)
 void
 SoText2::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
@@ -978,7 +978,7 @@ SoText2P::computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
 void
 SoText2P::setRasterPos3f(GLfloat x, GLfloat y, GLfloat z)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) x;
   (void) y;
   (void) z;

@@ -1,0 +1,11 @@
+Khronos OpenGL registry header snapshot
+
+Upstream repository: https://github.com/KhronosGroup/OpenGL-Registry
+Upstream commit: not recorded by the original imported snapshot
+Files imported: GL/glcorearb.h, GL/glext.h, GL/wglext.h, KHR/khrplatform.h
+Import/update date: 2026-07-30
+Local modifications: glcorearb.h uses Coin's namespaced khrplatform.h path
+
+Registry versions embedded in the imported headers:
+  GL_GLEXT_VERSION: 20190326
+  WGL_WGLEXT_VERSION: 20190228

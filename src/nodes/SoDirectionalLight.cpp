@@ -156,7 +156,7 @@ SoDirectionalLight::initClass(void)
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   return;
 #else
@@ -180,7 +180,7 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
 
     SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);
     // disable ambient contribution from this light source
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glLightfv(light, GL_AMBIENT, lightcolor.getValue());
 #else
     (void)state;
@@ -189,7 +189,7 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
     lightcolor.setRGB(this->color.getValue());
     lightcolor *= this->intensity.getValue();
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glLightfv(light, GL_DIFFUSE, lightcolor.getValue());
     glLightfv(light, GL_SPECULAR, lightcolor.getValue());
 #else
@@ -208,7 +208,7 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
     // directional when w = 0.0
     SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glLightfv(light, GL_POSITION, dirvec.getValue());
 
     glLightf(light, GL_SPOT_EXPONENT, 0.0);

@@ -2,6 +2,14 @@
 #ifndef COIN_GLHEADERS_H
 #define COIN_GLHEADERS_H
 
+#define COIN_BUILD_LEGACY_GL_RENDERER \
+  @COIN_BUILD_LEGACY_GL_RENDERER_VALUE@
+
+#if defined(COIN_GL_ELEMENTS_COMPATIBILITY) && COIN_GL_ELEMENTS_COMPATIBILITY
+# undef COIN_BUILD_LEGACY_GL_RENDERER
+# define COIN_BUILD_LEGACY_GL_RENDERER 1
+#endif
+
 /**************************************************************************\
  * Copyright (c) Kongsberg Oil & Gas Technologies AS
  * All rights reserved.
@@ -53,7 +61,8 @@
 /* These guards only apply during Coin's own build (COIN_INTERNAL) when the
    legacy GL renderer is not built. Consumer builds may freely mix legacy GL
    headers. */
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || (COIN_BUILD_LEGACY_GL_RENDERER+0)==0
+#if !COIN_BUILD_LEGACY_GL_RENDERER && \
+    !(defined(COIN_GL_ELEMENTS_COMPATIBILITY) && COIN_GL_ELEMENTS_COMPATIBILITY)
 # if defined(__gl_h_) || defined(__GL_H__) || (defined(GL_VERSION_1_1) && !defined(GLCOREARB_H))
 #  error "Legacy <GL/gl.h> detected before core headers. Use core headers only."
 # endif
@@ -63,12 +72,17 @@
 # endif
 #endif
 
-#if defined(COIN_INTERNAL) && defined(_WIN32)
+#if defined(COIN_GL_ELEMENTS_COMPATIBILITY) && COIN_GL_ELEMENTS_COMPATIBILITY
+@SIM_INCLUDE_WINDOWS_H@
+@SIM_INCLUDE_LEGACY_GL_H@
+@SIM_INCLUDE_LEGACY_GLEXT_H@
+
+#elif defined(COIN_INTERNAL) && defined(_WIN32)
 /* The Windows SDK's legacy gl.h is still used for the compatibility API,
    while modern GL declarations come from Coin's private Khronos snapshot.
    Keep these includes private so installed public headers do not expose
    Coin's source tree. */
-# if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+# if COIN_BUILD_LEGACY_GL_RENDERER
 #  include <windows.h>
 #  include <GL/gl.h>
 #  include "glue/khronos/GL/glext.h"
@@ -76,6 +90,10 @@
 #  include <windows.h>
 #  include "glue/khronos/GL/glcorearb.h"
 # endif
+
+#elif !defined(COIN_INTERNAL) && !COIN_BUILD_LEGACY_GL_RENDERER
+/* Installed core-profile consumers must use Coin's namespaced snapshot. */
+# include <Inventor/system/khronos/glcorearb.h>
 
 #else
 @SIM_INCLUDE_WINDOWS_H@

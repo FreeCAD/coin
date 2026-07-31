@@ -229,8 +229,8 @@ SoSceneTextureCubeMap::initClass(void)
 {
   SO_NODE_INIT_CLASS(SoSceneTextureCubeMap, SoNode, "Node");
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
@@ -243,6 +243,9 @@ SoSceneTextureCubeMap::initClass(void)
 void
 SoSceneTextureCubeMap::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void)action;
+#else
   SoState * state = action->getState();
 
   if (SoTextureOverrideElement::getImageOverride(state))
@@ -301,6 +304,7 @@ SoSceneTextureCubeMap::GLRender(SoGLRenderAction * action)
     // ignore the texture here so that all texture for non-supported
     // units will be ignored. pederb, 2003-11-04
   }
+#endif
 }
 
 // Documented in superclass.

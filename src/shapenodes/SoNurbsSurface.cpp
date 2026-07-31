@@ -236,7 +236,7 @@ SoNurbsSurface::initClass(void)
 void
 SoNurbsSurface::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
@@ -395,7 +395,7 @@ typedef SoNurbsP<SoNurbsSurface>::coin_nurbs_cbdata coin_ns_cbdata;
 void
 SoNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) glrender;
   return;

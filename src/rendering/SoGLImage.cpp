@@ -248,7 +248,7 @@ static int COIN_TEX2_USE_GLTEXSUBIMAGE = -1;
 static int COIN_TEX2_USE_SGIS_GENERATE_MIPMAP = -1;
 static int COIN_ENABLE_CONFORMANT_GL_CLAMP = -1;
 
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
 static void
 set_core_texture_swizzle(const GLenum target, const int numcomponents)
 {
@@ -1454,7 +1454,7 @@ SoGLImageP::resizeImage(SoState * state, unsigned char *& imageptr,
   }
   else {
     GLint maxr;
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &maxr);
 #else
     glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &maxr);
@@ -1671,7 +1671,7 @@ SoGLImageP::createGLDisplayList(SoState *state)
     }
     else {
       dl->setTextureTarget((int) ((this->flags & SoGLImage::RECTANGLE) ?
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
                                   GL_TEXTURE_RECTANGLE_ARB : GL_TEXTURE_2D));
 #else
                                   GL_TEXTURE_RECTANGLE : GL_TEXTURE_2D));
@@ -1745,7 +1745,7 @@ translate_wrap(SoState *state, const SoGLImage::Wrap wrap)
 {
   if (wrap == SoGLImage::REPEAT) return (GLenum) GL_REPEAT;
   if (wrap == SoGLImage::CLAMP_TO_BORDER) return (GLenum) GL_CLAMP_TO_BORDER;
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)state;
   return (GLenum) GL_CLAMP_TO_EDGE;
 #else
@@ -1766,7 +1766,7 @@ void
 SoGLImageP::reallyBindPBuffer(SoState * state)
 {
   GLenum target = this->flags & SoGLImage::RECTANGLE ?
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     GL_TEXTURE_RECTANGLE_ARB : GL_TEXTURE_2D;
 #else
     GL_TEXTURE_RECTANGLE : GL_TEXTURE_2D;
@@ -1848,7 +1848,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
 
       fast_mipmap(state, w, h, d, numComponents, texture, FALSE, compress);
     }
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
     set_core_texture_swizzle(GL_TEXTURE_3D, numComponents);
 #endif
   }
@@ -1858,7 +1858,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
     SbBool generatemipmap = FALSE;
 
     GLenum target = this->flags & SoGLImage::RECTANGLE ?
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       GL_TEXTURE_RECTANGLE_ARB : GL_TEXTURE_2D;
 #else
       GL_TEXTURE_RECTANGLE : GL_TEXTURE_2D;
@@ -1872,7 +1872,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
     SbBool generatedByLegacyPath = FALSE;
     if (mipmap && (this->flags & SoGLImage::RECTANGLE)) {
       mipmapimage = FALSE;
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       if (sogl_context_supports_legacy_rendering(state) &&
           SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
         glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
@@ -1883,7 +1883,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
     }
     // Prefer the SGIS path only in a compatibility context. Standard
     // glGenerateMipmap() remains available to core and modern contexts.
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     else if (mipmap && sogl_context_supports_legacy_rendering(state) &&
              SoGLDriverDatabase::isSupported(glw, "GL_SGIS_generate_mipmap")) {
       glTexParameteri(target, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
@@ -1904,7 +1904,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
     if ((this->quality > COIN_TEX2_ANISOTROPIC_LIMIT) &&
         SoGLDriverDatabase::isSupported(glw, SO_GL_ANISOTROPIC_FILTERING)) {
       glTexParameterf(target,
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
                       GL_TEXTURE_MAX_ANISOTROPY_EXT,
 #else
                       GL_TEXTURE_MAX_ANISOTROPY,
@@ -1941,7 +1941,7 @@ SoGLImageP::reallyCreateTexture(SoState *state,
       //                                         GL_UNSIGNED_BYTE, texture);
       fast_mipmap(state, w, h, numComponents, texture, FALSE, compress);
     }
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
     set_core_texture_swizzle(target, numComponents);
 #endif
     // apply the texture filters
@@ -2055,7 +2055,7 @@ SoGLImageP::applyFilter(const SbBool ismipmap)
   if (size[2] >= 1) target = GL_TEXTURE_3D;
   else {
     target = this->flags & SoGLImage::RECTANGLE ?
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       GL_TEXTURE_RECTANGLE_ARB : GL_TEXTURE_2D;
 #else
       GL_TEXTURE_RECTANGLE : GL_TEXTURE_2D;

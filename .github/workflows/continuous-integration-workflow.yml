@@ -9,12 +9,16 @@ on:
 
 jobs:
   ubuntu-runtime:
-    name: Ubuntu runtime (${{ matrix.legacy_gl_renderer }})
+    name: Ubuntu CI (${{ matrix.renderer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        legacy_gl_renderer: [ON, OFF]
+        include:
+          - renderer: GL compatibility
+            legacy_gl_renderer: ON
+          - renderer: GL core
+            legacy_gl_renderer: OFF
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -28,7 +32,7 @@ jobs:
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
       - name: Run tests (default context)
-        if: matrix.legacy_gl_renderer == 'ON'
+        if: matrix.renderer == 'GL compatibility'
         run: ctest -C Release -VV
         working-directory: cmake_build_dir
         env:
@@ -45,17 +49,21 @@ jobs:
       - name: Create Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: Ubuntu-Artifacts-${{ matrix.legacy_gl_renderer }}
+          name: Ubuntu-Artifacts-${{ matrix.renderer }}
           path: cmake_install_dir/
         if: always()
 
   windows-build:
-    name: Windows build (${{ matrix.legacy_gl_renderer }})
+    name: Windows CI (${{ matrix.renderer }})
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
-        legacy_gl_renderer: [ON, OFF]
+        include:
+          - renderer: GL compatibility
+            legacy_gl_renderer: ON
+          - renderer: GL core
+            legacy_gl_renderer: OFF
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -67,23 +75,47 @@ jobs:
           cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target INSTALL --config Release -- /nologo /verbosity:minimal /maxcpucount:2 /property:MultiProcessorCompilation=true
+      - name: Check installed core headers
+        if: matrix.renderer == 'GL core'
+        shell: pwsh
+        run: |
+          $checkDir = Join-Path $env:RUNNER_TEMP "coin-installed-header-check"
+          New-Item -ItemType Directory -Force -Path $checkDir | Out-Null
+          @"
+          #include <Inventor/system/gl.h>
+          int main() { return 0; }
+          "@ | Set-Content -Encoding utf8NoBOM -Path (Join-Path $checkDir "main.cpp")
+          $installedPrefix = (Join-Path $env:GITHUB_WORKSPACE "cmake_install_dir").Replace('\', '/')
+          @"
+          cmake_minimum_required(VERSION 3.15)
+          project(CoinInstalledHeaderCheck LANGUAGES CXX)
+          find_package(Coin CONFIG REQUIRED)
+          add_executable(coin-installed-header-check main.cpp)
+          target_link_libraries(coin-installed-header-check PRIVATE Coin::Coin)
+          "@ | Set-Content -Encoding utf8NoBOM -Path (Join-Path $checkDir "CMakeLists.txt")
+          cmake -S $checkDir -B (Join-Path $checkDir "build") -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$installedPrefix"
+          cmake --build (Join-Path $checkDir "build") --config Release
       - name: Run tests
         run:  ctest -C Release -VV
         working-directory: cmake_build_dir
       - name: Create Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: Windows-Artifacts-${{ matrix.legacy_gl_renderer }}
+          name: Windows-Artifacts-${{ matrix.renderer }}
           path: cmake_install_dir/
         if: always()
 
   macos-build:
-    name: macOS build (${{ matrix.legacy_gl_renderer }})
+    name: macOS CI (${{ matrix.renderer }})
     runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
-        legacy_gl_renderer: [ON, OFF]
+        include:
+          - renderer: GL compatibility
+            legacy_gl_renderer: ON
+          - renderer: GL core
+            legacy_gl_renderer: OFF
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -100,7 +132,7 @@ jobs:
       - name: Create Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: MacOS-Artifacts-${{ matrix.legacy_gl_renderer }}
+          name: MacOS-Artifacts-${{ matrix.renderer }}
           path: cmake_install_dir/
         if: always()
         
