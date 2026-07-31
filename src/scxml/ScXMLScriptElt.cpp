@@ -58,7 +58,7 @@ using std::strcmp;
 class ScXMLScriptEltReader : public ScXMLEltReader {
 public:
   ScXMLScriptEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLScriptEltReader::ScXMLScriptEltReader(void)

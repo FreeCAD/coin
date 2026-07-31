@@ -60,7 +60,7 @@
 class ScXMLInitialEltReader : public ScXMLEltReader {
 public:
   ScXMLInitialEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLInitialEltReader::ScXMLInitialEltReader(void)

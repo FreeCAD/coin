@@ -47,12 +47,12 @@ protected:
   virtual ~SoGLMultiTextureEnabledElement();
 
 public:
-  virtual void init(SoState * state);
+  void init(SoState * state) override;
 
-  virtual void push(SoState * state);
+  void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
-  virtual void setElt(const int unit, const int mode);
+                   const SoElement * prevTopElement) override;
+  void setElt(const int unit, const int mode) override;
 
 private:
   void updategl(const int unit);

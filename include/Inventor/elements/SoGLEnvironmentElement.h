@@ -45,9 +45,9 @@ protected:
   virtual ~SoGLEnvironmentElement();
 
 public:
-  virtual void init(SoState * state);
+  void init(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
 protected:
 
@@ -58,7 +58,7 @@ protected:
                       const int32_t fogType,
                       const SbColor & fogColor,
                       const float fogVisibility,
-                      const float fogStart);
+                      const float fogStart) override;
 private:
   void updategl(SoState * const state);
 };
