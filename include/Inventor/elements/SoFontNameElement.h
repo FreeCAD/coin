@@ -46,17 +46,17 @@ protected:
   virtual ~SoFontNameElement();
 
 public:
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
 
   static void set(SoState * const state, SoNode * const node,
                   const SbName fontName);
   static const SbName & get(SoState * const state);
   static SbName getDefault(void);
 
-  virtual SbBool matches(const SoElement * element) const;
-  virtual SoElement * copyMatchInfo(void) const;
+  virtual SbBool matches(const SoElement * element) const override;
+  virtual SoElement * copyMatchInfo(void) const override;
 
-  virtual void print(FILE * file) const;
+  virtual void print(FILE * file) const override;
 
 protected:
   SbName fontName;

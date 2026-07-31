@@ -57,9 +57,9 @@ public:
   SoSFTime startTime;
   SoSFTime stopTime;
 
-  virtual void notify(SoNotList * list);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void write(SoWriteAction * action);
+  virtual void notify(SoNotList * list) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void write(SoWriteAction * action) override;
 
   SoEngineOutput cycleTime; // (SoSFTime)
   SoEngineOutput fraction_changed; // (SoSFFloat)
@@ -68,10 +68,10 @@ public:
 
 protected:
   virtual ~SoVRMLTimeSensor();
-  virtual void inputChanged(SoField * whichInput);
+  virtual void inputChanged(SoField * whichInput) override;
 
 private:
-  virtual void evaluate(void);
+  virtual void evaluate(void) override;
   SoSFTime timeIn;
   class SoVRMLTimeSensorP * pimpl;
 }; // class SoVRMLTimeSensor

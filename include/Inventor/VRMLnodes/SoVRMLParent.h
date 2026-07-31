@@ -50,23 +50,23 @@ public:
 
   SoMFNode children;
 
-  virtual SbBool affectsState(void) const;
-  virtual void addChild(SoNode * child);
-  virtual void insertChild(SoNode * child, int idx);
-  virtual SoNode * getChild(int idx) const;
-  virtual int findChild(const SoNode * child) const;
-  virtual int getNumChildren(void) const;
-  virtual void removeChild(int idx);
-  virtual void removeChild(SoNode * child);
-  virtual void removeAllChildren(void);
-  virtual void replaceChild(int idx, SoNode * child);
-  virtual void replaceChild(SoNode * old, SoNode * child);
-  virtual SoChildList * getChildren(void) const;
+  virtual SbBool affectsState(void) const override;
+  virtual void addChild(SoNode * child) override;
+  virtual void insertChild(SoNode * child, int idx) override;
+  virtual SoNode * getChild(int idx) const override;
+  virtual int findChild(const SoNode * child) const override;
+  virtual int getNumChildren(void) const override;
+  virtual void removeChild(int idx) override;
+  virtual void removeChild(SoNode * child) override;
+  virtual void removeAllChildren(void) override;
+  virtual void replaceChild(int idx, SoNode * child) override;
+  virtual void replaceChild(SoNode * old, SoNode * child) override;
+  virtual SoChildList * getChildren(void) const override;
 
-  virtual void doAction(SoAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
   static void updateChildList(const SoNode * const * nodes, const int numnodes,
                               SoChildList & cl);
@@ -81,9 +81,9 @@ protected:
   SoMFNode addChildren;
   SoMFNode removeChildren;
 
-  virtual void notify(SoNotList * list);
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
-  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn);
+  virtual void notify(SoNotList * list) override;
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
+  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn) override;
 
 private:
   static void field_sensor_cb(void * data, SoSensor * sensor);

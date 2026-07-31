@@ -51,14 +51,14 @@ public:
   static void initClass(void);
   SoVRMLIndexedLineSet(void);
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
 
  protected:
   virtual ~SoVRMLIndexedLineSet();
-  virtual void generatePrimitives(SoAction * action);
-  virtual void notify(SoNotList * list);
+  virtual void generatePrimitives(SoAction * action) override;
+  virtual void notify(SoNotList * list) override;
 
  private:
   SoVRMLIndexedLineSetP * pimpl;

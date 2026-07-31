@@ -56,9 +56,9 @@ public:
   SoSFFloat shininess;
   SoSFFloat transparency;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void callback(SoCallbackAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
 
 protected:
   virtual ~SoVRMLMaterial();

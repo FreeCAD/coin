@@ -53,7 +53,7 @@ public:
   SoSFBool autoOffset;
 
   //  virtual void GLRender(SoGLRenderAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
+  virtual void handleEvent(SoHandleEventAction * action) override;
   static void initClass(void);
 
 protected:

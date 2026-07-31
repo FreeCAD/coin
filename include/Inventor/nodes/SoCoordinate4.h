@@ -49,12 +49,12 @@ public:
 
   SoMFVec4f point;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
 protected:
   virtual ~SoCoordinate4();

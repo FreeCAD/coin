@@ -86,8 +86,8 @@ public:
 
 protected:
   virtual ~SoTrackballDragger(void);
-  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE);
-  virtual void setDefaultOnNonWritingFields(void);
+  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
+  virtual void setDefaultOnNonWritingFields(void) override;
 
   void dragStart(void);
   void drag(void);

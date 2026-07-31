@@ -52,29 +52,29 @@ public:
   static void initClass(void);
 
   static SoType getClassTypeId(void);
-  virtual SoType getTypeId(void) const;
+  virtual SoType getTypeId(void) const override;
 
   SoSFName name;
   SoSFName typeName;
 
   SoMField * getValuesField(void) const;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void write(SoWriteAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void write(SoWriteAction * action) override;
   virtual void copyContents(const SoFieldContainer * from, 
-                            SbBool copyconnections); 
-  virtual void notify(SoNotList * l);
+                            SbBool copyconnections) override;
+  virtual void notify(SoNotList * l) override;
 
 protected:
   virtual ~SoVertexAttribute(void);
 
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
 
 private:
   static SoType classTypeId;
   static void * createInstance(void);
-  virtual const SoFieldData * getFieldData(void) const;
+  virtual const SoFieldData * getFieldData(void) const override;
 
   void initFieldData(void);
 

@@ -47,7 +47,7 @@ public:
   static void initClass(void);
 
 private:
-  virtual int getNumValuesPerLine(void) const;
+  virtual int getNumValuesPerLine(void) const override;
 };
 
 #endif // !COIN_SOMFFLOAT_H

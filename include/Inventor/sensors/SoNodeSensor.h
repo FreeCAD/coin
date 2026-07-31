@@ -48,7 +48,7 @@ public:
   SoNode * getAttachedNode(void) const;
 
 private:
-  virtual void dyingReference(void);
+  virtual void dyingReference(void) override;
   SoNode * convict;
 };
 

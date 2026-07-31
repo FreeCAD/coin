@@ -62,15 +62,15 @@ public:
   void removePart(SoCylinder::Part part);
   SbBool hasPart(SoCylinder::Part part) const;
 
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
 
 protected:
   virtual ~SoCylinder();
 
-  virtual void generatePrimitives(SoAction * action);
-  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center);
+  virtual void generatePrimitives(SoAction * action) override;
+  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center) override;
 };
 
 #endif // !COIN_SOCYLINDER_H

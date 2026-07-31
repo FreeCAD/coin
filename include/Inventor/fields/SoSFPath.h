@@ -48,12 +48,12 @@ class COIN_DLL_API SoSFPath : public SoSField {
 public:
   static void initClass(void);
 
-  virtual void notify(SoNotList * l);
-  virtual void fixCopy(SbBool copyconnections);
-  virtual SbBool referencesCopy(void) const;
+  virtual void notify(SoNotList * l) override;
+  virtual void fixCopy(SbBool copyconnections) override;
+  virtual SbBool referencesCopy(void) const override;
 
 private:
-  virtual void countWriteRefs(SoOutput * out) const;
+  virtual void countWriteRefs(SoOutput * out) const override;
   SoNode * head;
 
   // For accessing the readValue() and writeValue() methods.

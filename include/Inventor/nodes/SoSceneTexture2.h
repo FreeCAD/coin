@@ -111,13 +111,13 @@ public:
 
   SoSFEnum type;
 
-  virtual void notify(SoNotList * list);
-  virtual void write(SoWriteAction * action);
+  virtual void notify(SoNotList * list) override;
+  virtual void write(SoWriteAction * action) override;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void rayPick(SoRayPickAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
 
 protected:
   virtual ~SoSceneTexture2(void);

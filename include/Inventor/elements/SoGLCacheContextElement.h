@@ -55,10 +55,10 @@ protected:
   virtual ~SoGLCacheContextElement();
 
 public:
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
 
-  virtual SbBool matches(const SoElement * elt) const;
-  virtual SoElement * copyMatchInfo(void) const;
+  virtual SbBool matches(const SoElement * elt) const override;
+  virtual SoElement * copyMatchInfo(void) const override;
   static void set(SoState * state, int context,
                   SbBool twopasstransparency,
                   SbBool remoterendering);

@@ -53,14 +53,14 @@ public:
 
   int getCacheContext(void) const;
 
-  virtual SbBool isValid(const SoState * state) const;
+  virtual SbBool isValid(const SoState * state) const override;
   virtual void addNestedCache(SoGLDisplayList * child);
 
   SoGLLazyElement::GLState * getPreLazyState(void);
   SoGLLazyElement::GLState * getPostLazyState(void);
 
 protected:
-  virtual void destroy(SoState *state);
+  virtual void destroy(SoState *state) override;
 
 private:
   SoGLRenderCacheP * pimpl;

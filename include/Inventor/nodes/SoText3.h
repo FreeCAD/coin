@@ -73,21 +73,21 @@ public:
 
   SbBox3f getCharacterBounds(SoState * state, int stringindex, int charindex);
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
 protected:
   virtual ~SoText3();
 
-  virtual void generatePrimitives(SoAction *);
-  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center);
+  virtual void generatePrimitives(SoAction *) override;
+  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center) override;
   virtual SoDetail * createTriangleDetail(SoRayPickAction * action,
                                          const SoPrimitiveVertex * v1,
                                          const SoPrimitiveVertex * v2,
                                          const SoPrimitiveVertex * v3,
-                                         SoPickedPoint * pp);
+                                         SoPickedPoint * pp) override;
 
-  virtual void notify(SoNotList *list);
+  virtual void notify(SoNotList *list) override;
   
 private:
   class SoText3P * pimpl;

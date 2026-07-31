@@ -49,12 +49,12 @@ public:
   SoSimplifyAction(void);
   virtual ~SoSimplifyAction(void);
 
-  virtual void apply(SoNode * root);
-  virtual void apply(SoPath * path);
-  virtual void apply(const SoPathList & pathlist, SbBool obeysrules = FALSE);
+  virtual void apply(SoNode * root) override;
+  virtual void apply(SoPath * path) override;
+  virtual void apply(const SoPathList & pathlist, SbBool obeysrules = FALSE) override;
 
 protected:
-  virtual void beginTraversal(SoNode * node);
+  virtual void beginTraversal(SoNode * node) override;
 
 private:
   SbPimplPtr<SoSimplifyActionP> pimpl;

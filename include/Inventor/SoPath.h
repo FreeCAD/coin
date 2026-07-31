@@ -62,7 +62,7 @@ public:
   SoPath & operator=(const SoPath & rhs);
 
   static SoType getClassTypeId(void);
-  virtual SoType getTypeId(void) const;
+  virtual SoType getTypeId(void) const override;
 
   void setHead(SoNode * const head);
   SoNode * getHead(void) const;
@@ -109,7 +109,7 @@ private:
   void append(SoNode * const node, const int index);
   int getFullLength(void) const;
   void truncate(const int length, const SbBool donotify);
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
   void setFirstHidden(void);
 
   SoNodeList nodes;

@@ -59,11 +59,11 @@ public:
   virtual void setExprAttribute(const char * expr);
   virtual const char * getExprAttribute(void) const { return this->expr; }
 
-  virtual SbBool handleXMLAttributes(void);
+  virtual SbBool handleXMLAttributes(void) override;
 
-  virtual void copyContents(const ScXMLElt * rhs);
+  virtual void copyContents(const ScXMLElt * rhs) override;
 
-  virtual const ScXMLElt * search(const char * attrname, const char * attrvalue) const;
+  virtual const ScXMLElt * search(const char * attrname, const char * attrvalue) const override;
 
   virtual void setValueObj(ScXMLDataObj * value);
   virtual ScXMLDataObj * getValueObj(void) const { return this->value; }

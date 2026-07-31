@@ -48,10 +48,10 @@ protected:
   virtual ~SoGLMultiTextureCoordinateElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
   static  void setTexGen(SoState * const state, SoNode * const node,
                          const int unit,
@@ -60,7 +60,7 @@ public:
                          SoTextureCoordinateFunctionCB * const func = NULL,
                          void * const funcData = NULL);
 
-  virtual CoordType getType(const int unit = 0) const;
+  virtual CoordType getType(const int unit = 0) const override;
 
   static const SoGLMultiTextureCoordinateElement * getInstance(SoState * const state);
 

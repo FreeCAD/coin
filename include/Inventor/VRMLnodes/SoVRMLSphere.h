@@ -48,16 +48,16 @@ public:
 
   SoSFFloat radius;
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
 protected:
   virtual ~SoVRMLSphere();
 
-  virtual void generatePrimitives(SoAction * action);
+  virtual void generatePrimitives(SoAction * action) override;
   virtual void computeBBox(SoAction * action,
-                           SbBox3f & box, SbVec3f & center);
+                           SbBox3f & box, SbVec3f & center) override;
 
 }; // class SoVRMLSphere
 

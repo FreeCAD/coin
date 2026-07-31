@@ -45,7 +45,7 @@ public:
   virtual ~SoTextDetail();
 
   static void initClass(void);
-  virtual SoDetail * copy(void) const;
+  virtual SoDetail * copy(void) const override;
 
   int getStringIndex(void) const;
   int getCharacterIndex(void) const;

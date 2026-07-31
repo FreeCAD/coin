@@ -62,10 +62,10 @@ public:
   SoMFString rightUrl;
   SoMFString topUrl;
 
-  virtual void GLRender( SoGLRenderAction * action );
+  virtual void GLRender( SoGLRenderAction * action ) override;
 
 protected:
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
   virtual ~SoVRMLBackground();
 
   SoSFBool set_bind; // eventIn

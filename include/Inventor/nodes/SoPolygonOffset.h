@@ -59,9 +59,9 @@ public:
   SoSFBitMask styles;
   SoSFBool on;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
 
 protected:
   virtual ~SoPolygonOffset();

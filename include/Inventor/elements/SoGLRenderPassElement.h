@@ -45,9 +45,9 @@ protected:
   virtual ~SoGLRenderPassElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual SbBool matches(const SoElement * element) const;
-  virtual SoElement * copyMatchInfo(void) const;
+  virtual void init(SoState * state) override;
+  virtual SbBool matches(const SoElement * element) const override;
+  virtual SoElement * copyMatchInfo(void) const override;
 
   static void set(SoState * const state, const int passNumber);
   static int get(SoState * const state);

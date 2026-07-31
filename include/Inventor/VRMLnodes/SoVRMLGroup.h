@@ -67,22 +67,22 @@ public:
   static void setNumRenderCaches(int num);
   static int getNumRenderCaches(void);
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
 
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
-  virtual void GLRenderOffPath(SoGLRenderAction * action);
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
+  virtual void GLRenderOffPath(SoGLRenderAction * action) override;
 
-  virtual void notify(SoNotList * list);
+  virtual void notify(SoNotList * list) override;
 
 protected:
   virtual ~SoVRMLGroup();

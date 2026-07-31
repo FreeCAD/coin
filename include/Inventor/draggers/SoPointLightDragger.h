@@ -56,8 +56,8 @@ public:
 
 protected:
   virtual ~SoPointLightDragger(void);
-  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE);
-  virtual void setDefaultOnNonWritingFields(void);
+  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
+  virtual void setDefaultOnNonWritingFields(void) override;
 
   static void fieldSensorCB(void * f, SoSensor * s);
   static void valueChangedCB(void * f, SoDragger * d);

@@ -49,19 +49,19 @@ public:
   static void initClass(void);
   SoIndexedPointSet(void);
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void notify(SoNotList * list);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void notify(SoNotList * list) override;
 
 protected:
   virtual ~SoIndexedPointSet();
 
-  virtual void generatePrimitives(SoAction * action);
+  virtual void generatePrimitives(SoAction * action) override;
 
-  virtual SbBool generateDefaultNormals(SoState *, SoNormalCache * nc);
+  virtual SbBool generateDefaultNormals(SoState *, SoNormalCache * nc) override;
   virtual SbBool generateDefaultNormals(SoState * state,
-                                        SoNormalBundle * bundle);
+                                        SoNormalBundle * bundle) override;
   SoVertexArrayIndexer * vaindexer;
 
   enum Binding {

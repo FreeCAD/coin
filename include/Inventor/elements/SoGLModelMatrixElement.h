@@ -45,22 +45,22 @@ protected:
   virtual ~SoGLModelMatrixElement();
 
 public:
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
 
-  virtual void push(SoState * state);
+  virtual void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
 protected:
-  virtual void makeEltIdentity();
-  virtual void setElt(const SbMatrix & matrix);
-  virtual void multElt(const SbMatrix & matrix);
+  virtual void makeEltIdentity() override;
+  virtual void setElt(const SbMatrix & matrix) override;
+  virtual void multElt(const SbMatrix & matrix) override;
 
-  virtual void translateEltBy(const SbVec3f & translation);
-  virtual void rotateEltBy(const SbRotation & translation);
-  virtual void scaleEltBy(const SbVec3f & scaleFactor);
-  virtual SbMatrix pushMatrixElt();
-  virtual void popMatrixElt(const SbMatrix & matrix);
+  virtual void translateEltBy(const SbVec3f & translation) override;
+  virtual void rotateEltBy(const SbRotation & translation) override;
+  virtual void scaleEltBy(const SbVec3f & scaleFactor) override;
+  virtual SbMatrix pushMatrixElt() override;
+  virtual void popMatrixElt(const SbMatrix & matrix) override;
 
 private:
   SoState * state;

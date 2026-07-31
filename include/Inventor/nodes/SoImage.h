@@ -72,18 +72,18 @@ public:
   SoSFImage image;
   SoSFString filename;
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
 protected:
   virtual ~SoImage();
 
-  virtual void generatePrimitives(SoAction * action);
-  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center);
+  virtual void generatePrimitives(SoAction * action) override;
+  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center) override;
 
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
-  virtual void notify(SoNotList * list);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
+  virtual void notify(SoNotList * list) override;
   int getReadStatus(void);
   void setReadStatus(SbBool flag);
 

@@ -63,16 +63,16 @@ public:
     QUADS, QUAD_STRIP, POINTS, LINES, LINE_STRIP
   };
 
-  virtual SbBool affectsState(void) const;
-  virtual void notify(SoNotList * nl);
+  virtual SbBool affectsState(void) const override;
+  virtual void notify(SoNotList * nl) override;
 
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void callback(SoCallbackAction * action);
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
   virtual void computeBBox(SoAction * action, SbBox3f & box,
                            SbVec3f & center) =  0;
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
   static void getScreenSize(SoState * const state, const SbBox3f & boundingbox,
                             SbVec2s & rectsize);

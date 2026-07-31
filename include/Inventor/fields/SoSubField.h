@@ -232,20 +232,20 @@ _class_::operator=(const _class_ & field) \
 
 #define PRIVATE_MFIELD_IO_HEADER() \
 private: \
-  virtual SbBool read1Value(SoInput * in, int idx); \
-  virtual void write1Value(SoOutput * out, int idx) const
+  virtual SbBool read1Value(SoInput * in, int idx) override; \
+  virtual void write1Value(SoOutput * out, int idx) const override
 
 
 
 #define SO_MFIELD_VALUE_HEADER(_class_, _valtype_, _valref_) \
   PRIVATE_MFIELD_IO_HEADER(); \
 protected: \
-  virtual void deleteAllValues(void); \
-  virtual void copyValue(int to, int from); \
-  virtual int fieldSizeof(void) const; \
-  virtual void * valuesPtr(void); \
-  virtual void setValuesPtr(void * ptr); \
-  virtual void allocValues(int num); \
+  virtual void deleteAllValues(void) override; \
+  virtual void copyValue(int to, int from) override; \
+  virtual int fieldSizeof(void) const override; \
+  virtual void * valuesPtr(void) override; \
+  virtual void setValuesPtr(void * ptr) override; \
+  virtual void allocValues(int num) override; \
  \
   _valtype_ * values; \
 public: \

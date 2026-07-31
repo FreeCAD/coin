@@ -55,9 +55,9 @@ public:
   SoSFNode proxy;
   SoSFTime collideTime;
 
-  virtual void GLRender(SoGLRenderAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
 
-  virtual void notify(SoNotList * list);
+  virtual void notify(SoNotList * list) override;
 
 protected:
   virtual ~SoVRMLCollision();

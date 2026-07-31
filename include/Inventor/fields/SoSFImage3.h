@@ -59,8 +59,8 @@ public:
   void finishEditing(void);
 
 private:
-  virtual SbBool readValue(SoInput *in);
-  virtual void writeValue(SoOutput *out) const;
+  virtual SbBool readValue(SoInput *in) override;
+  virtual void writeValue(SoOutput *out) const override;
 
   class SbImage *image;
 };

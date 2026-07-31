@@ -85,7 +85,7 @@ public:
   void incNumImage(void);
 
 protected:
-  virtual void beginTraversal(SoNode * node);
+  virtual void beginTraversal(SoNode * node) override;
 
 private:
   int numtris;

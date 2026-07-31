@@ -80,7 +80,7 @@ public:
   static SbBool duringSearchAll;
 
 protected:
-  virtual void beginTraversal(SoNode * node);
+  virtual void beginTraversal(SoNode * node) override;
 
 private:
   int lookfor;

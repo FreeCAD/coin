@@ -51,21 +51,21 @@ public:
 
   SoSFString name;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
-  virtual void search(SoSearchAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
+  virtual void search(SoSearchAction * action) override;
 
   SoGroup * copyChildren(void) const;
-  virtual SoChildList * getChildren(void) const;
+  virtual SoChildList * getChildren(void) const override;
   virtual void copyContents(const SoFieldContainer * from,
-                            SbBool copyconnections);
+                            SbBool copyconnections) override;
 
   const SbString & getFullName(void) const;
 
@@ -75,7 +75,7 @@ public:
 protected:
   virtual ~SoFile();
 
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
   virtual SbBool readNamedFile(SoInput * in);
 
 private:

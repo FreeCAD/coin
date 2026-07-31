@@ -47,9 +47,9 @@ public:
 
   SoSFFloat heightAngle;
 
-  virtual void scaleHeight(float scalefactor);
-  virtual SbViewVolume getViewVolume(float useaspectratio = 0.0f) const;
-  virtual void viewBoundingBox(const SbBox3f & box, float aspect, float slack);
+  virtual void scaleHeight(float scalefactor) override;
+  virtual SbViewVolume getViewVolume(float useaspectratio = 0.0f) const override;
+  virtual void viewBoundingBox(const SbBox3f & box, float aspect, float slack) override;
 
 protected:
   virtual ~SoPerspectiveCamera();

@@ -52,11 +52,11 @@ public:
   virtual void setIdAttribute(const char * id);
   const char * getIdAttribute(void) const { return this->id; }
 
-  virtual SbBool handleXMLAttributes(void);
+  virtual SbBool handleXMLAttributes(void) override;
 
-  virtual void copyContents(const ScXMLElt * rhs);
+  virtual void copyContents(const ScXMLElt * rhs) override;
 
-  virtual const ScXMLElt * search(const char * attrname, const char * attrvalue) const;
+  virtual const ScXMLElt * search(const char * attrname, const char * attrvalue) const override;
 
 protected:
   char * id;

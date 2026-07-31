@@ -59,30 +59,30 @@ public:
   virtual void replaceChild(int index, SoNode * newchild);
   virtual void replaceChild(SoNode * oldchild, SoNode * newchild);
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
-  virtual SoChildList * getChildren(void) const;
-  virtual void addWriteReference(SoOutput * out, SbBool isfromfield = FALSE);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
+  virtual SoChildList * getChildren(void) const override;
+  virtual void addWriteReference(SoOutput * out, SbBool isfromfield = FALSE) override;
 
 protected:
   virtual ~SoGroup();
 
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
   virtual SbBool readChildren(SoInput * in);
 
   virtual void copyContents(const SoFieldContainer * from,
-			    SbBool copyconnections);
+			    SbBool copyconnections) override;
 
-  virtual SoNotRec createNotRec(void);
+  virtual SoNotRec createNotRec(void) override;
 
   void setOperation(const SoNotRec::OperationType opType = SoNotRec::UNSPECIFIED,
 		    const SoNode * cc = NULL,

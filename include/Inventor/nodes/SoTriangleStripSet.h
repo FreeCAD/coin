@@ -48,17 +48,17 @@ public:
 
   SoMFInt32 numVertices;
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual SbBool generateDefaultNormals(SoState * state, SoNormalBundle * nb);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual SbBool generateDefaultNormals(SoState * state, SoNormalBundle * nb) override;
 
 protected:
   virtual ~SoTriangleStripSet();
 
-  virtual void generatePrimitives(SoAction * action);
-  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center);
+  virtual void generatePrimitives(SoAction * action) override;
+  virtual void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center) override;
 
-  virtual SbBool generateDefaultNormals(SoState *, SoNormalCache *);
+  virtual SbBool generateDefaultNormals(SoState *, SoNormalCache *) override;
 
 private:
   enum Binding {

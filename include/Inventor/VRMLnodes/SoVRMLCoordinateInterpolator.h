@@ -54,7 +54,7 @@ public:
 protected:
   virtual ~SoVRMLCoordinateInterpolator();
 private:
-  virtual void evaluate(void);
+  virtual void evaluate(void) override;
   class SoVRMLCoordinateInterpolatorP * pimpl;
 
 }; // class SoVRMLCoordinateInterpolator

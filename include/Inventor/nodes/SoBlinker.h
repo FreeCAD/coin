@@ -52,15 +52,15 @@ public:
   SoSFFloat speed;
   SoSFBool on;
 
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void write(SoWriteAction * action);
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void write(SoWriteAction * action) override;
 
 protected:
   virtual ~SoBlinker();
-  virtual void notify(SoNotList * nl);
+  virtual void notify(SoNotList * nl) override;
 
 private:
-  virtual SoNode * copy(SbBool copyconnections = FALSE) const;
+  virtual SoNode * copy(SbBool copyconnections = FALSE) const override;
   void deconnectInternalEngine(void);
   void reconnectInternalEngine(void);
 

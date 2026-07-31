@@ -66,13 +66,13 @@ public:
     SHADOWS                 = 0x00800000
   };
   
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
 
-  virtual void push(SoState * state);
-  virtual void pop(SoState * state, const SoElement * prevTopElement);
+  virtual void push(SoState * state) override;
+  virtual void pop(SoState * state, const SoElement * prevTopElement) override;
 
-  virtual SbBool matches(const SoElement * element) const;
-  virtual SoElement * copyMatchInfo(void) const;
+  virtual SbBool matches(const SoElement * element) const override;
+  virtual SoElement * copyMatchInfo(void) const override;
 
   static const SoShapeStyleElement * get(SoState * const state);
 

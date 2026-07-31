@@ -45,10 +45,10 @@ public:
   static void initClass(void);
   SoAnnotation(void);
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
-  virtual void GLRenderOffPath(SoGLRenderAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
+  virtual void GLRenderOffPath(SoGLRenderAction * action) override;
 
 protected:
   virtual ~SoAnnotation();

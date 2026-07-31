@@ -47,18 +47,18 @@ public:
   void setPriority(uint32_t pri);
   uint32_t getPriority(void) const;
   static uint32_t getDefaultPriority(void);
-  virtual void schedule(void);
-  virtual void unschedule(void);
-  virtual SbBool isScheduled(void) const;
+  virtual void schedule(void) override;
+  virtual void unschedule(void) override;
+  virtual SbBool isScheduled(void) const override;
 
   virtual SbBool isIdleOnly(void) const;
-  virtual void trigger(void);
+  virtual void trigger(void) override;
 
 protected:
   SbBool scheduled;
 
 private:
-  virtual SbBool isBefore(const SoSensor * s) const;
+  virtual SbBool isBefore(const SoSensor * s) const override;
   uint32_t priority;
 };
 

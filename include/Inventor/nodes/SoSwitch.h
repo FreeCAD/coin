@@ -55,20 +55,20 @@ public:
 
   SoSFInt32 whichChild;
 
-  virtual SbBool affectsState(void) const;
+  virtual SbBool affectsState(void) const override;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
-  virtual void notify(SoNotList *nl);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
+  virtual void notify(SoNotList *nl) override;
 
 protected:
   virtual ~SoSwitch();

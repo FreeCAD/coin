@@ -47,13 +47,13 @@ protected:
   virtual ~SoGLMultiTextureMatrixElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
-  virtual void multElt(const int unit, const SbMatrix & matrix);
-  virtual void setElt(const int unit, const SbMatrix & matrix);
+  virtual void multElt(const int unit, const SbMatrix & matrix) override;
+  virtual void setElt(const int unit, const SbMatrix & matrix) override;
 
 private:
   void updategl(const int unit) const;

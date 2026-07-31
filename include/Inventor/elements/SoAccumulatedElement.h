@@ -46,18 +46,18 @@ protected:
   virtual ~SoAccumulatedElement();
 
 public:
-  virtual SbBool matches(const SoElement * element) const;
+  virtual SbBool matches(const SoElement * element) const override;
 
 protected:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
 
   void clearNodeIds(void);
   void addNodeId(const SoNode * const node);
   void setNodeId(const SoNode * const node);
   void copyNodeIds(const SoAccumulatedElement * copyfrom);
-  virtual SoElement * copyMatchInfo(void) const;
-  virtual void captureThis(SoState * state) const;
+  virtual SoElement * copyMatchInfo(void) const override;
+  virtual void captureThis(SoState * state) const override;
 
   SbList <SbUniqueId> nodeIds;
 

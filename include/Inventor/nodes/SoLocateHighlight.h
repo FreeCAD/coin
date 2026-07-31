@@ -62,9 +62,9 @@ public:
   SoSFEnum style;
   SoSFEnum mode;
 
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
   static void turnOffCurrentHighlight(SoGLRenderAction * action);
 
 protected:

@@ -64,9 +64,9 @@ static void initClass(void);
 
 protected:
   virtual ~SoTranslate1Dragger(void);
-  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE);
+  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
 
-  virtual void setMotionMatrix(const SbMatrix & matrix);
+  virtual void setMotionMatrix(const SbMatrix & matrix) override;
 
   static void startCB(void * f, SoDragger * d);
   static void motionCB(void * f, SoDragger * d);

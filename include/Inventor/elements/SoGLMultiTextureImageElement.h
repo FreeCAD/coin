@@ -50,10 +50,10 @@ protected:
   virtual ~SoGLMultiTextureImageElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
   static void set(SoState * const state, SoNode * const node,
                   const int unit,
@@ -77,7 +77,7 @@ public:
   static SbBool hasTransparency(SoState * state);
   
  protected:
-  virtual SbBool hasTransparency(const int unit = 0) const;
+  virtual SbBool hasTransparency(const int unit = 0) const override;
   
 private:
   void updateGL(const int unit);

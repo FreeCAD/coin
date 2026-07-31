@@ -64,7 +64,7 @@ public:
     DEFAULT = 3
   };
 
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
 
   static void setDefault(SoState * const state, SoNode * const node, const int unit = 0);
   static void setFunction(SoState * const state, SoNode * const node,
@@ -119,9 +119,9 @@ public:
     int coordsDimension;
   };
 
-  virtual void push(SoState * state);
-  virtual SbBool matches(const SoElement * elem) const;
-  SoElement * copyMatchInfo(void) const;
+  virtual void push(SoState * state) override;
+  virtual SbBool matches(const SoElement * elem) const override;
+  SoElement * copyMatchInfo(void) const override;
 
   // Coin-3 support
   const SbVec4f & get(const SbVec3f & point,

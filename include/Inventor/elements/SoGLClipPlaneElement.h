@@ -45,14 +45,14 @@ protected:
   virtual ~SoGLClipPlaneElement();
 
 public:
-  virtual void init(SoState * state);
+  virtual void init(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
   static  int getMaxGLPlanes(void);
 
 protected:
   virtual void addToElt(const SbPlane & plane,
-                        const SbMatrix & modelMatrix);
+                        const SbMatrix & modelMatrix) override;
 
 private:
 };

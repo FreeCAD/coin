@@ -56,11 +56,11 @@ public:
   SoSFRotation scaleOrientation;
   SoSFVec3f center;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void pick(SoPickAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void pick(SoPickAction * action) override;
 
 protected:
   virtual ~SoTexture3Transform();

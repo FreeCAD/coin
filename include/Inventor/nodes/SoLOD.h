@@ -54,17 +54,17 @@ public:
   SoMFFloat range;
   SoSFVec3f center;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
-  virtual void GLRenderOffPath(SoGLRenderAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
-  virtual void notify(SoNotList *nl);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
+  virtual void GLRenderOffPath(SoGLRenderAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
+  virtual void notify(SoNotList *nl) override;
 
 protected:
   virtual ~SoLOD();

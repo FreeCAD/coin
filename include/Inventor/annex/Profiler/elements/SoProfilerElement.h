@@ -49,8 +49,8 @@ public:
 
   static SoProfilerElement * get(SoState * state);
 
-  virtual SbBool matches(const SoElement * element) const;
-  virtual SoElement * copyMatchInfo(void) const;
+  virtual SbBool matches(const SoElement * element) const override;
+  virtual SoElement * copyMatchInfo(void) const override;
 
   SbProfilingData & getProfilingData(void);
   const SbProfilingData & getProfilingData(void) const;
@@ -61,8 +61,8 @@ protected:
   SbProfilingData data;
 
 private:
-  virtual void push(SoState * state);
-  virtual void pop(SoState * state, const SoElement * elt);
+  virtual void push(SoState * state) override;
+  virtual void pop(SoState * state, const SoElement * elt) override;
 
 }; // SoProfilerElement
 

@@ -73,19 +73,19 @@ public:
   virtual SbBool generateDefaultNormals(SoState * s, SoNormalBundle * nb);
   virtual SbBool generateDefaultNormals(SoState * s, SoNormalCache * nc);
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void pick(SoPickAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void pick(SoPickAction * action) override;
 
-  virtual void notify(SoNotList * list);
+  virtual void notify(SoNotList * list) override;
 
 protected:
   SoVRMLVertexShape(void);
   virtual ~SoVRMLVertexShape();
 
-  virtual SbBool shouldGLRender(SoGLRenderAction * action);
+  virtual SbBool shouldGLRender(SoGLRenderAction * action) override;
 
   void setNormalCache(SoState * s, int numNormals, SbVec3f * normals);
   SoNormalCache * getNormalCache(void) const;

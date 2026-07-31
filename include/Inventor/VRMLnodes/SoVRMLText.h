@@ -62,18 +62,18 @@ public:
     MIDDLE  = 0x03
   };
 
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
-  virtual void notify(SoNotList * list);
-  virtual SoChildList * getChildren(void) const;
+  virtual void notify(SoNotList * list) override;
+  virtual SoChildList * getChildren(void) const override;
 
 protected:
   virtual ~SoVRMLText();
 
   virtual void computeBBox(SoAction * action,
-                            SbBox3f & box, SbVec3f & center);
-  virtual void generatePrimitives(SoAction * action);
+                            SbBox3f & box, SbVec3f & center) override;
+  virtual void generatePrimitives(SoAction * action) override;
   SoChildList * children;
 
 private:

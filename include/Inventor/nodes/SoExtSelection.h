@@ -113,8 +113,8 @@ public:
   void animateOverlayLasso(const SbBool animate = TRUE);
   SbBool isOverlayLassoAnimated(void);
 
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
 
   void select(SoNode * root, int numcoords, SbVec2f * lasso, 
               const SbViewportRegion & vp, SbBool shiftpolicy);

@@ -77,8 +77,8 @@ public:
 
 protected:
   virtual ~SoTabBoxDragger(void);
-  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE);
-  virtual void setDefaultOnNonWritingFields(void);
+  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
+  virtual void setDefaultOnNonWritingFields(void) override;
 
   static void invalidateSurroundScaleCB(void * f, SoDragger * d);
   static void fieldSensorCB(void * f, SoSensor * s);

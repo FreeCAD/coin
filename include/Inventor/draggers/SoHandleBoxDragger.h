@@ -132,8 +132,8 @@ public:
 
 protected:
   virtual ~SoHandleBoxDragger(void);
-  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE);
-  virtual void setDefaultOnNonWritingFields(void);
+  virtual SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
+  virtual void setDefaultOnNonWritingFields(void) override;
 
   static void startCB(void * f, SoDragger * d);
   static void motionCB(void * f, SoDragger * d);

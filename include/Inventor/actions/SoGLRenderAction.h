@@ -116,7 +116,7 @@ public:
   void setRenderingIsRemote(SbBool isremote);
   SbBool getRenderingIsRemote(void) const;
 
-  virtual void invalidateState(void);
+  virtual void invalidateState(void) override;
 
   void addPreRenderCallback(SoGLPreRenderCB * func, void * userdata);
   void removePreRenderCallback(SoGLPreRenderCB * func, void * userdata);
@@ -136,8 +136,8 @@ public:
 
 protected:
   friend class SoGLRenderActionP; // calls beginTraversal
-  virtual void beginTraversal(SoNode * node);
-  virtual void endTraversal(SoNode * node);
+  virtual void beginTraversal(SoNode * node) override;
+  virtual void endTraversal(SoNode * node) override;
 
 private:
   SbPimplPtr<SoGLRenderActionP> pimpl;

@@ -56,19 +56,19 @@ public:
   SoSFVec3f bboxCenter;
   SoSFVec3f bboxSize;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void search(SoSearchAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void search(SoSearchAction * action) override;
 
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
-  virtual void GLRenderOffPath(SoGLRenderAction * action);
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
+  virtual void GLRenderOffPath(SoGLRenderAction * action) override;
 
-  virtual void notify(SoNotList * list);
+  virtual void notify(SoNotList * list) override;
 
 protected:
   virtual ~SoVRMLBillboard();

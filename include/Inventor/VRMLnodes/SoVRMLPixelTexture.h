@@ -50,16 +50,16 @@ public:
 
   SoSFImage image;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void rayPick(SoRayPickAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
 
 protected:
   virtual ~SoVRMLPixelTexture();
 
-  virtual SbBool readInstance( SoInput * in, unsigned short flags );
-  virtual void notify(SoNotList * list);
+  virtual SbBool readInstance( SoInput * in, unsigned short flags ) override;
+  virtual void notify(SoNotList * list) override;
 
 
 private:

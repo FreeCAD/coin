@@ -46,17 +46,17 @@ class COIN_DLL_API SoVRMLGeometry : public SoShape
 public:
   static void initClass(void);
 
-  virtual void search(SoSearchAction * action);
-  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn);
+  virtual void search(SoSearchAction * action) override;
+  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn) override;
 
 protected:
   SoVRMLGeometry(void);
   virtual ~SoVRMLGeometry();
 
   void setupShapeHints(SoState * state, const SbBool ccw, const SbBool solid);
-  virtual SbBool shouldGLRender(SoGLRenderAction * action);
-  virtual SoChildList * getChildren(void) const;
-  virtual void notify(SoNotList * list);
+  virtual SbBool shouldGLRender(SoGLRenderAction * action) override;
+  virtual SoChildList * getChildren(void) const override;
+  virtual void notify(SoNotList * list) override;
 
 private:
   SoVRMLGeometryP * pimpl;

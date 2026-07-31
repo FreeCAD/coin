@@ -62,21 +62,21 @@ public:
   static void setNumRenderCaches(int num);
   static int getNumRenderCaches(void);
 
-  virtual SbBool affectsState(void) const;
+  virtual SbBool affectsState(void) const override;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
-  virtual SoChildList * getChildren(void) const;
+  virtual SoChildList * getChildren(void) const override;
 
-  virtual void notify(SoNotList * list);
-  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn);
+  virtual void notify(SoNotList * list) override;
+  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn) override;
 
 protected:
   virtual ~SoVRMLShape();

@@ -47,14 +47,14 @@ public:
   ScXMLMinimumEvaluator(void);
   virtual ~ScXMLMinimumEvaluator(void);
 
-  virtual void setStateMachine(ScXMLStateMachine *);
+  virtual void setStateMachine(ScXMLStateMachine *) override;
 
-  virtual ScXMLDataObj * evaluate(const char * expression) const;
+  virtual ScXMLDataObj * evaluate(const char * expression) const override;
 
-  virtual SbBool setAtLocation(const char * location, ScXMLDataObj * obj);
-  virtual ScXMLDataObj * locate(const char * location) const;
+  virtual SbBool setAtLocation(const char * location, ScXMLDataObj * obj) override;
+  virtual ScXMLDataObj * locate(const char * location) const override;
 
-  virtual void clearTemporaryVariables(void);
+  virtual void clearTemporaryVariables(void) override;
 
 private:
   class PImpl;
@@ -92,7 +92,7 @@ public:
 protected:
   char * stateid;
 
-  virtual SbBool evaluateNow(ScXMLStateMachine * sm, ScXMLDataObj *& pointer) const;
+  virtual SbBool evaluateNow(ScXMLStateMachine * sm, ScXMLDataObj *& pointer) const override;
 
 }; // ScXMLMinimumDataObj
 
@@ -116,7 +116,7 @@ public:
   const ScXMLDataObj * getRHS(void) const { return this->rhs; }
 
 protected:
-  virtual SbBool evaluateNow(ScXMLStateMachine * sm, ScXMLDataObj *& pointer) const;
+  virtual SbBool evaluateNow(ScXMLStateMachine * sm, ScXMLDataObj *& pointer) const override;
 
 private:
   ScXMLDataObj * lhs, * rhs;

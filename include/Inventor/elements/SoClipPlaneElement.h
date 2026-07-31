@@ -47,8 +47,8 @@ protected:
   virtual ~SoClipPlaneElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
 
   static  void add(SoState * const state, SoNode * const node,
                    const SbPlane & plane);

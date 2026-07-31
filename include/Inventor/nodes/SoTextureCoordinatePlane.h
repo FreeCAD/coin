@@ -54,10 +54,10 @@ public:
   SoSFVec3f directionT;
   SoSFVec3f directionR;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void callback(SoCallbackAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
 
 protected:
   virtual ~SoTextureCoordinatePlane();

@@ -51,9 +51,9 @@ protected:
   ~SoGLLazyElement();
 public:
 
-  virtual void init(SoState *state);
-  virtual void push(SoState *state);
-  virtual void pop(SoState *state, const SoElement * prevtopelement);
+  virtual void init(SoState *state) override;
+  virtual void push(SoState *state) override;
+  virtual void pop(SoState *state, const SoElement * prevtopelement) override;
 
   static void sendAllMaterial(SoState * state);
   static void sendNoMaterial(SoState * state);
@@ -101,23 +101,23 @@ public:
   };
 
   virtual void setDiffuseElt(SoNode*,  int32_t numcolors,
-                             const SbColor * colors, SoColorPacker * packer);
+                             const SbColor * colors, SoColorPacker * packer) override;
   virtual void setPackedElt(SoNode * node, int32_t numcolors,
-                            const uint32_t * colors, const SbBool packedtransparency);
+                            const uint32_t * colors, const SbBool packedtransparency) override;
   virtual void setColorIndexElt(SoNode * node, int32_t numindices,
-                                const int32_t * indices);
+                                const int32_t * indices) override;
   virtual void setTranspElt(SoNode * node, int32_t numtransp,
-                            const float * transp, SoColorPacker * packer);
+                            const float * transp, SoColorPacker * packer) override;
 
-  virtual void setTranspTypeElt(int32_t type);
-  virtual void setAmbientElt(const SbColor* color);
-  virtual void setEmissiveElt(const SbColor* color);
-  virtual void setSpecularElt(const SbColor* color);
-  virtual void setShininessElt(float value);
-  virtual void setColorMaterialElt(SbBool value);
-  virtual void enableBlendingElt(int sfactor, int dfactor, int alpha_sfactor, int alpha_dfactor);
-  virtual void disableBlendingElt(void);
-  virtual void setLightModelElt(SoState *state, int32_t model);
+  virtual void setTranspTypeElt(int32_t type) override;
+  virtual void setAmbientElt(const SbColor* color) override;
+  virtual void setEmissiveElt(const SbColor* color) override;
+  virtual void setSpecularElt(const SbColor* color) override;
+  virtual void setShininessElt(float value) override;
+  virtual void setColorMaterialElt(SbBool value) override;
+  virtual void enableBlendingElt(int sfactor, int dfactor, int alpha_sfactor, int alpha_dfactor) override;
+  virtual void disableBlendingElt(void) override;
+  virtual void setLightModelElt(SoState *state, int32_t model) override;
   virtual void setMaterialElt(SoNode * node, uint32_t bitmask,
                               SoColorPacker * packer,
                               const SbColor * diffuse, const int numdiffuse,
@@ -126,12 +126,12 @@ public:
                               const SbColor & emissive,
                               const SbColor & specular,
                               const float shininess,
-                              const SbBool istransparent);
-  virtual void setVertexOrderingElt(VertexOrdering ordering);
-  virtual void setBackfaceCullingElt(SbBool onoff);
-  virtual void setTwosideLightingElt(SbBool onoff);
-  virtual void setShadeModelElt(SbBool flatshading);
-  virtual void setAlphaTestElt(int func, float value);
+                              const SbBool istransparent) override;
+  virtual void setVertexOrderingElt(VertexOrdering ordering) override;
+  virtual void setBackfaceCullingElt(SbBool onoff) override;
+  virtual void setTwosideLightingElt(SbBool onoff) override;
+  virtual void setShadeModelElt(SbBool flatshading) override;
+  virtual void setAlphaTestElt(int func, float value) override;
 
   static void beginCaching(SoState * state,
                            SoGLLazyElement::GLState * prestate,
@@ -148,8 +148,8 @@ public:
   void updateColorVBO(SoVBO * vbo);
 
 protected:
-  virtual void lazyDidSet(uint32_t mask);
-  virtual void lazyDidntSet(uint32_t mask);
+  virtual void lazyDidSet(uint32_t mask) override;
+  virtual void lazyDidntSet(uint32_t mask) override;
 
 private:
   void sendPackedDiffuse(const uint32_t diffuse) const;

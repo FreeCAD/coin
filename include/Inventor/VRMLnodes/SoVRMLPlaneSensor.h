@@ -54,9 +54,9 @@ public:
 
 protected:
 
-  virtual SbBool dragStart(void);
-  virtual void drag(void);
-  virtual void dragFinish(void);
+  virtual SbBool dragStart(void) override;
+  virtual void drag(void) override;
+  virtual void dragFinish(void) override;
 
   virtual ~SoVRMLPlaneSensor();
 

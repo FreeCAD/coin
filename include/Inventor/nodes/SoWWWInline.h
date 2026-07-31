@@ -87,7 +87,7 @@ public:
   void setChildData(SoNode * urldata);
   SoNode * getChildData(void) const;
 
-  virtual SoChildList * getChildren(void) const;
+  virtual SoChildList * getChildren(void) const override;
 
   static void setFetchURLCallBack(SoWWWInlineFetchURLCB * f, void * userdata);
 
@@ -100,25 +100,25 @@ public:
   static void setReadAsSoFile(SbBool onoff);
   static SbBool getReadAsSoFile(void);
 
-  virtual void doAction(SoAction * action);
+  virtual void doAction(SoAction * action) override;
   virtual void doActionOnKidsOrBox(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void getMatrix(SoGetMatrixAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void getMatrix(SoGetMatrixAction * action) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
 
 protected:
   virtual ~SoWWWInline();
 
   virtual void addBoundingBoxChild(SbVec3f center, SbVec3f size);
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
   virtual void copyContents(const SoFieldContainer * fromfC,
-                            SbBool copyconnections);
+                            SbBool copyconnections) override;
 
 private:
   friend class SoWWWInlineP;

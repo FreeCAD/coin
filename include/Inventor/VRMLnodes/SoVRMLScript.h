@@ -52,35 +52,35 @@ public:
   SoVRMLScript(void);
 
   static SoType getClassTypeId(void);
-  virtual SoType getTypeId(void) const;
+  virtual SoType getTypeId(void) const override;
 
   SoMFString url;
   SoSFBool directOutput;
   SoSFBool mustEvaluate;
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void pick(SoPickAction * action);
-  virtual void handleEvent(SoHandleEventAction * action);
-  virtual void write(SoWriteAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void pick(SoPickAction * action) override;
+  virtual void handleEvent(SoHandleEventAction * action) override;
+  virtual void write(SoWriteAction * action) override;
 
   static void setScriptEvaluateCB(SoVRMLScriptEvaluateCB * cb,
                                   void * closure);
 
 protected:
   virtual ~SoVRMLScript();
-  virtual void copyContents(const SoFieldContainer * from, SbBool copyconn);
-  virtual void notify(SoNotList * list);
+  virtual void copyContents(const SoFieldContainer * from, SbBool copyconn) override;
+  virtual void notify(SoNotList * list) override;
 private:
   static SoType classTypeId;
   static void * createInstance(void);
   SoFieldData * fielddata;
-  virtual const SoFieldData * getFieldData(void) const;
+  virtual const SoFieldData * getFieldData(void) const override;
 
 private:
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
 
   static void eval_cb(void * data, SoSensor *);
   void initFieldData(void);

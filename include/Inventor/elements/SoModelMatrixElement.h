@@ -47,9 +47,9 @@ protected:
   virtual ~SoModelMatrixElement();
 
 public:
-  virtual void init(SoState * state);
-  virtual void push(SoState * state);
-  virtual SbBool matches(const SoElement * element) const;
+  virtual void init(SoState * state) override;
+  virtual void push(SoState * state) override;
+  virtual SbBool matches(const SoElement * element) const override;
   static void makeIdentity(SoState * const state, SoNode * const node);
   static void set(SoState * const state, SoNode * const node,
                   const SbMatrix & matrix);

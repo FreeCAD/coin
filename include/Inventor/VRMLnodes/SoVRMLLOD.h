@@ -55,7 +55,7 @@ public:
   SoSFVec3f center;
   SoMFNode level;
 
-  virtual SbBool affectsState(void) const;
+  virtual SbBool affectsState(void) const override;
 
   void addLevel(SoNode * level);
   void insertLevel(SoNode * level, int idx);
@@ -68,38 +68,38 @@ public:
   void replaceLevel(int idx, SoNode * level);
   void replaceLevel(SoNode * old, SoNode * level);
 
-  virtual void doAction(SoAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void rayPick(SoRayPickAction * action);
-  virtual void getBoundingBox(SoGetBoundingBoxAction * action);
-  virtual void search(SoSearchAction * action);
-  virtual void write(SoWriteAction * action);
-  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action);
-  virtual void audioRender(SoAudioRenderAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
+  virtual void getBoundingBox(SoGetBoundingBoxAction * action) override;
+  virtual void search(SoSearchAction * action) override;
+  virtual void write(SoWriteAction * action) override;
+  virtual void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
+  virtual void audioRender(SoAudioRenderAction * action) override;
 
-  virtual void GLRenderBelowPath(SoGLRenderAction * action);
-  virtual void GLRenderInPath(SoGLRenderAction * action);
-  virtual void GLRenderOffPath(SoGLRenderAction * action);
+  virtual void GLRenderBelowPath(SoGLRenderAction * action) override;
+  virtual void GLRenderInPath(SoGLRenderAction * action) override;
+  virtual void GLRenderOffPath(SoGLRenderAction * action) override;
 
-  void addChild(SoNode * child);
-  void insertChild(SoNode * child, int idx);
-  SoNode * getChild(int idx) const;
-  int findChild(const SoNode * child) const;
-  int getNumChildren(void) const;
-  void removeChild(int idx);
-  void removeChild(SoNode * child);
-  void removeAllChildren(void);
-  void replaceChild(int idx, SoNode * child);
-  void replaceChild(SoNode * old, SoNode * child);
-  virtual SoChildList * getChildren(void) const;
+  void addChild(SoNode * child) override;
+  void insertChild(SoNode * child, int idx) override;
+  SoNode * getChild(int idx) const override;
+  int findChild(const SoNode * child) const override;
+  int getNumChildren(void) const override;
+  void removeChild(int idx) override;
+  void removeChild(SoNode * child) override;
+  void removeAllChildren(void) override;
+  void replaceChild(int idx, SoNode * child) override;
+  void replaceChild(SoNode * old, SoNode * child) override;
+  virtual SoChildList * getChildren(void) const override;
 
 protected:
   virtual ~SoVRMLLOD();
 
-  virtual void notify(SoNotList * list);
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
-  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn);
+  virtual void notify(SoNotList * list) override;
+  virtual SbBool readInstance(SoInput * in, unsigned short flags) override;
+  virtual void copyContents(const SoFieldContainer * from, SbBool copyConn) override;
 
   virtual int whichToTraverse(SoAction * action);
 

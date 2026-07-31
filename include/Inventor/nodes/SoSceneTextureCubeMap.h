@@ -83,15 +83,15 @@ public:
   SoSFEnum transparencyFunction;
   SoSFColor blendColor;
 
-  virtual void doAction(SoAction * action);
-  virtual void GLRender(SoGLRenderAction * action);
-  virtual void callback(SoCallbackAction * action);
-  virtual void rayPick(SoRayPickAction * action);
+  virtual void doAction(SoAction * action) override;
+  virtual void GLRender(SoGLRenderAction * action) override;
+  virtual void callback(SoCallbackAction * action) override;
+  virtual void rayPick(SoRayPickAction * action) override;
 
 protected:
   virtual ~SoSceneTextureCubeMap();
 
-  virtual void notify(SoNotList * list);
+  virtual void notify(SoNotList * list) override;
 
 private:
   SoSceneTextureCubeMapP * pimpl;
