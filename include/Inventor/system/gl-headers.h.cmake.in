@@ -46,6 +46,10 @@
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
+#if defined(_WIN32) && !defined(NOMINMAX)
+#define NOMINMAX
+#endif
+
 /* These guards only apply during Coin's own build (COIN_INTERNAL) when the
    legacy GL renderer is not built. Consumer builds may freely mix legacy GL
    headers. */
@@ -76,7 +80,6 @@
 #else
 @SIM_INCLUDE_WINDOWS_H@
 @SIM_INCLUDE_GL_H@
-@SIM_INCLUDE_GLU_H@
 @SIM_INCLUDE_GLEXT_H@
 #endif
 

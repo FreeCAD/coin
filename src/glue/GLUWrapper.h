@@ -95,6 +95,51 @@
 #ifndef GLU_TESS_NEED_COMBINE_CALLBACK
 #define GLU_TESS_NEED_COMBINE_CALLBACK 100156
 #endif
+#ifndef GLU_AUTO_LOAD_MATRIX
+#define GLU_AUTO_LOAD_MATRIX 100200
+#endif
+#ifndef GLU_PARAMETRIC_TOLERANCE
+#define GLU_PARAMETRIC_TOLERANCE 100202
+#endif
+#ifndef GLU_PARAMETRIC_ERROR
+#define GLU_PARAMETRIC_ERROR 100201
+#endif
+#ifndef GLU_SAMPLING_METHOD
+#define GLU_SAMPLING_METHOD 100205
+#endif
+#ifndef GLU_U_STEP
+#define GLU_U_STEP 100206
+#endif
+#ifndef GLU_V_STEP
+#define GLU_V_STEP 100207
+#endif
+#ifndef GLU_DOMAIN_DISTANCE
+#define GLU_DOMAIN_DISTANCE 100217
+#endif
+#ifndef GLU_MAP1_TRIM_2
+#define GLU_MAP1_TRIM_2 100210
+#endif
+#ifndef GLU_MAP1_TRIM_3
+#define GLU_MAP1_TRIM_3 100211
+#endif
+#ifndef GLU_DISPLAY_MODE
+#define GLU_DISPLAY_MODE 100204
+#endif
+#ifndef GLU_POINT
+#define GLU_POINT 100010
+#endif
+#ifndef GLU_LINE
+#define GLU_LINE 100011
+#endif
+#ifndef GLU_FILL
+#define GLU_FILL 100012
+#endif
+#ifndef GLU_OUTLINE_POLYGON
+#define GLU_OUTLINE_POLYGON 100240
+#endif
+#ifndef GLU_OUTLINE_PATCH
+#define GLU_OUTLINE_PATCH 100241
+#endif
 
 /* Under Win32, we need to make sure we use the correct calling method
    by using the APIENTRY define for the function signature types (or
