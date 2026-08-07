@@ -288,11 +288,11 @@ public:
   int bitspersample;
 
   SbList<SbString> playlist;
-  volatile SbBool playlistDirty;
-  volatile int currentPlaylistIndex;
+  SbBool playlistDirty;
+  int currentPlaylistIndex;
 
   SbBool loop;
-  volatile SbBool soundHasFinishedPlaying;
+  SbBool soundHasFinishedPlaying;
 
 #ifdef HAVE_THREADS
   SbMutex syncmutex;
@@ -1087,7 +1087,15 @@ SoVRMLAudioClipP::timerCB(SoSensor *)
   }
 
   // if we got this far, ( (now<stop) || (stop<=start) )
-  if (this->soundHasFinishedPlaying) {
+  SbBool soundHasFinishedPlaying;
+  {
+#ifdef HAVE_THREADS
+    SbThreadAutoLock autoLock(&this->syncmutex);
+#endif
+    soundHasFinishedPlaying = this->soundHasFinishedPlaying;
+  }
+
+  if (soundHasFinishedPlaying) {
     if  (PUBLIC(this)->isActive.getValue()) {
       // FIXME: perhaps add some additional slack, the size of one buffer? 20021008 thammer.
 #if COIN_DEBUG && DEBUG_AUDIO
