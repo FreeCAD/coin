@@ -34,7 +34,11 @@ set(COIN_SHAPENODES_FILES
 	soshape_trianglesort.cpp
 )
 
-if(COIN_BUILD_TESTS)
+# CoinFaceMaterialTests currently observes private renderer state through
+# test-only symbols in the Coin library. Do not compile that instrumentation
+# into Windows DLL builds, where those private symbols are intentionally not
+# part of the import library.
+if(COIN_BUILD_TESTS AND NOT WIN32)
 	set_property(SOURCE SoIndexedFaceSetFaceMaterial.cpp APPEND PROPERTY
 		COMPILE_DEFINITIONS COIN_FACE_MATERIAL_TESTING)
 endif()
