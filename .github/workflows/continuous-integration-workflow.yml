@@ -29,7 +29,7 @@ jobs:
       - name: Create build directory and run CMake
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install freeglut3-dev libegl1-mesa-dev
+          sudo apt-get -y install freeglut3-dev libegl1-mesa-dev xvfb
           cmake -S . -B cmake_build_dir -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=ON -DCOIN_BUILD_TESTS=ON -DCOIN_STRICT_WARNINGS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release --parallel
@@ -40,8 +40,16 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/cmake_install_dir"
           cmake --build installed-package-smoke --config Release --parallel
+      - name: Run face-material tests under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          junit="${GITHUB_WORKSPACE}/cmake_build_dir/face-material-tests.xml"
+          xvfb-run -a ctest --test-dir cmake_build_dir -C Release \
+            -R '^CoinFaceMaterial_' -VV --output-junit "${junit}"
+          python3 testsuite/check_ctest_junit.py "${junit}"
       - name: Run tests
-        run: ctest -C Release -VV
+        run: xvfb-run -a ctest -C Release -VV
         working-directory: cmake_build_dir
       - name: Create Artifacts
         uses: actions/upload-artifact@v7
