@@ -183,6 +183,11 @@
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 
 #include <cassert>
+#include <cstdint>
+#include <memory>
+#include <map>
+#include <utility>
+#include <vector>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -204,6 +209,7 @@
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoGLLazyElement.h>
 #include <Inventor/elements/SoGLVBOElement.h>
+#include <Inventor/elements/SoGLVertexAttributeElement.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
@@ -215,6 +221,7 @@
 #include <Inventor/elements/SoTextureCoordinateBindingElement.h>
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include <Inventor/elements/SoVertexAttributeBindingElement.h>
+#include <Inventor/elements/SoVertexAttributeElement.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/lists/SbList.h>
 #include <Inventor/misc/SoGLDriverDatabase.h>
@@ -229,6 +236,7 @@
 #include "rendering/SoVertexArrayIndexer.h"
 #include "rendering/SoVBO.h"
 #include "rendering/SoGL.h"
+#include "SoIndexedFaceSetFaceMaterialP.h"
 
 // *************************************************************************
 
@@ -244,14 +252,28 @@
 
 class SoIndexedFaceSetP {
 public:
-  SoIndexedFaceSetP(void) 
+  SoIndexedFaceSetP(void)
 #ifdef COIN_THREADSAFE
     : convexmutex(SbRWMutex::READ_PRECEDENCE)
 #endif // COIN_THREADSAFE
-  { }
+  {
+    convexCache = NULL;
+    concavestatus = STATUS_UNKNOWN;
+  }
 
-  SoVertexArrayIndexer * vaindexer;
-  SoConvexDataCache * convexCache;
+  ~SoIndexedFaceSetP(void)
+  {
+    if (convexCache) convexCache->unref();
+  }
+
+  void invalidateFaceMaterialCaches(void)
+  {
+    faceMaterialRenderer.invalidateFaceMaterialCaches();
+  }
+
+  std::unique_ptr<SoVertexArrayIndexer> vaindexer;
+  FaceMaterialRenderer faceMaterialRenderer;
+  SoConvexDataCache *convexCache;
   int concavestatus;
 
 #ifdef COIN_THREADSAFE
@@ -297,9 +319,6 @@ SO_NODE_SOURCE(SoIndexedFaceSet);
 SoIndexedFaceSet::SoIndexedFaceSet()
 {
   PRIVATE(this) = new SoIndexedFaceSetP;
-  PRIVATE(this)->convexCache = NULL;
-  PRIVATE(this)->vaindexer = NULL;
-  PRIVATE(this)->concavestatus = STATUS_UNKNOWN;
 
   SO_NODE_INTERNAL_CONSTRUCTOR(SoIndexedFaceSet);
 }
@@ -310,8 +329,6 @@ SoIndexedFaceSet::SoIndexedFaceSet()
 */
 SoIndexedFaceSet::~SoIndexedFaceSet()
 {
-  delete PRIVATE(this)->vaindexer;
-  if (PRIVATE(this)->convexCache) PRIVATE(this)->convexCache->unref();
   delete PRIVATE(this);
 }
 
@@ -413,8 +430,13 @@ SoIndexedFaceSet::notify(SoNotList * list)
   if (f == &this->coordIndex) {
     PRIVATE(this)->concavestatus = STATUS_UNKNOWN;
     LOCK_VAINDEXER(this);
-    delete PRIVATE(this)->vaindexer;
-    PRIVATE(this)->vaindexer = NULL;
+    PRIVATE(this)->vaindexer.reset();
+    PRIVATE(this)->invalidateFaceMaterialCaches();
+    UNLOCK_VAINDEXER(this);
+  }
+  else if (f == &this->materialIndex) {
+    LOCK_VAINDEXER(this);
+    PRIVATE(this)->invalidateFaceMaterialCaches();
     UNLOCK_VAINDEXER(this);
   }
   inherited::notify(list);
@@ -525,29 +547,89 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
   }
 
   mb.sendFirst(); // make sure we have the correct material
-
-#if 0
-  fprintf(stderr,"numindices: %d, convex: %d, ncache: %d, nbind: %d, mbind: %d, tbind: %d, va: %d\n",
-          numindices, convexcacheused, normalCacheUsed, nbind, mbind, tbind,
-          cc_glglue_has_vertex_array(sogl_glue_instance(state)));
-#endif
+  SoVertexAttributeBundle vab(action, TRUE);
+  const SbBool doattribs = vab.doAttributes();
 
   const uint32_t contextid = action->getCacheContext();
   SoGLLazyElement * lelem = NULL;
-  SbBool dova =
-    SoVBO::shouldRenderAsVertexArrays(state, contextid, numindices) &&
-    !convexcacheused && !normalCacheUsed &&
-    ((nbind == OVERALL) || ((nbind == PER_VERTEX_INDEXED) && ((nindices == cindices) || (nindices == NULL)))) &&
-    ((tbind == NONE && !tb.needCoordinates()) || // no 
-     ((tbind == PER_VERTEX_INDEXED) && ((tindices == cindices) || (tindices == NULL)))) &&
-    ((mbind == NONE) || ((mbind == PER_VERTEX_INDEXED) && ((mindices == cindices) || (mindices == NULL)))) &&
+  const SbBool vertexArrayCapability =
+    SoVBO::shouldRenderAsVertexArrays(state, contextid, numindices);
+  const SbBool normalBindingSupported =
+    (nbind == OVERALL)
+    || ((nbind == PER_VERTEX_INDEXED) && ((nindices == cindices) || (nindices == NULL)));
+  const SbBool textureBindingSupported =
+    ((tbind == NONE && !tb.needCoordinates()) || // no
+     ((tbind == PER_VERTEX_INDEXED) && ((tindices == cindices) || (tindices == NULL))));
+  const SbBool materialBindingSupported =
+    ((mbind == NONE) ||
+     ((mbind == PER_VERTEX_INDEXED) && ((mindices == cindices) || (mindices == NULL))) ||
+     ((mbind == PER_FACE_INDEXED) && (mindices != NULL)));
+  const SbBool driverSupported =
     SoGLDriverDatabase::isSupported(sogl_glue_instance(state), SO_GL_VERTEX_ARRAY);
+  const SbBool vertexArraysCandidate = vertexArrayCapability &&
+    !convexcacheused && !normalCacheUsed &&
+    normalBindingSupported && textureBindingSupported &&
+    materialBindingSupported && driverSupported;
+
+  SbBool dova = vertexArraysCandidate;
+  FaceMaterialRenderState faceMaterial;
+  if (mbind == PER_FACE_INDEXED) {
+    FaceMaterialRenderInput input;
+    input.materialElement = SoLazyElement::getInstance(state);
+    input.geometry.coordinates = coords;
+    input.geometry.normals = normals;
+    input.geometry.normalCount = SoNormalElement::getInstance(state)->getNum();
+    input.geometry.coordIndices = cindices;
+    input.geometry.numCoordIndices = numindices;
+    input.geometry.normalIndices = nindices;
+    input.geometry.materialIndices = mindices;
+    input.geometry.numMaterialIndices = this->materialIndex.getNum();
+    input.geometry.coordinateNodeId = coords->getNodeId();
+    input.geometry.normalNodeId = SoNormalElement::getInstance(state)->getNodeId();
+    input.geometry.shapeNodeId = this->getNodeId();
+    input.geometry.hasNormals = nbind != OVERALL;
+    input.doTextures = doTextures;
+    input.doAttributes = doattribs;
+    input.coordinatesAre3D = coords->is3D();
+    input.prepareVertexArrays = vertexArraysCandidate;
+
+    LOCK_VAINDEXER(this);
+    faceMaterial = PRIVATE(this)->faceMaterialRenderer.prepare(input);
+    UNLOCK_VAINDEXER(this);
+
+    if (faceMaterial.strategy == FACE_MATERIAL_OVERALL) {
+      mbind = OVERALL;
+    }
+    if (faceMaterial.strategy == FACE_MATERIAL_OVERALL) {
+      // sendFirst() selects material zero, but uniform analysis may identify a
+      // different referenced material as the correct overall color.
+      mb.send(faceMaterial.representative, FALSE);
+    }
+    else if ((faceMaterial.strategy == FACE_MATERIAL_GROUPED ||
+              faceMaterial.strategy == FACE_MATERIAL_UNIFIED) &&
+             !faceMaterial.vertexArraysReady) {
+      dova = FALSE;
+    }
+    else if (faceMaterial.strategy == FACE_MATERIAL_FALLBACK) {
+      dova = FALSE;
+    }
+  }
+
+  const SbBool faceMaterialVertexArrays = dova &&
+    mbind == PER_FACE_INDEXED &&
+    faceMaterial.strategy == FACE_MATERIAL_GROUPED &&
+    faceMaterial.vertexArraysReady;
+  const SbBool unifiedMaterialVertexArrays = dova &&
+    mbind == PER_FACE_INDEXED &&
+    faceMaterial.strategy == FACE_MATERIAL_UNIFIED &&
+    faceMaterial.vertexArraysReady;
 
   const SoGLVBOElement * vboelem = SoGLVBOElement::getInstance(state);
   SoVBO * colorvbo = NULL;
 
   SbBool didrenderasvbo = FALSE;
-  if (dova && (mbind != OVERALL)) {
+  if (dova && (mbind != OVERALL) &&
+      !faceMaterialVertexArrays && !unifiedMaterialVertexArrays) {
     dova = FALSE;
     if ((mbind == PER_VERTEX_INDEXED) && ((mindices == cindices) || (mindices == NULL))) {
       lelem = (SoGLLazyElement*) SoLazyElement::getInstance(state);
@@ -563,65 +645,73 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
     }
   }
   if (dova) {
-    SbBool dovbo = this->startVertexArray(action,
-                                          coords,
-                                          (nbind != OVERALL) ? normals : NULL,
-                                          doTextures,
-                                          mbind != OVERALL);
-    didrenderasvbo = dovbo;
+    if (unifiedMaterialVertexArrays) {
+      LOCK_VAINDEXER(this);
+      didrenderasvbo =
+        PRIVATE(this)->faceMaterialRenderer.renderUnifiedFaceMaterial(
+          action, state, contextid);
+      UNLOCK_VAINDEXER(this);
+    }
+    else {
+      const SbBool colorPerVertex = (mbind != OVERALL) && !faceMaterialVertexArrays;
+      SbBool dovbo = this->startVertexArray(action,
+                                            coords,
+                                            (nbind != OVERALL) ? normals : NULL,
+                                            doTextures,
+                                            colorPerVertex);
+      didrenderasvbo = dovbo;
 
-    LOCK_VAINDEXER(this);
-    if (PRIVATE(this)->vaindexer == NULL) {
-      SoVertexArrayIndexer * indexer = new SoVertexArrayIndexer;
-      int i = 0;
-      while (i < numindices) {
-        int cnt = 0;
-        while (i + cnt < numindices && cindices[i+cnt] >= 0) cnt++;
-        
-        switch (cnt) {
-        case 3:
-          indexer->addTriangle(cindices[i],cindices[i+1], cindices[i+2]);
-          break;
-        case 4:
-          indexer->addQuad(cindices[i],cindices[i+1],cindices[i+2],cindices[i+3]);
-          break;
-        default:
-          if (cnt > 4) {
-            indexer->beginTarget(GL_POLYGON);
-            for (int j = 0; j < cnt; j++) {
-              indexer->targetVertex(GL_POLYGON, cindices[i+j]);
-            }
-            indexer->endTarget(GL_POLYGON);
-          }
-        }
-        i += cnt + 1;
-      }
-      indexer->close();
-      if (indexer->getNumVertices()) {
-        PRIVATE(this)->vaindexer = indexer;
+      LOCK_VAINDEXER(this);
+      if (faceMaterialVertexArrays) {
+        PRIVATE(this)->faceMaterialRenderer.renderGroupedFaceMaterial(
+          mb, state, dovbo, contextid);
       }
       else {
-        delete indexer;
-      }
-#if 0
-      fprintf(stderr,"XXX: create VertexArrayIndexer: %d\n", indexer->getNumVertices());
-#endif
-    }
+        if (!PRIVATE(this)->vaindexer) {
+          std::unique_ptr<SoVertexArrayIndexer> indexer(
+            new SoVertexArrayIndexer);
+          int i = 0;
+          while (i < numindices) {
+            int cnt = 0;
+            while (i + cnt < numindices && cindices[i+cnt] >= 0) cnt++;
 
-    if (PRIVATE(this)->vaindexer) {
-      PRIVATE(this)->vaindexer->render(state, dovbo, contextid);
+            switch (cnt) {
+            case 3:
+              indexer->addTriangle(cindices[i],cindices[i+1], cindices[i+2]);
+              break;
+            case 4:
+              indexer->addQuad(cindices[i],cindices[i+1],cindices[i+2],cindices[i+3]);
+              break;
+            default:
+              if (cnt > 4) {
+                indexer->beginTarget(GL_POLYGON);
+                for (int j = 0; j < cnt; j++) {
+                  indexer->targetVertex(GL_POLYGON, cindices[i+j]);
+                }
+                indexer->endTarget(GL_POLYGON);
+              }
+            }
+            i += cnt + 1;
+          }
+          indexer->close();
+          if (indexer->getNumVertices()) {
+            PRIVATE(this)->vaindexer = std::move(indexer);
+          }
+        }
+
+        if (PRIVATE(this)->vaindexer) {
+          PRIVATE(this)->vaindexer->render(state, dovbo, contextid);
+        }
+      }
+      UNLOCK_VAINDEXER(this);
+      this->finishVertexArray(action,
+                              dovbo,
+                              (nbind != OVERALL),
+                              doTextures,
+                              colorPerVertex);
     }
-    UNLOCK_VAINDEXER(this);
-    this->finishVertexArray(action,
-                            dovbo,
-                            (nbind != OVERALL),
-                            doTextures,
-                            mbind != OVERALL);
   }
   else {
-    SoVertexAttributeBundle vab(action, TRUE);
-    SbBool doattribs = vab.doAttributes();
-
     SoVertexAttributeBindingElement::Binding attribbind = 
       SoVertexAttributeBindingElement::get(state);
 
