@@ -89,6 +89,56 @@ if (USE_PTHREAD)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
 
+add_executable(CoinFaceMaterialTests CoinFaceMaterialTests.cpp)
+set_target_properties(CoinFaceMaterialTests PROPERTIES DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
+target_link_libraries(CoinFaceMaterialTests Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(CoinFaceMaterialTests PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${PROJECT_SOURCE_DIR}/src/shapenodes
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+target_compile_definitions(CoinFaceMaterialTests PRIVATE COIN_FACE_MATERIAL_TESTING)
+if (USE_PTHREAD)
+	target_link_libraries(CoinFaceMaterialTests pthread)
+endif()
+
+function(add_face_material_test test_name case_name strategy)
+	cmake_parse_arguments(FACE "" "MAX_GROUPS;MIN_UNIFIED_TRIANGLES" "" ${ARGN})
+	set(test_environment
+		COIN_GLX_PIXMAP_DIRECT_RENDERING=1
+		COIN_FACE_MATERIAL_STRATEGY=${strategy}
+	)
+	if(DEFINED FACE_MAX_GROUPS)
+		list(APPEND test_environment
+			COIN_FACE_MATERIAL_MAX_GROUPS=${FACE_MAX_GROUPS})
+	endif()
+	if(DEFINED FACE_MIN_UNIFIED_TRIANGLES)
+		list(APPEND test_environment
+			COIN_FACE_MATERIAL_MIN_UNIFIED_TRIANGLES=${FACE_MIN_UNIFIED_TRIANGLES})
+	endif()
+	add_test(NAME ${test_name}
+		COMMAND ${CMAKE_COMMAND} -E env
+			${test_environment}
+			$<TARGET_FILE:CoinFaceMaterialTests> ${case_name})
+	set_tests_properties(${test_name} PROPERTIES
+		SKIP_RETURN_CODE 77)
+endfunction()
+
+add_face_material_test(CoinFaceMaterial_nonzero_material nonzero-material auto)
+add_face_material_test(CoinFaceMaterial_same_packed_color same-packed-color auto)
+add_face_material_test(CoinFaceMaterial_asymmetric_rgba asymmetric-rgba auto)
+add_face_material_test(CoinFaceMaterial_forced_overall nonzero-material overall)
+add_face_material_test(CoinFaceMaterial_forced_grouped two-colors grouped)
+add_face_material_test(CoinFaceMaterial_forced_unified two-colors unified)
+add_face_material_test(CoinFaceMaterial_forced_fallback two-colors fallback)
+add_face_material_test(CoinFaceMaterial_auto_small_fallback small-fallback auto
+	MAX_GROUPS 1 MIN_UNIFIED_TRIANGLES 100000)
+add_face_material_test(CoinFaceMaterial_mutation mutation unified)
+add_face_material_test(CoinFaceMaterial_custom_attribute custom-attribute unified)
+add_face_material_test(CoinFaceMaterial_texture texture unified)
+add_face_material_test(CoinFaceMaterial_transparent transparent unified)
+
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG(-Wtautological-compare DISABLE_WARNING_TAUTOLOGCOMPARE)
