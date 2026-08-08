@@ -1,6 +1,7 @@
 #include "rendering/CoinOffscreenGLCanvas.h"
 
 #include <Inventor/C/glue/gl.h>
+#include <Inventor/SoDB.h>
 
 #include <cstdlib>
 #include <iostream>
@@ -51,33 +52,41 @@ int main()
   set_environment("EGL_PLATFORM", "surfaceless");
   set_environment("COIN_EGL_CORE_PROFILE", "1");
 
+  SoDB::init();
+
   if (!can_create_offscreen_context()) {
+    SoDB::finish();
     return skip("core EGL offscreen context could not be established");
   }
 
-  CoinOffscreenGLCanvas canvas;
-  canvas.setWantedSize(SbVec2s(2, 2));
-  if (canvas.activateGLContext() == 0) {
-    return skip("core EGL offscreen context is unavailable");
+  int result = 0;
+  {
+    CoinOffscreenGLCanvas canvas;
+    canvas.setWantedSize(SbVec2s(2, 2));
+    if (canvas.activateGLContext() == 0) {
+      result = skip("core EGL offscreen context is unavailable");
+    }
+    else {
+      glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      uint8_t pixels[2 * 2 * 4] = { 0 };
+      canvas.readPixels(pixels, SbVec2s(2, 2), 2, 4);
+      canvas.deactivateGLContext();
+
+      for (unsigned int i = 0; i < sizeof(pixels); i += 4) {
+        if (!check(pixels[i + 0] >= 60 && pixels[i + 0] <= 70,
+                   "red readback component is incorrect")) result = 1;
+        if (!check(pixels[i + 1] >= 120 && pixels[i + 1] <= 135,
+                   "green readback component is incorrect")) result = 1;
+        if (!check(pixels[i + 2] >= 185 && pixels[i + 2] <= 200,
+                   "blue readback component is incorrect")) result = 1;
+        if (!check(pixels[i + 3] >= 245,
+                   "alpha readback component is incorrect")) result = 1;
+      }
+    }
   }
 
-  glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  uint8_t pixels[2 * 2 * 4] = { 0 };
-  canvas.readPixels(pixels, SbVec2s(2, 2), 2, 4);
-  canvas.deactivateGLContext();
-
-  for (unsigned int i = 0; i < sizeof(pixels); i += 4) {
-    if (!check(pixels[i + 0] >= 60 && pixels[i + 0] <= 70,
-               "red readback component is incorrect")) return 1;
-    if (!check(pixels[i + 1] >= 120 && pixels[i + 1] <= 135,
-               "green readback component is incorrect")) return 1;
-    if (!check(pixels[i + 2] >= 185 && pixels[i + 2] <= 200,
-               "blue readback component is incorrect")) return 1;
-    if (!check(pixels[i + 3] >= 245,
-               "alpha readback component is incorrect")) return 1;
-  }
-
-  return 0;
+  SoDB::finish();
+  return result;
 }
