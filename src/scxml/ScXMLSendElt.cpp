@@ -135,7 +135,7 @@ using std::strcmp;
 class ScXMLSendEltReader : public ScXMLEltReader {
 public:
   ScXMLSendEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLSendEltReader::ScXMLSendEltReader(void)

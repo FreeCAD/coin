@@ -20,7 +20,10 @@ jobs:
         run: |
           sudo apt-get -y update
           sudo apt-get -y install freeglut3-dev
-          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir
+          cmake -S . -B cmake_build_dir -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=cmake_install_dir \
+            -DCOIN_STRICT_WARNINGS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
       - name: Run tests
@@ -67,7 +70,7 @@ jobs:
           submodules: recursive
       - name: Create build directory and run CMake
         run: |
-          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11
+          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_STRICT_WARNINGS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
       - name: Run tests

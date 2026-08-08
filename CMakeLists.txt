@@ -71,6 +71,7 @@ endif()
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" "${CMAKE_MODULE_PATH}")
 
 include(CheckCSourceRuns)
+include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
 include(CheckIncludeFile)
 include(CheckIncludeFileCXX)
@@ -121,6 +122,7 @@ option(GLU_RUNTIME_LINKING          "Enable GLU runtime linking when ON (default
 option(SPIDERMONKEY_RUNTIME_LINKING "Enable SpiderMonkey runtime linking when ON (default), disable when OFF." ON)
 
 option(COIN_VERBOSE "Add verbose debugging information during the configure process." OFF)
+option(COIN_STRICT_WARNINGS "Treat supported compiler warnings as errors." OFF)
 option(HAVE_MULTIPLE_VERSION "Forces versioned paths for includes and documentation when ON, usual behaviour otherwise." OFF)
 option(COIN_USE_CPACK "If enabled the cpack subrepo is mandatory" OFF)
 
@@ -130,6 +132,30 @@ cmake_dependent_option(COIN_BUILD_MAC_AGL "Build for AGL on Mac OS X when ON. De
 
 option(COIN_BUILD_GLX "Build for GLX on Linux when ON. Default is ON." ON)
 option(COIN_BUILD_EGL "Build for EGL on Linux when ON. Default is ON." ON)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  check_cxx_compiler_flag("-Wsuggest-override" COIN_HAVE_SUGGEST_OVERRIDE)
+  if(COIN_HAVE_SUGGEST_OVERRIDE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsuggest-override")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  check_cxx_compiler_flag("-Winconsistent-missing-override" COIN_HAVE_INCONSISTENT_MISSING_OVERRIDE)
+  if(COIN_HAVE_INCONSISTENT_MISSING_OVERRIDE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winconsistent-missing-override")
+  endif()
+endif()
+
+if(COIN_STRICT_WARNINGS)
+  if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND COIN_HAVE_INCONSISTENT_MISSING_OVERRIDE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=inconsistent-missing-override")
+  endif()
+endif()
 
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
@@ -145,6 +171,7 @@ report_prepare(
   COIN_BUILD_EGL
   COIN_BUILD_AWESOME_DOCUMENTATION
   COIN_INSTALL
+  COIN_STRICT_WARNINGS
   COIN_THREADSAFE
   HAVE_VRML97
   COIN_HAVE_JAVASCRIPT

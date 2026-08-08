@@ -48,9 +48,9 @@ public:
   static void cleanClass(void);
 
   ScXMLExecutableElt(void);
-  virtual ~ScXMLExecutableElt(void);
+  ~ScXMLExecutableElt(void) override;
 
-  virtual void copyContents(const ScXMLElt * rhs);
+  void copyContents(const ScXMLElt * rhs) override;
 
   virtual void execute(ScXMLStateMachine * statemachine) const;
 

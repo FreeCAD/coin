@@ -45,14 +45,14 @@ protected:
   virtual ~SoGLDrawStyleElement();
 
 public:
-  virtual void init(SoState * state);
+  void init(SoState * state) override;
 
-  virtual void push(SoState * state);
+  void push(SoState * state) override;
   virtual void pop(SoState * state,
-                   const SoElement * prevTopElement);
+                   const SoElement * prevTopElement) override;
 
 protected:
-  virtual void setElt(int32_t style);
+  void setElt(int32_t style) override;
 
 private:
   void updategl();

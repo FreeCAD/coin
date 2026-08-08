@@ -77,7 +77,7 @@ using std::strlen;
 class ScXMLStateEltReader : public ScXMLEltReader {
 public:
   ScXMLStateEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLStateEltReader::ScXMLStateEltReader(void)

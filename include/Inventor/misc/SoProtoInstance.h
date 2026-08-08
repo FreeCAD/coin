@@ -51,7 +51,7 @@ class COIN_DLL_API SoProtoInstance : public SoNode {
 
   PRIVATE_NODE_TYPESYSTEM_HEADER();
 protected:
-  virtual const SoFieldData * getFieldData(void) const;
+  const SoFieldData * getFieldData(void) const override;
 private:
   SoFieldData * classfielddata;
 
@@ -68,12 +68,12 @@ public:
   SoProto * getProtoDefinition(void) const;
   SbName getProtoName(void) const;
   
-  virtual void write(SoWriteAction * action);
+  void write(SoWriteAction * action) override;
 
 protected:
   virtual ~SoProtoInstance();
-  virtual SbBool readInstance(SoInput * in, unsigned short flags);
-  virtual const char * getFileFormatName(void) const;
+  SbBool readInstance(SoInput * in, unsigned short flags) override;
+  const char * getFileFormatName(void) const override;
 
 private:
 

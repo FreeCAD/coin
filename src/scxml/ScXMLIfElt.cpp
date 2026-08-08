@@ -69,7 +69,7 @@
 class ScXMLIfEltReader : public ScXMLEltReader {
 public:
   ScXMLIfEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLIfEltReader::ScXMLIfEltReader(void)

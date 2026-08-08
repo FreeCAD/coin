@@ -47,9 +47,9 @@ public:
 
   virtual void getTrimCurve(SoState * state, int32_t & numpoints,
                             float *& points, int & floatspervec,
-                            int32_t & numknots, float *& knotvector);
+                            int32_t & numknots, float *& knotvector) override;
   virtual void getVertices(SoState * state, int32_t & numvertices,
-                           SbVec2f *& vertices);
+                           SbVec2f *& vertices) override;
 
 protected:
   virtual ~SoLinearProfile();

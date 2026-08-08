@@ -2241,6 +2241,16 @@ SoInput::readReal(double & d)
   return fi->readReal(d);
 }
 
+/* The public compatibility wrappers below intentionally call the deprecated
+   buffer-based private helpers. Keep their warning suppression local. */
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 /*!
   Reads a set of bytes from the stream making up an unsigned integer and
   puts them at \a str.
@@ -2285,6 +2295,12 @@ SoInput::readHexDigits(char * str)
   if (!fi) return FALSE;
   return fi->readHexDigits(str);
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 /*!
   Reads the next character in stream and compares it to \a charToRead.

@@ -60,7 +60,7 @@ using std::strcmp;
 class ScXMLLogEltReader : public ScXMLEltReader {
 public:
   ScXMLLogEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt, ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 };
 
 ScXMLLogEltReader::ScXMLLogEltReader(void)

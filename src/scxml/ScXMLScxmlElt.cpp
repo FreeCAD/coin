@@ -84,8 +84,8 @@
 class ScXMLScxmlEltReader : public ScXMLEltReader {
 public:
   ScXMLScxmlEltReader(void);
-  virtual ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt,
-                          ScXMLDocument * doc, ScXMLStateMachine * sm);
+  ScXMLElt * read(ScXMLElt * container, cc_xml_elt * xmlelt,
+                          ScXMLDocument * doc, ScXMLStateMachine * sm) override;
 
 }; // ScXMLScxmlEltReader
 
