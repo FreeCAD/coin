@@ -129,7 +129,7 @@ SoGLLinePatternElement::setElt(int32_t pattern)
 void
 SoGLLinePatternElement::updategl()
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   //
   // FIXME: store flag to keep enable/disable state, pederb 990624
   //

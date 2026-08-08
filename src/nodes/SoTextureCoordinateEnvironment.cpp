@@ -222,7 +222,7 @@ SoTextureCoordinateEnvironment::pick(SoPickAction * action)
 void
 SoTextureCoordinateEnvironment::handleTexgen(void * data)
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 #if 0 // from red book
       glTexGenfv(GL_S, GL_SPHERE_MAP, 0);
       glTexGenfv(GL_T, GL_SPHERE_MAP, 0);

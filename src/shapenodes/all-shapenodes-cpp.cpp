@@ -59,7 +59,7 @@
 #include "SoVertexShape.cpp"
 #include "soshape_primdata.cpp"
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "soshape_bigtexture.cpp"
 #include "soshape_bumprender.cpp"
 #include "soshape_trianglesort.cpp"

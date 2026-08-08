@@ -250,7 +250,7 @@ SoBumpMap::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoBumpMap, SO_FROM_COIN_2_2);
 
-  SO_ENABLE(SoGLRenderAction, SoBumpMapElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoBumpMapElement);
   SO_ENABLE(SoCallbackAction, SoBumpMapElement);
   SO_ENABLE(SoRayPickAction, SoBumpMapElement);
 }

@@ -383,7 +383,7 @@ SoNurbsProfile::getVertices(SoState * state, int32_t & numvertices,
       nurbsProfileTempList->append(0.0f); // gluNurbs needs 3D coordinates
     }
   }
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (GLUWrapper()->available &&
       GLUWrapper()->versionMatchesAtLeast(1, 3, 0)) {
     // we will write into this array in the GLU callback

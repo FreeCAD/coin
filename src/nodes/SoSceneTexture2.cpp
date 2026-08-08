@@ -437,8 +437,8 @@ SoSceneTexture2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoSceneTexture2, SO_FROM_COIN_2_2);
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
@@ -526,7 +526,7 @@ SoSceneTexture2::~SoSceneTexture2(void)
 void
 SoSceneTexture2::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   return;
 #else
@@ -684,7 +684,7 @@ SoSceneTexture2::write(SoWriteAction * action)
 
 #define PUBLIC(obj) obj->api
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SoSceneTexture2P::SoSceneTexture2P(SoSceneTexture2 * apiptr)
 {
   this->api = apiptr;

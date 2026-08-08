@@ -170,7 +170,7 @@ SoGLDisplayList::SoGLDisplayList(SoState * state, Type type, int allocnum,
   }
 
   if (PRIVATE(this)->type == DISPLAY_LIST) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     PRIVATE(this)->firstindex = (unsigned int) glGenLists(allocnum);
 #else
     PRIVATE(this)->firstindex = 0;
@@ -197,7 +197,7 @@ SoGLDisplayList::~SoGLDisplayList()
   SoDebugError::postInfo("SoGLDisplayList::~SoGLDisplayList", "%p", this);
 #endif // debug
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (PRIVATE(this)->type == DISPLAY_LIST) {
     glDeleteLists((GLuint) PRIVATE(this)->firstindex, PRIVATE(this)->numalloc);
   }
@@ -251,7 +251,7 @@ SoGLDisplayList::open(SoState * state, int index)
 {
   if (PRIVATE(this)->type == DISPLAY_LIST) {
     PRIVATE(this)->openindex = index;
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     // Using GL_COMPILE here instead of GL_COMPILE_AND_EXECUTE will
     // lead to much higher performance on nVidia cards, and doesn't
     // hurt performance for other vendors.
@@ -274,7 +274,7 @@ void
 SoGLDisplayList::close(SoState * COIN_UNUSED_ARG(state))
 {
   if (PRIVATE(this)->type == DISPLAY_LIST) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glEndList();
     GLenum err = sogl_glerror_debugging() ? glGetError() : GL_NO_ERROR;
     if (err == GL_OUT_OF_MEMORY) {
@@ -308,7 +308,7 @@ void
 SoGLDisplayList::call(SoState * state, int index)
 {
   if (PRIVATE(this)->type == DISPLAY_LIST) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glCallList((GLuint) (PRIVATE(this)->firstindex + index));
 #else
     (void)state;

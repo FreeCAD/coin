@@ -349,7 +349,7 @@ SoPrimitiveVertexCache::close(SoState * state)
 void
 SoPrimitiveVertexCache::renderTriangles(SoState * state, const int arrays) const
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) state;
   (void) arrays;
   return;
@@ -414,7 +414,7 @@ SoPrimitiveVertexCache::renderTriangles(SoState * state, const int arrays) const
 void
 SoPrimitiveVertexCache::renderLines(SoState * state, const int arrays) const
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) state;
   (void) arrays;
   return;
@@ -460,7 +460,7 @@ SoPrimitiveVertexCache::renderLines(SoState * state, const int arrays) const
 void
 SoPrimitiveVertexCache::renderPoints(SoState * state, const int arrays) const
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) state;
   (void) arrays;
   return;
@@ -958,7 +958,7 @@ SoPrimitiveVertexCacheP::addVertex(const Vertex & v)
   }
 }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 
 void
 SoPrimitiveVertexCacheP::enableArrays(const cc_glglue * glue,

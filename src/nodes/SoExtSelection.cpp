@@ -1138,7 +1138,7 @@ SoExtSelection::handleEvent(SoHandleEventAction * action)
 void
 SoExtSelection::draw(SoGLRenderAction *action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   return;
 #else
@@ -1230,7 +1230,7 @@ SoExtSelection::draw(SoGLRenderAction *action)
 void
 SoExtSelection::GLRenderBelowPath(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   return;
 #else
@@ -1871,7 +1871,7 @@ SoExtSelectionP::addTriangleToOffscreenBuffer(SoCallbackAction * action,
                                               const SoPrimitiveVertex * v3,
                                               SbBool renderAsBlack)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   (void)v1;
   (void)v2;
@@ -2073,7 +2073,7 @@ SoExtSelectionP::addLineToOffscreenBuffer(SoCallbackAction * action,
                                           const SoPrimitiveVertex * v2,
                                           SbBool renderAsBlack)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   (void)v1;
   (void)v2;
@@ -2231,7 +2231,7 @@ SoExtSelectionP::addPointToOffscreenBuffer(SoCallbackAction * action,
                                            const SoPrimitiveVertex * v1,
                                            SbBool renderAsBlack)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   (void)v1;
   (void)renderAsBlack;
@@ -2329,7 +2329,7 @@ SoExtSelectionP::selectPaths(void)
 void
 SoExtSelectionP::offscreenLassoTesselatorCallback(void * v0, void * v1, void * v2, void * userdata)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)v0;
   (void)v1;
   (void)v2;
@@ -2358,7 +2358,7 @@ SoExtSelectionP::offscreenLassoTesselatorCallback(void * v0, void * v1, void * v
 void
 SoExtSelectionP::offscreenRenderLassoCallback(void * userdata, SoAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)userdata;
   (void)action;
   return;
@@ -2414,7 +2414,7 @@ SoExtSelectionP::offscreenRenderLassoCallback(void * userdata, SoAction * action
 void
 SoExtSelectionP::offscreenRenderCallback(void * userdata, SoAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)userdata;
   (void)action;
   return;
@@ -2482,7 +2482,7 @@ SoExtSelectionP::offscreenRenderCallback(void * userdata, SoAction * action)
 SbBool
 SoExtSelectionP::checkOffscreenRendererCapabilities()
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   return FALSE;
 #else
   GLboolean rgbmode;

@@ -380,12 +380,12 @@ SoCamera::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_ABSTRACT_CLASS(SoCamera, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE(SoGLRenderAction, SoFocalDistanceElement);
-  SO_ENABLE(SoGLRenderAction, SoGLProjectionMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoViewVolumeElement);
-  SO_ENABLE(SoGLRenderAction, SoGLViewingMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoResetMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoCullElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoFocalDistanceElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLProjectionMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoViewVolumeElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLViewingMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoResetMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoCullElement);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoFocalDistanceElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoProjectionMatrixElement);
@@ -947,7 +947,7 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
                            const SbViewportRegion & oldvp,
                            const SbViewportRegion & newvp)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void)action;
   (void)viewportmapping;
   (void)oldvp;
@@ -981,7 +981,7 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
 
     SoGLMultiTextureEnabledElement::disableAll(state);
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glPushAttrib(GL_LIGHTING_BIT|
                 GL_FOG_BIT|
                 GL_DEPTH_BUFFER_BIT|
@@ -1007,7 +1007,7 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
     if (size[0] < orgsize[0]) {
       short minpos = origin[0] - 1;
       short maxpos = origin[0] + size[0];
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
         glBegin(GL_LINES);
         glVertex2s(minpos, oldorigin[1]);
@@ -1037,7 +1037,7 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
     else if (size[1] < orgsize[1]) {
       short minpos = origin[1] - 1;
       short maxpos = origin[1] + size[1];
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
         glBegin(GL_LINES);
         glVertex2s(oldorigin[0], minpos);
@@ -1065,7 +1065,7 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
 #endif
     }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     glPopMatrix();
     glPopAttrib();
 #else

@@ -161,6 +161,14 @@ option(COIN_BUILD_LEGACY_GL_RENDERER
   "Build Coin's legacy fixed-function OpenGL renderer."
   ON)
 
+# Store the selected renderer mode in generated headers so every translation
+# unit sees an explicit 0/1 value, including core-only builds.
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 1)
+else()
+  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 0)
+endif()
+
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
 
@@ -1006,6 +1014,8 @@ endif()
 
 if (COIN_BUILD_LEGACY_GL_RENDERER)
   add_compile_definitions(COIN_BUILD_LEGACY_GL_RENDERER=1)
+else()
+  add_compile_definitions(COIN_BUILD_LEGACY_GL_RENDERER=0)
 endif()
 
 # ############################################################################

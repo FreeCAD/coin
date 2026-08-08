@@ -1,23 +1,25 @@
 # source files
 set(COIN_RENDERING_FILES
 	SoGL.cpp
-	SoGLBigImage.cpp
 	SoGLDriverDatabase.cpp
-	SoGLImage.cpp
-	SoGLCubeMapImage.cpp
-	SoRenderManager.cpp
-	SoRenderManagerP.cpp
-	SoOffscreenRenderer.cpp
-	SoOffscreenCGData.cpp
-	SoOffscreenGLXData.cpp
-	SoOffscreenWGLData.cpp
-	SoVBO.cpp
-	SoVertexArrayIndexer.cpp
 	CoinOffscreenGLCanvas.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
-	list(APPEND COIN_RENDERING_FILES SoGLNurbs.cpp)
+	list(APPEND COIN_RENDERING_FILES
+		SoGLBigImage.cpp
+		SoGLImage.cpp
+		SoGLCubeMapImage.cpp
+		SoRenderManager.cpp
+		SoRenderManagerP.cpp
+		SoOffscreenRenderer.cpp
+		SoOffscreenCGData.cpp
+		SoOffscreenGLXData.cpp
+		SoOffscreenWGLData.cpp
+		SoVBO.cpp
+		SoVertexArrayIndexer.cpp
+		SoGLNurbs.cpp
+	)
 endif()
 
 # Files excluded from public API documentation, included in complete documentation.

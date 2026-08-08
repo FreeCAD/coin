@@ -221,6 +221,10 @@ SoNormalBundle::get(int index) const
 void 
 SoNormalBundle::send(int index) const
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   assert(this->glelem);
   this->glelem->send(index);
+#else
+  (void)index;
+#endif
 }

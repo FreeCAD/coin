@@ -184,10 +184,10 @@ SoComplexity::initClass(void)
   SO_ENABLE(SoGetBoundingBoxAction, SoComplexityTypeElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoShapeStyleElement);
 
-  SO_ENABLE(SoGLRenderAction, SoComplexityElement);
-  SO_ENABLE(SoGLRenderAction, SoComplexityTypeElement);
-  SO_ENABLE(SoGLRenderAction, SoShapeStyleElement);
-  SO_ENABLE(SoGLRenderAction, SoTextureQualityElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoComplexityElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoComplexityTypeElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoShapeStyleElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoTextureQualityElement);
 
   SO_ENABLE(SoCallbackAction, SoComplexityElement);
   SO_ENABLE(SoCallbackAction, SoComplexityTypeElement);

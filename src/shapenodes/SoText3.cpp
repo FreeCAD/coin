@@ -479,7 +479,7 @@ SoText3::getCharacterBounds(SoState * COIN_UNUSED_ARG(state), int COIN_UNUSED_AR
 void
 SoText3::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
@@ -603,7 +603,7 @@ void
 SoText3P::render(SoState * state, const cc_font_specification * fontspec,
                  unsigned int part)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) state;
   (void) fontspec;
   (void) part;

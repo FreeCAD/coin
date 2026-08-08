@@ -146,7 +146,7 @@ soshape_bigtexture::endShape(SoState * state,
                              SoShape * shape,
                              SoMaterialBundle & mb)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) state;
   (void) shape;
   (void) mb;

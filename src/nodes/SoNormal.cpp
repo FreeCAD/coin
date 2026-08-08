@@ -117,7 +117,7 @@ SoNormal::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoNormal, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoCallbackAction, SoNormalElement);
-  SO_ENABLE(SoGLRenderAction, SoNormalElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoNormalElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoNormalElement);
   SO_ENABLE(SoPickAction, SoNormalElement);
 }

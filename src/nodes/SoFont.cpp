@@ -279,8 +279,8 @@ SoFont::initClass(void)
 
   SO_ENABLE(SoCallbackAction, SoFontNameElement);
   SO_ENABLE(SoCallbackAction, SoFontSizeElement);
-  SO_ENABLE(SoGLRenderAction, SoFontNameElement);
-  SO_ENABLE(SoGLRenderAction, SoFontSizeElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoFontNameElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoFontSizeElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoFontNameElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoFontSizeElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoFontNameElement);

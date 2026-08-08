@@ -268,7 +268,7 @@ SoGLLazyElement::sendVertexOrdering(const VertexOrdering ordering) const
 inline void
 SoGLLazyElement::sendTwosideLighting(const SbBool onoff) const
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, onoff ? GL_TRUE : GL_FALSE);
 #endif
   this->glstate.twoside = (int32_t) onoff;
@@ -290,7 +290,7 @@ send_gl_material(SoState* state, GLenum pname, const SbColor & color)
   GLfloat col[4];
   color.getValue(col[0], col[1], col[2]);
   col[3] = 1.0f;
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glMaterialfv(GL_FRONT_AND_BACK, pname, col);
 #endif
 }
@@ -323,7 +323,7 @@ SoGLLazyElement::sendSpecular(const SbColor & color) const
 inline void
 SoGLLazyElement::sendShininess(const float shine) const
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shine*128.0f);
 #endif
   this->glstate.shininess = shine;
@@ -333,7 +333,7 @@ SoGLLazyElement::sendShininess(const float shine) const
 inline void
 SoGLLazyElement::sendTransparency(const int stipplenum) const
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (stipplenum == 0) {
     glDisable(GL_POLYGON_STIPPLE);
   }
@@ -434,7 +434,7 @@ SoGLLazyElement::init(SoState * stateptr)
   // a cache though.
   this->cachebitmask = 0;
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (sogl_legacy_rendering_available(sogl_current_glue())) {
     glDisable(GL_POLYGON_STIPPLE);
     GLboolean rgba;
@@ -530,7 +530,7 @@ SoGLLazyElement::sendDiffuseByIndex(const int index) const
 #endif // COIN_DEBUG
 
   if (this->colorindex) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       glIndexi((GLint)this->coinstate.colorindexarray[safeindex]);
 #endif
       {
@@ -596,7 +596,7 @@ SoGLLazyElement::send(const SoState * stateptr, uint32_t mask) const
           // we always send the first diffuse color for the first
           // material in an open cache
           if (this->colorindex) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
               glIndexi((GLint)this->coinstate.colorindexarray[0]);
 #else
               // Color-index rendering is only available in compatibility builds.

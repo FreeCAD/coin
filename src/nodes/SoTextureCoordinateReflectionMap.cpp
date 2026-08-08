@@ -192,7 +192,7 @@ SoTextureCoordinateReflectionMap::pick(SoPickAction * action)
 void
 SoTextureCoordinateReflectionMap::handleTexgen(void * COIN_UNUSED_ARG(data))
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);
   glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);  
   glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);

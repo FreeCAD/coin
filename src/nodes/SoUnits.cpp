@@ -152,7 +152,7 @@ SoUnits::initClass(void)
 
   SO_ENABLE(SoGetBoundingBoxAction, SoUnitsElement);
   SO_ENABLE(SoGetMatrixAction, SoUnitsElement);
-  SO_ENABLE(SoGLRenderAction, SoUnitsElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoUnitsElement);
   SO_ENABLE(SoPickAction, SoUnitsElement);
   SO_ENABLE(SoCallbackAction, SoUnitsElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoUnitsElement);

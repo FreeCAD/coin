@@ -114,8 +114,8 @@ SoCoordinate3::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoCoordinate3, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCoordinateElement);
-  SO_ENABLE(SoGLRenderAction, SoGLCoordinateElement);
-  SO_ENABLE(SoGLRenderAction, SoGLVBOElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLVBOElement);
   SO_ENABLE(SoPickAction, SoCoordinateElement);
   SO_ENABLE(SoCallbackAction, SoCoordinateElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoCoordinateElement);
@@ -133,6 +133,9 @@ SoCoordinate3::doAction(SoAction * action)
 void
 SoCoordinate3::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void)action;
+#else
   SoCoordinate3::doAction(action);
   SoState * state = action->getState();
   const int num = this->point.getNum();
@@ -160,6 +163,7 @@ SoCoordinate3::GLRender(SoGLRenderAction * action)
   }
   SoBase::staticDataUnlock();
   SoGLVBOElement::setVertexVBO(state, setvbo ? PRIVATE(this)->vbo : NULL);
+#endif
 }
 
 // Doc from superclass.

@@ -477,7 +477,7 @@ SoSeparator::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoSeparator, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCacheElement);
-  SO_ENABLE(SoGLRenderAction, SoCacheElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoCacheElement);
   SoSeparator::numrendercaches = 2;
 }
 
