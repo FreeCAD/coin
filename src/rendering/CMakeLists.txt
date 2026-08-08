@@ -4,6 +4,9 @@ set(COIN_RENDERING_FILES
 	SoGLDriverDatabase.cpp
 	CoinOffscreenGLCanvas.cpp
 	SoRenderIR.cpp
+	SoRenderBackend.cpp
+	SoGLRenderBackend.cpp
+	SoIDPickBuffer.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -44,6 +47,9 @@ set(COIN_RENDERING_INTERNAL_FILES
 	CoinOffscreenGLCanvas.h
 	CoinOffscreenGLCanvas.cpp
 	SoRenderIRP.h
+	SoRenderBackend.h
+	SoGLRenderBackend.h
+	SoIDPickBuffer.h
 )
 
 # build library
