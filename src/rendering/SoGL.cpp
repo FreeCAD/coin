@@ -83,7 +83,20 @@
 
 // *************************************************************************
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+// Used by profile-neutral library code to decide whether to add extra
+// debugging checks for glGetError().
+SbBool
+sogl_glerror_debugging(void)
+{
+  static int COIN_GLERROR_DEBUGGING = -1;
+  if (COIN_GLERROR_DEBUGGING == -1) {
+    const char * str = coin_getenv("COIN_GLERROR_DEBUGGING");
+    COIN_GLERROR_DEBUGGING = str ? atoi(str) : 0;
+  }
+  return (COIN_GLERROR_DEBUGGING == 0) ? FALSE : TRUE;
+}
+
+#if COIN_BUILD_LEGACY_GL_RENDERER
 
 // Convenience function for access to OpenGL wrapper from an SoState
 // pointer.
@@ -584,9 +597,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(currs, T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
         glTexCoord3fv((const GLfloat*) &texcoords[j-1]);
-#endif
     }
     if (flags & SOGL_NEED_MULTITEXCOORDS) {
       for (u = 1; u <= maxunit; u++) {
@@ -612,10 +623,8 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(currs, T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       texcoords[j] = tmp/2 + SbVec3f(0.5f,0.5f,0.5f);
       glTexCoord3fv((const GLfloat*) &texcoords[j]);
-#endif
     }
     if (flags & SOGL_NEED_MULTITEXCOORDS) {
       for (u = 1; u <= maxunit; u++) {
@@ -643,9 +652,7 @@ sogl_render_sphere(const float radius,
         glTexCoord2f(S[j], T);
       }
       else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
         glTexCoord3fv((const GLfloat*) &texcoords[j]);
-#endif
       }
       if (flags & SOGL_NEED_MULTITEXCOORDS) {
         for (u = 1; u <= maxunit; u++) {
@@ -665,10 +672,8 @@ sogl_render_sphere(const float radius,
         glTexCoord2f(S[j], T - dT);
       }
       else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
         texcoords[j] = tmp/2 + SbVec3f(0.5f,0.5f,0.5f);
         glTexCoord3fv((const GLfloat*) &texcoords[j]);
-#endif
       }
       if (flags & SOGL_NEED_MULTITEXCOORDS) {
         for (u = 1; u <= maxunit; u++) {
@@ -696,9 +701,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(S[j], T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       glTexCoord3fv((const GLfloat*) &texcoords[j]);
-#endif
     }
     if (flags & SOGL_NEED_MULTITEXCOORDS) {
       for (u = 1; u <= maxunit; u++) {
@@ -732,9 +735,7 @@ sogl_render_sphere(const float radius,
       glTexCoord2f(S[j+1], T);
     }
     else if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
       glTexCoord3fv((const GLfloat*) &texcoords[j+1]);
-#endif
     }
     if (flags & SOGL_NEED_MULTITEXCOORDS) {
       for (u = 1; u <= maxunit; u++) {
@@ -858,9 +859,7 @@ sogl_render_cube(const float width,
           material->send(i, TRUE);
         for (int j = 0; j < 4; j++) {
           if (flags & SOGL_NEED_3DTEXCOORDS) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
             glTexCoord3fv(sogl_cube_3dtexcoords[*iptr]);
-#endif
           }
           else if (flags & SOGL_NEED_TEXCOORDS) {
             glTexCoord2fv(&sogl_cube_texcoords[j<<1]);
@@ -2357,19 +2356,6 @@ sogl_render_pointset(const SoGLCoordinateElement * coords,
       idx);
 }
 
-// Used by library code to decide whether or not to add extra
-// debugging checks for glGetError().
-SbBool
-sogl_glerror_debugging(void)
-{
-  static int COIN_GLERROR_DEBUGGING = -1;
-  if (COIN_GLERROR_DEBUGGING == -1) {
-    const char * str = coin_getenv("COIN_GLERROR_DEBUGGING");
-    COIN_GLERROR_DEBUGGING = str ? atoi(str) : 0;
-  }
-  return (COIN_GLERROR_DEBUGGING == 0) ? FALSE : TRUE;
-}
-
 // Used by library code to query raw runtime support for legacy rendering.
 SbBool
 sogl_context_supports_legacy_rendering(const SoState * state)
@@ -2384,12 +2370,7 @@ sogl_context_supports_legacy_rendering(const SoState * state)
 SbBool
 sogl_legacy_rendering_available(const cc_glglue * glue)
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
   return glue != NULL && cc_glglue_context_supports_legacy_rendering(glue);
-#else
-  COIN_UNUSED_ARG(glue);
-  return FALSE;
-#endif
 }
 
 static int SOGL_AUTOCACHE_REMOTE_MIN = 500000;
@@ -2491,120 +2472,6 @@ sogl_offscreencontext_callback(void (*cb)(void *, SoAction*),
   }
   offscreencallback->setCallback(cb, closure);
   offscreenrenderer->render(offscreencallback);
-}
-
-#else // !COIN_BUILD_LEGACY_GL_RENDERER
-
-// The fixed-function rendering helpers remain part of the private ABI, but
-// are deliberately inert in a core-profile/GLES build.  Legacy traversal is
-// rejected at its action boundary, so these entry points must not attempt to
-// emulate compatibility rendering with a partial set of modern calls.
-const cc_glglue *
-sogl_glue_instance(const SoState * state)
-{
-  (void)state;
-  return NULL;
-}
-
-const cc_glglue *
-sogl_current_glue(void)
-{
-  return NULL;
-}
-
-void
-sogl_render_cone(const float, const float, const int,
-                 SoMaterialBundle * const, const unsigned int, SoState *)
-{
-}
-
-void
-sogl_render_cylinder(const float, const float, const int,
-                     SoMaterialBundle * const, const unsigned int, SoState *)
-{
-}
-
-void
-sogl_render_sphere(const float, const int, const int,
-                   SoMaterialBundle * const, const unsigned int, SoState *)
-{
-}
-
-void
-sogl_render_cube(const float, const float, const float,
-                 SoMaterialBundle * const, const unsigned int, SoState *)
-{
-}
-
-void
-sogl_offscreencontext_callback(void (*)(void *, SoAction*), void *)
-{
-}
-
-void
-sogl_render_faceset(const SoGLCoordinateElement * const,
-                    const int32_t *, int,
-                    const SbVec3f *, const int32_t *,
-                    SoMaterialBundle * const, const int32_t *,
-                    SoTextureCoordinateBundle * const, const int32_t *,
-                    SoVertexAttributeBundle * const, const int, const int,
-                    const int, const int, const int)
-{
-}
-
-void
-sogl_render_tristrip(const SoGLCoordinateElement * const,
-                     const int32_t *, int,
-                     const SbVec3f *, const int32_t *,
-                     SoMaterialBundle * const, const int32_t *,
-                     const SoTextureCoordinateBundle * const, const int32_t *,
-                     const int, const int, const int)
-{
-}
-
-void
-sogl_render_lineset(const SoGLCoordinateElement * const,
-                    const int32_t *, int,
-                    const SbVec3f *, const int32_t *,
-                    SoMaterialBundle * const, const int32_t *,
-                    const SoTextureCoordinateBundle * const, const int32_t *,
-                    int, int, const int, const int)
-{
-}
-
-void
-sogl_render_pointset(const SoGLCoordinateElement *, const SbVec3f *,
-                     SoMaterialBundle *, const SoTextureCoordinateBundle *,
-                     int32_t, int32_t)
-{
-}
-
-SbBool
-sogl_glerror_debugging(void)
-{
-  return FALSE;
-}
-
-SbBool
-sogl_context_supports_legacy_rendering(const SoState * state)
-{
-  (void)state;
-  return FALSE;
-}
-
-SbBool
-sogl_legacy_rendering_available(const cc_glglue * glue)
-{
-  (void)glue;
-  return FALSE;
-}
-
-void
-sogl_autocache_update(SoState * state, const int numprimitives, SbBool didusevbo)
-{
-  (void)state;
-  (void)numprimitives;
-  (void)didusevbo;
 }
 
 #endif // COIN_BUILD_LEGACY_GL_RENDERER

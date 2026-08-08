@@ -75,8 +75,10 @@
 #include "SoPrimitiveVertex.cpp"
 #include "SoProto.cpp"
 #include "SoProtoInstance.cpp"
+#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "SoSceneManager.cpp"
 #include "SoSceneManagerP.cpp"
+#endif
 #include "SoShaderGenerator.cpp"
 #include "SoState.cpp"
 #include "SoTempPath.cpp"

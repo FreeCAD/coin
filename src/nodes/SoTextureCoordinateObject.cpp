@@ -187,7 +187,7 @@ SoTextureCoordinateObject::pick(SoPickAction * action)
 void
 SoTextureCoordinateObject::handleTexgen(void * data)
 {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
     SoTextureCoordinateObject *thisp = (SoTextureCoordinateObject*)data;
     glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
     glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);

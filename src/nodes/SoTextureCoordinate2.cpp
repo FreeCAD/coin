@@ -178,7 +178,7 @@ SoTextureCoordinate2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTextureCoordinate2, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureCoordinateElement);
   SO_ENABLE(SoPickAction, SoMultiTextureCoordinateElement);
 }
@@ -198,6 +198,9 @@ SoTextureCoordinate2::doAction(SoAction * action)
 void
 SoTextureCoordinate2::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void)action;
+#else
   SoState * state = action->getState();
   int unit = SoTextureUnitElement::get(state);
 
@@ -236,6 +239,7 @@ SoTextureCoordinate2::GLRender(SoGLRenderAction * action)
   }
   SoBase::staticDataUnlock();
   SoGLVBOElement::setTexCoordVBO(state, 0, setvbo ? PRIVATE(this)->vbo : NULL);
+#endif
 }
 
 // Documented in superclass.

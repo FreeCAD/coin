@@ -2495,7 +2495,7 @@ cc_glglue_instance(int contextid)
     gi->max_texture_size = gltmp;
 
     if (gi->context_supports_legacy_rendering) {
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
       glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
       gi->max_lights = (int) gltmp;
 #else
@@ -5440,10 +5440,18 @@ GLint coin_glglue_get_internal_texture_format(const cc_glglue * glw,
     SbBool usenewenums = glglue_allow_newer_opengl(glw) && cc_glglue_glversion_matches_at_least(glw,1,1,0);
     switch (numcomponents) {
     case 1:
+#if COIN_BUILD_LEGACY_GL_RENDERER
       format = legacy ? (usenewenums ? GL_LUMINANCE8 : GL_LUMINANCE) : GL_R8;
+#else
+      format = GL_R8;
+#endif
       break;
     case 2:
+#if COIN_BUILD_LEGACY_GL_RENDERER
       format = legacy ? (usenewenums ? GL_LUMINANCE8_ALPHA8 : GL_LUMINANCE_ALPHA) : GL_RG8;
+#else
+      format = GL_RG8;
+#endif
       break;
     case 3:
       format = usenewenums ? GL_RGB8 : GL_RGB;

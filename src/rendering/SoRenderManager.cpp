@@ -588,7 +588,7 @@ SoRenderManager::removeSuperimposition(Superimposition * s)
 void
 SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) clearwindow;
   (void) clearzbuffer;
   return;
@@ -677,7 +677,7 @@ SoRenderManager::render(SoGLRenderAction * action,
                         const SbBool clearwindow,
                         const SbBool clearzbuffer)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) initmatrices;
   (void) clearwindow;
@@ -734,7 +734,7 @@ SoRenderManager::actuallyRender(SoGLRenderAction * action,
                                 const SbBool clearwindow,
                                 const SbBool clearzbuffer)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) initmatrices;
   (void) clearwindow;
@@ -802,7 +802,7 @@ SoRenderManager::renderScene( SoGLRenderAction * action,
                               SoNode * scene,
                               uint32_t clearmask)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) scene;
   (void) clearmask;
@@ -844,7 +844,7 @@ SoRenderManager::renderSingle(SoGLRenderAction * action,
                               SbBool clearwindow,
                               SbBool clearzbuffer)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) initmatrices;
   (void) clearwindow;
@@ -1001,7 +1001,7 @@ SoRenderManager::renderStereo(SoGLRenderAction * action,
                               SbBool clearwindow,
                               SbBool clearzbuffer)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) initmatrices;
   (void) clearwindow;
@@ -1118,7 +1118,7 @@ SoRenderManager::setAutoClipping(AutoClippingStrategy autoclipping)
 void
 SoRenderManager::initStencilBufferForInterleavedStereo(void)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   return;
 #else
   const SbViewportRegion & currentvp = PRIVATE(this)->glaction->getViewportRegion();

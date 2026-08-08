@@ -254,7 +254,7 @@ SoVRMLSpotLight::GLRender(SoGLRenderAction * action)
     return;
   }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   GLenum light = (GLenum) (idx + GL_LIGHT0);
 
     SbVec3f att = this->attenuation.getValue();

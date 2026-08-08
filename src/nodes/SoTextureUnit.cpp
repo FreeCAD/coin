@@ -137,15 +137,15 @@ SoTextureUnit::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTextureUnit, SO_FROM_COIN_2_2);
 
-  SO_ENABLE(SoGLRenderAction, SoTextureUnitElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoTextureUnitElement);
   SO_ENABLE(SoCallbackAction, SoTextureUnitElement);
   SO_ENABLE(SoPickAction, SoTextureUnitElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoTextureUnitElement);
   SO_ENABLE(SoGetMatrixAction, SoTextureUnitElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureMatrixElement);
 }
 
 // Doc from superclass.
@@ -224,7 +224,7 @@ uint32_t
 SoTextureUnit::getMaxTextureUnit(void)
 {
   GLint tmp;
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   glGetIntegerv(GL_MAX_TEXTURE_UNITS, &tmp);
 #else
   glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &tmp);

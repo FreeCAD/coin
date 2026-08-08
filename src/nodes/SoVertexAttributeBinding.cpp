@@ -198,7 +198,7 @@ SoVertexAttributeBinding::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoVertexAttributeBinding, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE(SoGLRenderAction, SoVertexAttributeBindingElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoVertexAttributeBindingElement);
   SO_ENABLE(SoPickAction, SoVertexAttributeBindingElement);
   SO_ENABLE(SoCallbackAction, SoVertexAttributeBindingElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoVertexAttributeBindingElement);

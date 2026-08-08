@@ -2,6 +2,9 @@
 #ifndef COIN_GLHEADERS_H
 #define COIN_GLHEADERS_H
 
+#define COIN_BUILD_LEGACY_GL_RENDERER \
+  @COIN_BUILD_LEGACY_GL_RENDERER_VALUE@
+
 /**************************************************************************\
  * Copyright (c) Kongsberg Oil & Gas Technologies AS
  * All rights reserved.
@@ -53,7 +56,7 @@
 /* These guards only apply during Coin's own build (COIN_INTERNAL) when the
    legacy GL renderer is not built. Consumer builds may freely mix legacy GL
    headers. */
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || (COIN_BUILD_LEGACY_GL_RENDERER+0)==0
+#if !COIN_BUILD_LEGACY_GL_RENDERER
 # if defined(__gl_h_) || defined(__GL_H__) || (defined(GL_VERSION_1_1) && !defined(GLCOREARB_H))
 #  error "Legacy <GL/gl.h> detected before core headers. Use core headers only."
 # endif
@@ -68,7 +71,7 @@
    while modern GL declarations come from Coin's private Khronos snapshot.
    Keep these includes private so installed public headers do not expose
    Coin's source tree. */
-# if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+# if COIN_BUILD_LEGACY_GL_RENDERER
 #  include <windows.h>
 #  include <GL/gl.h>
 #  include "glue/khronos/GL/glext.h"

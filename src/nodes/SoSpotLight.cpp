@@ -168,7 +168,7 @@ SoSpotLight::GLRender(SoGLRenderAction * action)
   SoLightElement::add(state, this, SoModelMatrixElement::get(state) *
                       SoViewingMatrixElement::get(state));
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
   GLenum light = (GLenum) (idx + GL_LIGHT0);
 
     SbVec3f attenuation = SoEnvironmentElement::getLightAttenuation(state);

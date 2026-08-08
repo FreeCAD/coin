@@ -645,11 +645,11 @@ void SoShaderStateMatrixParameter::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoShaderStateMatrixParameter,
                               SO_FROM_COIN_2_5|SO_FROM_INVENTOR_5_0);
 
-  SO_ENABLE(SoGLRenderAction, SoModelMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoViewingMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoProjectionMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoTextureUnitElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoModelMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoViewingMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoProjectionMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureMatrixElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoTextureUnitElement);
 }
 
 SoShaderStateMatrixParameter::SoShaderStateMatrixParameter(void)

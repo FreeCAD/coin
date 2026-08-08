@@ -409,9 +409,11 @@ void
 SoAction::initClasses(void)
 {
   SoCallbackAction::initClass();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLRenderAction::initClass();
   SoBoxHighlightRenderAction::initClass();
   SoLineHighlightRenderAction::initClass();
+#endif
   SoGetBoundingBoxAction::initClass();
   SoGetMatrixAction::initClass();
   SoGetPrimitiveCountAction::initClass();
@@ -573,8 +575,11 @@ SoAction::apply(SoNode * root)
       data.setActionStopTime(SbTime::getTimeOfDay());
     }
 
-    if (SoProfiler::isOverlayActive() &&
-        !this->isOfType(SoGLRenderAction::getClassTypeId())) {
+    if (SoProfiler::isOverlayActive()
+#if COIN_BUILD_LEGACY_GL_RENDERER
+        && !this->isOfType(SoGLRenderAction::getClassTypeId())
+#endif
+        ) {
       // update profiler stats node with the profiling data from the traversal
       SoNode * profilerstats = SoActionP::getProfilerStatsNode();
       SoProfiler::enable(FALSE);

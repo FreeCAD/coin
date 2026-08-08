@@ -103,7 +103,7 @@ SoProfileCoordinate2::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoProfileCoordinate2, SO_FROM_INVENTOR_1);
 
   SO_ENABLE(SoCallbackAction, SoProfileCoordinateElement);
-  SO_ENABLE(SoGLRenderAction, SoProfileCoordinateElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoProfileCoordinateElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoProfileCoordinateElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoProfileCoordinateElement);
   SO_ENABLE(SoPickAction, SoProfileCoordinateElement);

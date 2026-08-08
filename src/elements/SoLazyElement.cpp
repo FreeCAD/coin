@@ -241,9 +241,11 @@ void
 SoLazyElement::setDiffuse(SoState * state, SoNode * node, int32_t numcolors,
                           const SbColor * colors, SoColorPacker * packer)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setColorVBO(state, NULL);
   }
+#endif
   SoLazyElement * elem = SoLazyElement::getInstance(state);
   if (numcolors && (elem->coinstate.diffusenodeid !=
                     get_diffuse_node_id(node, numcolors, colors))) {
@@ -262,9 +264,11 @@ void
 SoLazyElement::setTransparency(SoState *state, SoNode *node, int32_t numvalues,
                                const float * transparency, SoColorPacker * packer)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setColorVBO(state, NULL);
   }
+#endif
   SoLazyElement * elem = SoLazyElement::getInstance(state);
   if (numvalues && (elem->coinstate.transpnodeid !=
                     get_transp_node_id(node, numvalues, transparency))) {
@@ -285,9 +289,11 @@ SoLazyElement::setPacked(SoState * state, SoNode * node,
                          int32_t numcolors, const uint32_t * colors,
                          const SbBool packedtransparency)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setColorVBO(state, NULL);
   }
+#endif
   SoLazyElement * elem = SoLazyElement::getInstance(state);
   if (numcolors && elem->coinstate.diffusenodeid != node->getNodeId()) {
     elem = getWInstance(state);
@@ -746,9 +752,11 @@ SoLazyElement::setMaterials(SoState * state, SoNode *node, uint32_t bitmask,
                             const float shininess,
                             const SbBool istransparent)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setColorVBO(state, NULL);
   }
+#endif
   SoLazyElement * elem = SoLazyElement::getInstance(state);
 
   uint32_t eltbitmask = 0;

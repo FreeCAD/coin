@@ -203,7 +203,7 @@ SoSwitch::initClass(void)
   SO_ENABLE(SoGetBoundingBoxAction, SoSwitchElement);
   SO_ENABLE(SoSearchAction, SoSwitchElement);
   SO_ENABLE(SoGetMatrixAction, SoSwitchElement);
-  SO_ENABLE(SoGLRenderAction, SoSwitchElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoSwitchElement);
   SO_ENABLE(SoPickAction, SoSwitchElement);
 
   SO_ENABLE(SoCallbackAction, SoSwitchElement);

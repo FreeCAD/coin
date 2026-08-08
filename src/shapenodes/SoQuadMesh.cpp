@@ -346,7 +346,7 @@ static SbBool qmeshNormalize(SbVec3f & v, float toLength2)
   return FALSE;
 }
 
-#if defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if COIN_BUILD_LEGACY_GL_RENDERER
 
 namespace { namespace SoGL { namespace QuadMesh {
 
@@ -856,7 +856,7 @@ SoQuadMesh::initClass(void)
 void
 SoQuadMesh::GLRender(SoGLRenderAction * action)
 {
-#if !defined(COIN_BUILD_LEGACY_GL_RENDERER)
+#if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   return;
 #else
