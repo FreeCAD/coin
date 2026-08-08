@@ -1028,10 +1028,6 @@ SoGLRenderAction::getSortedLayersNumPasses() const
 void
 SoGLRenderAction::beginTraversal(SoNode * node)
 {
-  // SoAction::apply() has already created the state by the time this
-  // defensive boundary is reached. Keep the capability check independent of
-  // that state, and perform it before any state recreation for a context
-  // generation change.
   if (!sogl_legacy_rendering_available(sogl_current_glue())) {
     SoDebugError::postWarning(
       "SoGLRenderAction::beginTraversal",
@@ -1095,7 +1091,7 @@ SoGLRenderAction::beginTraversal(SoNode * node)
   if (PRIVATE(this)->needglinit) {
     PRIVATE(this)->needglinit = FALSE;
 
-    // We are always using GL_COLOR_MATERIAL in Coin.
+    // we are always using GL_COLOR_MATERIAL in Coin
     glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
     glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_NORMALIZE);
@@ -2110,6 +2106,7 @@ SoGLRenderActionP::texgenEnable(SbBool enable)
 void
 SoGLRenderActionP::eyeLinearTexgen()
 {
+
   const float col1[] = { 1, 0, 0, 0 };
   const float col2[] = { 0, 1, 0, 0 };
   const float col3[] = { 0, 0, 1, 0 };
@@ -2119,10 +2116,12 @@ SoGLRenderActionP::eyeLinearTexgen()
   glTexGenfv(GL_T,GL_EYE_PLANE, col2);
   glTexGenfv(GL_R,GL_EYE_PLANE, col3);
   glTexGenfv(GL_Q,GL_EYE_PLANE, col4);
+
   glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
   glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
   glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
   glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
+
 }
 
 void
@@ -2689,11 +2688,9 @@ SoGLRenderActionP::renderSortedLayersNV(const SoState * state)
 
 }
 
-#else // !COIN_BUILD_LEGACY_GL_RENDERER
+// *************************************************************************
 
-// Core-profile and GLES builds retain the public action type for source and
-// ABI compatibility, but the fixed-function traversal itself is unavailable.
-// Keeping this small stub here makes that boundary explicit.
+#else
 
 class SoGLRenderActionP {
 public:
@@ -2782,4 +2779,4 @@ void SoGLRenderAction::endTraversal(SoNode * COIN_UNUSED_ARG(node)) { }
 
 #undef PRIVATE
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
