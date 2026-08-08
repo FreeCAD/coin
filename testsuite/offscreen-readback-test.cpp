@@ -1,0 +1,83 @@
+#include "rendering/CoinOffscreenGLCanvas.h"
+
+#include <Inventor/C/glue/gl.h>
+
+#include <cstdlib>
+#include <iostream>
+
+namespace {
+
+int skip(const char * reason)
+{
+  std::cout << "SKIP: " << reason << std::endl;
+  return 77;
+}
+
+bool check(bool condition, const char * message)
+{
+  if (!condition) std::cerr << "FAIL: " << message << std::endl;
+  return condition;
+}
+
+void set_environment(const char * name, const char * value)
+{
+#ifdef _WIN32
+  _putenv_s(name, value);
+#else
+  setenv(name, value, 1);
+#endif
+}
+
+bool can_create_offscreen_context()
+{
+  void * context = cc_glglue_context_create_offscreen(2, 2);
+  if (context == NULL) return false;
+
+  if (!cc_glglue_context_make_current(context)) {
+    cc_glglue_context_destruct(context);
+    return false;
+  }
+
+  cc_glglue_context_reinstate_previous(context);
+  cc_glglue_context_destruct(context);
+  return true;
+}
+
+}
+
+int main()
+{
+  set_environment("COIN_EGL", "1");
+  set_environment("EGL_PLATFORM", "surfaceless");
+  set_environment("COIN_EGL_CORE_PROFILE", "1");
+
+  if (!can_create_offscreen_context()) {
+    return skip("core EGL offscreen context could not be established");
+  }
+
+  CoinOffscreenGLCanvas canvas;
+  canvas.setWantedSize(SbVec2s(2, 2));
+  if (canvas.activateGLContext() == 0) {
+    return skip("core EGL offscreen context is unavailable");
+  }
+
+  glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  uint8_t pixels[2 * 2 * 4] = { 0 };
+  canvas.readPixels(pixels, SbVec2s(2, 2), 2, 4);
+  canvas.deactivateGLContext();
+
+  for (unsigned int i = 0; i < sizeof(pixels); i += 4) {
+    if (!check(pixels[i + 0] >= 60 && pixels[i + 0] <= 70,
+               "red readback component is incorrect")) return 1;
+    if (!check(pixels[i + 1] >= 120 && pixels[i + 1] <= 135,
+               "green readback component is incorrect")) return 1;
+    if (!check(pixels[i + 2] >= 185 && pixels[i + 2] <= 200,
+               "blue readback component is incorrect")) return 1;
+    if (!check(pixels[i + 3] >= 245,
+               "alpha readback component is incorrect")) return 1;
+  }
+
+  return 0;
+}
