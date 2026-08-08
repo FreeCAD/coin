@@ -9,7 +9,6 @@ set(COIN_ACTIONS_FILES
 	SoHandleEventAction.cpp
 	SoPickAction.cpp
 	SoRayPickAction.cpp
-	SoReorganizeAction.cpp
 	SoSearchAction.cpp
 	SoSimplifyAction.cpp
 	SoToVRMLAction.cpp
@@ -23,6 +22,7 @@ if(COIN_BUILD_LEGACY_GL_RENDERER)
 		SoBoxHighlightRenderAction.cpp
 		SoGLRenderAction.cpp
 		SoLineHighlightRenderAction.cpp
+		SoReorganizeAction.cpp
 	)
 endif()
 

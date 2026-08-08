@@ -125,12 +125,14 @@ SoBumpMapCoordinate::doAction(SoAction * action)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoBumpMapCoordinate::GLRender(SoGLRenderAction * action)
 {
   SoBumpMapCoordinateElement::set(action->getState(), this,
                                   point.getNum(), point.getValues(0));
 }
+#endif
 
 // Doc from superclass.
 void

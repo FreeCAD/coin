@@ -413,6 +413,7 @@ SoVRMLInline::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLInline::GLRender(SoGLRenderAction * action)
 {
@@ -480,6 +481,7 @@ SoVRMLInline::GLRender(SoGLRenderAction * action)
   SoVRMLInline::doAction(action);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 // Doc in parent
 void

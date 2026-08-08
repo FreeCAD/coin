@@ -153,6 +153,7 @@ SoDirectionalLight::initClass(void)
 // *************************************************************************
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -221,5 +222,6 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
 #endif
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 // *************************************************************************

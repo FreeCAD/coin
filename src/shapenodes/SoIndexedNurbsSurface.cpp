@@ -240,6 +240,7 @@ SoIndexedNurbsSurface::computeBBox(SoAction * action,
 }
 
 // Doc in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
 {
@@ -271,6 +272,7 @@ SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // Doc in superclass.
 // Doc in superclass.

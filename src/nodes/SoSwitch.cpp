@@ -212,11 +212,13 @@ SoSwitch::initClass(void)
 }
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSwitch::GLRender(SoGLRenderAction * action)
 {
   this->doAction(action);
 }
+#endif
 
 // Documented in superclass.
 void

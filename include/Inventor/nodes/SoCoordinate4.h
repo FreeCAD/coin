@@ -50,7 +50,11 @@ public:
   SoMFVec4f point;
 
   void doAction(SoAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
+#endif
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void callback(SoCallbackAction * action) override;
   void pick(SoPickAction * action) override;

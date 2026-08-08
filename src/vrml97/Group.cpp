@@ -152,7 +152,9 @@ static void
 sovrmlgroup_storage_destruct(void * data)
 {
   sovrmlgroup_storage * ptr = (sovrmlgroup_storage*) data;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete ptr->glcachelist;
+#endif
 }
 
 // *************************************************************************
@@ -180,9 +182,13 @@ public:
   SbStorage * glcachestorage;
   static void invalidate_gl_cache(void * tls, void *) {
     sovrmlgroup_storage * ptr = (sovrmlgroup_storage*) tls;
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (ptr->glcachelist) {
       ptr->glcachelist->invalidateAll();
     }
+#else
+    (void) ptr;
+#endif
   }
 
 public:
@@ -204,6 +210,7 @@ public:
 #endif // !COIN_THREADSAFE
 };
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 SoGLCacheList *
 SoVRMLGroupP::getGLCacheList(const SbBool createifnull)
 {
@@ -214,6 +221,7 @@ SoVRMLGroupP::getGLCacheList(const SbBool createifnull)
   }
   return ptr->glcachelist;
 }
+#endif
 
 #define PRIVATE(obj) ((obj)->pimpl)
 
@@ -351,6 +359,7 @@ SoVRMLGroup::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLGroup::GLRender(SoGLRenderAction * action )
 {
@@ -367,6 +376,7 @@ SoVRMLGroup::GLRender(SoGLRenderAction * action )
     break;
   }
 }
+#endif
 
 // Doc in parent
 void
@@ -560,6 +570,7 @@ SoVRMLGroup::getPrimitiveCount(SoGetPrimitiveCountAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLGroup::GLRenderBelowPath(SoGLRenderAction * action)
 {
@@ -647,8 +658,10 @@ SoVRMLGroup::GLRenderBelowPath(SoGLRenderAction * action)
     createcache->close(action);
   }
 }
+#endif
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLGroup::GLRenderInPath(SoGLRenderAction * action)
 {
@@ -701,13 +714,16 @@ SoVRMLGroup::GLRenderInPath(SoGLRenderAction * action)
     this->GLRenderBelowPath(action);
   }
 }
+#endif
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLGroup::GLRenderOffPath(SoGLRenderAction * COIN_UNUSED_ARG(action))
 {
   // do nothing
 }
+#endif
 
 // Doc in parent
 void

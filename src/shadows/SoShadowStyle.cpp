@@ -132,6 +132,7 @@ SoShadowStyle::initClass(void)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowStyle::GLRender(SoGLRenderAction * action)
 {
@@ -151,6 +152,7 @@ SoShadowStyle::GLRender(SoGLRenderAction * action)
     }
   }
 }
+#endif
 
 
 

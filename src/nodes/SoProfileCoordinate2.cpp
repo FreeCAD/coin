@@ -123,11 +123,13 @@ SoProfileCoordinate2::doAction(SoAction * action)
                                    this->point.getValues(0));
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoProfileCoordinate2::GLRender(SoGLRenderAction * action)
 {
   SoProfileCoordinate2::doAction(action);
 }
+#endif
 
 void
 SoProfileCoordinate2::callback(SoCallbackAction * action)

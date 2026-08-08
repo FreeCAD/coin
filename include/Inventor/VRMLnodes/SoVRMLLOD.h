@@ -70,7 +70,9 @@ public:
 
   void doAction(SoAction * action) override;
   void callback(SoCallbackAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void rayPick(SoRayPickAction * action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void search(SoSearchAction * action) override;
@@ -78,9 +80,15 @@ public:
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
   void audioRender(SoAudioRenderAction * action) override;
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderInPath(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderOffPath(SoGLRenderAction * action) override;
+#endif
 
   void addChild(SoNode * child) override;
   void insertChild(SoNode * child, int idx) override;

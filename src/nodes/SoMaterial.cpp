@@ -294,7 +294,11 @@ public:
     colorpacker_storage(sizeof(void*), alloc_colorpacker, free_colorpacker),
 #endif // COIN_THREADSAFE
     vbo(NULL) { }
-  ~SoMaterialP() { delete this->vbo; }
+  ~SoMaterialP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
 
   int materialtype;
   int transparencyflag;
@@ -386,12 +390,14 @@ SoMaterial::initClass(void)
   SO_ENABLE_GL(SoGLRenderAction, SoTransparencyElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoMaterial::GLRender(SoGLRenderAction * action)
 {
   SoMaterial::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void

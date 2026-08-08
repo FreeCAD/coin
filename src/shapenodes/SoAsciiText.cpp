@@ -316,6 +316,7 @@ SoAsciiText::initClass(void)
 }
 
 // Doc in parent.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoAsciiText::GLRender(SoGLRenderAction * action)
 {
@@ -471,6 +472,7 @@ SoAsciiText::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 // Doc in parent.
 void

@@ -443,6 +443,7 @@ SoTriangleStripSet::initClass(void)
   SOGL_TRISTRIPSET_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTriangleStripSet::GLRender(SoGLRenderAction * action)
 {
@@ -536,6 +537,7 @@ SoTriangleStripSet::GLRender(SoGLRenderAction * action)
                         (this->numVertices[0]-2)*numv : 0, FALSE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   #undef SOGL_TRISTRIPSET_GLRENDER_CALL_FUNC
 #undef SOGL_TRISTRIPSET_GLRENDER_CALL_FUNC

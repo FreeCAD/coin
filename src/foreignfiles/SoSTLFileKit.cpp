@@ -447,9 +447,11 @@ SoSTLFileKit::convert()
   facets_copy->copyContents(facets_orig, FALSE);
   sceneroot->addChild(facets_copy);
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   // optimize/reorganize mesh
   SoReorganizeAction ra;
   ra.apply(sceneroot);
+#endif
 
   // FIXME: remove redundant scene graph nodes after scene reorganization
 

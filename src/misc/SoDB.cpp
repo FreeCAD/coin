@@ -348,7 +348,9 @@ SoDB::init(void)
 #endif
 
   // FIXME: probably temporary. Add FXViz::init() or something? pederb, 2007-03-09
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoShadowGroup::init();
+#endif
   SoGeo::init();
 
 #ifdef HAVE_VRML97

@@ -288,6 +288,7 @@ SoTextureCoordinateCube::doAction(SoAction * action)
 }
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureCoordinateCube::GLRender(SoGLRenderAction * action)
 {
@@ -305,6 +306,7 @@ SoTextureCoordinateCube::GLRender(SoGLRenderAction * action)
                                                  PRIVATE(this));
   }
 }
+#endif
 
 // Documented in superclass.
 void

@@ -170,11 +170,13 @@ SoProfile::callback(SoCallbackAction * action)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoProfile::GLRender(SoGLRenderAction * action)
 {
   SoProfile::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void

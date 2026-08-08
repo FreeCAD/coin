@@ -204,6 +204,7 @@ SoCone::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec3f &
 }
 
 // Doc from parent.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCone::GLRender(SoGLRenderAction * action)
 {
@@ -258,6 +259,7 @@ SoCone::GLRender(SoGLRenderAction * action)
 #endif // debug
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   /*!
 /*!

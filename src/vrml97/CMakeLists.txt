@@ -82,7 +82,7 @@ if(COIN_BUILD_SINGLE_LIB)
 	foreach(SRCFILE ${COIN_VRML97_FILES})
 		set(COIN_SOURCE ${COIN_SOURCE} vrml97/${SRCFILE} CACHE INTERNAL "COIN_SOURCE")
 	endforeach(SRCFILE)
-else()
+	else()
 	add_library(vrml97 OBJECT ${COIN_VRML97_FILES})
 endif()
 

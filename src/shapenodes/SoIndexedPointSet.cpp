@@ -142,7 +142,9 @@ SoIndexedPointSet::SoIndexedPointSet()
 */
 SoIndexedPointSet::~SoIndexedPointSet()
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete this->vaindexer;
+#endif
 }
 
 /*!
@@ -225,6 +227,7 @@ SoIndexedPointSet::findTextureBinding(SoState * const state) const
   return binding;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoIndexedPointSet::GLRender(SoGLRenderAction * action)
@@ -418,6 +421,7 @@ SoIndexedPointSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, numindices/3, didrenderasvbo);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // Documented in superclass.
 // Documented in superclass.
@@ -586,7 +590,9 @@ SoIndexedPointSet::notify(SoNotList * list)
   SoField * f = list->getLastField();
   if (f == &this->coordIndex) {
     LOCK_VAINDEXER(this);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vaindexer;
+#endif
     this->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }

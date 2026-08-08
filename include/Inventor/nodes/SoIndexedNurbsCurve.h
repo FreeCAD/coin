@@ -54,7 +54,9 @@ public:
   SoMFInt32 coordIndex;
   SoMFFloat knotVector;
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void rayPick(SoRayPickAction * action) override;
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;

@@ -230,6 +230,7 @@ SoVRMLPixelTexture::rayPick(SoRayPickAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPixelTexture::GLRender(SoGLRenderAction * action)
 {
@@ -298,6 +299,7 @@ SoVRMLPixelTexture::GLRender(SoGLRenderAction * action)
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
 }
+#endif
 
 // doc in parent
 void

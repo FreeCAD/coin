@@ -50,10 +50,10 @@
 #include "SoHandleEventAction.cpp"
 #if COIN_BUILD_LEGACY_GL_RENDERER
 #include "SoLineHighlightRenderAction.cpp"
+#include "SoReorganizeAction.cpp"
 #endif
 #include "SoPickAction.cpp"
 #include "SoRayPickAction.cpp"
-#include "SoReorganizeAction.cpp"
 #include "SoSearchAction.cpp"
 #include "SoSimplifyAction.cpp"
 #include "SoToVRMLAction.cpp"

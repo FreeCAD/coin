@@ -390,11 +390,13 @@ SoVRMLSwitch::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLSwitch::GLRender(SoGLRenderAction * action)
 {
   SoVRMLSwitch::doAction(action);
 }
+#endif
 
 // Doc in parent
 void

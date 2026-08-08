@@ -853,6 +853,7 @@ SoQuadMesh::initClass(void)
   SOGL_QUADMESH_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoQuadMesh::GLRender(SoGLRenderAction * action)
 {
@@ -989,6 +990,7 @@ SoQuadMesh::GLRender(SoGLRenderAction * action)
   if (didpush) state->pop();
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC

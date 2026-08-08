@@ -208,6 +208,7 @@ SoNurbsCurve::initClass(void)
 }
 
 // Doc from parent class.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsCurve::GLRender(SoGLRenderAction * action)
 {
@@ -243,6 +244,7 @@ SoNurbsCurve::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   /*!
 /*!

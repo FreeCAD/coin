@@ -247,6 +247,7 @@ SoVertexAttribute::doAction(SoAction * action)
   SoVertexAttributeElement::add(action->getState(), PRIVATE(this)->attributedata);
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVertexAttribute::GLRender(SoGLRenderAction * action)
 {
@@ -317,6 +318,7 @@ SoVertexAttribute::GLRender(SoGLRenderAction * action)
   SoBase::staticDataUnlock();
 #endif
 }
+#endif
 
 SoMField *
 SoVertexAttribute::getValuesField(void) const

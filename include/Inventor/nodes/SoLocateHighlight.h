@@ -63,8 +63,12 @@ public:
   SoSFEnum mode;
 
   void handleEvent(SoHandleEventAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderInPath(SoGLRenderAction * action) override;
+#endif
   static void turnOffCurrentHighlight(SoGLRenderAction * action);
 
 protected:

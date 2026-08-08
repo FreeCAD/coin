@@ -722,7 +722,9 @@ SoNode::initClasses(void)
   SoBumpMapTransform::initClass();
 
   SoSceneTexture2::initClass();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoSceneTextureCubeMap::initClass();
+#endif
 
   SoTextureCoordinateCube::initClass();
   SoTextureCoordinateSphere::initClass();
@@ -1635,7 +1637,9 @@ init_action_methods(void)
   SoRayPickAction::addMethod(SoBumpMap::getClassTypeId(), SoNode::rayPickS);
   SoRayPickAction::addMethod(SoImage::getClassTypeId(), SoNode::rayPickS);
   SoRayPickAction::addMethod(SoSceneTexture2::getClassTypeId(), SoNode::rayPickS);
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoRayPickAction::addMethod(SoSceneTextureCubeMap::getClassTypeId(), SoNode::rayPickS);
+#endif
   SoRayPickAction::addMethod(SoTextureCubeMap::getClassTypeId(), SoNode::rayPickS);
 
   SoSearchAction::addMethod(SoNode::getClassTypeId(), SoNode::searchS);

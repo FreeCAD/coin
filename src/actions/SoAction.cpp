@@ -426,11 +426,13 @@ SoAction::initClasses(void)
   SoIntersectionDetectionAction::initClass();
 
   SoSimplifyAction::initClass();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoReorganizeAction::initClass();
+#endif
   SoToVRMLAction::initClass();
 #ifdef HAVE_VRML97
   SoToVRML2Action::initClass();
-#endif // HAVE_VRML97
+#endif
 }
 
 /*!

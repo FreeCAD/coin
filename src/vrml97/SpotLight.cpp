@@ -238,6 +238,7 @@ SoVRMLSpotLight::~SoVRMLSpotLight()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLSpotLight::GLRender(SoGLRenderAction * action)
 {
@@ -290,5 +291,6 @@ SoVRMLSpotLight::GLRender(SoGLRenderAction * action)
   (void)state;
 #endif
 }
+#endif
 
 #endif // HAVE_VRML97

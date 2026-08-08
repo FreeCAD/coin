@@ -75,7 +75,11 @@
 class SoCoordinate3P {
  public:
   SoCoordinate3P() : vbo(NULL) { }
-  ~SoCoordinate3P() { delete this->vbo; }
+  ~SoCoordinate3P() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -129,6 +133,7 @@ SoCoordinate3::doAction(SoAction * action)
                             point.getNum(), point.getValues(0));
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoCoordinate3::GLRender(SoGLRenderAction * action)
@@ -165,6 +170,7 @@ SoCoordinate3::GLRender(SoGLRenderAction * action)
   SoGLVBOElement::setVertexVBO(state, setvbo ? PRIVATE(this)->vbo : NULL);
 #endif
 }
+#endif
 
 // Doc from superclass.
 void

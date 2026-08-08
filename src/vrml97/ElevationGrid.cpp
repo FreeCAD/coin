@@ -377,6 +377,7 @@ SoVRMLElevationGrid::~SoVRMLElevationGrid(void)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
 {
@@ -632,6 +633,7 @@ SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
   state->pop();
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 // Doc in parent
 void

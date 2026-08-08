@@ -125,6 +125,7 @@ SoVRMLDirectionalLight::~SoVRMLDirectionalLight()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -172,5 +173,6 @@ SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
   (void)action;
 #endif
 }
+#endif
 
 #endif // HAVE_VRML97

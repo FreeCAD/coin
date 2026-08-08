@@ -403,11 +403,13 @@ SoShapeHints::doAction(SoAction * action)
 #undef TEST_OVERRIDE
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShapeHints::GLRender(SoGLRenderAction * action)
 {
   SoShapeHints::doAction(action);
 }
+#endif
 
 void
 SoShapeHints::callback(SoCallbackAction * action)

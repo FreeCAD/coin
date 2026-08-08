@@ -379,6 +379,7 @@ SoTextureCubeMap::readInstance(SoInput * in, unsigned short flags)
   return readOK;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoTextureCubeMap::GLRender(SoGLRenderAction * action)
@@ -460,6 +461,7 @@ SoTextureCubeMap::GLRender(SoGLRenderAction * action)
     // units will be ignored. pederb, 2003-11-04
   }
 }
+#endif
 
 // Documented in superclass.
 void

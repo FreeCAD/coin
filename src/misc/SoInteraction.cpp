@@ -132,7 +132,9 @@ SoInteraction::init(void)
 
   SoAntiSquish::initClass();
   SoSelection::initClass();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoExtSelection::initClass();
+#endif
   SoSurroundScale::initClass();
 
   SoNodeKit::init();

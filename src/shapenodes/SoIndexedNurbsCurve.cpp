@@ -205,6 +205,7 @@ SoIndexedNurbsCurve::computeBBox(SoAction * action,
 }
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
 {
@@ -240,6 +241,7 @@ SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // doc from parent
 // doc from parent

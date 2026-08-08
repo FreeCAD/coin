@@ -211,6 +211,7 @@ SoComplexity::getBoundingBox(SoGetBoundingBoxAction * action)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoComplexity::GLRender(SoGLRenderAction * action)
 {
@@ -226,6 +227,7 @@ SoComplexity::GLRender(SoGLRenderAction * action)
     }
   }
 }
+#endif
 
 // Doc from superclass.
 void

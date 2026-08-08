@@ -328,6 +328,7 @@ SoImage::computeBBox(SoAction * action,
 }
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoImage::GLRender(SoGLRenderAction * action)
 {
@@ -529,6 +530,7 @@ SoImage::GLRender(SoGLRenderAction * action)
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // doc from parent
 // doc from parent

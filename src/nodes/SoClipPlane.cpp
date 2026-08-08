@@ -184,6 +184,7 @@ SoClipPlane::doAction(SoAction * action)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoClipPlane::GLRender(SoGLRenderAction * action)
 {
@@ -195,6 +196,7 @@ SoClipPlane::GLRender(SoGLRenderAction * action)
     SoCullElement::addPlane(action->getState(), p);
   }
 }
+#endif
 
 // Doc from superclass.
 void

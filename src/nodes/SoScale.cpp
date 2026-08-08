@@ -124,11 +124,13 @@ SoScale::doAction(SoAction * action)
 }
 
 // Doc in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoScale::GLRender(SoGLRenderAction * action)
 {
   SoScale::doAction((SoAction *)action);
 }
+#endif
 
 // Doc in superclass.
 void

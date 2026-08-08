@@ -113,11 +113,13 @@ SoVRMLGeometry::~SoVRMLGeometry()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoVRMLGeometry::shouldGLRender(SoGLRenderAction * action)
 {
   return inherited::shouldGLRender(action);
 }
+#endif
  
 /*!
   Convenience method that updates the shape hints element.

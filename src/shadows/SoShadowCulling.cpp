@@ -125,6 +125,7 @@ SoShadowCulling::initClass(void)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowCulling::GLRender(SoGLRenderAction * action)
 {
@@ -148,6 +149,7 @@ SoShadowCulling::GLRender(SoGLRenderAction * action)
     }
   }
 }
+#endif
 
 
 #ifdef COIN_TEST_SUITE

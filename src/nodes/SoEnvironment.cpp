@@ -188,6 +188,7 @@ SoEnvironment::initClass(void)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoEnvironment::GLRender(SoGLRenderAction * action)
 {
@@ -202,6 +203,7 @@ SoEnvironment::GLRender(SoGLRenderAction * action)
                             this->fogColor.getValue(),
                             this->fogVisibility.getValue());
 }
+#endif
 
 // Doc from superclass.
 void

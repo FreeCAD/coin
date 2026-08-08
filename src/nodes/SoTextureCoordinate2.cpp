@@ -143,7 +143,11 @@ Separator {
 class SoTextureCoordinate2P {
  public:
   SoTextureCoordinate2P() : vbo(NULL) { }
-  ~SoTextureCoordinate2P() { delete this->vbo; }
+  ~SoTextureCoordinate2P() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -194,6 +198,7 @@ SoTextureCoordinate2::doAction(SoAction * action)
                                         this->point.getValues(0));
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoTextureCoordinate2::GLRender(SoGLRenderAction * action)
@@ -241,6 +246,7 @@ SoTextureCoordinate2::GLRender(SoGLRenderAction * action)
   SoGLVBOElement::setTexCoordVBO(state, 0, setvbo ? PRIVATE(this)->vbo : NULL);
 #endif
 }
+#endif
 
 // Documented in superclass.
 void

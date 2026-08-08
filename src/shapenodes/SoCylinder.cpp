@@ -234,6 +234,7 @@ SoCylinder::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec
 }
 
 // Doc in parent.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCylinder::GLRender(SoGLRenderAction * action)
 {
@@ -283,6 +284,7 @@ SoCylinder::GLRender(SoGLRenderAction * action)
                        flags, state);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   /*!
 /*!

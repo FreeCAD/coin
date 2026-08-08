@@ -172,6 +172,7 @@ SoVRMLCylinder::~SoVRMLCylinder()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLCylinder::GLRender(SoGLRenderAction * action)
 {
@@ -207,6 +208,7 @@ SoVRMLCylinder::GLRender(SoGLRenderAction * action)
                        &mb,
                        flags, state);
 }
+#endif
 
 // Doc in parent
 void

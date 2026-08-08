@@ -310,7 +310,9 @@ SoIndexedFaceSet::SoIndexedFaceSet()
 */
 SoIndexedFaceSet::~SoIndexedFaceSet()
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete PRIVATE(this)->vaindexer;
+#endif
   if (PRIVATE(this)->convexCache) PRIVATE(this)->convexCache->unref();
   delete PRIVATE(this);
 }
@@ -413,13 +415,16 @@ SoIndexedFaceSet::notify(SoNotList * list)
   if (f == &this->coordIndex) {
     PRIVATE(this)->concavestatus = STATUS_UNKNOWN;
     LOCK_VAINDEXER(this);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete PRIVATE(this)->vaindexer;
+#endif
     PRIVATE(this)->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }
   inherited::notify(list);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
@@ -512,6 +517,7 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
   }
 
   SbBool convexcacheused = FALSE;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (this->useConvexCache(action, normals, nindices, normalCacheUsed)) {
     cindices = PRIVATE(this)->convexCache->getCoordIndices();
     numindices = PRIVATE(this)->convexCache->getNumCoordIndices();
@@ -527,6 +533,7 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
     if (tbind != NONE) tbind = PER_VERTEX_INDEXED;
     convexcacheused = TRUE;
   }
+#endif
 
   mb.sendFirst(); // make sure we have the correct material
 
@@ -666,6 +673,7 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, this->coordIndex.getNum() / 4, didrenderasvbo);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
     // this macro actually makes the code below more readable  :-)
   // this macro actually makes the code below more readable  :-)
@@ -784,6 +792,7 @@ SoIndexedFaceSet::generatePrimitives(SoAction *action)
   }
 
   SbBool convexcacheused = FALSE;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (this->useConvexCache(action, normals, nindices, normalCacheUsed)) {
     cindices = PRIVATE(this)->convexCache->getCoordIndices();
     numindices = PRIVATE(this)->convexCache->getNumCoordIndices();
@@ -799,6 +808,7 @@ SoIndexedFaceSet::generatePrimitives(SoAction *action)
     if (tbind != NONE) tbind = PER_VERTEX_INDEXED;
     convexcacheused = TRUE;
   }
+#endif
 
   int texidx = 0;
   TriangleShape mode = POLYGON;
@@ -956,6 +966,7 @@ SoIndexedFaceSet::getPrimitiveCount(SoGetPrimitiveCountAction *action)
 // used or (re)created. Returns TRUE if convex cache must be
 // used. this->convexCache is then guaranteed to be != NULL.
 //
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoIndexedFaceSet::useConvexCache(SoAction * action,
                                  const SbVec3f * COIN_UNUSED_ARG(normals),
@@ -1083,6 +1094,7 @@ SoIndexedFaceSet::useConvexCache(SoAction * action,
 
   return TRUE;
 }
+#endif
 
 // Documented in superclass.
 SbBool

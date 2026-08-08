@@ -229,12 +229,14 @@ class SoVertexPropertyP {
     this->transparent = FALSE;
   }
   ~SoVertexPropertyP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
     for (int i = 0; i < this->texcoordvbo.getLength(); i++) {
       delete this->texcoordvbo[i];
     }
     delete this->vertexvbo;
     delete this->normalvbo;
     delete this->colorvbo;
+#endif
   }
   
   SoVertexProperty * master;
@@ -341,12 +343,14 @@ SoVertexProperty::getBoundingBox(SoGetBoundingBoxAction * action)
   }
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoVertexProperty::GLRender(SoGLRenderAction * action)
 {
   SoVertexProperty::doAction(action);
 }
+#endif
 
 #define TEST_OVERRIDE(bit, flags) ((SoOverrideElement::bit & (flags)) != 0)
 

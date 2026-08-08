@@ -82,7 +82,11 @@
 class SoCoordinate4P {
  public:
   SoCoordinate4P() : vbo(NULL) { }
-  ~SoCoordinate4P() { delete this->vbo; }
+  ~SoCoordinate4P() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -141,6 +145,7 @@ SoCoordinate4::doAction(SoAction * action)
                             point.getNum(), point.getValues(0));
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoCoordinate4::GLRender(SoGLRenderAction * action)
@@ -179,6 +184,7 @@ SoCoordinate4::GLRender(SoGLRenderAction * action)
   }
 #endif
 }
+#endif
 
 // Doc from superclass.
 void
