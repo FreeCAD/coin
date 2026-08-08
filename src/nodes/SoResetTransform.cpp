@@ -123,6 +123,7 @@ SoResetTransform::initClass(void)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoResetTransform::GLRender(SoGLRenderAction * action)
 {
@@ -132,6 +133,7 @@ SoResetTransform::GLRender(SoGLRenderAction * action)
     SoGLModelMatrixElement::makeIdentity(state, this);
   }
 }
+#endif
 
 // Doc from superclass.
 void

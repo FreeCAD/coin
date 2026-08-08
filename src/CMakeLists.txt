@@ -159,6 +159,11 @@ if(NOT COIN_BUILD_SINGLE_LIB)
   set(COIN_GLELEMENTS_OBJECTS $<TARGET_OBJECTS:glelements>)
 endif()
 
+set(COIN_SHADOWS_OBJECTS "")
+if(NOT COIN_BUILD_SINGLE_LIB AND COIN_BUILD_LEGACY_GL_RENDERER)
+  set(COIN_SHADOWS_OBJECTS $<TARGET_OBJECTS:shadows>)
+endif()
+
 # Create the library target
 if(COIN_BUILD_SINGLE_LIB)
   add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES}
@@ -202,7 +207,7 @@ else()
     $<TARGET_OBJECTS:scxml>
     $<TARGET_OBJECTS:sensors>
     $<TARGET_OBJECTS:shaders>
-    $<TARGET_OBJECTS:shadows>
+    ${COIN_SHADOWS_OBJECTS}
     $<TARGET_OBJECTS:shapenodes>
     $<TARGET_OBJECTS:soscxml>
     $<TARGET_OBJECTS:threads>
@@ -210,6 +215,12 @@ else()
     $<TARGET_OBJECTS:vrml97>
     $<TARGET_OBJECTS:xml>
   )
+endif()
+
+if(NOT COIN_BUILD_LEGACY_GL_RENDERER AND
+   CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND
+   CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_link_options(${PROJECT_NAME} PRIVATE LINKER:-z,defs)
 endif()
 
 # Export a Coin::Coin target when the library is built as a cmake subdirectory

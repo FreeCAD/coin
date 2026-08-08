@@ -61,10 +61,20 @@ public:
   SoSFEnum pickCulling;
 
   void doAction(SoAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderInPath(SoGLRenderAction * action) override;
+#endif
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderOffPath(SoGLRenderAction * action) override;
+#endif
+#endif
   void callback(SoCallbackAction * action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void getMatrix(SoGetMatrixAction * action) override;
@@ -84,7 +94,9 @@ protected:
   virtual ~SoSeparator();
 
   virtual SbBool cullTest(SoState * state);
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   virtual SbBool cullTest(SoGLRenderAction * action, int & cullresults);
+#endif
   SbBool readInstance(SoInput * in, unsigned short flags) override;
 
 private:

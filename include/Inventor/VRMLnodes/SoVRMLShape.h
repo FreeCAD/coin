@@ -66,7 +66,9 @@ public:
 
   void doAction(SoAction * action) override;
   void callback(SoCallbackAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void rayPick(SoRayPickAction * action) override;
   void search(SoSearchAction * action) override;

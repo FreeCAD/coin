@@ -78,7 +78,9 @@ public:
 protected:
   virtual ~SoTabPlaneDragger(void);
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
 
   SbBool setUpConnections(SbBool onoff, SbBool doitalways = FALSE) override;
   void setDefaultOnNonWritingFields(void) override;

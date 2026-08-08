@@ -273,6 +273,7 @@ translateWrap(const SoTexture3::Wrap wrap)
 }
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTexture3::GLRender(SoGLRenderAction * action)
 {
@@ -358,6 +359,7 @@ SoTexture3::GLRender(SoGLRenderAction * action)
   }
 #endif
 }
+#endif
 
 // doc from parent
 void

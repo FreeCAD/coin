@@ -435,6 +435,7 @@ SoLineSet::initClass(void)
   SOGL_LINESET_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLineSet::GLRender(SoGLRenderAction * action)
 {
@@ -522,6 +523,7 @@ SoLineSet::GLRender(SoGLRenderAction * action)
                         (this->numVertices[0]-1)*numv : 0, FALSE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   #undef SOGL_LINESET_GLRENDER_CALL_FUNC
 #undef SOGL_LINESET_GLRENDER_CALL_FUNC

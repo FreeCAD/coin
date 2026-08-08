@@ -147,6 +147,7 @@ SoIndexedMarkerSet::initClass(void)
 }
 
 // doc from parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
 {
@@ -326,3 +327,4 @@ SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, numindices/3, FALSE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif

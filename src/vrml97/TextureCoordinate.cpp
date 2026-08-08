@@ -103,7 +103,11 @@
 class SoVRMLTextureCoordinateP {
  public:
   SoVRMLTextureCoordinateP() : vbo(NULL) { }
-  ~SoVRMLTextureCoordinateP() { delete this->vbo; }
+  ~SoVRMLTextureCoordinateP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -156,6 +160,7 @@ SoVRMLTextureCoordinate::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLTextureCoordinate::GLRender(SoGLRenderAction * action)
 {
@@ -192,6 +197,7 @@ SoVRMLTextureCoordinate::GLRender(SoGLRenderAction * action)
     SoGLVBOElement::setTexCoordVBO(state, 0, PRIVATE(this)->vbo);
   }
 }
+#endif
 
 // Doc in parent
 void

@@ -330,6 +330,7 @@ SoText2::initClass(void)
 // **************************************************************************
 
 // doc in super
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoText2::GLRender(SoGLRenderAction * action)
 {
@@ -571,6 +572,7 @@ SoText2::GLRender(SoGLRenderAction * action)
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // **************************************************************************
 // **************************************************************************

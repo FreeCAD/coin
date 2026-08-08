@@ -330,7 +330,9 @@ SoVRMLIndexedFaceSet::SoVRMLIndexedFaceSet(void)
 SoVRMLIndexedFaceSet::~SoVRMLIndexedFaceSet() // virtual, protected
 {
   if (PRIVATE(this)->convexCache) PRIVATE(this)->convexCache->unref();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete PRIVATE(this)->vaindexer;
+#endif
   delete PRIVATE(this);
 }
 
@@ -439,6 +441,7 @@ SoVRMLIndexedFaceSet::findNormalBinding(SoState * state) const
 
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLIndexedFaceSet::GLRender(SoGLRenderAction * action)
 {
@@ -668,6 +671,7 @@ SoVRMLIndexedFaceSet::GLRender(SoGLRenderAction * action)
   state->pop();
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 // Doc in parent
 void
@@ -979,7 +983,9 @@ SoVRMLIndexedFaceSet::notify(SoNotList * list)
   if (f == &this->coordIndex) {
     PRIVATE(this)->concavestatus = STATUS_UNKNOWN;
     LOCK_VAINDEXER(this);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete PRIVATE(this)->vaindexer;
+#endif
     PRIVATE(this)->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }

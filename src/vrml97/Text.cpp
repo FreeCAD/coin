@@ -275,6 +275,7 @@ SoVRMLText::~SoVRMLText()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLText::GLRender(SoGLRenderAction * action)
 {
@@ -524,6 +525,7 @@ SoVRMLText::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 
 // Doc in parent

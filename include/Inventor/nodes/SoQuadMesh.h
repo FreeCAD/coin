@@ -49,7 +49,9 @@ public:
   SoSFInt32 verticesPerColumn;
   SoSFInt32 verticesPerRow;
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
 
   SbBool generateDefaultNormals(SoState * state, SoNormalBundle * nb) override;

@@ -54,7 +54,9 @@ protected:
   virtual ~SoVRMLGeometry();
 
   void setupShapeHints(SoState * state, const SbBool ccw, const SbBool solid);
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   SbBool shouldGLRender(SoGLRenderAction * action) override;
+#endif
   SoChildList * getChildren(void) const override;
   void notify(SoNotList * list) override;
 

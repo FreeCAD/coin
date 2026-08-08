@@ -511,6 +511,7 @@ translateWrap(const SoTexture2::Wrap wrap)
 }
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTexture2::GLRender(SoGLRenderAction * action)
 {
@@ -618,6 +619,7 @@ SoTexture2::GLRender(SoGLRenderAction * action)
   }
 #endif
 }
+#endif
 
 // Documented in superclass.
 void

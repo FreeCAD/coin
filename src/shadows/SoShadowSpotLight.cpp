@@ -180,11 +180,13 @@ SoShadowSpotLight::initClass(void)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowSpotLight::GLRender(SoGLRenderAction * action)
 {
   inherited::GLRender(action);
 }
+#endif
 
 
 

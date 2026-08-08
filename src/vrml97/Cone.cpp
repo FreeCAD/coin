@@ -163,6 +163,7 @@ SoVRMLCone::~SoVRMLCone()
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLCone::GLRender(SoGLRenderAction * action)
 {
@@ -196,6 +197,7 @@ SoVRMLCone::GLRender(SoGLRenderAction * action)
                    &mb,
                    flags, state);
 }
+#endif
 
 // Doc in parent
 void

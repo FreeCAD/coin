@@ -337,12 +337,14 @@ SoTransformManip::callback(SoCallbackAction * action)
 }
 
 // Documented in superclass
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTransformManip::GLRender(SoGLRenderAction * action)
 {
   SoTransformManip::doAction(action);
   SoTransform::GLRender(action);
 }
+#endif
 
 // Documented in superclass
 void

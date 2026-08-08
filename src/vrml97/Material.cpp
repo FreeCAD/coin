@@ -323,11 +323,13 @@ SoVRMLMaterial::doAction(SoAction * action)
 }
 
 // Doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLMaterial::GLRender(SoGLRenderAction * action)
 {
   SoVRMLMaterial::doAction(action);
 }
+#endif
 
 // Doc in parent
 void

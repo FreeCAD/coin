@@ -134,6 +134,7 @@ SoCube::initClass(void)
 }
 
 // Doc in parent.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCube::GLRender(SoGLRenderAction * action)
 {
@@ -191,6 +192,7 @@ SoCube::GLRender(SoGLRenderAction * action)
                    flags, state);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // Doc in parent.
 // Doc in parent.

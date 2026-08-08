@@ -148,6 +148,7 @@ SoSpotLight::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoSpotLight, SO_FROM_INVENTOR_1|SoNode::VRML1);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc in superclass.
 void
 SoSpotLight::GLRender(SoGLRenderAction * action)
@@ -214,3 +215,4 @@ SoSpotLight::GLRender(SoGLRenderAction * action)
   (void)state;
 #endif
 }
+#endif

@@ -463,6 +463,7 @@ SoFaceSet::initClass(void)
   SOGL_FACESET_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoFaceSet::GLRender(SoGLRenderAction * action)
@@ -661,6 +662,7 @@ SoFaceSet::GLRender(SoGLRenderAction * action)
                         (this->numVertices[0]-2)*numv : 0, didusevbo);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   #undef SOGL_FACESET_GLRENDER_CALL_FUNC
 #undef SOGL_FACESET_GLRENDER_CALL_FUNC
@@ -936,6 +938,7 @@ SoFaceSet::notify(SoNotList * l)
 // internal method which checks if convex cache needs to be
 // used or (re)created. Renders the shape if convex cache needs to be used.
 //
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoFaceSet::useConvexCache(SoAction * action)
 {
@@ -1132,6 +1135,7 @@ SoFaceSet::useConvexCache(SoAction * action)
 
   return TRUE;
 }
+#endif
 
 #undef PRIVATE
 #undef STATUS_UNKNOWN

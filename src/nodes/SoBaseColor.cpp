@@ -84,7 +84,11 @@ class SoBaseColorP {
     colorpacker_storage(sizeof(void*), alloc_colorpacker, free_colorpacker),
 #endif // COIN_THREADSAFE
     vbo(NULL) { }
-  ~SoBaseColorP() { delete this->vbo; }
+  ~SoBaseColorP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
 
 #ifdef COIN_THREADSAFE
   SbStorage colorpacker_storage;
@@ -156,12 +160,14 @@ SoBaseColor::initClass(void)
   SO_ENABLE_GL(SoGLRenderAction, SoDiffuseColorElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoBaseColor::GLRender(SoGLRenderAction * action)
 {
   SoBaseColor::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void

@@ -237,6 +237,7 @@ convert_policy(const SoTextureScalePolicy::Policy policy)
 }
 
 // Doc from superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureScalePolicy::GLRender(SoGLRenderAction * action)
 {
@@ -249,3 +250,4 @@ SoTextureScalePolicy::GLRender(SoGLRenderAction * action)
                                       this->quality.getValue());
   }
 }
+#endif

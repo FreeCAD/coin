@@ -233,6 +233,7 @@ SoNurbsSurface::initClass(void)
 }
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsSurface::GLRender(SoGLRenderAction * action)
 {
@@ -263,6 +264,7 @@ SoNurbsSurface::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   /*!
 /*!

@@ -128,11 +128,13 @@ SoProfileCoordinate3::doAction(SoAction * action)
                                    this->point.getValues(0));
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoProfileCoordinate3::GLRender(SoGLRenderAction * action)
 {
   SoProfileCoordinate3::doAction(action);
 }
+#endif
 
 void
 SoProfileCoordinate3::callback(SoCallbackAction * action)

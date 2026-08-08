@@ -186,6 +186,7 @@ SoDepthBuffer::~SoDepthBuffer()
 {
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from parent
 void
 SoDepthBuffer::GLRender(SoGLRenderAction * action)
@@ -217,3 +218,4 @@ SoDepthBuffer::GLRender(SoGLRenderAction * action)
   SoDepthBufferElement::set(state, testenable, writeenable,
                             function, depthrange);
 }
+#endif

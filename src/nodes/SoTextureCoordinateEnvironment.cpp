@@ -184,6 +184,7 @@ SoTextureCoordinateEnvironment::doAction(SoAction * action)
                                                action->getState());
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateEnvironment::GLRender(SoGLRenderAction * action)
@@ -204,6 +205,7 @@ SoTextureCoordinateEnvironment::GLRender(SoGLRenderAction * action)
                                                  action->getState());
   }
 }
+#endif
 
 // doc from parent
 void

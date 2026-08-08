@@ -90,7 +90,11 @@
 class SoPackedColorP {
  public:
   SoPackedColorP() : vbo(NULL) { }
-  ~SoPackedColorP() { delete this->vbo; }
+  ~SoPackedColorP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SbBool transparent;
   SbBool checktransparent;
   SoVBO * vbo;
@@ -134,12 +138,14 @@ SoPackedColor::initClass(void)
   SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoPackedColor::GLRender(SoGLRenderAction * action)
 {
   SoPackedColor::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void

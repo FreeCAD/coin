@@ -1133,6 +1133,7 @@ convert_bitmaps(void)
 }
 
 // doc in super
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoMarkerSet::GLRender(SoGLRenderAction * action)
 {
@@ -1281,6 +1282,7 @@ SoMarkerSet::GLRender(SoGLRenderAction * action)
   state->pop(); // we pushed, remember
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // ----------------------------------------------------------------------------------------------------
 // ----------------------------------------------------------------------------------------------------

@@ -51,7 +51,11 @@ public:
   SoMFVec3f vector;
 
   void doAction(SoAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
+#endif
   void callback(SoCallbackAction * action) override;
   void pick(SoPickAction * action) override;
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;

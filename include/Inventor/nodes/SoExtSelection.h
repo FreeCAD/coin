@@ -114,7 +114,9 @@ public:
   SbBool isOverlayLassoAnimated(void);
 
   void handleEvent(SoHandleEventAction * action) override;
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
+#endif
 
   void select(SoNode * root, int numcoords, SbVec2f * lasso, 
               const SbViewportRegion & vp, SbBool shiftpolicy);

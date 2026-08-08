@@ -99,7 +99,11 @@
 class SoTextureCoordinate3P {
  public:
   SoTextureCoordinate3P() : vbo(NULL) { }
-  ~SoTextureCoordinate3P() { delete this->vbo; }
+  ~SoTextureCoordinate3P() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -150,6 +154,7 @@ SoTextureCoordinate3::doAction(SoAction * action)
                                         this->point.getValues(0));
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoTextureCoordinate3::GLRender(SoGLRenderAction * action)
@@ -197,6 +202,7 @@ SoTextureCoordinate3::GLRender(SoGLRenderAction * action)
   SoGLVBOElement::setVertexVBO(state, setvbo ? PRIVATE(this)->vbo : NULL);
 #endif
 }
+#endif
 
 // Documented in superclass.
 void

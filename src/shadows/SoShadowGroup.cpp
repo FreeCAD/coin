@@ -868,17 +868,21 @@ SoShadowGroup::isSupported(void)
 
 // *************************************************************************
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowGroup::GLRenderBelowPath(SoGLRenderAction * action)
 {
   PRIVATE(this)->GLRender(action, FALSE);
 }
+#endif
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowGroup::GLRenderInPath(SoGLRenderAction * action)
 {
   PRIVATE(this)->GLRender(action, TRUE);
 }
+#endif
 
 void
 SoShadowGroup::notify(SoNotList * nl)
@@ -2133,6 +2137,7 @@ SoShadowGroupP::supported(const cc_glglue * glue, SbString& reason)
   return false;
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShadowGroupP::GLRender(SoGLRenderAction * action, const SbBool inpath)
 {
@@ -2188,6 +2193,7 @@ SoShadowGroupP::GLRender(SoGLRenderAction * action, const SbBool inpath)
   SoShapeStyleElement::setShadowsRendering(state, FALSE);
   state->pop();
 }
+#endif
 
 SoShaderProgram *
 SoShadowLightCache::createGaussFilter(const int texsize, const int size, const float gaussstandarddeviation)

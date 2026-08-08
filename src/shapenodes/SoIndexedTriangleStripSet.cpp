@@ -221,6 +221,7 @@ SoIndexedTriangleStripSet::findNormalBinding(SoState * const state) const
 }
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
 {
@@ -337,6 +338,7 @@ SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, FALSE);
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // Documented in superclass.
 // Documented in superclass.

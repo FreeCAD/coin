@@ -148,6 +148,7 @@ SoTextureUnit::initClass(void)
   SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureMatrixElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoTextureUnit::GLRender(SoGLRenderAction * action)
@@ -173,6 +174,7 @@ SoTextureUnit::GLRender(SoGLRenderAction * action)
     }
   }
 }
+#endif
 
 // Doc from superclass.
 void

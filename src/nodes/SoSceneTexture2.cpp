@@ -523,6 +523,7 @@ SoSceneTexture2::~SoSceneTexture2(void)
 
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSceneTexture2::GLRender(SoGLRenderAction * action)
 {
@@ -603,6 +604,7 @@ SoSceneTexture2::GLRender(SoGLRenderAction * action)
   }
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 
 // Documented in superclass.

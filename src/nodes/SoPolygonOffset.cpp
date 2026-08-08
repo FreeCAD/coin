@@ -353,8 +353,10 @@ SoPolygonOffset::callback(SoCallbackAction * action)
   SoPolygonOffset::doAction((SoAction *)action);
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoPolygonOffset::GLRender(SoGLRenderAction * action)
 {
   SoPolygonOffset::doAction((SoAction *)action);
 }
+#endif

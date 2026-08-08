@@ -476,6 +476,7 @@ SoText3::getCharacterBounds(SoState * COIN_UNUSED_ARG(state), int COIN_UNUSED_AR
 }
 
 // doc in parent
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoText3::GLRender(SoGLRenderAction * action)
 {
@@ -544,6 +545,7 @@ SoText3::GLRender(SoGLRenderAction * action)
   PRIVATE(this)->unlock();
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
   // doc in parent
 // doc in parent

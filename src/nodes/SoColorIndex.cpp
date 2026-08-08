@@ -111,6 +111,7 @@ SoColorIndex::initClass(void)
   SO_ENABLE_GL(SoGLRenderAction, SoGLColorIndexElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc in parent
 void
 SoColorIndex::GLRender(SoGLRenderAction * action)
@@ -126,3 +127,4 @@ SoColorIndex::GLRender(SoGLRenderAction * action)
                                this->index.getValues(0));
   }
 }
+#endif

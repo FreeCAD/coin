@@ -121,11 +121,13 @@ SoCacheHint::doAction(SoAction * action)
                           this->gfxValue.getValue());
 }
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCacheHint::GLRender(SoGLRenderAction * action)
 {
   SoCacheHint::doAction(action);
 }
+#endif
 
 void
 SoCacheHint::callback(SoCallbackAction * action)

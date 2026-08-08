@@ -46,7 +46,9 @@ public:
   static void initClass(void);
   SoVRMLPointSet(void);
 
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
 
 protected:

@@ -224,6 +224,7 @@ SoTextureCoordinatePlane::doAction(SoAction * action)
                                                this);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinatePlane::GLRender(SoGLRenderAction * action)
@@ -243,6 +244,7 @@ SoTextureCoordinatePlane::GLRender(SoGLRenderAction * action)
                                                  this);
   }
 }
+#endif
 
 // doc from parent
 void

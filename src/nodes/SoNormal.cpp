@@ -79,7 +79,11 @@
 class SoNormalP {
  public:
   SoNormalP() : vbo(NULL) { }
-  ~SoNormalP() { delete this->vbo; }
+  ~SoNormalP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
 
   SoVBO * vbo;
 };
@@ -122,6 +126,7 @@ SoNormal::initClass(void)
   SO_ENABLE(SoPickAction, SoNormalElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc in superclass.
 void
 SoNormal::GLRender(SoGLRenderAction * action)
@@ -160,6 +165,7 @@ SoNormal::GLRender(SoGLRenderAction * action)
   SoBase::staticDataUnlock();
   SoGLVBOElement::setNormalVBO(state, setvbo? PRIVATE(this)->vbo : NULL);
 }
+#endif
 
 // Doc in superclass.
 void

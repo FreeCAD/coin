@@ -157,6 +157,7 @@ SoTextureCoordinateReflectionMap::doAction(SoAction * action)
                                                action->getState());
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateReflectionMap::GLRender(SoGLRenderAction * action)
@@ -174,6 +175,7 @@ SoTextureCoordinateReflectionMap::GLRender(SoGLRenderAction * action)
                                                action->getState());
   
 }
+#endif
 
 // doc from parent
 void

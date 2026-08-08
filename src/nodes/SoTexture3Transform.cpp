@@ -146,6 +146,7 @@ SoTexture3Transform::initClass(void)
 }
 
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoTexture3Transform::GLRender(SoGLRenderAction * action)
@@ -171,6 +172,7 @@ SoTexture3Transform::GLRender(SoGLRenderAction * action)
     // units will be ignored. pederb, 2003-11-11
   }
 }
+#endif
 
 // Documented in superclass.
 void

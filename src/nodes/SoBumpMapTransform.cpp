@@ -129,11 +129,13 @@ SoBumpMapTransform::initClass(void)
 
 
 // Documented in superclass.
+#if !defined(COIN_BUILD_LEGACY_GL_RENDERER) || COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoBumpMapTransform::GLRender(SoGLRenderAction * action)
 {
   SoBumpMapTransform::doAction(action);
 }
+#endif
 
 // Documented in superclass.
 void
