@@ -36,8 +36,19 @@
 #include <Inventor/misc/SoContextHandler.h>
 
 #include "shaders/SoGLSLShaderObject.h"
+#include <Inventor/errors/SoDebugError.h>
 #include "glue/glp.h"
 #include "glue/glslp.h"
+
+// *************************************************************************
+
+static void
+soglshaderprogram_append_source_hint(SbString & result, const SbString & sourceHint)
+{
+  if (sourceHint.getLength() == 0) return;
+  if (result.getLength() > 0) result += ", ";
+  result += sourceHint;
+}
 
 // *************************************************************************
 
@@ -116,7 +127,8 @@ SoGLSLShaderProgram::enable(const cc_glglue * g)
     cc_glglue_glUseProgram(g, (GLuint) programhandle);
 
     if (SoGLSLShaderObject::didOpenGLErrorOccur("SoGLSLShaderProgram::enable")) {
-      SoGLSLShaderObject::printInfoLog(g, programhandle, 0);
+      SoGLSLShaderProgram::printInfoLog(g, programhandle,
+                                        this->getSourceHint(), FALSE);
     }
   }
 }
@@ -129,22 +141,18 @@ SoGLSLShaderProgram::disable(const cc_glglue * g)
   }
 }
 
-#if defined(SOURCE_HINT)
 SbString
 SoGLSLShaderProgram::getSourceHint(void) const
 {
   SbString result;
-  for (int i=0; i<this->shaderObjects.size(); i++) {
+  for (int i=0; i<this->shaderObjects.getLength(); i++) {
     SoGLSLShaderObject *shader = this->shaderObjects[i];
     if (shader && shader->isActive()) {
-      SbString str = shader->sourceHint;
-      if (str.getLength() > 0) str += " ";
-      result += str;
+      soglshaderprogram_append_source_hint(result, shader->sourceHint);
     }
   }
   return result;
 }
-#endif
 
 void
 SoGLSLShaderProgram::ensureLinking(const cc_glglue * g)
@@ -168,6 +176,7 @@ SoGLSLShaderProgram::ensureLinking(const cc_glglue * g)
   if (cnt > 0) {
     int i;
     GLint didLink = 0;
+    const SbString sourceHint = this->getSourceHint();
 
     for (i = 0; i < cnt; i++) {
       this->shaderObjects[i]->attach(programHandle);
@@ -183,12 +192,52 @@ SoGLSLShaderProgram::ensureLinking(const cc_glglue * g)
     cc_glglue_glLinkProgram(g, (GLuint) programHandle);
     cc_glglue_glGetGLSLProgramiv(g, (GLuint) programHandle, GL_LINK_STATUS, &didLink);
 
-    if (SoGLSLShaderObject::didOpenGLErrorOccur("SoGLSLShaderProgram::ensureLinking")) {
-      SoGLSLShaderObject::printInfoLog(g, programHandle, 0);
+    if (SoGLSLShaderObject::didOpenGLErrorOccur("SoGLSLShaderProgram::ensureLinking")
+      || !didLink) {
+      printInfoLog(g, programHandle, sourceHint, !didLink);
     }
 
     this->isExecutable = didLink;
     this->neededlinking = TRUE;
+  }
+}
+
+void
+SoGLSLShaderProgram::printInfoLog(const cc_glglue * g,
+                                  COIN_GLhandle handle,
+                                  const SbString & sourceHint,
+                                  const SbBool failed)
+{
+  GLint length = 0;
+  cc_glglue_glGetGLSLProgramiv(g, (GLuint) handle, GL_INFO_LOG_LENGTH, &length);
+
+  const char * sourceName = sourceHint.getLength() > 0 ?
+    sourceHint.getString() : "<unnamed>";
+
+  if (length > 1) {
+    COIN_GLchar *infoLog = new COIN_GLchar[length];
+    GLsizei charsWritten = 0;
+    cc_glglue_glGetProgramInfoLog(g, (GLuint) handle, length, &charsWritten,
+                                  (char *) infoLog);
+
+    if (failed) {
+      SoDebugError::postWarning("SoGLSLShaderProgram::printInfoLog",
+                                "program [%s] failed to link: %s",
+                                sourceName,
+                                infoLog);
+    }
+    else {
+      SoDebugError::postInfo("SoGLSLShaderProgram::printInfoLog",
+                             "program [%s] log: %s",
+                             sourceName,
+                             infoLog);
+    }
+    delete [] infoLog;
+  }
+  else if (failed) {
+    SoDebugError::postWarning("SoGLSLShaderProgram::printInfoLog",
+                              "program [%s] failed to link with no linker log",
+                              sourceName);
   }
 }
 
