@@ -62,6 +62,7 @@
 #include <Inventor/SoPrimitiveVertex.h>
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
+#include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
@@ -451,7 +452,12 @@ SoShape::GLRender(SoGLRenderAction * action)
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
-  // Doc in parent.
+void
+SoShape::IRRender(SoIRRenderAction * action)
+{
+  (void) action;
+}
+
 // Doc in parent.
 void
 SoShape::callback(SoCallbackAction * action)
