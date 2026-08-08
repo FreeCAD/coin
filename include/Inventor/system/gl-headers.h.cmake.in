@@ -80,6 +80,10 @@
 #  include "glue/khronos/GL/glcorearb.h"
 # endif
 
+#elif !defined(COIN_INTERNAL) && !COIN_BUILD_LEGACY_GL_RENDERER
+/* Installed core-profile consumers must use Coin's namespaced snapshot. */
+# include <Inventor/system/khronos/glcorearb.h>
+
 #else
 @SIM_INCLUDE_WINDOWS_H@
 @SIM_INCLUDE_GL_H@
