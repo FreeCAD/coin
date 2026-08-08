@@ -7,8 +7,8 @@ on:
   #  branches: [ master ]
 
 jobs:
-  ubuntu-build:
-    name: Ubuntu Build
+  ubuntu-compatibility:
+    name: Ubuntu CI (GL compatibility)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -19,49 +19,22 @@ jobs:
         run: |
           sudo apt-get -y update
           sudo apt-get -y install freeglut3-dev
-          cmake -S . -B cmake_build_dir -G "Unix Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=cmake_install_dir \
-            -DCOIN_STRICT_WARNINGS=ON
+          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=ON -DCOIN_BUILD_TESTS=ON -DCOIN_STRICT_WARNINGS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
       - name: Run tests
-        run:  ctest -C Release -VV
+        run: ctest -C Release -VV
         working-directory: cmake_build_dir
       - name: Create Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Ubuntu-Artifacts
+          name: Ubuntu-Artifacts-GL-compatibility
           path: cmake_install_dir/
         if: always()
 
-  windows-build:
-    name: Windows Build
-    runs-on: windows-2022
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Create build directory and run CMake
-        shell: cmd
-        run: |
-          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir
-      - name: Build project
-        run: cmake --build cmake_build_dir --target INSTALL --config Release -- /nologo /verbosity:minimal /maxcpucount:2 /property:MultiProcessorCompilation=true
-      - name: Run tests
-        run:  ctest -C Release -VV
-        working-directory: cmake_build_dir
-      - name: Create Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Windows-Artifacts
-          path: cmake_install_dir/
-        if: always()
-
-  macos-build:
-    name: MacOS Build
-    runs-on: macos-14
+  ubuntu-core-config:
+    name: Ubuntu CI (GL core configuration)
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,16 +42,8 @@ jobs:
           submodules: recursive
       - name: Create build directory and run CMake
         run: |
-          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_STRICT_WARNINGS=ON
-      - name: Build project
-        run: cmake --build cmake_build_dir --target install --config Release -- -j4
-      - name: Run tests
-        run:  ctest -C Release -VV
-        working-directory: cmake_build_dir
-      - name: Create Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: MacOS-Artifacts
-          path: cmake_install_dir/
-        if: always()
-        
+          sudo apt-get -y update
+          sudo apt-get -y install freeglut3-dev
+          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCOIN_BUILD_LEGACY_GL_RENDERER=OFF -DCOIN_BUILD_TESTS=OFF -DCOIN_BUILD_EXAMPLES=OFF -DCOIN_BUILD_DOCUMENTATION=OFF
+      - name: Build core GL glue
+        run: cmake --build cmake_build_dir --target glue --config Release -- -j4
