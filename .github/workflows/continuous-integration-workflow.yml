@@ -56,8 +56,16 @@ jobs:
           COIN_EGL_CORE_PROFILE: 1
 
   windows-build:
-    name: Windows CI (GL compatibility)
+    name: Windows CI (${{ matrix.renderer }})
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - renderer: GL compatibility
+            legacy_gl_renderer: ON
+          - renderer: GL core
+            legacy_gl_renderer: OFF
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,7 +74,7 @@ jobs:
       - name: Create build directory and run CMake
         shell: cmd
         run: |
-          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=ON -DCOIN_BUILD_TESTS=ON
+          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target INSTALL --config Release -- /nologo /verbosity:minimal /maxcpucount:2 /property:MultiProcessorCompilation=true
       - name: Run tests
@@ -75,13 +83,21 @@ jobs:
       - name: Create Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Windows-Artifacts-GL-compatibility
+          name: Windows-Artifacts-${{ matrix.renderer }}
           path: cmake_install_dir/
         if: always()
 
   macos-build:
-    name: macOS CI (GL compatibility)
+    name: macOS CI (${{ matrix.renderer }})
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - renderer: GL compatibility
+            legacy_gl_renderer: ON
+          - renderer: GL core
+            legacy_gl_renderer: OFF
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -89,7 +105,7 @@ jobs:
           submodules: recursive
       - name: Create build directory and run CMake
         run: |
-          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_BUILD_LEGACY_GL_RENDERER=ON -DCOIN_BUILD_TESTS=ON
+          cmake -S . -B cmake_build_dir -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release -- -j4
       - name: Run tests
@@ -98,6 +114,6 @@ jobs:
       - name: Create Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MacOS-Artifacts-GL-compatibility
+          name: MacOS-Artifacts-${{ matrix.renderer }}
           path: cmake_install_dir/
         if: always()
