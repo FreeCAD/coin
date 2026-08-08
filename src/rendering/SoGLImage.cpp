@@ -1722,6 +1722,10 @@ translate_wrap(SoState *state, const SoGLImage::Wrap wrap)
 {
   if (wrap == SoGLImage::REPEAT) return (GLenum) GL_REPEAT;
   if (wrap == SoGLImage::CLAMP_TO_BORDER) return (GLenum) GL_CLAMP_TO_BORDER;
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) state;
+  return (GLenum) GL_CLAMP_TO_EDGE;
+#else
   if (COIN_ENABLE_CONFORMANT_GL_CLAMP) {
     if (wrap == SoGLImage::CLAMP_TO_EDGE) {
       const cc_glglue * glw = sogl_glue_instance(state);
@@ -1732,6 +1736,7 @@ translate_wrap(SoState *state, const SoGLImage::Wrap wrap)
   const cc_glglue * glw = sogl_glue_instance(state);
   if (SoGLDriverDatabase::isSupported(glw, SO_GL_TEXTURE_EDGE_CLAMP)) return (GLenum) GL_CLAMP_TO_EDGE;
   return (GLenum) GL_CLAMP;
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 void
