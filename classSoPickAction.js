@@ -2,7 +2,7 @@ var classSoPickAction =
 [
     [ "SoPickAction", "classSoPickAction.html#a6ed6d76ab6b1a4a22f2b8faf42615a6f", null ],
     [ "~SoPickAction", "classSoPickAction.html#a03cbd902f92d220a73eae0ff8375dbe5", null ],
-    [ "beginTraversal", "classSoPickAction.html#a08ec3ccd8cd0f5a01ff68e86dc49ae65", null ],
+    [ "beginTraversal", "classSoPickAction.html#adee87ee48b92355c381a5cd0110cfe54", null ],
     [ "enableCulling", "classSoPickAction.html#a8895fd2df360a3626aaee7850c9b0db0", null ],
     [ "getEnabledElements", "classSoPickAction.html#aabb41f2b564aed485ccfeca631dcc7de", null ],
     [ "getTypeId", "classSoPickAction.html#a5e7d7410ec865bfc74f89c4cb19d73d4", null ],

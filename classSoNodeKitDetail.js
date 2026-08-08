@@ -2,7 +2,7 @@ var classSoNodeKitDetail =
 [
     [ "SoNodeKitDetail", "classSoNodeKitDetail.html#a49132125e7e3dfa2d7fc26eb695682c3", null ],
     [ "~SoNodeKitDetail", "classSoNodeKitDetail.html#acf9d418177da275c3811ad2824005a3d", null ],
-    [ "copy", "classSoNodeKitDetail.html#a5eae9e526d75c284c24c8dd924406631", null ],
+    [ "copy", "classSoNodeKitDetail.html#a7c78029a2a7b31cec8a304128025a463", null ],
     [ "getNodeKit", "classSoNodeKitDetail.html#ae33d79d07bfbb5663f1f5badac0cc179", null ],
     [ "getPart", "classSoNodeKitDetail.html#aca898a4582e5be9672b87114585f2ceb", null ],
     [ "getPartName", "classSoNodeKitDetail.html#a4ce41b7f3f7d8f7a0e65ef30d8387a0b", null ],

@@ -5,5 +5,5 @@ var classSoShapeKit =
     [ "getFieldData", "classSoShapeKit.html#a65cda9d591b4679fb30d9462025cf579", null ],
     [ "getNodekitCatalog", "classSoShapeKit.html#a98cb55d1aebbede0f41b1da4dcd4e764", null ],
     [ "getTypeId", "classSoShapeKit.html#aa4daa6e77351290b3f138a76a3618d46", null ],
-    [ "setDefaultOnNonWritingFields", "classSoShapeKit.html#a996543f508a0e8aeebda0d3467b1d030", null ]
+    [ "setDefaultOnNonWritingFields", "classSoShapeKit.html#a9efc42b24119eb4ee73c31c8fb05fd71", null ]
 ];

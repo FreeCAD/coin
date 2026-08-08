@@ -8,7 +8,7 @@ var classSoScale1Dragger =
     [ "getFieldData", "classSoScale1Dragger.html#ae48633e42b5e013d8778fafa10f64df0", null ],
     [ "getNodekitCatalog", "classSoScale1Dragger.html#a0134d5804b302e9fa32496e81217f2e8", null ],
     [ "getTypeId", "classSoScale1Dragger.html#a5f32ed6b44d5808ee01cff4f8310cf9f", null ],
-    [ "setUpConnections", "classSoScale1Dragger.html#a60989a5645eb65650605c0ae50734fb5", null ],
+    [ "setUpConnections", "classSoScale1Dragger.html#a7aa07957db99542dec8c994f28790e99", null ],
     [ "fieldSensor", "classSoScale1Dragger.html#a1e9aaa7992bd63d099455692422739a1", null ],
     [ "lineProj", "classSoScale1Dragger.html#a25f0b322918e79d9cef5bd77c901d9b0", null ],
     [ "scaleFactor", "classSoScale1Dragger.html#a2b22f368228ca79173060e08ef3c6833", null ]

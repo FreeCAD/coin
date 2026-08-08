@@ -2,7 +2,7 @@ var classSoIndexedShape =
 [
     [ "SoIndexedShape", "classSoIndexedShape.html#a95d013121106581f13dffe229b4637cf", null ],
     [ "~SoIndexedShape", "classSoIndexedShape.html#a4c2d96f0d8e0f484e1130f3ea482443d", null ],
-    [ "computeBBox", "classSoIndexedShape.html#a599eb45ef1d6501745d68356b3d17f0d", null ],
+    [ "computeBBox", "classSoIndexedShape.html#aef8b01a807e71b2c0714975ab676ce35", null ],
     [ "getColorIndices", "classSoIndexedShape.html#a0d188c7b7a9868b57d99a8a736073140", null ],
     [ "getFieldData", "classSoIndexedShape.html#a8c6d5a69bb7f30618a7f7fce5dd6a653", null ],
     [ "getNormalIndices", "classSoIndexedShape.html#a34ce4abfc0cacd5c6c15b9cd63c59b35", null ],

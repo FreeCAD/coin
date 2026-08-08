@@ -3,7 +3,7 @@ var group__coin__details =
     [ "SoConeDetail", "classSoConeDetail.html", [
       [ "SoConeDetail", "classSoConeDetail.html#a4d6065d857e82a14d848dc555b2d7023", null ],
       [ "~SoConeDetail", "classSoConeDetail.html#a2e90a7d984df1d8782b7165e6daa6192", null ],
-      [ "copy", "classSoConeDetail.html#a98d6a01fbffb597cdb79715d167bb688", null ],
+      [ "copy", "classSoConeDetail.html#a388c0220f0c6225133ad9ce4db6bfbe8", null ],
       [ "getPart", "classSoConeDetail.html#ad371d03015794df7f7530ebe20c3a3f6", null ],
       [ "getTypeId", "classSoConeDetail.html#a9d4411c9074530e04be6588cfeacb5f2", null ],
       [ "setPart", "classSoConeDetail.html#ab6c3f74ee6937f7b08acf0f33ab2078a", null ],
@@ -12,7 +12,7 @@ var group__coin__details =
     [ "SoCubeDetail", "classSoCubeDetail.html", [
       [ "SoCubeDetail", "classSoCubeDetail.html#a3a32e1a67213881f91215b501605ccf0", null ],
       [ "~SoCubeDetail", "classSoCubeDetail.html#ae29faeb704f1043d3364780b6decc9ef", null ],
-      [ "copy", "classSoCubeDetail.html#a3eabba960e9b8dae4c1c6dccc643b9a6", null ],
+      [ "copy", "classSoCubeDetail.html#adc08e58159e402f3efe06eef15995928", null ],
       [ "getPart", "classSoCubeDetail.html#a7259c00e3986e71f0ea38390cf544a0c", null ],
       [ "getTypeId", "classSoCubeDetail.html#acb82e6c645d0a2d3fe07ed3eeefff292", null ],
       [ "setPart", "classSoCubeDetail.html#a3b16fbe26433a1c7f3ed638ca8a5c667", null ],
@@ -21,7 +21,7 @@ var group__coin__details =
     [ "SoCylinderDetail", "classSoCylinderDetail.html", [
       [ "SoCylinderDetail", "classSoCylinderDetail.html#a79c29937eb3222d3bbf00ab0da9bd421", null ],
       [ "~SoCylinderDetail", "classSoCylinderDetail.html#af1030f70a3389fd6464fdf626aa8b500", null ],
-      [ "copy", "classSoCylinderDetail.html#a425a17828b4a983113e481a436c31a38", null ],
+      [ "copy", "classSoCylinderDetail.html#a6f20b513a789791e40809f4e98f967e9", null ],
       [ "getPart", "classSoCylinderDetail.html#a638433a4e99adce830dafbf6d9b1b891", null ],
       [ "getTypeId", "classSoCylinderDetail.html#a2459b4785c1bb28060f21a2829b976f3", null ],
       [ "setPart", "classSoCylinderDetail.html#a97c80b94ba9cee2b6cdd6afe2f5208c6", null ],
@@ -50,7 +50,7 @@ var group__coin__details =
     [ "SoFaceDetail", "classSoFaceDetail.html", [
       [ "SoFaceDetail", "classSoFaceDetail.html#af9dbb1c8d92c53a2470e950fa46e1636", null ],
       [ "~SoFaceDetail", "classSoFaceDetail.html#a71aaca2902db3572667e766f7c51c7cd", null ],
-      [ "copy", "classSoFaceDetail.html#a277b908c44369f93c179d1067405f2db", null ],
+      [ "copy", "classSoFaceDetail.html#a4772a6580dc2ec920072dad6b09d7e9b", null ],
       [ "getFaceIndex", "classSoFaceDetail.html#a32dd33933e528964c88647445c0a92c1", null ],
       [ "getNumPoints", "classSoFaceDetail.html#a285034d780e173d9c666661fa134d0c6", null ],
       [ "getPartIndex", "classSoFaceDetail.html#a6767f6eaa9da0fb6e6a4acc5c84513cc", null ],
@@ -67,7 +67,7 @@ var group__coin__details =
     [ "SoLineDetail", "classSoLineDetail.html", [
       [ "SoLineDetail", "classSoLineDetail.html#ac6c1be2107bb0f5c23c563b05135d9bc", null ],
       [ "~SoLineDetail", "classSoLineDetail.html#a8ea9db2e1e64efd1067bbac55ee8c3a8", null ],
-      [ "copy", "classSoLineDetail.html#a7bb0addade1e68b1dd08b93ef2a25a6f", null ],
+      [ "copy", "classSoLineDetail.html#af31f035d39c5474454a3236822c6d91f", null ],
       [ "getLineIndex", "classSoLineDetail.html#a826cbff8a9650a1cb33f9ec50a8946b7", null ],
       [ "getPartIndex", "classSoLineDetail.html#adefb9ade04b64e38d467db5148868465", null ],
       [ "getPoint0", "classSoLineDetail.html#ad739c6e496a2476c06bf209d32e474f4", null ],
@@ -83,7 +83,7 @@ var group__coin__details =
     [ "SoNodeKitDetail", "classSoNodeKitDetail.html", [
       [ "SoNodeKitDetail", "classSoNodeKitDetail.html#a49132125e7e3dfa2d7fc26eb695682c3", null ],
       [ "~SoNodeKitDetail", "classSoNodeKitDetail.html#acf9d418177da275c3811ad2824005a3d", null ],
-      [ "copy", "classSoNodeKitDetail.html#a5eae9e526d75c284c24c8dd924406631", null ],
+      [ "copy", "classSoNodeKitDetail.html#a7c78029a2a7b31cec8a304128025a463", null ],
       [ "getNodeKit", "classSoNodeKitDetail.html#ae33d79d07bfbb5663f1f5badac0cc179", null ],
       [ "getPart", "classSoNodeKitDetail.html#aca898a4582e5be9672b87114585f2ceb", null ],
       [ "getPartName", "classSoNodeKitDetail.html#a4ce41b7f3f7d8f7a0e65ef30d8387a0b", null ],
@@ -98,7 +98,7 @@ var group__coin__details =
     [ "SoPointDetail", "classSoPointDetail.html", [
       [ "SoPointDetail", "classSoPointDetail.html#a785f9613d295f3b463c77d17de37067a", null ],
       [ "~SoPointDetail", "classSoPointDetail.html#af6f0267affab84e2550abba05df8e369", null ],
-      [ "copy", "classSoPointDetail.html#a009bad7e8a92a88dd6c700e9f40ac0e0", null ],
+      [ "copy", "classSoPointDetail.html#a1192a2504ddc9834c3df48406e17d967", null ],
       [ "getCoordinateIndex", "classSoPointDetail.html#abfc411da5169b1f18401d3d9a69ea2ae", null ],
       [ "getMaterialIndex", "classSoPointDetail.html#ab7d99f0d63d764e54c2e2f9e9f6e5932", null ],
       [ "getNormalIndex", "classSoPointDetail.html#a99e315acc202fd8a5bbe0b74ecf38173", null ],
@@ -112,7 +112,7 @@ var group__coin__details =
     [ "SoTextDetail", "classSoTextDetail.html", [
       [ "SoTextDetail", "classSoTextDetail.html#a434003745414c03fc319eb99d53801d0", null ],
       [ "~SoTextDetail", "classSoTextDetail.html#a3691b78cee7a14315d1ede7438adef7d", null ],
-      [ "copy", "classSoTextDetail.html#ada3060728b9bea62518dcb9728e0eee4", null ],
+      [ "copy", "classSoTextDetail.html#ad67d72f1c4caeb0325f248bb80f270d8", null ],
       [ "getCharacterIndex", "classSoTextDetail.html#a27534e92a8879696519633b3ac15eedb", null ],
       [ "getPart", "classSoTextDetail.html#a73ebebb671faff9ca13b98208c25d1ee", null ],
       [ "getStringIndex", "classSoTextDetail.html#aec56971dfd8b2645469a22ed434331c5", null ],

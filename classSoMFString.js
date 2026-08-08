@@ -1,8 +1,8 @@
 var classSoMFString =
 [
     [ "copyFrom", "classSoMFString.html#ae833273650b883364fc3adcf89d66e77", null ],
-    [ "copyValue", "classSoMFString.html#ae5e8d8f400bd52b82995bbef96fa8765", null ],
-    [ "deleteAllValues", "classSoMFString.html#a41faabae057cb0bdb5ee4cf436ce73d8", null ],
+    [ "copyValue", "classSoMFString.html#ad9b906ac6d3cefc22a166d7f2b688a50", null ],
+    [ "deleteAllValues", "classSoMFString.html#af53500535f6b093d07b1e4a8ba879444", null ],
     [ "deleteText", "classSoMFString.html#a067411b95c97e16ebf0930a72f469a8b", null ],
     [ "getTypeId", "classSoMFString.html#a83906515a0e68835bf8e14c7ff6344b6", null ],
     [ "getValues", "classSoMFString.html#a753f5e691f9875beb20bb79574f9a31b", null ],

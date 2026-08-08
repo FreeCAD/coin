@@ -10,7 +10,7 @@ var group__coin__sound =
     [ "SoListener", "classSoListener.html", [
       [ "SoListener", "classSoListener.html#aeef624948f01b2988180cb5f6124f3e0", null ],
       [ "~SoListener", "classSoListener.html#a3cb2ffbe56e26f91af5f9e7975ff8be3", null ],
-      [ "audioRender", "classSoListener.html#a9e633d78de2a744fb83893b31723d22b", null ],
+      [ "audioRender", "classSoListener.html#a3ec6095b8d02ae4b01d9eafd88ada417", null ],
       [ "getFieldData", "classSoListener.html#a8ceeb5eae1e95c8dc23d4f40d7aadf00", null ],
       [ "getTypeId", "classSoListener.html#a5c7448585132bc20770375c60f2186f6", null ],
       [ "dopplerFactor", "classSoListener.html#a77676bd080ed6eb7a999e1fae2c5ae03", null ],
@@ -42,7 +42,7 @@ var group__coin__sound =
     [ "SoVRMLSound", "classSoVRMLSound.html", [
       [ "SoVRMLSound", "classSoVRMLSound.html#a4a9ae59b226f467fa7c87c166e9118da", null ],
       [ "~SoVRMLSound", "classSoVRMLSound.html#a1626276a9d3a94e7c1628eadfde7455c", null ],
-      [ "audioRender", "classSoVRMLSound.html#a335b11c2838a94b5f5ab13f1aeae9a06", null ],
+      [ "audioRender", "classSoVRMLSound.html#a992e2e478fa2e4c3988df8ce8d1a6f09", null ],
       [ "getDopplerFactor", "classSoVRMLSound.html#a171134f535491f0c2bf29f7b37897b48", null ],
       [ "getDopplerVelocity", "classSoVRMLSound.html#a6565b6cb3e2759c7f622bb9fa60e9800", null ],
       [ "getFieldData", "classSoVRMLSound.html#a65c1d6101229b0b68b46180f832e9c1b", null ],

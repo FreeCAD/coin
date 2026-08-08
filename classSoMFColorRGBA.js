@@ -1,8 +1,8 @@
 var classSoMFColorRGBA =
 [
     [ "copyFrom", "classSoMFColorRGBA.html#a4bce4b49b574ec10a649aef37b5e3e66", null ],
-    [ "copyValue", "classSoMFColorRGBA.html#a4f07d4cfa8b9d6660354e57f370686be", null ],
-    [ "deleteAllValues", "classSoMFColorRGBA.html#ad59b3dd08e2f6af0f5d26ee01596bce2", null ],
+    [ "copyValue", "classSoMFColorRGBA.html#aaa312e7a38a1e2e2868d51745004a1bf", null ],
+    [ "deleteAllValues", "classSoMFColorRGBA.html#acf52c005d3479e64ac45f0aad4516a51", null ],
     [ "getTypeId", "classSoMFColorRGBA.html#af57143ec06a1dabceb8f756a94a49f7b", null ],
     [ "getValues", "classSoMFColorRGBA.html#a2b4d600e8ea257166e715aff4f55551d", null ],
     [ "isSame", "classSoMFColorRGBA.html#adf8d13f2f67499ecc352a744e8a993e5", null ],

@@ -13,7 +13,7 @@ var classSoSearchAction =
     [ "SoSearchAction", "classSoSearchAction.html#a615102a5076ad4e115b9bdaefe87b5b4", null ],
     [ "~SoSearchAction", "classSoSearchAction.html#a16ed3d5859085ea213e0854f86191aab", null ],
     [ "addPath", "classSoSearchAction.html#a39c8cf8fbdf2428df3a3218458da0496", null ],
-    [ "beginTraversal", "classSoSearchAction.html#af872bdd2e1a93beee4594cfaaef6ab5e", null ],
+    [ "beginTraversal", "classSoSearchAction.html#a549466a8d7179c3f569a1dc9a013a475", null ],
     [ "getEnabledElements", "classSoSearchAction.html#a121c63f02ccef3aac8a059fff78f5421", null ],
     [ "getFind", "classSoSearchAction.html#a4283d5b076f4d571e458e2abbe84c257", null ],
     [ "getInterest", "classSoSearchAction.html#af34c0d431529871c296f631c21adcfc6", null ],

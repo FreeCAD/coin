@@ -8,7 +8,7 @@ var classSoScale2UniformDragger =
     [ "getFieldData", "classSoScale2UniformDragger.html#aacb28cbac284fa782a5f12eaebb90856", null ],
     [ "getNodekitCatalog", "classSoScale2UniformDragger.html#ae320d6abc95174400918fcae015eaa64", null ],
     [ "getTypeId", "classSoScale2UniformDragger.html#a6970dccf24137a5377b3e0eca5dc6693", null ],
-    [ "setUpConnections", "classSoScale2UniformDragger.html#a9fec784ea518252c32eb72ab1142ea25", null ],
+    [ "setUpConnections", "classSoScale2UniformDragger.html#a3e40cea56cd896e51f378f68fe60a311", null ],
     [ "fieldSensor", "classSoScale2UniformDragger.html#ac7c108b85a61466962eafafecfdf4b8f", null ],
     [ "lineProj", "classSoScale2UniformDragger.html#af4391e83645414aa15b9b394d638322e", null ],
     [ "scaleFactor", "classSoScale2UniformDragger.html#a593f703d9ea5347e3342c3efc0da52d9", null ]

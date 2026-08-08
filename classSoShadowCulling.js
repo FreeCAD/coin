@@ -8,6 +8,6 @@ var classSoShadowCulling =
     [ "~SoShadowCulling", "classSoShadowCulling.html#ad5aba261b095d034ec24aed738fac2db", null ],
     [ "getFieldData", "classSoShadowCulling.html#a68124b3760d2275c5d68450c916a05fd", null ],
     [ "getTypeId", "classSoShadowCulling.html#a90b4dc5fb90df622b6217d59136fb7da", null ],
-    [ "GLRender", "classSoShadowCulling.html#a670507772cef77d575c3d5792e499e9c", null ],
+    [ "GLRender", "classSoShadowCulling.html#a071583562ca892218d5b0fe910986ada", null ],
     [ "mode", "classSoShadowCulling.html#a5fa2b93eeb108f229fae399216d79933", null ]
 ];

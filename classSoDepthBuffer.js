@@ -14,7 +14,7 @@ var classSoDepthBuffer =
     [ "~SoDepthBuffer", "classSoDepthBuffer.html#a99bd287f43d43bd1755d2601d137562d", null ],
     [ "getFieldData", "classSoDepthBuffer.html#a3e11a64fd8422fd259f4c18b1a5970fc", null ],
     [ "getTypeId", "classSoDepthBuffer.html#ab487f69828274f907fba3d7c9ee9ccd1", null ],
-    [ "GLRender", "classSoDepthBuffer.html#a05d48e6f1eb4408267e71c2579e67c41", null ],
+    [ "GLRender", "classSoDepthBuffer.html#a32e828e82f5f4fd2a92d818d171173de", null ],
     [ "function", "classSoDepthBuffer.html#a4de696e790706a1769b87d1515e35e62", null ],
     [ "range", "classSoDepthBuffer.html#a9b6e670c6f75cdd9970802bdf7bc79f7", null ],
     [ "test", "classSoDepthBuffer.html#a04b5257cc434a90f39b67be191618e40", null ],

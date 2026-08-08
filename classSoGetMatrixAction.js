@@ -2,7 +2,7 @@ var classSoGetMatrixAction =
 [
     [ "SoGetMatrixAction", "classSoGetMatrixAction.html#ae5ac0b7f06181091f871fee39562f4e9", null ],
     [ "~SoGetMatrixAction", "classSoGetMatrixAction.html#a1b62ede3ca7db86bcc3bed6b18be3eca", null ],
-    [ "beginTraversal", "classSoGetMatrixAction.html#a8cb038085672ecad54c2fd86ccb0e76e", null ],
+    [ "beginTraversal", "classSoGetMatrixAction.html#adb3e8ec6a3e3b839da3ae553ca1da205", null ],
     [ "getEnabledElements", "classSoGetMatrixAction.html#a8901997cc53137311bf75e7a06fb2c84", null ],
     [ "getInverse", "classSoGetMatrixAction.html#a0f9c88aaadeea5fed0cac6b41f8924fb", null ],
     [ "getMatrix", "classSoGetMatrixAction.html#a2ba7ec7b75bf2a11540952f5bd966dc6", null ],

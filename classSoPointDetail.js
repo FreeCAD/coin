@@ -2,7 +2,7 @@ var classSoPointDetail =
 [
     [ "SoPointDetail", "classSoPointDetail.html#a785f9613d295f3b463c77d17de37067a", null ],
     [ "~SoPointDetail", "classSoPointDetail.html#af6f0267affab84e2550abba05df8e369", null ],
-    [ "copy", "classSoPointDetail.html#a009bad7e8a92a88dd6c700e9f40ac0e0", null ],
+    [ "copy", "classSoPointDetail.html#a1192a2504ddc9834c3df48406e17d967", null ],
     [ "getCoordinateIndex", "classSoPointDetail.html#abfc411da5169b1f18401d3d9a69ea2ae", null ],
     [ "getMaterialIndex", "classSoPointDetail.html#ab7d99f0d63d764e54c2e2f9e9f6e5932", null ],
     [ "getNormalIndex", "classSoPointDetail.html#a99e315acc202fd8a5bbe0b74ecf38173", null ],

@@ -36,7 +36,7 @@ var group__coin__engines =
       [ "getFieldData", "classSoCalculator.html#a3f74ca5345fe6a739b8bd7107587f45b", null ],
       [ "getOutputData", "classSoCalculator.html#a06a1e250fd73cd29145b20ccf3d120a3", null ],
       [ "getTypeId", "classSoCalculator.html#a1ffd21f7344d988a802d8c47e936fdc5", null ],
-      [ "inputChanged", "classSoCalculator.html#a43e3022159bc59a24931b01b625ac226", null ],
+      [ "inputChanged", "classSoCalculator.html#af005aeb843ab7bbbd475e69f7609498c", null ],
       [ "a", "classSoCalculator.html#a8334a05f1d4ad8a76233ab1227613c26", null ],
       [ "A", "classSoCalculator.html#a78b6958e185647f1efcf8dc37a39b461", null ],
       [ "b", "classSoCalculator.html#ab8dcece3f0627bc900f37455726ceb0b", null ],
@@ -134,9 +134,9 @@ var group__coin__engines =
     ] ],
     [ "SoConcatenate", "classSoConcatenate.html", [
       [ "SoConcatenate", "classSoConcatenate.html#a1f245d172d0c83845a74228a60a4100e", null ],
-      [ "getFieldData", "classSoConcatenate.html#abd49fd12cbcf384672e15d1d6c01470c", null ],
-      [ "getOutputData", "classSoConcatenate.html#a8473d48796cbe2a57b8425293fbcde26", null ],
-      [ "getTypeId", "classSoConcatenate.html#ae3b0ab22584e895c9073ad1b54b52891", null ],
+      [ "getFieldData", "classSoConcatenate.html#ab7959d316cd30c56a9e9c320a5c926e5", null ],
+      [ "getOutputData", "classSoConcatenate.html#a07ff1232f76b54b7e4c78875d399457e", null ],
+      [ "getTypeId", "classSoConcatenate.html#a4a55a1db8738ce34b2ce7c2c743a69fb", null ],
       [ "input", "classSoConcatenate.html#a02d6a2b555cd040e0f4c512c86d88b0e", null ],
       [ "output", "classSoConcatenate.html#a2963c32a0e673b1161544158cb0b0826", null ]
     ] ],
@@ -206,7 +206,7 @@ var group__coin__engines =
       [ "getFieldData", "classSoElapsedTime.html#a71911b4b9110ed5fbd083eafcd506d60", null ],
       [ "getOutputData", "classSoElapsedTime.html#a6f520e3a9d7d139922a8bd2ab7dfe0ad", null ],
       [ "getTypeId", "classSoElapsedTime.html#a3ef8e35d0d7d59e9a498bef01c2e9094", null ],
-      [ "writeInstance", "classSoElapsedTime.html#ad579e939908a68c6ebf8ad1b49732b01", null ],
+      [ "writeInstance", "classSoElapsedTime.html#ae7636be16b4907f882b69c0146812e83", null ],
       [ "on", "classSoElapsedTime.html#abfe57f819bf6b35fe6f74e823fa4dd3d", null ],
       [ "pause", "classSoElapsedTime.html#ac674803b041e3663819dd11549722a5b", null ],
       [ "reset", "classSoElapsedTime.html#a1fc07594d69656d6e89bfad30cde4803", null ],
@@ -218,7 +218,7 @@ var group__coin__engines =
       [ "SoEngine", "classSoEngine.html#a1ba077f0116dceeef172a5c3984887cd", null ],
       [ "~SoEngine", "classSoEngine.html#a3d404af815afb6343436bcef39a1fa7e", null ],
       [ "copy", "classSoEngine.html#a4b87c18186fa892c3efcd97306792306", null ],
-      [ "copyThroughConnection", "classSoEngine.html#a67aaa72d2c9ab60fa9656399fbb7c352", null ],
+      [ "copyThroughConnection", "classSoEngine.html#af9304f9478280f45c7d59f9c2f7d4156", null ],
       [ "evaluate", "classSoEngine.html#ac7aa2cbecf4a33de22abc1f776f07e53", null ],
       [ "evaluateWrapper", "classSoEngine.html#a2af42fdbb183c7cf0f531e3cf268403f", null ],
       [ "getOutput", "classSoEngine.html#a9e78ca6756aecc5c3eb17b818ac299e1", null ],
@@ -227,10 +227,10 @@ var group__coin__engines =
       [ "getOutputs", "classSoEngine.html#a116477457c1379355a226849d5ee0da1", null ],
       [ "inputChanged", "classSoEngine.html#af261c3acd47d3cfab447b1a0b19b583d", null ],
       [ "isNotifying", "classSoEngine.html#af162acc8a0cf4d1178734521156ce7a8", null ],
-      [ "notify", "classSoEngine.html#a109be36b28a7523d5b3942bb6c0f4bf9", null ],
-      [ "readInstance", "classSoEngine.html#a946da90b09c1a79aefc9b2ca134fb3f3", null ],
+      [ "notify", "classSoEngine.html#a0b49da9effb78c70202efbf010283db7", null ],
+      [ "readInstance", "classSoEngine.html#a3b344b36b5d26305ced9e688e863475c", null ],
       [ "shouldCopy", "classSoEngine.html#a932f32257e02cd2ecc2c8bf5be917991", null ],
-      [ "writeInstance", "classSoEngine.html#a1bbe7bf1a626ca76a3f7b09c6a0e4df8", null ],
+      [ "writeInstance", "classSoEngine.html#a6ba92b4a7efdea926050fafae767ee16", null ],
       [ "writeOutputTypes", "classSoEngine.html#a5e9b96d9a944eb8f819dbe3331274c86", null ]
     ] ],
     [ "SoEngineList", "classSoEngineList.html", [
@@ -301,10 +301,10 @@ var group__coin__engines =
     ] ],
     [ "SoGate", "classSoGate.html", [
       [ "SoGate", "classSoGate.html#a8f33f9f499f21c30e1e21b51aa022719", null ],
-      [ "getFieldData", "classSoGate.html#a5b6aa65856bb1e50d4e9ed7d31817f06", null ],
-      [ "getOutputData", "classSoGate.html#a22ac40f01a0e8b06b5342900212d5afc", null ],
-      [ "getTypeId", "classSoGate.html#a25b3b3236fb58f68c77c63879bb0c4f2", null ],
-      [ "inputChanged", "classSoGate.html#aeb37fc6d9694a3124381c2788b8d5877", null ],
+      [ "getFieldData", "classSoGate.html#af115492da31f1e5d3c1681c0d2ce514e", null ],
+      [ "getOutputData", "classSoGate.html#ad17e065ba3d874b15565df0271c5cea2", null ],
+      [ "getTypeId", "classSoGate.html#aa6ceef87662025d553dd3ea9d0c3581f", null ],
+      [ "inputChanged", "classSoGate.html#a42f26fe6d0c6b12dcdf2157a2a0e1f40", null ],
       [ "enable", "classSoGate.html#a58ba8cba7b7a0485378bca24de4ddca0", null ],
       [ "input", "classSoGate.html#a6de98f1f2ff1166dfc5a63ecb10275bd", null ],
       [ "output", "classSoGate.html#a9959b3e7a3cdd1fe22bd58556f2569a9", null ],
@@ -315,11 +315,11 @@ var group__coin__engines =
         [ "INT8", "classSoHeightMapToNormalMap.html#a1b9f1f8980b35ee2dc71042ed2668ddcab23c5b8cdd6821f4d51cb19e5ea9dd44", null ]
       ] ],
       [ "SoHeightMapToNormalMap", "classSoHeightMapToNormalMap.html#acc3693b48da1ce810c3e83b301a9d2ff", null ],
-      [ "evaluate", "classSoHeightMapToNormalMap.html#a4bc29dc2d4b488be90d2f20bd7fb979d", null ],
+      [ "evaluate", "classSoHeightMapToNormalMap.html#ab56cd4370228707acccab54174897905", null ],
       [ "getFieldData", "classSoHeightMapToNormalMap.html#a959649898a850e04a226eb4e0311a0d0", null ],
       [ "getOutputData", "classSoHeightMapToNormalMap.html#a621dc923a05627a7d61b1ace0ac05872", null ],
       [ "getTypeId", "classSoHeightMapToNormalMap.html#a9ee446b5b51512433c6d32391ecab685", null ],
-      [ "inputChanged", "classSoHeightMapToNormalMap.html#ad850a82693bc92d932da823e4ed42342", null ],
+      [ "inputChanged", "classSoHeightMapToNormalMap.html#aec00dc9404468257a4bd3ef5a0d372f9", null ],
       [ "format", "classSoHeightMapToNormalMap.html#a21e887415d4dbd734bdd5bd7a38f4351", null ]
     ] ],
     [ "SoInterpolate", "classSoInterpolate.html", [
@@ -332,37 +332,37 @@ var group__coin__engines =
       [ "output", "classSoInterpolate.html#a2a04c43bd50f973ef36e3a08f0b8887f", null ]
     ] ],
     [ "SoInterpolateFloat", "classSoInterpolateFloat.html", [
-      [ "getFieldData", "classSoInterpolateFloat.html#ae3eab5a421e5e7a9ae50c79e9af98d89", null ],
-      [ "getOutputData", "classSoInterpolateFloat.html#ac81b4d1c9a088bf6d9e5d9b82776ca6b", null ],
-      [ "getTypeId", "classSoInterpolateFloat.html#a94212a9d12db2d5aa865be966097f192", null ],
+      [ "getFieldData", "classSoInterpolateFloat.html#a3c57faa47cd21ee5212251c632c1ae42", null ],
+      [ "getOutputData", "classSoInterpolateFloat.html#aa13a0565a9d6dfd4c44e7c6bfd49fdf8", null ],
+      [ "getTypeId", "classSoInterpolateFloat.html#ac9c762cd5a20a88c47a9d0173da55f68", null ],
       [ "input0", "classSoInterpolateFloat.html#af628f78a2234211ac9a75c4552e5f800", null ],
       [ "input1", "classSoInterpolateFloat.html#aa6feb93d679c1dc9de17af6012fa5039", null ]
     ] ],
     [ "SoInterpolateRotation", "classSoInterpolateRotation.html", [
-      [ "getFieldData", "classSoInterpolateRotation.html#a182e17f0b44df3b4785a751e59dbfd93", null ],
-      [ "getOutputData", "classSoInterpolateRotation.html#a218ec75a99a6df08db49d122300fe4fb", null ],
-      [ "getTypeId", "classSoInterpolateRotation.html#a53bbed5176cbd5cbf76ae14ec35031fb", null ],
+      [ "getFieldData", "classSoInterpolateRotation.html#a8b95925be6a5b637084be2c1c8cbf037", null ],
+      [ "getOutputData", "classSoInterpolateRotation.html#ae23eddcc128b4d3f114527453008b3bf", null ],
+      [ "getTypeId", "classSoInterpolateRotation.html#a5de59e30cded5fbd759e132da020d7c4", null ],
       [ "input0", "classSoInterpolateRotation.html#ab002ae48b7ae593e112a725a52622a3b", null ],
       [ "input1", "classSoInterpolateRotation.html#a89966726215c5632020581cfa1ebfa00", null ]
     ] ],
     [ "SoInterpolateVec2f", "classSoInterpolateVec2f.html", [
-      [ "getFieldData", "classSoInterpolateVec2f.html#a61ae66db115720a6c8d6003c3f9b654b", null ],
-      [ "getOutputData", "classSoInterpolateVec2f.html#a5f7ebf9f0fe1eede448949988ff35a83", null ],
-      [ "getTypeId", "classSoInterpolateVec2f.html#a49a029705804ac10f952313ed84e5a05", null ],
+      [ "getFieldData", "classSoInterpolateVec2f.html#aebcce64000bd509c9c2825004c5828b5", null ],
+      [ "getOutputData", "classSoInterpolateVec2f.html#ab9e7fb076e04ee754e070efa3bee3919", null ],
+      [ "getTypeId", "classSoInterpolateVec2f.html#a12364c1064f4b48e006d4c047a49ddc7", null ],
       [ "input0", "classSoInterpolateVec2f.html#aff7d71f05944eae85edab47ac0263de3", null ],
       [ "input1", "classSoInterpolateVec2f.html#aa16b9e7728370631b98f3f3b5e360abe", null ]
     ] ],
     [ "SoInterpolateVec3f", "classSoInterpolateVec3f.html", [
-      [ "getFieldData", "classSoInterpolateVec3f.html#abbf178b5c2f47021b63adafd62037f4a", null ],
-      [ "getOutputData", "classSoInterpolateVec3f.html#a0088e4e3bcf9b5afcc1f96749d3c1edb", null ],
-      [ "getTypeId", "classSoInterpolateVec3f.html#a3ab7a54e17ae45944ebc3f0bbad7231b", null ],
+      [ "getFieldData", "classSoInterpolateVec3f.html#a5afd1ea11d7287442a40cb33761ad1a8", null ],
+      [ "getOutputData", "classSoInterpolateVec3f.html#aee29b18e735f6b09b91da28046e2494d", null ],
+      [ "getTypeId", "classSoInterpolateVec3f.html#affb21b8a7a4abaa9d34f852cb9eab0d6", null ],
       [ "input0", "classSoInterpolateVec3f.html#a9cf5865c8ca8208ecde080182be03326", null ],
       [ "input1", "classSoInterpolateVec3f.html#ac8738d3973ee4680f8b0c4358dab17bd", null ]
     ] ],
     [ "SoInterpolateVec4f", "classSoInterpolateVec4f.html", [
-      [ "getFieldData", "classSoInterpolateVec4f.html#ae461e82249b94c24ba8b20fa99a07c59", null ],
-      [ "getOutputData", "classSoInterpolateVec4f.html#a4f37f2840b48a0330f1facfcc366c8d5", null ],
-      [ "getTypeId", "classSoInterpolateVec4f.html#a8be38d0847bc23b73bc4a0e3497dc93f", null ],
+      [ "getFieldData", "classSoInterpolateVec4f.html#a944556649e44ddb7193495b13fdc5db4", null ],
+      [ "getOutputData", "classSoInterpolateVec4f.html#ae46fa4267a0ad8dc113a9849c947a3f5", null ],
+      [ "getTypeId", "classSoInterpolateVec4f.html#aee57603cd17d8da760731d469573eb42", null ],
       [ "input0", "classSoInterpolateVec4f.html#a09a936ea0f77af64740af6327405729a", null ],
       [ "input1", "classSoInterpolateVec4f.html#a2bf9d0754ea505ebbb53602f6d5a6127", null ]
     ] ],
@@ -377,9 +377,9 @@ var group__coin__engines =
       [ "getOutputs", "classSoNodeEngine.html#a285992721aa3011889c06546258a149a", null ],
       [ "inputChanged", "classSoNodeEngine.html#a3d7f09a6ee88f91a718ef692b47d25f9", null ],
       [ "isNotifying", "classSoNodeEngine.html#a0872c55bd87570d8d6cc3c907e3a76ed", null ],
-      [ "notify", "classSoNodeEngine.html#a40413791c6f3f3421183a4e499db195a", null ],
-      [ "readInstance", "classSoNodeEngine.html#a95569ab1ef2a6821a2277fb549342305", null ],
-      [ "writeInstance", "classSoNodeEngine.html#a37846b3b14d6cc800ed030b6401d7066", null ],
+      [ "notify", "classSoNodeEngine.html#a33283708b8b55723bef359cbf268690f", null ],
+      [ "readInstance", "classSoNodeEngine.html#a25a20b76b3d99ad07b2993f4ed007539", null ],
+      [ "writeInstance", "classSoNodeEngine.html#ab4f51df8c5bc1d039e5979b504ce1b12", null ],
       [ "writeOutputTypes", "classSoNodeEngine.html#af30c4fefca9bafed14e9eca71390a413", null ]
     ] ],
     [ "SoOneShot", "classSoOneShot.html", [
@@ -415,9 +415,9 @@ var group__coin__engines =
     ] ],
     [ "SoSelectOne", "classSoSelectOne.html", [
       [ "SoSelectOne", "classSoSelectOne.html#a57e993f7a5c578d4ce71e19bdb4c221d", null ],
-      [ "getFieldData", "classSoSelectOne.html#a08a309760821c6b17f3a3b9a269ca832", null ],
-      [ "getOutputData", "classSoSelectOne.html#a774e2935e364b1fba3c629a9e5c55afe", null ],
-      [ "getTypeId", "classSoSelectOne.html#a25ff2f8984fbba4b90b7ea8680b8846e", null ],
+      [ "getFieldData", "classSoSelectOne.html#a2bf8bebef4dc2079e19bc4f56d154390", null ],
+      [ "getOutputData", "classSoSelectOne.html#ac30ed1ec1a275390dfe8271f91843ffb", null ],
+      [ "getTypeId", "classSoSelectOne.html#a349bcf64b253d616977f804d0e86ada0", null ],
       [ "index", "classSoSelectOne.html#ab437f04656386e512f6e545a2876a3ba", null ],
       [ "input", "classSoSelectOne.html#af016b9b7a223cc0b14cad1474ec9cdaf", null ],
       [ "output", "classSoSelectOne.html#aa4ecf9edff2e8739cd872d3260db829d", null ]
@@ -433,8 +433,8 @@ var group__coin__engines =
       [ "getFieldData", "classSoTimeCounter.html#a39b76f3ce22a8a2972a5140c46ea8cab", null ],
       [ "getOutputData", "classSoTimeCounter.html#a468b09a4532330c748c0467f75917f74", null ],
       [ "getTypeId", "classSoTimeCounter.html#a856414f81f1cff418d1f2467d9b1c107", null ],
-      [ "inputChanged", "classSoTimeCounter.html#af520ae8a23d3e0f845625705893b0361", null ],
-      [ "writeInstance", "classSoTimeCounter.html#af80dbfb5d2d88e72c805955507cd7bdf", null ],
+      [ "inputChanged", "classSoTimeCounter.html#a71fd30f90c6d4392e15297514d043e58", null ],
+      [ "writeInstance", "classSoTimeCounter.html#a26598cfa2ceae752f1a132ceb8bbc647", null ],
       [ "duty", "classSoTimeCounter.html#aa4567fa6123fb110182893611ef5413b", null ],
       [ "frequency", "classSoTimeCounter.html#a17fc2c2480ce237e7d68089df9036790", null ],
       [ "max", "classSoTimeCounter.html#a0a80975674943a3e2c323ba2b2965d46", null ],

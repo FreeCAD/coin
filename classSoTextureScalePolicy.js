@@ -10,7 +10,7 @@ var classSoTextureScalePolicy =
     [ "~SoTextureScalePolicy", "classSoTextureScalePolicy.html#a47551ae6292b77261613c02e9fd53fdc", null ],
     [ "getFieldData", "classSoTextureScalePolicy.html#afa70e306bfd311689e73a5c0a0409b7a", null ],
     [ "getTypeId", "classSoTextureScalePolicy.html#a87a65d60e08e247c3d948b97c610e256", null ],
-    [ "GLRender", "classSoTextureScalePolicy.html#a0003c45c949badb805821e9ec17f0974", null ],
+    [ "GLRender", "classSoTextureScalePolicy.html#a7d24e71933044ce54c3882c6763be6b3", null ],
     [ "policy", "classSoTextureScalePolicy.html#af0625ec8f28fffb8d323cfa67644c836", null ],
     [ "quality", "classSoTextureScalePolicy.html#a4e94cd1f44928b42bc118c0c425aa2dc", null ]
 ];

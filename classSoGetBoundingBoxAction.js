@@ -7,7 +7,7 @@ var classSoGetBoundingBoxAction =
     ] ],
     [ "SoGetBoundingBoxAction", "classSoGetBoundingBoxAction.html#ab575afde0c66bdfa47b4e9ccf5183f1b", null ],
     [ "~SoGetBoundingBoxAction", "classSoGetBoundingBoxAction.html#a1160d8e012127f73334d6394cc65a962", null ],
-    [ "beginTraversal", "classSoGetBoundingBoxAction.html#a014ad0b1616c5c24d039a773d073d476", null ],
+    [ "beginTraversal", "classSoGetBoundingBoxAction.html#a0c519c90073a2b45ce3ccdfd5b5cc8cf", null ],
     [ "checkResetAfter", "classSoGetBoundingBoxAction.html#a0229310254d52ed12d27e0f1812e900d", null ],
     [ "checkResetBefore", "classSoGetBoundingBoxAction.html#a03b81040285674e1f3f33615b927026a", null ],
     [ "extendBy", "classSoGetBoundingBoxAction.html#a5a4d10e40fc73fa438007d76df6cbbfc", null ],

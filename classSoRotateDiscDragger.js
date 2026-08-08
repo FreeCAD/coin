@@ -8,7 +8,7 @@ var classSoRotateDiscDragger =
     [ "getFieldData", "classSoRotateDiscDragger.html#ac7df88746e995fc7865c237d3fea399f", null ],
     [ "getNodekitCatalog", "classSoRotateDiscDragger.html#affe8b1045d0306e6212142b60bc5c5da", null ],
     [ "getTypeId", "classSoRotateDiscDragger.html#a8410e40b09428d954c0cf03af8ee6bb3", null ],
-    [ "setUpConnections", "classSoRotateDiscDragger.html#a921e4c679228b04e4e58a0665c7ca60e", null ],
+    [ "setUpConnections", "classSoRotateDiscDragger.html#a743615a039d073d6176f475067f3adb6", null ],
     [ "fieldSensor", "classSoRotateDiscDragger.html#a5aad4a074bb96fdb3623fb19af2f1df0", null ],
     [ "planeProj", "classSoRotateDiscDragger.html#a03c75b8753db45e3496d59f076e26734", null ],
     [ "rotation", "classSoRotateDiscDragger.html#a069a5c9dcf02b23418e2eeb0bced07fe", null ]

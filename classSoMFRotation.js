@@ -1,8 +1,8 @@
 var classSoMFRotation =
 [
     [ "copyFrom", "classSoMFRotation.html#a40a06ed7fc6d258406b78da733f6c562", null ],
-    [ "copyValue", "classSoMFRotation.html#a16e672367ea143f15db121930df0b80d", null ],
-    [ "deleteAllValues", "classSoMFRotation.html#a452c82ad69c79ced102db5161b864b60", null ],
+    [ "copyValue", "classSoMFRotation.html#aafd63868de4da81a8931e0041fc3cb12", null ],
+    [ "deleteAllValues", "classSoMFRotation.html#a41b8c6ff40a1f425caf536a29d909c9f", null ],
     [ "getTypeId", "classSoMFRotation.html#a24629b400c771bb61804361bf95e877a", null ],
     [ "getValues", "classSoMFRotation.html#a9b36a26f76a59c6fdf0d105ed7523b06", null ],
     [ "isSame", "classSoMFRotation.html#a132e0cc93fcfcb81abcf0e45f6f0c74f", null ],

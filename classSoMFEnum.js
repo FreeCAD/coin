@@ -1,8 +1,8 @@
 var classSoMFEnum =
 [
     [ "copyFrom", "classSoMFEnum.html#af2ccd17907414983b1363210d3838dc1", null ],
-    [ "copyValue", "classSoMFEnum.html#a6cb259be3f4811babdb69c103f434de3", null ],
-    [ "deleteAllValues", "classSoMFEnum.html#a53c71cad00b22a5c049fe10253b528eb", null ],
+    [ "copyValue", "classSoMFEnum.html#afbcd2a750b71d3b3519acd871407f2fe", null ],
+    [ "deleteAllValues", "classSoMFEnum.html#a2f3c22190e0493cf3546d536a26ad2a6", null ],
     [ "findEnumName", "classSoMFEnum.html#a454aa72809f0ee9de67843f408647878", null ],
     [ "findEnumValue", "classSoMFEnum.html#aaea86eee80aae8df585cad9e07bd4935", null ],
     [ "getEnum", "classSoMFEnum.html#a8320c6d9f98c9ed3d162d6d815257c29", null ],

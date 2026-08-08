@@ -2,7 +2,7 @@ var classSoTextDetail =
 [
     [ "SoTextDetail", "classSoTextDetail.html#a434003745414c03fc319eb99d53801d0", null ],
     [ "~SoTextDetail", "classSoTextDetail.html#a3691b78cee7a14315d1ede7438adef7d", null ],
-    [ "copy", "classSoTextDetail.html#ada3060728b9bea62518dcb9728e0eee4", null ],
+    [ "copy", "classSoTextDetail.html#ad67d72f1c4caeb0325f248bb80f270d8", null ],
     [ "getCharacterIndex", "classSoTextDetail.html#a27534e92a8879696519633b3ac15eedb", null ],
     [ "getPart", "classSoTextDetail.html#a73ebebb671faff9ca13b98208c25d1ee", null ],
     [ "getStringIndex", "classSoTextDetail.html#aec56971dfd8b2645469a22ed434331c5", null ],

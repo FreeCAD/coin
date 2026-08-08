@@ -8,7 +8,7 @@ var classSoGetPrimitiveCountAction =
     [ "addNumPoints", "classSoGetPrimitiveCountAction.html#ade3acd55b90303e0300a35eec7d79037", null ],
     [ "addNumText", "classSoGetPrimitiveCountAction.html#adb3a0d28cf056be2dfbd1281bc7b5d7f", null ],
     [ "addNumTriangles", "classSoGetPrimitiveCountAction.html#a78d9fff0fef87f447f62c43d9c728935", null ],
-    [ "beginTraversal", "classSoGetPrimitiveCountAction.html#aa252da82ac0a2aa5263413899d66ca62", null ],
+    [ "beginTraversal", "classSoGetPrimitiveCountAction.html#aca784aff29b29579af23805145dcb3c6", null ],
     [ "canApproximateCount", "classSoGetPrimitiveCountAction.html#a0cb9ca77e912f3fc7101068f2bb0f7bc", null ],
     [ "containsNonTriangleShapes", "classSoGetPrimitiveCountAction.html#a3034b5eb71497c0216901ada5b91662c", null ],
     [ "containsNoPrimitives", "classSoGetPrimitiveCountAction.html#ab096760eab5aa3d23ce173d96eb197cf", null ],

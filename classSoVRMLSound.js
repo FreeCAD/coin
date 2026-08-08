@@ -2,7 +2,7 @@ var classSoVRMLSound =
 [
     [ "SoVRMLSound", "classSoVRMLSound.html#a4a9ae59b226f467fa7c87c166e9118da", null ],
     [ "~SoVRMLSound", "classSoVRMLSound.html#a1626276a9d3a94e7c1628eadfde7455c", null ],
-    [ "audioRender", "classSoVRMLSound.html#a335b11c2838a94b5f5ab13f1aeae9a06", null ],
+    [ "audioRender", "classSoVRMLSound.html#a992e2e478fa2e4c3988df8ce8d1a6f09", null ],
     [ "getDopplerFactor", "classSoVRMLSound.html#a171134f535491f0c2bf29f7b37897b48", null ],
     [ "getDopplerVelocity", "classSoVRMLSound.html#a6565b6cb3e2759c7f622bb9fa60e9800", null ],
     [ "getFieldData", "classSoVRMLSound.html#a65c1d6101229b0b68b46180f832e9c1b", null ],

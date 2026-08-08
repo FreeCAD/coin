@@ -14,7 +14,7 @@ var classSoShaderStateMatrixParameter =
     ] ],
     [ "getFieldData", "classSoShaderStateMatrixParameter.html#ac9a73bfc6fbea7b9e8d6df9c233c2389", null ],
     [ "getTypeId", "classSoShaderStateMatrixParameter.html#aaf8ff7abb0a69797bcb6c509da6b369e", null ],
-    [ "updateParameter", "classSoShaderStateMatrixParameter.html#ad613e2016f19d27b0eb77727ba4fdbfd", null ],
+    [ "updateParameter", "classSoShaderStateMatrixParameter.html#a9b1c208625bcaa01bfd3aa90ad35ef3a", null ],
     [ "updateValue", "classSoShaderStateMatrixParameter.html#aa949c4886485aecf30f32ba8bc286ceb", null ],
     [ "matrixTransform", "classSoShaderStateMatrixParameter.html#afd73931f65d3e166fa7804ee1d368205", null ],
     [ "matrixType", "classSoShaderStateMatrixParameter.html#aa570b3dcb134952f1637cd0492ecfb0f", null ]

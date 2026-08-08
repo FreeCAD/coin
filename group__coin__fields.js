@@ -102,16 +102,16 @@ var group__coin__fields =
     ] ],
     [ "SoMFBool", "classSoMFBool.html", [
       [ "copyFrom", "classSoMFBool.html#a183385fd3592903a89c3cf8e23d9e12b", null ],
-      [ "copyValue", "classSoMFBool.html#ac60a1672458d8c5383d66b6d0c91f617", null ],
-      [ "deleteAllValues", "classSoMFBool.html#a2bd724dd79d75399bf5fd28e27524782", null ],
+      [ "copyValue", "classSoMFBool.html#a4e7ccb5455294f4bfff938d8da8eb8ec", null ],
+      [ "deleteAllValues", "classSoMFBool.html#ade87e7531651e01af7697668df8d6488", null ],
       [ "getTypeId", "classSoMFBool.html#a9312b3454f071575dc04fa2a2fd4ef02", null ],
       [ "getValues", "classSoMFBool.html#a7cf29638d7686309c3193aa3dbedd2db", null ],
       [ "isSame", "classSoMFBool.html#a17d4f92b3c6a2f67d8c64b9d1dfec132", null ]
     ] ],
     [ "SoMFColor", "classSoMFColor.html", [
       [ "copyFrom", "classSoMFColor.html#ac7af47bc6a2fe11dab3c0882f6e393e3", null ],
-      [ "copyValue", "classSoMFColor.html#a9b0b4744cac7678949fce2f20a55ba92", null ],
-      [ "deleteAllValues", "classSoMFColor.html#a15da88b0e801784266b0053d223ac482", null ],
+      [ "copyValue", "classSoMFColor.html#a01ab0894c26e7b7c50a2357d6f764433", null ],
+      [ "deleteAllValues", "classSoMFColor.html#a3117d4fd52aec3f5a832c7647ebbc42e", null ],
       [ "getTypeId", "classSoMFColor.html#af2a7d8aafeaee83afacd706dd62ee9dc", null ],
       [ "getValues", "classSoMFColor.html#a06e6df0963f5272f1636a6acd2b36411", null ],
       [ "isSame", "classSoMFColor.html#ad386d0df71fb1bdec2b9b74a6f2675f5", null ],
@@ -130,8 +130,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFColorRGBA", "classSoMFColorRGBA.html", [
       [ "copyFrom", "classSoMFColorRGBA.html#a4bce4b49b574ec10a649aef37b5e3e66", null ],
-      [ "copyValue", "classSoMFColorRGBA.html#a4f07d4cfa8b9d6660354e57f370686be", null ],
-      [ "deleteAllValues", "classSoMFColorRGBA.html#ad59b3dd08e2f6af0f5d26ee01596bce2", null ],
+      [ "copyValue", "classSoMFColorRGBA.html#aaa312e7a38a1e2e2868d51745004a1bf", null ],
+      [ "deleteAllValues", "classSoMFColorRGBA.html#acf52c005d3479e64ac45f0aad4516a51", null ],
       [ "getTypeId", "classSoMFColorRGBA.html#af57143ec06a1dabceb8f756a94a49f7b", null ],
       [ "getValues", "classSoMFColorRGBA.html#a2b4d600e8ea257166e715aff4f55551d", null ],
       [ "isSame", "classSoMFColorRGBA.html#adf8d13f2f67499ecc352a744e8a993e5", null ],
@@ -150,26 +150,26 @@ var group__coin__fields =
     ] ],
     [ "SoMFDouble", "classSoMFDouble.html", [
       [ "copyFrom", "classSoMFDouble.html#a9fead3613a85134ced59523403fdab1d", null ],
-      [ "copyValue", "classSoMFDouble.html#a3412f284029b5006016dd467f8921203", null ],
-      [ "deleteAllValues", "classSoMFDouble.html#a78fbe5b2b90560d40db9cdf7aee89e24", null ],
+      [ "copyValue", "classSoMFDouble.html#aab391550586c32f0aaa7248d0f2b28d5", null ],
+      [ "deleteAllValues", "classSoMFDouble.html#a643f48aafbca2c20791f9f97af9e097e", null ],
       [ "getTypeId", "classSoMFDouble.html#a0750b7c85955b17160ca2699222f2253", null ],
       [ "getValues", "classSoMFDouble.html#a13f75ce63ac38fc3d3aec646cf54b1c5", null ],
       [ "isSame", "classSoMFDouble.html#a53111654612da7b2b2b52bbd80e9367f", null ]
     ] ],
     [ "SoMFEngine", "classSoMFEngine.html", [
       [ "copyFrom", "classSoMFEngine.html#a34ab0f7bb89bdd0bcf7c6fadec6b5a1c", null ],
-      [ "deleteValues", "classSoMFEngine.html#a75e6b106ba70f4408d595cfc7dfcb878", null ],
-      [ "fixCopy", "classSoMFEngine.html#a87f8286c967043661a9fa14301d15bb4", null ],
+      [ "deleteValues", "classSoMFEngine.html#a2c6a76796a33a28461dae70db3cd5176", null ],
+      [ "fixCopy", "classSoMFEngine.html#a62d82beea09282e93a189dddc2a66b0d", null ],
       [ "getTypeId", "classSoMFEngine.html#a9bc6d1fd4d58ad24107455ffcb71d1dc", null ],
       [ "getValues", "classSoMFEngine.html#acec50325e6c47afe87df0d76d0b58143", null ],
-      [ "insertSpace", "classSoMFEngine.html#a08f8d1ee8b4e04c6fdb242c433470bfd", null ],
+      [ "insertSpace", "classSoMFEngine.html#afea2af961dc69ed06393cbb104dcc82d", null ],
       [ "isSame", "classSoMFEngine.html#af052859571659def271386be22c374ad", null ],
-      [ "referencesCopy", "classSoMFEngine.html#aef9a93773371f9d7d0d8c2f871c628c4", null ]
+      [ "referencesCopy", "classSoMFEngine.html#a8f0fc5b19413c86b91197308faefae33", null ]
     ] ],
     [ "SoMFEnum", "classSoMFEnum.html", [
       [ "copyFrom", "classSoMFEnum.html#af2ccd17907414983b1363210d3838dc1", null ],
-      [ "copyValue", "classSoMFEnum.html#a6cb259be3f4811babdb69c103f434de3", null ],
-      [ "deleteAllValues", "classSoMFEnum.html#a53c71cad00b22a5c049fe10253b528eb", null ],
+      [ "copyValue", "classSoMFEnum.html#afbcd2a750b71d3b3519acd871407f2fe", null ],
+      [ "deleteAllValues", "classSoMFEnum.html#a2f3c22190e0493cf3546d536a26ad2a6", null ],
       [ "findEnumName", "classSoMFEnum.html#a454aa72809f0ee9de67843f408647878", null ],
       [ "findEnumValue", "classSoMFEnum.html#aaea86eee80aae8df585cad9e07bd4935", null ],
       [ "getEnum", "classSoMFEnum.html#a8320c6d9f98c9ed3d162d6d815257c29", null ],
@@ -187,8 +187,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFFloat", "classSoMFFloat.html", [
       [ "copyFrom", "classSoMFFloat.html#aa8faeb45984ed159cd5b31ecd6966963", null ],
-      [ "copyValue", "classSoMFFloat.html#ae7966e4d07dab65499495a55792094d7", null ],
-      [ "deleteAllValues", "classSoMFFloat.html#af923ff0e3576fef514bbef075d191d9c", null ],
+      [ "copyValue", "classSoMFFloat.html#a2c912c6a6f90876052d0272d413a3744", null ],
+      [ "deleteAllValues", "classSoMFFloat.html#ab392017993f51156d146ab5b6d3b9943", null ],
       [ "getTypeId", "classSoMFFloat.html#adf9ee28346730a6193408d60a204c6cb", null ],
       [ "getValues", "classSoMFFloat.html#a0f88d9e315393a3c6d250ecb4ab34326", null ],
       [ "isSame", "classSoMFFloat.html#a962133ee675f82ad2cbb2f21e2666a2f", null ]
@@ -211,16 +211,16 @@ var group__coin__fields =
     ] ],
     [ "SoMFInt32", "classSoMFInt32.html", [
       [ "copyFrom", "classSoMFInt32.html#ad464531816fcded2276e67d5a46815ac", null ],
-      [ "copyValue", "classSoMFInt32.html#a0b712bf8ef3d9cdb99422cb837593a8d", null ],
-      [ "deleteAllValues", "classSoMFInt32.html#af8144f90ca9112e782723f32357e45da", null ],
+      [ "copyValue", "classSoMFInt32.html#a9d598858138386d06ba4060cb0f5746a", null ],
+      [ "deleteAllValues", "classSoMFInt32.html#a840f544e56b136aad0b93a6af0b3e0a4", null ],
       [ "getTypeId", "classSoMFInt32.html#a6facece53390e3bafd48df54c4ab0554", null ],
       [ "getValues", "classSoMFInt32.html#a122d785eb2eba7f9e098415e9451cbe7", null ],
       [ "isSame", "classSoMFInt32.html#acfb31205bfd22f37c8e574439a0a82df", null ]
     ] ],
     [ "SoMFMatrix", "classSoMFMatrix.html", [
       [ "copyFrom", "classSoMFMatrix.html#aae25f3f367e1102b0f5760f239ad9338", null ],
-      [ "copyValue", "classSoMFMatrix.html#a0617ac385fbf74a3c224c91dc9f73358", null ],
-      [ "deleteAllValues", "classSoMFMatrix.html#accdb4f897af56021ffe4a89d63c44289", null ],
+      [ "copyValue", "classSoMFMatrix.html#a869b8caec6e32394f098b3ae39723a6c", null ],
+      [ "deleteAllValues", "classSoMFMatrix.html#ab314c0922d0a9cc058d55ffdcee957b8", null ],
       [ "getTypeId", "classSoMFMatrix.html#aa42158e00bffbcef838d39183f123a89", null ],
       [ "getValues", "classSoMFMatrix.html#aa86fec5889769982b9f9c2429f98d7d0", null ],
       [ "isSame", "classSoMFMatrix.html#acb0a63127439da41555cc7ce0b7fc5ec", null ],
@@ -228,8 +228,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFName", "classSoMFName.html", [
       [ "copyFrom", "classSoMFName.html#a3af7499b0145d0d11fa14becb42ed637", null ],
-      [ "copyValue", "classSoMFName.html#a8655695c5fe0d59e2c1da8aff5928cbf", null ],
-      [ "deleteAllValues", "classSoMFName.html#a3ff341f6afad02c1ce9bfc0223c7e458", null ],
+      [ "copyValue", "classSoMFName.html#a1cb12c4955539c85864317c5ba8ae18a", null ],
+      [ "deleteAllValues", "classSoMFName.html#aff21bfc69f460e84e18bb3bf1234f66e", null ],
       [ "getTypeId", "classSoMFName.html#af26f27ea4e6b7be3e317b8e72b9c6fb5", null ],
       [ "getValues", "classSoMFName.html#a9732f4f50309ce2118ce6116100d7024", null ],
       [ "isSame", "classSoMFName.html#a577e1cdd5976d0b8cf6086691f894050", null ],
@@ -239,17 +239,17 @@ var group__coin__fields =
     [ "SoMFNode", "classSoMFNode.html", [
       [ "addNode", "classSoMFNode.html#ac6c2b304ac32207a68eaad65e49c2072", null ],
       [ "copyFrom", "classSoMFNode.html#a50f47d07b08134f93f831565fcacbd58", null ],
-      [ "deleteValues", "classSoMFNode.html#ae84bef6b8dfaf807ba08710ad3329842", null ],
+      [ "deleteValues", "classSoMFNode.html#a637c6511701859db71233970b2958291", null ],
       [ "findNode", "classSoMFNode.html#a5fbf5caf160390b71b7193b41a4b95dc", null ],
-      [ "fixCopy", "classSoMFNode.html#aa6e774457d4f3319eb9d21e10721d45e", null ],
+      [ "fixCopy", "classSoMFNode.html#a4b133439ae04b5b91b3696934ee0710a", null ],
       [ "getNode", "classSoMFNode.html#a7c38aee9acb74f99caf42b2d14369780", null ],
       [ "getNumNodes", "classSoMFNode.html#aeb7a5457f68946a6d87b9396256d9680", null ],
       [ "getTypeId", "classSoMFNode.html#aa52d6d573bf8bdf18e942c4594c31fc0", null ],
       [ "getValues", "classSoMFNode.html#a25fb0e2549ed1a72bcb867e4508381c4", null ],
       [ "insertNode", "classSoMFNode.html#a1b59464136a4d213e28f0d632b2358b8", null ],
-      [ "insertSpace", "classSoMFNode.html#adac23e1714ca11172daaecc55214a31d", null ],
+      [ "insertSpace", "classSoMFNode.html#ac81dc9273b7e364aeeb7df9ead89f099", null ],
       [ "isSame", "classSoMFNode.html#a7c8e95e6a351a6efb50fd98ee684ae7c", null ],
-      [ "referencesCopy", "classSoMFNode.html#a1c590f2ba003f92467caffcbcc8146d0", null ],
+      [ "referencesCopy", "classSoMFNode.html#a8579acb1dfe650d1be77ff0f95d6acaa", null ],
       [ "removeAllNodes", "classSoMFNode.html#add346c87741ebbadd0fa7c84997735e6", null ],
       [ "removeNode", "classSoMFNode.html#a8bbaaf2392ce500e2fbb67c8591c1691", null ],
       [ "removeNode", "classSoMFNode.html#a097e65231abce5a86c10ba0a94571306", null ],
@@ -258,27 +258,27 @@ var group__coin__fields =
     ] ],
     [ "SoMFPath", "classSoMFPath.html", [
       [ "copyFrom", "classSoMFPath.html#ac98e258894b5a2583022777468f7f075", null ],
-      [ "deleteValues", "classSoMFPath.html#a116b84beb9f733a318a47f627e642393", null ],
-      [ "fixCopy", "classSoMFPath.html#a1e02d5cb1b7c669a66e6935f15dc5ad9", null ],
+      [ "deleteValues", "classSoMFPath.html#a3473aa173797096095dd6c2062b2bf29", null ],
+      [ "fixCopy", "classSoMFPath.html#ad8b74927ffb981796a71a77d7aa6a2f6", null ],
       [ "getTypeId", "classSoMFPath.html#ab8f536a8641736c86dee44af46ed2182", null ],
       [ "getValues", "classSoMFPath.html#ab01607e4b27f3a69459d42d268209781", null ],
-      [ "insertSpace", "classSoMFPath.html#aefe9513cb523b93c3f41b9a371ca0ab3", null ],
+      [ "insertSpace", "classSoMFPath.html#a095921f8f0bc8464c85a1f0b6720c217", null ],
       [ "isSame", "classSoMFPath.html#ac44240834dde1a22361001ce63340d36", null ],
-      [ "notify", "classSoMFPath.html#a13ac392429032424273d0e31a165da38", null ],
-      [ "referencesCopy", "classSoMFPath.html#adec7c34fec1048a862012aeba5518b83", null ]
+      [ "notify", "classSoMFPath.html#a87983ed642fd972d34043875355ab317", null ],
+      [ "referencesCopy", "classSoMFPath.html#a3aa76f5ca30bd7815c272cfbb835b50f", null ]
     ] ],
     [ "SoMFPlane", "classSoMFPlane.html", [
       [ "copyFrom", "classSoMFPlane.html#a7ffe02d7eeeb6cd010622b40522f7bfc", null ],
-      [ "copyValue", "classSoMFPlane.html#a62bfe0ed0f52c052a3dee6fe2828af23", null ],
-      [ "deleteAllValues", "classSoMFPlane.html#a73a84012fae484681777ce857383ae7b", null ],
+      [ "copyValue", "classSoMFPlane.html#aa500c70fd27e8e44e4f6fcdccdb6a125", null ],
+      [ "deleteAllValues", "classSoMFPlane.html#a59783783fb43f6bd76e6a058447c36aa", null ],
       [ "getTypeId", "classSoMFPlane.html#a666ecd7099edf5d979a7b2aafa4f218b", null ],
       [ "getValues", "classSoMFPlane.html#ab64991e65dd6b81c0b9abefa9d0f2c71", null ],
       [ "isSame", "classSoMFPlane.html#a8bb1c49beb42fa37f3eedf9ca44cd1da", null ]
     ] ],
     [ "SoMFRotation", "classSoMFRotation.html", [
       [ "copyFrom", "classSoMFRotation.html#a40a06ed7fc6d258406b78da733f6c562", null ],
-      [ "copyValue", "classSoMFRotation.html#a16e672367ea143f15db121930df0b80d", null ],
-      [ "deleteAllValues", "classSoMFRotation.html#a452c82ad69c79ced102db5161b864b60", null ],
+      [ "copyValue", "classSoMFRotation.html#aafd63868de4da81a8931e0041fc3cb12", null ],
+      [ "deleteAllValues", "classSoMFRotation.html#a41b8c6ff40a1f425caf536a29d909c9f", null ],
       [ "getTypeId", "classSoMFRotation.html#a24629b400c771bb61804361bf95e877a", null ],
       [ "getValues", "classSoMFRotation.html#a9b36a26f76a59c6fdf0d105ed7523b06", null ],
       [ "isSame", "classSoMFRotation.html#a132e0cc93fcfcb81abcf0e45f6f0c74f", null ],
@@ -292,16 +292,16 @@ var group__coin__fields =
     ] ],
     [ "SoMFShort", "classSoMFShort.html", [
       [ "copyFrom", "classSoMFShort.html#a1cb7f16c2eb45634f0892496d22dc4f9", null ],
-      [ "copyValue", "classSoMFShort.html#aec30aa2c92a42f1cbc14f144bffd94fd", null ],
-      [ "deleteAllValues", "classSoMFShort.html#a95e805f53116c342fbfdf67d5f65a077", null ],
+      [ "copyValue", "classSoMFShort.html#a36e326352e0d094bbefc13e29f214359", null ],
+      [ "deleteAllValues", "classSoMFShort.html#a604b36056f152d8220e16a22cfda197a", null ],
       [ "getTypeId", "classSoMFShort.html#ae5637b4a8be5a8d18e4e74559b46a34b", null ],
       [ "getValues", "classSoMFShort.html#a409072b221312c00f70cca0948cb9fe6", null ],
       [ "isSame", "classSoMFShort.html#a438df28608dfd1fcbd6ca8064001cea3", null ]
     ] ],
     [ "SoMFString", "classSoMFString.html", [
       [ "copyFrom", "classSoMFString.html#ae833273650b883364fc3adcf89d66e77", null ],
-      [ "copyValue", "classSoMFString.html#ae5e8d8f400bd52b82995bbef96fa8765", null ],
-      [ "deleteAllValues", "classSoMFString.html#a41faabae057cb0bdb5ee4cf436ce73d8", null ],
+      [ "copyValue", "classSoMFString.html#ad9b906ac6d3cefc22a166d7f2b688a50", null ],
+      [ "deleteAllValues", "classSoMFString.html#af53500535f6b093d07b1e4a8ba879444", null ],
       [ "deleteText", "classSoMFString.html#a067411b95c97e16ebf0930a72f469a8b", null ],
       [ "getTypeId", "classSoMFString.html#a83906515a0e68835bf8e14c7ff6344b6", null ],
       [ "getValues", "classSoMFString.html#a753f5e691f9875beb20bb79574f9a31b", null ],
@@ -311,32 +311,32 @@ var group__coin__fields =
     ] ],
     [ "SoMFTime", "classSoMFTime.html", [
       [ "copyFrom", "classSoMFTime.html#a89d51bdb9c767fcce45457334c8e80cd", null ],
-      [ "copyValue", "classSoMFTime.html#a662116168a83e9a0bca423b51d40fdc5", null ],
-      [ "deleteAllValues", "classSoMFTime.html#ac3c765ea48f9710d6e0d7ca981cfdb0f", null ],
+      [ "copyValue", "classSoMFTime.html#ab64f2b464534ea4bdae402145456ddb2", null ],
+      [ "deleteAllValues", "classSoMFTime.html#aae766a732100acf1199a5f8c28910266", null ],
       [ "getTypeId", "classSoMFTime.html#a1509563a68ca062b9831fba5b9d22801", null ],
       [ "getValues", "classSoMFTime.html#a9656e8b7b5a11a8f90cb3c8d7acc3920", null ],
       [ "isSame", "classSoMFTime.html#a3b4d50f68525ddad66c378974343d380", null ]
     ] ],
     [ "SoMFUInt32", "classSoMFUInt32.html", [
       [ "copyFrom", "classSoMFUInt32.html#a6858c785ddc4be29862f1cc91826a992", null ],
-      [ "copyValue", "classSoMFUInt32.html#aa1580b213a92438cd7e4b274bc33e0a1", null ],
-      [ "deleteAllValues", "classSoMFUInt32.html#ad242017fecd19338a6b0c36d5c4d9798", null ],
+      [ "copyValue", "classSoMFUInt32.html#a8945619a37c3790d46f4510d63ee0606", null ],
+      [ "deleteAllValues", "classSoMFUInt32.html#abcfe2719188e290c73dae52da9082646", null ],
       [ "getTypeId", "classSoMFUInt32.html#a27700a38b2bb45d5d9ac3d134f17977b", null ],
       [ "getValues", "classSoMFUInt32.html#a8ed774d61e44ac466efbce4d4a7195ad", null ],
       [ "isSame", "classSoMFUInt32.html#a95b0f1f152568518c56afbcc1f5dfccd", null ]
     ] ],
     [ "SoMFUShort", "classSoMFUShort.html", [
       [ "copyFrom", "classSoMFUShort.html#ac51f099872a525a654eac8cf094f0aa3", null ],
-      [ "copyValue", "classSoMFUShort.html#a7358eb7f0e8e8bb6fb86c9708030b646", null ],
-      [ "deleteAllValues", "classSoMFUShort.html#a82eecb94fef514748449288b82db5a97", null ],
+      [ "copyValue", "classSoMFUShort.html#ad800d8bad89f0b3c74edc3e90afc28f3", null ],
+      [ "deleteAllValues", "classSoMFUShort.html#a1085f123ebe36b8471757dba25e09fc8", null ],
       [ "getTypeId", "classSoMFUShort.html#a0d1b1c62dd0348d2450677ae4ee6d352", null ],
       [ "getValues", "classSoMFUShort.html#a583d138fad8cec6007e2dd204f0af242", null ],
       [ "isSame", "classSoMFUShort.html#ac0624b9fd804ed317f7e360cfd94ebd1", null ]
     ] ],
     [ "SoMFVec2b", "classSoMFVec2b.html", [
       [ "copyFrom", "classSoMFVec2b.html#ab78dadffa0825eb83d26567cb9713a1b", null ],
-      [ "copyValue", "classSoMFVec2b.html#a54dc3e52fd6d1e824bc807e17a0bbf13", null ],
-      [ "deleteAllValues", "classSoMFVec2b.html#a8b1e7f1f40df0808fabc14c158a26b97", null ],
+      [ "copyValue", "classSoMFVec2b.html#ace2f282b6c421c91ae023f28371cba14", null ],
+      [ "deleteAllValues", "classSoMFVec2b.html#ac17d24cf18c4714cebb602f24fbf7cc2", null ],
       [ "getTypeId", "classSoMFVec2b.html#aad4ca3d83eac2d1723c4d58768b540b4", null ],
       [ "getValues", "classSoMFVec2b.html#a3346645d6198556fb6cb0264ba5029f1", null ],
       [ "isSame", "classSoMFVec2b.html#a5145e1a4b9cc302524d724411cd65eaa", null ],
@@ -348,8 +348,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec2d", "classSoMFVec2d.html", [
       [ "copyFrom", "classSoMFVec2d.html#a86db992e4c24dc3b7db4eee0c413664f", null ],
-      [ "copyValue", "classSoMFVec2d.html#a838d446e6ef6f0c3a51f605f63ec5d49", null ],
-      [ "deleteAllValues", "classSoMFVec2d.html#a9a81244276d1b9f6ef0115d1d424e979", null ],
+      [ "copyValue", "classSoMFVec2d.html#a5b21f45b49d4394cd9cd67ad42a7739c", null ],
+      [ "deleteAllValues", "classSoMFVec2d.html#ab6ae9c3a5507943f33656d53a278fe11", null ],
       [ "getTypeId", "classSoMFVec2d.html#a53cd85f3f47d33525cf1428cd367e8be", null ],
       [ "getValues", "classSoMFVec2d.html#a9835c03c2423df7375ce8df3cfb051ec", null ],
       [ "isSame", "classSoMFVec2d.html#a03f0d579c6da1dabf914ab658f3b6353", null ],
@@ -361,8 +361,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec2f", "classSoMFVec2f.html", [
       [ "copyFrom", "classSoMFVec2f.html#afe371ff4ec64329bfd4ed983a38a0584", null ],
-      [ "copyValue", "classSoMFVec2f.html#a11d353019e0f6e8b7ff26be15f93674f", null ],
-      [ "deleteAllValues", "classSoMFVec2f.html#a800078641f960e15d60704e1511f2668", null ],
+      [ "copyValue", "classSoMFVec2f.html#ad95ab0e483c265a48f81ba65eb70cedb", null ],
+      [ "deleteAllValues", "classSoMFVec2f.html#aec07f295e83697ad5bdcf3c618c33d33", null ],
       [ "getTypeId", "classSoMFVec2f.html#a3ab599b861e266d2cb652e3081a06c28", null ],
       [ "getValues", "classSoMFVec2f.html#a2db26b89937590abab6c3ef3f76ba46d", null ],
       [ "isSame", "classSoMFVec2f.html#a06e162eec0d2c40674b234717237181f", null ],
@@ -374,8 +374,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec2i32", "classSoMFVec2i32.html", [
       [ "copyFrom", "classSoMFVec2i32.html#a6e5217dabda5f228e9bb8702ed2d4ad6", null ],
-      [ "copyValue", "classSoMFVec2i32.html#a161f163194f3309b5b225d1d426f767e", null ],
-      [ "deleteAllValues", "classSoMFVec2i32.html#ad3415636d9ba2d85c92247eaedf3b6d5", null ],
+      [ "copyValue", "classSoMFVec2i32.html#a2c2978d695acb2bae0613cb80bcbbcfa", null ],
+      [ "deleteAllValues", "classSoMFVec2i32.html#a78fb7bc71cb2613ce6811c8d038e7c41", null ],
       [ "getTypeId", "classSoMFVec2i32.html#ac3544ae960b90a00d68546c5cfa92e63", null ],
       [ "getValues", "classSoMFVec2i32.html#a93951f44a42f5d3615d922c9ba3b7ae6", null ],
       [ "isSame", "classSoMFVec2i32.html#ad0f4f66e61e4d985e276277d341f3bb9", null ],
@@ -387,8 +387,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec2s", "classSoMFVec2s.html", [
       [ "copyFrom", "classSoMFVec2s.html#a42c66b07104d06e2d260cbb3c2c69a68", null ],
-      [ "copyValue", "classSoMFVec2s.html#a0225a217a6b51439ae9b4bf3d325fe8e", null ],
-      [ "deleteAllValues", "classSoMFVec2s.html#ad5c7e1456fd733689ff8e38eff44879e", null ],
+      [ "copyValue", "classSoMFVec2s.html#abc443d2f1ff088aa5e6121b9b825f72b", null ],
+      [ "deleteAllValues", "classSoMFVec2s.html#a76bef07a3af889873d0609eed12e1189", null ],
       [ "getTypeId", "classSoMFVec2s.html#a0bb32967cc548f8eb38a579a22e26c2d", null ],
       [ "getValues", "classSoMFVec2s.html#a20dbfeb755272061a4ca4f68fbbc4401", null ],
       [ "isSame", "classSoMFVec2s.html#a51b7179754adf4749ef4f9f9889574c9", null ],
@@ -400,8 +400,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec3b", "classSoMFVec3b.html", [
       [ "copyFrom", "classSoMFVec3b.html#af16cedb0dbb2f7aaf5fbb46c3f3cf5f3", null ],
-      [ "copyValue", "classSoMFVec3b.html#a45d1e935a865f6bc5e684f145eefacf1", null ],
-      [ "deleteAllValues", "classSoMFVec3b.html#a95e4dbb49ff1743bffab1c9d3bee0c88", null ],
+      [ "copyValue", "classSoMFVec3b.html#a928bf0eb97cb8c7c87611d7de73eb91c", null ],
+      [ "deleteAllValues", "classSoMFVec3b.html#a8be9f80a355792acdb61dee5f85b3e36", null ],
       [ "getTypeId", "classSoMFVec3b.html#a215d692d64dd67caa205684e18d75fdf", null ],
       [ "getValues", "classSoMFVec3b.html#ac1710729d7e3ec644414c52993463681", null ],
       [ "isSame", "classSoMFVec3b.html#a020b6a4ba23b5036e9704098f441cc7e", null ],
@@ -413,8 +413,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec3d", "classSoMFVec3d.html", [
       [ "copyFrom", "classSoMFVec3d.html#aeeffbadc254b19aa5dea58a248c51993", null ],
-      [ "copyValue", "classSoMFVec3d.html#aed1c9911c7b6bf8d0b49a9d03d10f1b4", null ],
-      [ "deleteAllValues", "classSoMFVec3d.html#a1ddb812ca1e2dc64254fe7007fe57f8f", null ],
+      [ "copyValue", "classSoMFVec3d.html#ae0333a96bb2b2c21e7d335a0cb300ae7", null ],
+      [ "deleteAllValues", "classSoMFVec3d.html#a55b11208033aec30cdb4924408e7a6a6", null ],
       [ "getTypeId", "classSoMFVec3d.html#ad41ebd9136d6e88f17e97a5d2d24c55c", null ],
       [ "getValues", "classSoMFVec3d.html#aaa89cc9f23943725515853fe0aca1498", null ],
       [ "isSame", "classSoMFVec3d.html#a4e6bb2c1324c66cfd8378df14907ab3a", null ],
@@ -426,8 +426,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec3f", "classSoMFVec3f.html", [
       [ "copyFrom", "classSoMFVec3f.html#a22d40990cedc02acee23161af477dbda", null ],
-      [ "copyValue", "classSoMFVec3f.html#a5b88555633190cf119a54e64cc968686", null ],
-      [ "deleteAllValues", "classSoMFVec3f.html#acc92ce1307c4d3702719ceecdce1ba47", null ],
+      [ "copyValue", "classSoMFVec3f.html#a2984586649ab647ee013e403d6524052", null ],
+      [ "deleteAllValues", "classSoMFVec3f.html#ab6dbad6605fc8cce40e9f926f9bf588e", null ],
       [ "getTypeId", "classSoMFVec3f.html#abf2ae4f2ae89ce8769f4ce3f6ebfc4e2", null ],
       [ "getValues", "classSoMFVec3f.html#a8caa1cdb92d8e9757a05e49317cf2200", null ],
       [ "isSame", "classSoMFVec3f.html#a7ae475372916c13e3065e951fd1d656a", null ],
@@ -439,8 +439,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec3i32", "classSoMFVec3i32.html", [
       [ "copyFrom", "classSoMFVec3i32.html#ad8e411710d67731f47e6c1739d5f7737", null ],
-      [ "copyValue", "classSoMFVec3i32.html#a997ae149d5bcf6bf0f6412cca46dfa61", null ],
-      [ "deleteAllValues", "classSoMFVec3i32.html#a1e6c640d1e979a48a69f42e1b9ec53e9", null ],
+      [ "copyValue", "classSoMFVec3i32.html#ae0350560a496a45124e66d12a76b6366", null ],
+      [ "deleteAllValues", "classSoMFVec3i32.html#a3ff2f20980dcd2a5cbf66ee59b08badc", null ],
       [ "getTypeId", "classSoMFVec3i32.html#a624f50a2dfac8ca22e2e352e05f67209", null ],
       [ "getValues", "classSoMFVec3i32.html#aedaa175e69c177011e43b8ffc89211d5", null ],
       [ "isSame", "classSoMFVec3i32.html#aa8171670248bd9f47637db9d009e35f9", null ],
@@ -452,8 +452,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec3s", "classSoMFVec3s.html", [
       [ "copyFrom", "classSoMFVec3s.html#a794a93f93570836044f59b85e4c4bf39", null ],
-      [ "copyValue", "classSoMFVec3s.html#ae9f8112290e0f96c775f553d035bb317", null ],
-      [ "deleteAllValues", "classSoMFVec3s.html#a3219574eb3f419b81b8fc8c89889c201", null ],
+      [ "copyValue", "classSoMFVec3s.html#a7fe5825e7ba13c199d95d36766734203", null ],
+      [ "deleteAllValues", "classSoMFVec3s.html#a6474b254b89f864268c120ed46aace91", null ],
       [ "getTypeId", "classSoMFVec3s.html#a9187d733db73ad77d37ae34c2ef2391e", null ],
       [ "getValues", "classSoMFVec3s.html#a0a775fbb23b1130ee7ced3e9a82cd55f", null ],
       [ "isSame", "classSoMFVec3s.html#a723b46c4fd89833cd16d0c18e0b39e35", null ],
@@ -465,8 +465,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4b", "classSoMFVec4b.html", [
       [ "copyFrom", "classSoMFVec4b.html#a8ed809bb66daf7e59f05f301ad5eebab", null ],
-      [ "copyValue", "classSoMFVec4b.html#a6b79a1ca5238e2532ce06f1b0e9785d2", null ],
-      [ "deleteAllValues", "classSoMFVec4b.html#ae2faa2cc67e9e488cf6ab6d0ca2dd53f", null ],
+      [ "copyValue", "classSoMFVec4b.html#a33606b579804dc5b19866149c5d59f62", null ],
+      [ "deleteAllValues", "classSoMFVec4b.html#aedb7e6e8e30c839cec56fe83d9689246", null ],
       [ "getTypeId", "classSoMFVec4b.html#ae085b296d1e1c3cea38218092e5fb8be", null ],
       [ "getValues", "classSoMFVec4b.html#abbcf7b5df938c50da90b8a6d88109c08", null ],
       [ "isSame", "classSoMFVec4b.html#abf9e99b6df55d3301dcea38e6696ea8d", null ],
@@ -478,8 +478,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4d", "classSoMFVec4d.html", [
       [ "copyFrom", "classSoMFVec4d.html#ac42f68212aabd48abbe0605498f53845", null ],
-      [ "copyValue", "classSoMFVec4d.html#a8f572df1cbc9af88774d388df49f894a", null ],
-      [ "deleteAllValues", "classSoMFVec4d.html#a8230fe34fb38be0b4775767eb68bcfb9", null ],
+      [ "copyValue", "classSoMFVec4d.html#a1732a3cc1284eaf89b5e0627251196b5", null ],
+      [ "deleteAllValues", "classSoMFVec4d.html#a94f8c44ee88dc2c1adeb7368bf5cbc63", null ],
       [ "getTypeId", "classSoMFVec4d.html#ab4b1ac5dec7375841025148edb391f79", null ],
       [ "getValues", "classSoMFVec4d.html#a15c0a29f309ebba08f85fcc7050b2ab0", null ],
       [ "isSame", "classSoMFVec4d.html#a11902820ca7d4f0b17cb72bc652c15c7", null ],
@@ -491,8 +491,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4f", "classSoMFVec4f.html", [
       [ "copyFrom", "classSoMFVec4f.html#a18fe6b26640c8b98359a7fa8c7eb2105", null ],
-      [ "copyValue", "classSoMFVec4f.html#a5133cd3b5d5ffcece274c7d30ccf7a69", null ],
-      [ "deleteAllValues", "classSoMFVec4f.html#a8a3e075d3e32296538fc9c07aaa7c1a4", null ],
+      [ "copyValue", "classSoMFVec4f.html#aef6bdbd21407ac4e183108d9bb16af61", null ],
+      [ "deleteAllValues", "classSoMFVec4f.html#a3c5111f6e746bd0661634bac5acbf2d5", null ],
       [ "getTypeId", "classSoMFVec4f.html#ad9b7995b640a1e8082887ee77d5687b2", null ],
       [ "getValues", "classSoMFVec4f.html#a99c7eac85ab025457a5709d7322ceca8", null ],
       [ "isSame", "classSoMFVec4f.html#a104eb1ce177f912af222df4d59877dab", null ],
@@ -504,8 +504,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4i32", "classSoMFVec4i32.html", [
       [ "copyFrom", "classSoMFVec4i32.html#ab2aea7306c4b9143f86f850f52f782c7", null ],
-      [ "copyValue", "classSoMFVec4i32.html#af870a22ca19716ab2f1b5288e2352610", null ],
-      [ "deleteAllValues", "classSoMFVec4i32.html#a9416fd3672371ab47ebde9c7e737007f", null ],
+      [ "copyValue", "classSoMFVec4i32.html#a3707668a1f9cf54973cdc34fc82a8a35", null ],
+      [ "deleteAllValues", "classSoMFVec4i32.html#ac3fd97c1b04309895f7a986a87f3f74c", null ],
       [ "getTypeId", "classSoMFVec4i32.html#a81bd671e7bb6138a1157958f03e39400", null ],
       [ "getValues", "classSoMFVec4i32.html#a3b2fe52ac847235e3497283e623611d0", null ],
       [ "isSame", "classSoMFVec4i32.html#ab8b5e3c469195dfd893d04df225d189d", null ],
@@ -517,8 +517,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4s", "classSoMFVec4s.html", [
       [ "copyFrom", "classSoMFVec4s.html#a64106b22e8b280e20659de60ca8a61e1", null ],
-      [ "copyValue", "classSoMFVec4s.html#a33b08e4429ec7f628d69cdb572fb8e6a", null ],
-      [ "deleteAllValues", "classSoMFVec4s.html#ab2a055a73e0aa2ab8250de4e7eb2d23d", null ],
+      [ "copyValue", "classSoMFVec4s.html#a744efd835dca25bf44ecefa2e6644c9d", null ],
+      [ "deleteAllValues", "classSoMFVec4s.html#a608fa39a5e3f4ef966e25ecf05db9a08", null ],
       [ "getTypeId", "classSoMFVec4s.html#ad661c1c02cf3d5b83d0bd7bc06a8789f", null ],
       [ "getValues", "classSoMFVec4s.html#a46573d41cfb968999f63cbc50d4c4fdf", null ],
       [ "isSame", "classSoMFVec4s.html#a63b8c51b5395a96c40cf3ca1f7c364b4", null ],
@@ -530,8 +530,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4ub", "classSoMFVec4ub.html", [
       [ "copyFrom", "classSoMFVec4ub.html#ac3628fbe1d8a1519207928087251777b", null ],
-      [ "copyValue", "classSoMFVec4ub.html#a76a929fe61d2463fac62397f2bbcd3b1", null ],
-      [ "deleteAllValues", "classSoMFVec4ub.html#a5f064746327632e577066cecc0f09c03", null ],
+      [ "copyValue", "classSoMFVec4ub.html#a691000ccc911e6367be340388cb7b8c3", null ],
+      [ "deleteAllValues", "classSoMFVec4ub.html#a67a3a34713b377222d3be2522f6bc86e", null ],
       [ "getTypeId", "classSoMFVec4ub.html#ab95986ddd4f72cf4270a5a5499617bc7", null ],
       [ "getValues", "classSoMFVec4ub.html#abb5d20517acd0b2984ba777dda591501", null ],
       [ "isSame", "classSoMFVec4ub.html#a66cc71eb493cfa3d5afe9391fd708caa", null ],
@@ -543,8 +543,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4ui32", "classSoMFVec4ui32.html", [
       [ "copyFrom", "classSoMFVec4ui32.html#aa6cf5ba70643c9793fb18b6d3517ce86", null ],
-      [ "copyValue", "classSoMFVec4ui32.html#a7c792bc5cf8369d55b32aaa82d7aea42", null ],
-      [ "deleteAllValues", "classSoMFVec4ui32.html#a246ea2b1e0cdbc76a20fc5288ae98d55", null ],
+      [ "copyValue", "classSoMFVec4ui32.html#ad67e086de6c70d10351cf977fa1b7c8e", null ],
+      [ "deleteAllValues", "classSoMFVec4ui32.html#a7c8d68dc89acb8149eb485a47e10fcea", null ],
       [ "getTypeId", "classSoMFVec4ui32.html#a2980b813194f24852e55fec7c8db3e42", null ],
       [ "getValues", "classSoMFVec4ui32.html#a73ac93580784d848ad14b1a41777a1fd", null ],
       [ "isSame", "classSoMFVec4ui32.html#a79b9dff136ad16416853e6131120a1e6", null ],
@@ -556,8 +556,8 @@ var group__coin__fields =
     ] ],
     [ "SoMFVec4us", "classSoMFVec4us.html", [
       [ "copyFrom", "classSoMFVec4us.html#a354670575de823af69d514cca3f13da1", null ],
-      [ "copyValue", "classSoMFVec4us.html#a0ea4e4d6dc6c5d17ff1ace26ce3a8dc8", null ],
-      [ "deleteAllValues", "classSoMFVec4us.html#ac5cf4a3e3fd22ca0a6d47dbbdb620659", null ],
+      [ "copyValue", "classSoMFVec4us.html#a45fa53fe5e8c1771faa349cc7bf6b087", null ],
+      [ "deleteAllValues", "classSoMFVec4us.html#aefdbaa4a07efc64badf4692beb8d11e9", null ],
       [ "getTypeId", "classSoMFVec4us.html#a5e7bfed6fc7e0f1fbe24bd04f58b6cc5", null ],
       [ "getValues", "classSoMFVec4us.html#a269c4c936eca2eceaeb579de869de435", null ],
       [ "isSame", "classSoMFVec4us.html#a4bee2084cb653dfb0da86ffb300cd762", null ],
@@ -668,10 +668,10 @@ var group__coin__fields =
     ] ],
     [ "SoSFEngine", "classSoSFEngine.html", [
       [ "copyFrom", "classSoSFEngine.html#a8d860043ea5b44fe99ac88700c123150", null ],
-      [ "fixCopy", "classSoSFEngine.html#afdafcb093e09b6b91c1ee4e2a85a21d4", null ],
+      [ "fixCopy", "classSoSFEngine.html#a1be2a5c0a011f0f6618bf36571dd9127", null ],
       [ "getTypeId", "classSoSFEngine.html#ad00f76dd2418a10f95f72004688d663f", null ],
       [ "isSame", "classSoSFEngine.html#a35433fa6d0c2e5e7e37e803a6d9afd16", null ],
-      [ "referencesCopy", "classSoSFEngine.html#a3922d4f125abf75ed2980656b9d316a3", null ]
+      [ "referencesCopy", "classSoSFEngine.html#a9ad0c4d899aebc49e917233e37067fdf", null ]
     ] ],
     [ "SoSFEnum", "classSoSFEnum.html", [
       [ "copyFrom", "classSoSFEnum.html#ad3e57657f20e0c0bf58c99fd2633200e", null ],
@@ -746,18 +746,18 @@ var group__coin__fields =
     ] ],
     [ "SoSFNode", "classSoSFNode.html", [
       [ "copyFrom", "classSoSFNode.html#a02db4d64265f53f292cd7789adc6cb54", null ],
-      [ "fixCopy", "classSoSFNode.html#aa2f5f9e0ef5519fb9de6b46274b8d5c8", null ],
+      [ "fixCopy", "classSoSFNode.html#a7b4a882103d62972c0155dacff3a59da", null ],
       [ "getTypeId", "classSoSFNode.html#ab9ca2743c47a0dfb6607363dc92d0c45", null ],
       [ "isSame", "classSoSFNode.html#a20ac563a8dcfd66f80ce8ebb90cfe7db", null ],
-      [ "referencesCopy", "classSoSFNode.html#a1a7ebe1e56de5f4bb3cda425e621f9e5", null ]
+      [ "referencesCopy", "classSoSFNode.html#a631d41e1acc488a6d5f80d09b0ab69ff", null ]
     ] ],
     [ "SoSFPath", "classSoSFPath.html", [
       [ "copyFrom", "classSoSFPath.html#a9e1367c2a38b71a5a2069e251b276f7d", null ],
-      [ "fixCopy", "classSoSFPath.html#a60f6e7960364afce4547908db55fad00", null ],
+      [ "fixCopy", "classSoSFPath.html#a6465c1be56b13ffeec968e2e8b30357a", null ],
       [ "getTypeId", "classSoSFPath.html#aa9320e573be9e498529ea65b9a702614", null ],
       [ "isSame", "classSoSFPath.html#ac6b13b994cb7e9d0d8b99f1ae2c4da7b", null ],
-      [ "notify", "classSoSFPath.html#a9e901becab866677723bb6aae8ee4863", null ],
-      [ "referencesCopy", "classSoSFPath.html#a7d7149fe56e4611a6fece1011b1c0018", null ]
+      [ "notify", "classSoSFPath.html#a5e7cd4779c2e41daaf292964f653b7f6", null ],
+      [ "referencesCopy", "classSoSFPath.html#a5209765ef9e4e0715dcaed7529151d5c", null ]
     ] ],
     [ "SoSFPlane", "classSoSFPlane.html", [
       [ "copyFrom", "classSoSFPlane.html#a095abb74e7c1c5f49f63c3da2321b0dc", null ],
@@ -794,12 +794,12 @@ var group__coin__fields =
       [ "getTypeId", "classSoSFTrigger.html#afe60cc7ba1ee953e974a4ac4d34f7df7", null ],
       [ "getValue", "classSoSFTrigger.html#abdbfd75578b726c6c4d541f75e825292", null ],
       [ "isSame", "classSoSFTrigger.html#aac602380530a04a8bd1d8672e5163b22", null ],
-      [ "notify", "classSoSFTrigger.html#a476fe11c5e7e807492e0a9214dd3ac01", null ],
+      [ "notify", "classSoSFTrigger.html#aa58145eaddc9f8f2f8a60ee67f2941f4", null ],
       [ "operator!=", "classSoSFTrigger.html#a65ba3a39fb5db1251a43f237da9c065f", null ],
       [ "operator==", "classSoSFTrigger.html#a32dac567e2dc9fdcc0a069689502a8c2", null ],
       [ "setValue", "classSoSFTrigger.html#a045b573e883437b692d8c0c4edc67a72", null ],
-      [ "startNotify", "classSoSFTrigger.html#abc5f31011bf42e2b4c5b4a383043609e", null ],
-      [ "touch", "classSoSFTrigger.html#adb7f1ab13558de6281846da18a7d2fb7", null ]
+      [ "startNotify", "classSoSFTrigger.html#adc80563b734e20101f899feaacd00128", null ],
+      [ "touch", "classSoSFTrigger.html#a31ca401f6d397a3bc45eb4ba4bad7829", null ]
     ] ],
     [ "SoSFUInt32", "classSoSFUInt32.html", [
       [ "copyFrom", "classSoSFUInt32.html#a7a133e4417eb95e04d268da5cb6bcc2a", null ],

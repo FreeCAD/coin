@@ -8,7 +8,7 @@ var classSoNodeVisualize =
     [ "getSoNodeVisualizeRoot", "classSoNodeVisualize.html#ab46a4ae8e8372ec6ac40c75629b4457f", null ],
     [ "getTypeId", "classSoNodeVisualize.html#ac3e6baa5b797d8a653ed14549efe06d6", null ],
     [ "getWidth", "classSoNodeVisualize.html#aca28c20aae4d25c1a9214f7773361aa6", null ],
-    [ "handleEvent", "classSoNodeVisualize.html#aacf1b01d4e6d8cd61582555def2ecf3b", null ],
+    [ "handleEvent", "classSoNodeVisualize.html#a283c44d962d1e776d5fa353feff8f856", null ],
     [ "internalAlternating", "classSoNodeVisualize.html#a6554389685c847b217059a7f78e89475", null ],
     [ "nodeHasChildren", "classSoNodeVisualize.html#a9c737395af16321d23e419fa2d10d586", null ],
     [ "nodeNumChildren", "classSoNodeVisualize.html#a2fca0072950d0717816d4636020fe4d6", null ],

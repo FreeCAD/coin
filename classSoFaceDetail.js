@@ -2,7 +2,7 @@ var classSoFaceDetail =
 [
     [ "SoFaceDetail", "classSoFaceDetail.html#af9dbb1c8d92c53a2470e950fa46e1636", null ],
     [ "~SoFaceDetail", "classSoFaceDetail.html#a71aaca2902db3572667e766f7c51c7cd", null ],
-    [ "copy", "classSoFaceDetail.html#a277b908c44369f93c179d1067405f2db", null ],
+    [ "copy", "classSoFaceDetail.html#a4772a6580dc2ec920072dad6b09d7e9b", null ],
     [ "getFaceIndex", "classSoFaceDetail.html#a32dd33933e528964c88647445c0a92c1", null ],
     [ "getNumPoints", "classSoFaceDetail.html#a285034d780e173d9c666661fa134d0c6", null ],
     [ "getPartIndex", "classSoFaceDetail.html#a6767f6eaa9da0fb6e6a4acc5c84513cc", null ],

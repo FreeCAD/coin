@@ -5,7 +5,7 @@ var classSoCalculator =
     [ "getFieldData", "classSoCalculator.html#a3f74ca5345fe6a739b8bd7107587f45b", null ],
     [ "getOutputData", "classSoCalculator.html#a06a1e250fd73cd29145b20ccf3d120a3", null ],
     [ "getTypeId", "classSoCalculator.html#a1ffd21f7344d988a802d8c47e936fdc5", null ],
-    [ "inputChanged", "classSoCalculator.html#a43e3022159bc59a24931b01b625ac226", null ],
+    [ "inputChanged", "classSoCalculator.html#af005aeb843ab7bbbd475e69f7609498c", null ],
     [ "a", "classSoCalculator.html#a8334a05f1d4ad8a76233ab1227613c26", null ],
     [ "A", "classSoCalculator.html#a78b6958e185647f1efcf8dc37a39b461", null ],
     [ "b", "classSoCalculator.html#ab8dcece3f0627bc900f37455726ceb0b", null ],

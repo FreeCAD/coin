@@ -10,7 +10,7 @@ var classSoEventCallback =
     [ "getPickedPoint", "classSoEventCallback.html#a70ef07021e2d7c8eb5a44b53c1359915", null ],
     [ "getTypeId", "classSoEventCallback.html#abe427ed59c337e62fef43c1a88fa57da", null ],
     [ "grabEvents", "classSoEventCallback.html#a7166accbf57582f7b2c097bc655eb3db", null ],
-    [ "handleEvent", "classSoEventCallback.html#af39ddff1e8540517221d3dca0d72b407", null ],
+    [ "handleEvent", "classSoEventCallback.html#a309abf88075a00b6d0ae801bc0ce2380", null ],
     [ "isHandled", "classSoEventCallback.html#a23eac72f15fc1947afbb0170b6fa5b05", null ],
     [ "releaseEvents", "classSoEventCallback.html#a63f003e6923d8958ee9238fe809cd661", null ],
     [ "removeEventCallback", "classSoEventCallback.html#a0b9959481b451b5bd5f3739409d1a4b8", null ],

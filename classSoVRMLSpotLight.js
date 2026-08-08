@@ -4,7 +4,7 @@ var classSoVRMLSpotLight =
     [ "~SoVRMLSpotLight", "classSoVRMLSpotLight.html#ad7c7c4b355176325e2ff7a991d303f7e", null ],
     [ "getFieldData", "classSoVRMLSpotLight.html#a7c1c80034b2bf7b5df55bde90758dca8", null ],
     [ "getTypeId", "classSoVRMLSpotLight.html#aaeebb7bfc434320e0087b8d3ec6aac38", null ],
-    [ "GLRender", "classSoVRMLSpotLight.html#a5e22cfdaad451532cbb40407cdacd784", null ],
+    [ "GLRender", "classSoVRMLSpotLight.html#aebdd7922612858fa2c7efcf8a3bdef9b", null ],
     [ "attenuation", "classSoVRMLSpotLight.html#a754ef2d3392bbcfddff4cab7fd909559", null ],
     [ "beamWidth", "classSoVRMLSpotLight.html#a56f645be340ce62bd7a49a1f180fc0e5", null ],
     [ "cutOffAngle", "classSoVRMLSpotLight.html#acc177d979682d8670ebe32568500cfd6", null ],

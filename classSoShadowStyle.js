@@ -10,6 +10,6 @@ var classSoShadowStyle =
     [ "~SoShadowStyle", "classSoShadowStyle.html#a6a3f5e2a78eaa5a1fef88983fc676f55", null ],
     [ "getFieldData", "classSoShadowStyle.html#a3e596ba30ab372dbe1e7c2e02af26988", null ],
     [ "getTypeId", "classSoShadowStyle.html#a93c98f0dd32b59690d73321ce5d30031", null ],
-    [ "GLRender", "classSoShadowStyle.html#a15e0bfdc4a862917f3cfe81e9c07df82", null ],
+    [ "GLRender", "classSoShadowStyle.html#aaed847969d7ae6354eb754ec953b01b9", null ],
     [ "style", "classSoShadowStyle.html#a4e49949cb859732ba6ea89de529867c5", null ]
 ];

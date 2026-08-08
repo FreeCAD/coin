@@ -3,7 +3,7 @@ var classSoRayPickAction =
     [ "SoRayPickAction", "classSoRayPickAction.html#a37dfa9cc373e091f90d44acd0e9f15c5", null ],
     [ "~SoRayPickAction", "classSoRayPickAction.html#a5a29e1620f7b13a1a285f9f44f42f0a1", null ],
     [ "addIntersection", "classSoRayPickAction.html#acae017714b5f721830e4b46ea355d28f", null ],
-    [ "beginTraversal", "classSoRayPickAction.html#a4660d704917cfe585b0b136bb3e582db", null ],
+    [ "beginTraversal", "classSoRayPickAction.html#acdcd572352de59059326c9b3f2248dfe", null ],
     [ "computeWorldSpaceRay", "classSoRayPickAction.html#ac18eed9a9c6b28a470aa4f070b917a4c", null ],
     [ "getEnabledElements", "classSoRayPickAction.html#a56ab502bdb418d5960a85c3355bb6353", null ],
     [ "getLine", "classSoRayPickAction.html#a31d06df83d998c24dff43eea854f830f", null ],

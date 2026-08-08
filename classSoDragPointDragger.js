@@ -9,9 +9,9 @@ var classSoDragPointDragger =
     [ "getJumpLimit", "classSoDragPointDragger.html#a41c4a1b9c323dc2a6a0bd4850d9210f7", null ],
     [ "getNodekitCatalog", "classSoDragPointDragger.html#a018315e4543e858a1a4807af59405303", null ],
     [ "getTypeId", "classSoDragPointDragger.html#a9b2a36b2516c30f220bfb2df44b0b257", null ],
-    [ "setDefaultOnNonWritingFields", "classSoDragPointDragger.html#a1ce5f30ee68208e8a54cbd696f883434", null ],
+    [ "setDefaultOnNonWritingFields", "classSoDragPointDragger.html#a681e4b7576944916522ca53d32c1976b", null ],
     [ "setJumpLimit", "classSoDragPointDragger.html#a20bfe7675c8d171faef2314280d50390", null ],
-    [ "setUpConnections", "classSoDragPointDragger.html#a025e7195f8bdf5d324d4c80574bc4434", null ],
+    [ "setUpConnections", "classSoDragPointDragger.html#a15359d3d56ef2190075fa7b68f2f76ec", null ],
     [ "showNextDraggerSet", "classSoDragPointDragger.html#a311750e9c9319c4f75a88e832c29e0b9", null ],
     [ "fieldSensor", "classSoDragPointDragger.html#a00ded3cc8beaa4d2d66c46009c6f6343", null ],
     [ "translation", "classSoDragPointDragger.html#ab812f1eec4afd17725cfaab4b72646ce", null ]

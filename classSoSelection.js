@@ -27,7 +27,7 @@ var classSoSelection =
     [ "getPath", "classSoSelection.html#a98e9659c06381ba48af9c592306c9e57", null ],
     [ "getPickMatching", "classSoSelection.html#ad053d933fd2793317bedffeb0e6b4a5f", null ],
     [ "getTypeId", "classSoSelection.html#ae5a1ce2d2a36f57a2479a5a7ab32f2c8", null ],
-    [ "handleEvent", "classSoSelection.html#a8a5c2e9c70ef3faa6251bd1a3f971379", null ],
+    [ "handleEvent", "classSoSelection.html#a6d12386bb709190dd5df1f5d31ee0568", null ],
     [ "invokeSelectionPolicy", "classSoSelection.html#a72e4fb4e0bc9744ba0f1fd55f28d4ea5", null ],
     [ "isPickMatching", "classSoSelection.html#ab79935249884c1cfd787d2e501b2e00c", null ],
     [ "isSelected", "classSoSelection.html#a2244c524cc04fee73cedad5a37a486d0", null ],

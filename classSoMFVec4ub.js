@@ -1,8 +1,8 @@
 var classSoMFVec4ub =
 [
     [ "copyFrom", "classSoMFVec4ub.html#ac3628fbe1d8a1519207928087251777b", null ],
-    [ "copyValue", "classSoMFVec4ub.html#a76a929fe61d2463fac62397f2bbcd3b1", null ],
-    [ "deleteAllValues", "classSoMFVec4ub.html#a5f064746327632e577066cecc0f09c03", null ],
+    [ "copyValue", "classSoMFVec4ub.html#a691000ccc911e6367be340388cb7b8c3", null ],
+    [ "deleteAllValues", "classSoMFVec4ub.html#a67a3a34713b377222d3be2522f6bc86e", null ],
     [ "getTypeId", "classSoMFVec4ub.html#ab95986ddd4f72cf4270a5a5499617bc7", null ],
     [ "getValues", "classSoMFVec4ub.html#abb5d20517acd0b2984ba777dda591501", null ],
     [ "isSame", "classSoMFVec4ub.html#a66cc71eb493cfa3d5afe9391fd708caa", null ],

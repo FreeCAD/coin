@@ -2,7 +2,7 @@ var classSoHandleEventAction =
 [
     [ "SoHandleEventAction", "classSoHandleEventAction.html#a5064ba50229cbe988529fe684f9cd031", null ],
     [ "~SoHandleEventAction", "classSoHandleEventAction.html#ad1b87af3a0d81ba718813a87ffc47156", null ],
-    [ "beginTraversal", "classSoHandleEventAction.html#ac166197a430e31f9004015121015e92b", null ],
+    [ "beginTraversal", "classSoHandleEventAction.html#ac098fc5c70ac540f0a2ee254d1d93a02", null ],
     [ "getEnabledElements", "classSoHandleEventAction.html#aaae240df0ec097231df7259140843e66", null ],
     [ "getEvent", "classSoHandleEventAction.html#a6426bea40249f5023852b06165bee1af", null ],
     [ "getGrabber", "classSoHandleEventAction.html#a81d1414c2ae0035f6a236ba826703e8d", null ],

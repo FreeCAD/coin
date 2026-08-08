@@ -2,9 +2,9 @@ var classSoIntersectionDetectionAction =
 [
     [ "addIntersectionCallback", "classSoIntersectionDetectionAction.html#aef6643fd98e970744e6b7d19ede887d6", null ],
     [ "addVisitationCallback", "classSoIntersectionDetectionAction.html#a4a4f8140fb45f7a3fea7c8f105afce21", null ],
-    [ "apply", "classSoIntersectionDetectionAction.html#a8a4595877a40aca2ab90306c7536ef0e", null ],
-    [ "apply", "classSoIntersectionDetectionAction.html#a81fa441e145866d7eaa81ddb7d1ebdad", null ],
-    [ "apply", "classSoIntersectionDetectionAction.html#a789ee88aa501678c6183150e3db487f9", null ],
+    [ "apply", "classSoIntersectionDetectionAction.html#aa6f15ea536b66b31ec3868deb4706fde", null ],
+    [ "apply", "classSoIntersectionDetectionAction.html#a8e0515111ee8bf9dff30f25f694f9619", null ],
+    [ "apply", "classSoIntersectionDetectionAction.html#a9088f01b5f83d2a4f943d5b3ba4ff655", null ],
     [ "getEnabledElements", "classSoIntersectionDetectionAction.html#a3aaee72ef18766c050364973a3a293e4", null ],
     [ "getIntersectionDetectionEpsilon", "classSoIntersectionDetectionAction.html#a863afe018ef5d394496c88b7da46e451", null ],
     [ "getTypeId", "classSoIntersectionDetectionAction.html#aa13dda235457a73c561c9a5445eb122e", null ],

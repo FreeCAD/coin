@@ -912,7 +912,7 @@ connection" flag is <code>FALSE</code>, no value propagation will be done from a
 <p>The default method in the <a class="el" href="classSoField.html" title="The SoField class is the top-level abstract base class for fields.">SoField</a> superclass does nothing.</p>
 <p>The application programmer should normally not need to consider this method, unless he constructs a complex field type which contains new references to container instances (i.e. nodes or engines). Overriding this method is then necessary to update the reference pointers, as they could have been duplicated during the copy operation. </p>
 
-<p>Reimplemented in <a class="el" href="classSoMFEngine.html#a87f8286c967043661a9fa14301d15bb4">SoMFEngine</a>, <a class="el" href="classSoMFNode.html#aa6e774457d4f3319eb9d21e10721d45e">SoMFNode</a>, <a class="el" href="classSoMFPath.html#a1e02d5cb1b7c669a66e6935f15dc5ad9">SoMFPath</a>, <a class="el" href="classSoSFEngine.html#afdafcb093e09b6b91c1ee4e2a85a21d4">SoSFEngine</a>, <a class="el" href="classSoSFNode.html#aa2f5f9e0ef5519fb9de6b46274b8d5c8">SoSFNode</a>, and <a class="el" href="classSoSFPath.html#a60f6e7960364afce4547908db55fad00">SoSFPath</a>.</p>
+<p>Reimplemented in <a class="el" href="classSoMFEngine.html#a62d82beea09282e93a189dddc2a66b0d">SoMFEngine</a>, <a class="el" href="classSoMFNode.html#a4b133439ae04b5b91b3696934ee0710a">SoMFNode</a>, <a class="el" href="classSoMFPath.html#ad8b74927ffb981796a71a77d7aa6a2f6">SoMFPath</a>, <a class="el" href="classSoSFEngine.html#a1be2a5c0a011f0f6618bf36571dd9127">SoSFEngine</a>, <a class="el" href="classSoSFNode.html#a7b4a882103d62972c0155dacff3a59da">SoSFNode</a>, and <a class="el" href="classSoSFPath.html#a6465c1be56b13ffeec968e2e8b30357a">SoSFPath</a>.</p>
 
 </div>
 </div>
@@ -1452,7 +1452,7 @@ connectFrom(SoField *) </dd></dl>
 </div><div class="memdoc">
 <p>Notify auditors that this field has changed. </p>
 
-<p>Reimplemented in <a class="el" href="classSoMFPath.html#a13ac392429032424273d0e31a165da38">SoMFPath</a>, <a class="el" href="classSoSFPath.html#a9e901becab866677723bb6aae8ee4863">SoSFPath</a>, and <a class="el" href="classSoSFTrigger.html#a476fe11c5e7e807492e0a9214dd3ac01">SoSFTrigger</a>.</p>
+<p>Reimplemented in <a class="el" href="classSoMFPath.html#a87983ed642fd972d34043875355ab317">SoMFPath</a>, <a class="el" href="classSoSFPath.html#a5e7cd4779c2e41daaf292964f653b7f6">SoSFPath</a>, and <a class="el" href="classSoSFTrigger.html#aa58145eaddc9f8f2f8a60ee67f2941f4">SoSFTrigger</a>.</p>
 
 </div>
 </div>
@@ -1604,7 +1604,7 @@ connectFrom(SoField *) </dd></dl>
 <p>Note that this method <em>only</em> is valid to call during copy operations.</p>
 <p>See also the note about the relevance of the <a class="el" href="#a7d7a05ee937f6790f38fe727415e5d84">fixCopy()</a> method for application programmers, as it is applicable on this method as well. </p>
 
-<p>Reimplemented in <a class="el" href="classSoMFEngine.html#aef9a93773371f9d7d0d8c2f871c628c4">SoMFEngine</a>, <a class="el" href="classSoMFNode.html#a1c590f2ba003f92467caffcbcc8146d0">SoMFNode</a>, <a class="el" href="classSoMFPath.html#adec7c34fec1048a862012aeba5518b83">SoMFPath</a>, <a class="el" href="classSoSFEngine.html#a3922d4f125abf75ed2980656b9d316a3">SoSFEngine</a>, <a class="el" href="classSoSFNode.html#a1a7ebe1e56de5f4bb3cda425e621f9e5">SoSFNode</a>, and <a class="el" href="classSoSFPath.html#a7d7149fe56e4611a6fece1011b1c0018">SoSFPath</a>.</p>
+<p>Reimplemented in <a class="el" href="classSoMFEngine.html#a8f0fc5b19413c86b91197308faefae33">SoMFEngine</a>, <a class="el" href="classSoMFNode.html#a8579acb1dfe650d1be77ff0f95d6acaa">SoMFNode</a>, <a class="el" href="classSoMFPath.html#a3aa76f5ca30bd7815c272cfbb835b50f">SoMFPath</a>, <a class="el" href="classSoSFEngine.html#a9ad0c4d899aebc49e917233e37067fdf">SoSFEngine</a>, <a class="el" href="classSoSFNode.html#a631d41e1acc488a6d5f80d09b0ab69ff">SoSFNode</a>, and <a class="el" href="classSoSFPath.html#a5209765ef9e4e0715dcaed7529151d5c">SoSFPath</a>.</p>
 
 </div>
 </div>
@@ -1790,7 +1790,7 @@ connectFrom(SoField *) </dd></dl>
 <p>Trigger a notification sequence.</p>
 <p>At the end of a notification sequence, all "immediate" sensors (i.e. sensors set up with a zero priority) are triggered. </p>
 
-<p>Reimplemented in <a class="el" href="classSoSFTrigger.html#abc5f31011bf42e2b4c5b4a383043609e">SoSFTrigger</a>.</p>
+<p>Reimplemented in <a class="el" href="classSoSFTrigger.html#adc80563b734e20101f899feaacd00128">SoSFTrigger</a>.</p>
 
 </div>
 </div>
@@ -1820,7 +1820,7 @@ connectFrom(SoField *) </dd></dl>
 <p>Touching a field which is part of any component (engine or node) in a scene graph will lead to a forced redraw. This is useful if you have been doing several updates to the field wrapped in a pair of <a class="el" href="#a4cf2036ff086d620ff77bef57ac36069">enableNotify()</a> calls to notify the field's auditors that its value has changed.</p>
 <dl class="section see"><dt>See also</dt><dd>setValue(), <a class="el" href="#a4cf2036ff086d620ff77bef57ac36069">enableNotify()</a> </dd></dl>
 
-<p>Reimplemented in <a class="el" href="classSoSFTrigger.html#adb7f1ab13558de6281846da18a7d2fb7">SoSFTrigger</a>.</p>
+<p>Reimplemented in <a class="el" href="classSoSFTrigger.html#a31ca401f6d397a3bc45eb4ba4bad7829">SoSFTrigger</a>.</p>
 
 </div>
 </div>
@@ -1945,7 +1945,7 @@ connectFrom(SoField *) </dd></dl>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="classSoField.html">SoField</a></li>
-    <li class="footer">Generated on Thu Jul 9 2026 19:34:13 for Coin by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.10.0 </li>
+    <li class="footer">Generated on Sat Aug 8 2026 11:10:58 for Coin by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.10.0 </li>
   </ul>
 </div>
 </body>

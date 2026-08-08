@@ -1,8 +1,8 @@
 var classSoMFVec4i32 =
 [
     [ "copyFrom", "classSoMFVec4i32.html#ab2aea7306c4b9143f86f850f52f782c7", null ],
-    [ "copyValue", "classSoMFVec4i32.html#af870a22ca19716ab2f1b5288e2352610", null ],
-    [ "deleteAllValues", "classSoMFVec4i32.html#a9416fd3672371ab47ebde9c7e737007f", null ],
+    [ "copyValue", "classSoMFVec4i32.html#a3707668a1f9cf54973cdc34fc82a8a35", null ],
+    [ "deleteAllValues", "classSoMFVec4i32.html#ac3fd97c1b04309895f7a986a87f3f74c", null ],
     [ "getTypeId", "classSoMFVec4i32.html#a81bd671e7bb6138a1157958f03e39400", null ],
     [ "getValues", "classSoMFVec4i32.html#a3b2fe52ac847235e3497283e623611d0", null ],
     [ "isSame", "classSoMFVec4i32.html#ab8b5e3c469195dfd893d04df225d189d", null ],
