@@ -67,7 +67,13 @@ endforeach()
 # - "killers" with testInCorrectFile
 # - "slackers" with testOutOfSpecFile
 # However, those folders are not in the repository.
-create_file_test("models" "testCorrectFile" false "incorrect")
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	create_file_test("models" "testCorrectFile" false "incorrect")
+else()
+	# ExtSelection is part of the legacy renderer and is not registered in
+	# core-only builds, so do not include scenes that require that node.
+	create_file_test("models" "testCorrectFile" false "(incorrect|models/dead_simple/all-iv\\.iv$)")
+endif()
 # bug039.iv and bug055-5.iv contain errors but load anyway: ignore for now
 create_file_test("models/io/incorrect" "testIncorrectFile" true "(bug039|bug055-5)")
 
