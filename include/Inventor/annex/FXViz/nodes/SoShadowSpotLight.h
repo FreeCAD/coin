@@ -48,7 +48,9 @@ public:
   static void initClass(void);
   SoShadowSpotLight(void);
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
 
   SoSFNode shadowMapScene;
   SoSFFloat nearDistance;

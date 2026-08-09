@@ -84,7 +84,9 @@ public:
   SoSFColor blendColor;
 
   void doAction(SoAction * action) override;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void callback(SoCallbackAction * action) override;
   void rayPick(SoRayPickAction * action) override;
 

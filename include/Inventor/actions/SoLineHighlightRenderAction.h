@@ -46,8 +46,13 @@ class COIN_DLL_API SoLineHighlightRenderAction : public SoGLRenderAction {
 public:
   static void initClass(void);
 
+ #if COIN_LEGACY_GL_API_AVAILABLE
   SoLineHighlightRenderAction(void);
   SoLineHighlightRenderAction(const SbViewportRegion & viewportregion);
+ #else
+  SoLineHighlightRenderAction(void) = delete;
+  SoLineHighlightRenderAction(const SbViewportRegion & viewportregion) = delete;
+ #endif
   virtual ~SoLineHighlightRenderAction(void);
 
   void apply(SoNode * node) override;

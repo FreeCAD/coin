@@ -47,7 +47,11 @@ class COIN_DLL_API SoReorganizeAction : public SoSimplifyAction {
 public: 
   static void initClass(void);
 
+ #if COIN_LEGACY_GL_API_AVAILABLE
   SoReorganizeAction(SoSimplifier * simplifier = NULL);
+ #else
+  SoReorganizeAction(SoSimplifier * simplifier = NULL) = delete;
+ #endif
   virtual ~SoReorganizeAction(void);
 
   SoSeparator * getSimplifiedSceneGraph(void) const;

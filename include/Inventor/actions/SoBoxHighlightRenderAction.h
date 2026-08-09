@@ -46,8 +46,13 @@ class COIN_DLL_API SoBoxHighlightRenderAction : public SoGLRenderAction {
 public:
   static void initClass(void);
 
+ #if COIN_LEGACY_GL_API_AVAILABLE
   SoBoxHighlightRenderAction(void);
   SoBoxHighlightRenderAction(const SbViewportRegion & viewportregion);
+ #else
+  SoBoxHighlightRenderAction(void) = delete;
+  SoBoxHighlightRenderAction(const SbViewportRegion & viewportregion) = delete;
+ #endif
   virtual ~SoBoxHighlightRenderAction(void);
 
   void apply(SoNode * node) override;
