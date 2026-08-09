@@ -533,6 +533,7 @@ SoVRMLExtrusion::~SoVRMLExtrusion()
 
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLExtrusion::GLRender(SoGLRenderAction * action)
 {
@@ -679,6 +680,7 @@ SoVRMLExtrusion::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, PRIVATE(this)->idx.getLength() / 4,
                         vbo);
 }
+#endif
 
 // Doc in parent
 void
@@ -807,6 +809,7 @@ SoVRMLExtrusion::updateCache(void)
   }
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLExtrusionP::updateVBO(SoAction * action)
 {
@@ -826,7 +829,9 @@ SoVRMLExtrusionP::updateVBO(SoAction * action)
     this->readLock();
   }
 }
+#endif
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLExtrusionP::generateVBO(SoAction * action, SoTextureCoordinateBundle & tb)
 {
@@ -914,6 +919,7 @@ SoVRMLExtrusionP::generateVBO(SoAction * action, SoTextureCoordinateBundle & tb)
   this->vbocache->getTexCoordVBO(0)->setBufferData(this->vbotexcoord.getArrayPtr(),
                                                    this->vbotexcoord.getLength()*sizeof(SbVec2f), 1);
 }
+#endif
 
 
 // Doc in parent

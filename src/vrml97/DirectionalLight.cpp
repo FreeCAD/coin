@@ -34,6 +34,8 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoGL.h"
+
 #ifdef HAVE_VRML97
 
 /*!
@@ -123,6 +125,7 @@ SoVRMLDirectionalLight::~SoVRMLDirectionalLight()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -165,7 +168,7 @@ SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_CONSTANT_ATTENUATION, 1);
   glLightf(light, GL_LINEAR_ATTENUATION, 0);
   glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
-
 }
+#endif
 
 #endif // HAVE_VRML97

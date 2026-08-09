@@ -150,6 +150,7 @@ SoVRMLPointSet::~SoVRMLPointSet()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPointSet::GLRender(SoGLRenderAction * action)
 {
@@ -224,6 +225,7 @@ SoVRMLPointSet::GLRender(SoGLRenderAction * action)
   // send approx number of points for autocache handling
   sogl_autocache_update(state, numpts, didrenderasvbo); 
 }
+#endif
 
 // Doc in parent
 void

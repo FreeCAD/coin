@@ -51,7 +51,9 @@ public:
   static void initClass(void);
   SoVRMLIndexedLineSet(void);
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
 

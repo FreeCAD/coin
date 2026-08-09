@@ -482,6 +482,7 @@ SoVRMLImageTexture::rayPick(SoRayPickAction * action)
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLImageTexture::GLRender(SoGLRenderAction * action)
 {
@@ -556,6 +557,7 @@ SoVRMLImageTexture::GLRender(SoGLRenderAction * action)
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
 }
+#endif
 
 // Doc in parent
 void
@@ -653,6 +655,7 @@ imagetexture_glimage_delete(void * closure, SoSensor * s)
 //
 // used for checking if this texture should be purged from memory
 //
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLImageTexture::glimage_callback(void * closure)
 {
@@ -684,6 +687,7 @@ SoVRMLImageTexture::glimage_callback(void * closure)
   }
   PRIVATE(thisp)->unlock_glimage();
 }
+#endif
 
 SbBool
 SoVRMLImageTexture::default_prequalify_cb(const SbString & url,  void * COIN_UNUSED_ARG(closure), 

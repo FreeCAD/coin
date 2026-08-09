@@ -222,6 +222,8 @@ SoLineSet::findNormalBinding(SoState * const state) const
   return binding;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
+
 namespace { namespace SoGL { namespace LineSet {
 
   enum AttributeBinding {
@@ -370,6 +372,8 @@ namespace { namespace SoGL { namespace LineSet {
 
 } } } // namespace
 
+#endif
+
 /*!
   \copydetails SoNode::initClass(void)
 */
@@ -431,6 +435,7 @@ SoLineSet::initClass(void)
   SOGL_LINESET_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLineSet::GLRender(SoGLRenderAction * action)
 {
@@ -513,6 +518,7 @@ SoLineSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, numv ?
                         (this->numVertices[0]-1)*numv : 0, FALSE);
 }
+#endif
 
 #undef SOGL_LINESET_GLRENDER_CALL_FUNC
 #undef SOGL_LINESET_GLRENDER_RESOLVE_ARG3

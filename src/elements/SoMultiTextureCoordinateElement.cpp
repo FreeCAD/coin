@@ -131,9 +131,11 @@ SoMultiTextureCoordinateElement::setDefault(SoState * const state,
                                             SoNode * const COIN_UNUSED_ARG(node),
                                             const int unit)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setTexCoordVBO(state, unit, NULL);
   }
+#endif
   SoMultiTextureCoordinateElement * element =
     coin_assert_cast<SoMultiTextureCoordinateElement *>
     (SoElement::getElement(state, classStackIndex));
@@ -154,9 +156,11 @@ SoMultiTextureCoordinateElement::setFunction(SoState * const state,
                                              SoTextureCoordinateFunctionCB * const func,
                                              void * const userdata)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setTexCoordVBO(state, unit, NULL);
   }
+#endif
 
   SoMultiTextureCoordinateElement * element =
     coin_assert_cast<SoMultiTextureCoordinateElement *>
@@ -184,9 +188,11 @@ SoMultiTextureCoordinateElement::set2(SoState * const state,
                                       const int32_t numCoords,
                                       const SbVec2f * const coords)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setTexCoordVBO(state, unit, NULL);
   }
+#endif
   SoMultiTextureCoordinateElement * element = coin_assert_cast<SoMultiTextureCoordinateElement *>
     (
      SoElement::getElement(state, classStackIndex)
@@ -214,9 +220,11 @@ SoMultiTextureCoordinateElement::set3(SoState * const state,
                                       const int32_t numCoords,
                                       const SbVec3f * const coords)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setTexCoordVBO(state, unit, NULL);
   }
+#endif
   SoMultiTextureCoordinateElement * element =
     coin_assert_cast<SoMultiTextureCoordinateElement *>
     (
@@ -244,9 +252,11 @@ SoMultiTextureCoordinateElement::set4(SoState * const state,
                                       const int32_t numCoords,
                                       const SbVec4f * const coords)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setTexCoordVBO(state, unit, NULL);
   }
+#endif
   SoMultiTextureCoordinateElement * element =
     coin_assert_cast<SoMultiTextureCoordinateElement *>
     (

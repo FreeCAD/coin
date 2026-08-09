@@ -233,6 +233,7 @@ SoNurbsSurface::initClass(void)
 }
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsSurface::GLRender(SoGLRenderAction * action)
 {
@@ -258,6 +259,7 @@ SoNurbsSurface::GLRender(SoGLRenderAction * action)
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
   }
 }
+#endif
 
 /*!
   Calculates the bounding box of all control points, and sets the center to
@@ -389,6 +391,11 @@ typedef SoNurbsP<SoNurbsSurface>::coin_nurbs_cbdata coin_ns_cbdata;
 void
 SoNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) glrender;
+  return;
+#else
   if (GLUWrapper()->available == 0 || !GLUWrapper()->gluNewNurbsRenderer) {
 #if COIN_DEBUG
     static int first = 1;
@@ -461,6 +468,7 @@ SoNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
                             PUBLIC(this)->sKnotVector.getNum(),
                             PUBLIC(this)->tKnotVector.getNum(),
                             glrender);
+#endif
 }
 
 

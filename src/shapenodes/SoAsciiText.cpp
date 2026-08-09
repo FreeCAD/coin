@@ -316,6 +316,7 @@ SoAsciiText::initClass(void)
 }
 
 // Doc in parent.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoAsciiText::GLRender(SoGLRenderAction * action)
 {  
@@ -466,6 +467,7 @@ SoAsciiText::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::incNumShapes(state);
   }
 }
+#endif
 
 // Doc in parent.
 void

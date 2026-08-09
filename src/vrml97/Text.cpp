@@ -275,6 +275,7 @@ SoVRMLText::~SoVRMLText()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLText::GLRender(SoGLRenderAction * action)
 {
@@ -519,6 +520,7 @@ SoVRMLText::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::incNumShapes(state);
   }
 }
+#endif
 
 
 // Doc in parent

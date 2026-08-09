@@ -241,7 +241,7 @@ SoTexture3::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTexture3, SO_FROM_INVENTOR_2_6|SO_FROM_COIN_2_0);
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
 }
 
@@ -273,6 +273,7 @@ translateWrap(const SoTexture3::Wrap wrap)
 }
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTexture3::GLRender(SoGLRenderAction * action)
 {
@@ -354,6 +355,7 @@ SoTexture3::GLRender(SoGLRenderAction * action)
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
 }
+#endif
 
 // doc from parent
 void

@@ -294,7 +294,9 @@ static void
 soseparator_storage_destruct(void * data)
 {
   soseparator_storage * ptr = (soseparator_storage*) data;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete ptr->glcachelist;
+#endif
 }
 
 // *************************************************************************
@@ -302,10 +304,14 @@ soseparator_storage_destruct(void * data)
 class SoSeparatorP {
 public:
   SoSeparatorP(void) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
     this->glcachestorage =
       new SbStorage(sizeof(soseparator_storage),
                     soseparator_storage_construct,
                     soseparator_storage_destruct);
+#else
+    this->glcachestorage = NULL;
+#endif
     this->pub = NULL;
   }
   ~SoSeparatorP() {
@@ -328,19 +334,25 @@ public:
 #endif // !COIN_THREADSAFE
   SbStorage * glcachestorage;
   static void invalidate_gl_cache(void * tls, void *) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
     soseparator_storage * ptr = (soseparator_storage*) tls;
     if (ptr->glcachelist) {
       ptr->glcachelist->invalidateAll();
     }
+#else
+    (void) tls;
+#endif
   }
 
   enum { YES, NO, MAYBE } hassoundchild;
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLCacheList * getGLCacheList(SbBool createifnull);
 
   void invalidateGLCaches(void) {
     glcachestorage->applyToAll(invalidate_gl_cache, NULL);
   }
+#endif
 
   void lock(void) {
 #ifdef COIN_THREADSAFE
@@ -362,6 +374,7 @@ public:
 
 // *************************************************************************
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SoGLCacheList *
 SoSeparatorP::getGLCacheList(SbBool createifnull)
 {
@@ -372,6 +385,7 @@ SoSeparatorP::getGLCacheList(SbBool createifnull)
   }
   return ptr->glcachelist;
 }
+#endif
 
 // *************************************************************************
 
@@ -477,7 +491,9 @@ SoSeparator::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoSeparator, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCacheElement);
-  SO_ENABLE(SoGLRenderAction, SoCacheElement);
+#if COIN_BUILD_LEGACY_GL_RENDERER
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCacheElement);
+#endif
   SoSeparator::numrendercaches = 2;
 }
 
@@ -619,6 +635,7 @@ SoSeparator::callback(SoCallbackAction * action)
 // *************************************************************************
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSeparator::GLRender(SoGLRenderAction * action)
 {
@@ -635,6 +652,7 @@ SoSeparator::GLRender(SoGLRenderAction * action)
     break;
   }
 }
+#endif
 
 /*!
   SGI Open Inventor v2.1 obsoleted support for
@@ -649,6 +667,7 @@ SoSeparator::GLRender(SoGLRenderAction * action)
   SoChildList::traverse(), but calls GLRenderBelowPath() directly
   for all its children.
 */
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSeparator::GLRenderBelowPath(SoGLRenderAction * action)
 {
@@ -657,7 +676,7 @@ SoSeparator::GLRenderBelowPath(SoGLRenderAction * action)
   SbBool didcull = FALSE;
 
   SoGLCacheList * createcache = NULL;
-  if ((this->renderCaching.getValue() != OFF) &&
+  if (this->renderCaching.getValue() != OFF &&
       (SoSeparator::getNumRenderCaches() > 0)) {
 
     // test if bbox is outside view-volume
@@ -751,8 +770,10 @@ SoSeparator::GLRenderBelowPath(SoGLRenderAction * action)
     createcache->close(action);
   }
 }
+#endif
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSeparator::GLRenderInPath(SoGLRenderAction * action)
 {
@@ -803,13 +824,16 @@ SoSeparator::GLRenderInPath(SoGLRenderAction * action)
     this->GLRenderBelowPath(action);
   }
 }
+#endif
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSeparator::GLRenderOffPath(SoGLRenderAction *)
 {
   // do nothing, since all state changes will be reset by the separator
 }
+#endif
 
 // Doc from superclass.
 void
@@ -954,7 +978,9 @@ SoSeparator::notify(SoNotList * nl)
   // are valid while reading them
   PRIVATE(this)->lock();
   if (PRIVATE(this)->bboxcache) PRIVATE(this)->bboxcache->invalidate();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->invalidateGLCaches();
+#endif
   PRIVATE(this)->hassoundchild = SoSeparatorP::MAYBE;
   PRIVATE(this)->unlock();
 }
@@ -964,12 +990,14 @@ SoSeparator::notify(SoNotList * nl)
   view frustum culling in a different manner. Let us know if
   you need this function, and we'll consider implementing it.
 */
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoSeparator::cullTest(SoGLRenderAction * COIN_UNUSED_ARG(action), int & COIN_UNUSED_ARG(cullresults))
 {
   COIN_OBSOLETED();
   return FALSE;
 }
+#endif
 
 // Doc from superclass.
 SbBool

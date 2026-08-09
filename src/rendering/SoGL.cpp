@@ -47,6 +47,8 @@
 #endif // HAVE_CONFIG_H
 
 #include <Inventor/C/tidbits.h>
+
+#include "Inventor/C/glue/gl.h"
 #include <Inventor/SoOffscreenRenderer.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
@@ -81,43 +83,6 @@
 #include "glue/glp.h"
 
 // *************************************************************************
-
-// Convenience function for access to OpenGL wrapper from an SoState
-// pointer.
-const cc_glglue *
-sogl_glue_instance(const SoState * state)
-{
-  SoGLRenderAction * action = (SoGLRenderAction *)state->getAction();
-  // FIXME: disabled until we figure out why this doesn't work on some
-  // Linux systems (gcc 3.2 systems, it seems). pederb, 2003-11-24
-#if 0
-  assert(action->isOfType(SoGLRenderAction::getClassTypeId()) &&
-         "must have state from SoGLRenderAction to get hold of GL wrapper");
-  return cc_glglue_instance(action->getCacheContext());
-#else // disabled
-  if (action->isOfType(SoGLRenderAction::getClassTypeId())) {
-    return cc_glglue_instance(action->getCacheContext());
-  }
-  static int didwarn = 0;
-  if (!didwarn) {
-    didwarn = 1;
-    SoDebugError::postWarning("sogl_glue_instance",
-                              "Wrong action type detected. Please report this to <coin-support@coin3d.org>, "
-                              "and include information about your system (compiler, Linux version, etc.");
-  }
-  // just return some cc_glglue instance. It usually doesn't matter
-  // that much unless multiple contexts on multiple displays are used.
-  return cc_glglue_instance(1);
-#endif // workaround version
-}
-
-SbBool
-sogl_context_supports_legacy_rendering(const SoState * state)
-{
-  const cc_glglue * glue = sogl_glue_instance(state);
-  return cc_glglue_context_supports_legacy_rendering(glue);
-}
-
 
 // generate a 3d circle in the x-z plane
 static void
@@ -2338,80 +2303,6 @@ sogl_render_pointset(const SoGLCoordinateElement * coords,
       tb,
       numpts,
       idx);
-}
-
-// Used by library code to decide whether or not to add extra
-// debugging checks for glGetError().
-SbBool
-sogl_glerror_debugging(void)
-{
-  static int COIN_GLERROR_DEBUGGING = -1;
-  if (COIN_GLERROR_DEBUGGING == -1) {
-    const char * str = coin_getenv("COIN_GLERROR_DEBUGGING");
-    COIN_GLERROR_DEBUGGING = str ? atoi(str) : 0;
-  }
-  return (COIN_GLERROR_DEBUGGING == 0) ? FALSE : TRUE;
-}
-
-static int SOGL_AUTOCACHE_REMOTE_MIN = 500000;
-static int SOGL_AUTOCACHE_REMOTE_MAX = 5000000;
-static int SOGL_AUTOCACHE_LOCAL_MIN = 100000;
-static int SOGL_AUTOCACHE_LOCAL_MAX = 1000000;
-static int SOGL_AUTOCACHE_VBO_LIMIT = 65536;
-
-/*!
-  Called by each shape during rendering. Will enable/disable auto caching
-  based on the number of primitives.
-*/
-void
-sogl_autocache_update(SoState * state, const int numprimitives, SbBool didusevbo)
-{
-  static SbBool didtestenv = FALSE;
-  if (!didtestenv) {
-    const char * env;
-    env = coin_getenv("COIN_AUTOCACHE_REMOTE_MIN");
-    if (env) {
-      SOGL_AUTOCACHE_REMOTE_MIN = atoi(env);
-    }
-    env = coin_getenv("COIN_AUTOCACHE_REMOTE_MAX");
-    if (env) {
-      SOGL_AUTOCACHE_REMOTE_MAX = atoi(env);
-    }
-    env = coin_getenv("COIN_AUTOCACHE_LOCAL_MIN");
-    if (env) {
-      SOGL_AUTOCACHE_LOCAL_MIN = atoi(env);
-    }
-    env = coin_getenv("COIN_AUTOCACHE_LOCAL_MAX");
-    if (env) {
-      SOGL_AUTOCACHE_LOCAL_MAX = atoi(env);
-    }
-    env = coin_getenv("COIN_AUTOCACHE_VBO_LIMIT");
-    if (env) {
-      SOGL_AUTOCACHE_VBO_LIMIT = atoi(env);
-    }
-    didtestenv = TRUE;
-  }
-
-  int minval = SOGL_AUTOCACHE_LOCAL_MIN;
-  int maxval = SOGL_AUTOCACHE_LOCAL_MAX;
-  if (SoGLCacheContextElement::getIsRemoteRendering(state)) {
-    minval = SOGL_AUTOCACHE_REMOTE_MIN;
-    maxval = SOGL_AUTOCACHE_REMOTE_MAX;
-  }
-  if (numprimitives <= minval) {
-    SoGLCacheContextElement::shouldAutoCache(state, SoGLCacheContextElement::DO_AUTO_CACHE);
-  }
-  else if (numprimitives >= maxval) {
-    SoGLCacheContextElement::shouldAutoCache(state, SoGLCacheContextElement::DONT_AUTO_CACHE);
-  }
-  SoGLCacheContextElement::incNumShapes(state);
-
-  if (didusevbo) {
-    // avoid creating caches when rendering large VBOs
-    if (numprimitives > SOGL_AUTOCACHE_VBO_LIMIT) {
-      SoGLCacheContextElement::shouldAutoCache(state, SoGLCacheContextElement::DONT_AUTO_CACHE);
-    }
-  }
 }
 
 // **************************************************************************

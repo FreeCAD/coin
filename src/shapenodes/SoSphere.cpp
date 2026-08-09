@@ -136,6 +136,7 @@ SoSphere::initClass(void)
 }
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSphere::GLRender(SoGLRenderAction * action)
 {
@@ -172,6 +173,7 @@ SoSphere::GLRender(SoGLRenderAction * action)
                      &mb,
                      flags, state);
 }
+#endif
 
 // Documented in superclass.
 void

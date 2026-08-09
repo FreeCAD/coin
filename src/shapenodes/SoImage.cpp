@@ -328,6 +328,7 @@ SoImage::computeBBox(SoAction * action,
 }
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoImage::GLRender(SoGLRenderAction * action)
 {
@@ -524,7 +525,9 @@ SoImage::GLRender(SoGLRenderAction * action)
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 }
+#endif
 
+  // doc from parent
 // doc from parent
 void
 SoImage::rayPick(SoRayPickAction * action)

@@ -107,6 +107,7 @@
 #include <Inventor/system/gl.h>
 
 #include "nodes/SoSubNodeP.h"
+#include "rendering/SoGL.h"
 
 // *************************************************************************
 
@@ -152,6 +153,7 @@ SoDirectionalLight::initClass(void)
 // *************************************************************************
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -202,5 +204,6 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_LINEAR_ATTENUATION, 0);
   glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
 }
+#endif
 
 // *************************************************************************

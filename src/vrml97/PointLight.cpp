@@ -34,6 +34,8 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoGL.h"
+
 #ifdef HAVE_VRML97
 
 /*!
@@ -144,6 +146,7 @@ SoVRMLPointLight::~SoVRMLPointLight()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPointLight::GLRender(SoGLRenderAction * action)
 {
@@ -189,5 +192,6 @@ SoVRMLPointLight::GLRender(SoGLRenderAction * action)
 
   // FIXME: consider radius
 }
+#endif
 
 #endif // HAVE_VRML97

@@ -34,6 +34,8 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoGL.h"
+
 #ifdef HAVE_VRML97
 
 /*!
@@ -236,6 +238,7 @@ SoVRMLSpotLight::~SoVRMLSpotLight()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLSpotLight::GLRender(SoGLRenderAction * action)
 {
@@ -284,5 +287,6 @@ SoVRMLSpotLight::GLRender(SoGLRenderAction * action)
 
   // FIXME: consider radius and beamWidth
 }
+#endif
 
 #endif // HAVE_VRML97

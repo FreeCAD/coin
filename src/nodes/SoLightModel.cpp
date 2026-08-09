@@ -117,18 +117,20 @@ SoLightModel::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoLightModel, SO_FROM_INVENTOR_1);
 
   SO_ENABLE(SoCallbackAction, SoLazyElement);
-  SO_ENABLE(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLazyElement);
 
   SO_ENABLE(SoCallbackAction, SoLightModelElement);
-  SO_ENABLE(SoGLRenderAction, SoLightModelElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoLightModelElement);
 }
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLightModel::GLRender(SoGLRenderAction * action)
 {
   SoLightModel::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void

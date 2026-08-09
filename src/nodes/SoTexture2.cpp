@@ -467,8 +467,8 @@ SoTexture2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTexture2, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
@@ -511,6 +511,7 @@ translateWrap(const SoTexture2::Wrap wrap)
 }
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTexture2::GLRender(SoGLRenderAction * action)
 {
@@ -614,6 +615,7 @@ SoTexture2::GLRender(SoGLRenderAction * action)
     // units will be ignored. pederb, 2003-11-04
   }
 }
+#endif
 
 // Documented in superclass.
 void

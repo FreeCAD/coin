@@ -54,7 +54,11 @@ class COIN_DLL_API SoGLRenderAction : public SoAction {
 public:
   static void initClass(void);
 
+#if COIN_LEGACY_GL_API_AVAILABLE
   SoGLRenderAction(const SbViewportRegion & viewportregion);
+#else
+  SoGLRenderAction(const SbViewportRegion & viewportregion) = delete;
+#endif
   virtual ~SoGLRenderAction(void);
 
   enum TransparencyType {

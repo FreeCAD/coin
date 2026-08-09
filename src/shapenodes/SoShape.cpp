@@ -125,9 +125,11 @@
 // SoShape.cpp grew too big, so I had to move some code into new
 // files. pederb, 2001-07-18
 #include "soshape_primdata.h"
+#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "soshape_trianglesort.h"
 #include "soshape_bigtexture.h"
 #include "soshape_bumprender.h"
+#endif
 
 // *************************************************************************
 
@@ -175,14 +177,18 @@ public:
   SoShapeP() {
     this->bboxcache = NULL;
     this->pvcache = NULL;
+#if COIN_BUILD_LEGACY_GL_RENDERER
     this->bumprender = NULL;
+#endif
     this->rendercnt = 0;
     this->flags = 0;
   }
   ~SoShapeP() {
     if (this->bboxcache) { this->bboxcache->unref(); }
     if (this->pvcache) { this->pvcache->unref(); }
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->bumprender;
+#endif
   }
   enum {
     RENDERCNT_BITS = 4,     // bits needed to store rendercnt
@@ -198,7 +204,9 @@ public:
   static double bboxcachetimelimit;
   SoBoundingBoxCache * bboxcache;
   SoPrimitiveVertexCache * pvcache;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   soshape_bumprender * bumprender;
+#endif
   uint32_t flags : FLAG_BITS;
   // stores the number of frames rendered with no node changes
   uint32_t rendercnt : RENDERCNT_BITS;
@@ -269,17 +277,22 @@ enum SoShapeRenderMode {
 
 typedef struct {
   soshape_primdata * primdata;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SbList <soshape_bigtexture*> * bigtexturelist;
   SbList <uint32_t> * bigtexturecontext;
   soshape_trianglesort * trianglesort;
 
   soshape_bigtexture * currentbigtexture;
+#endif
   // used in generatePrimitives() callbacks to set correct material
   SoMaterialBundle * currentbundle;
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   int rendermode;
+#endif
 } soshape_staticdata;
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 static soshape_bigtexture *
 soshape_get_bigtexture(soshape_staticdata * data, uint32_t context)
 {
@@ -293,30 +306,37 @@ soshape_get_bigtexture(soshape_staticdata * data, uint32_t context)
   data->bigtexturecontext->append(context);
   return newtex;
 }
+#endif
 
 static void
 soshape_construct_staticdata(void * closure)
 {
   soshape_staticdata * data = (soshape_staticdata*) closure;
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   data->bigtexturelist = new SbList <soshape_bigtexture*>;
   data->bigtexturecontext = new SbList <uint32_t>;
-  data->primdata = new soshape_primdata();
   data->trianglesort = new soshape_trianglesort();
   data->rendermode = NORMAL;
+#endif
+  data->primdata = new soshape_primdata();
 }
 
 static void
 soshape_destruct_staticdata(void * closure)
 {
   soshape_staticdata * data = (soshape_staticdata*) closure;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   for (int i = 0; i < data->bigtexturelist->getLength(); i++) {
     delete (*(data->bigtexturelist))[i];
   }
   delete data->bigtexturelist;
   delete data->bigtexturecontext;
+#endif
   delete data->primdata;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete data->trianglesort;
+#endif
 }
 
 static SbStorage * soshape_staticstorage;
@@ -399,6 +419,10 @@ SoShape::getBoundingBox(SoGetBoundingBoxAction * action)
 void
 SoShape::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   // if we get here, the shape do not have a render method and
   // generatePrimitives should therefore be used to render the
   // shape. This is probably painfully slow, so if you want speed,
@@ -424,6 +448,7 @@ SoShape::GLRender(SoGLRenderAction * action)
   this->generatePrimitives(action);
 
   if (vp) action->getState()->pop();
+#endif
 }
 
 // Doc in parent.
@@ -559,6 +584,10 @@ SoShape::getComplexityValue(SoAction * action)
 SbBool
 SoShape::shouldGLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return FALSE;
+#else
   SoState * state = action->getState();
 
   const SoShapeStyleElement * shapestyle = SoShapeStyleElement::get(state);
@@ -822,6 +851,7 @@ SoShape::shouldGLRender(SoGLRenderAction * action)
   }
   return TRUE; // let the shape node render the geometry using OpenGL
 #endif // ! generatePrimitives() rendering
+#endif
 }
 
 /*!
@@ -991,6 +1021,13 @@ SoShape::invokeTriangleCallbacks(SoAction * const action,
                                  const SoPrimitiveVertex * const v2,
                                  const SoPrimitiveVertex * const v3)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) v1;
+  (void) v2;
+  (void) v3;
+  return;
+#else
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
@@ -1092,6 +1129,7 @@ SoShape::invokeTriangleCallbacks(SoAction * const action,
       break;
     }
   }
+#endif
 }
 
 /*!
@@ -1102,6 +1140,12 @@ SoShape::invokeLineSegmentCallbacks(SoAction * const action,
                                     const SoPrimitiveVertex * const v1,
                                     const SoPrimitiveVertex * const v2)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) v1;
+  (void) v2;
+  return;
+#else
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
@@ -1167,6 +1211,7 @@ SoShape::invokeLineSegmentCallbacks(SoAction * const action,
       break;
     }
   }
+#endif
 }
 
 /*!
@@ -1176,6 +1221,11 @@ void
 SoShape::invokePointCallbacks(SoAction * const action,
                               const SoPrimitiveVertex * const v)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) v;
+  return;
+#else
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
@@ -1217,6 +1267,7 @@ SoShape::invokePointCallbacks(SoAction * const action,
       break;
     }
   }
+#endif
 }
 
 /*!
@@ -1373,6 +1424,10 @@ SoShape::getDecimatedComplexity(SoState * COIN_UNUSED_ARG(state), float complexi
 void
 SoShape::GLRenderBoundingBox(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   SbBox3f box;
   SbVec3f center;
   this->getBBox(action, box, center);
@@ -1391,6 +1446,7 @@ SoShape::GLRenderBoundingBox(SoGLRenderAction * action)
   sogl_render_cube(size[0], size[1], size[2], &mb,
                    SOGL_NEED_NORMALS | SOGL_NEED_TEXCOORDS, NULL);
   glPopMatrix();
+#endif
 }
 
 /*!
@@ -1566,6 +1622,14 @@ SoShape::startVertexArray(SoGLRenderAction * action,
                           const SbBool texpervertex,
                           const SbBool colorpervertex)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) coords;
+  (void) pervertexnormals;
+  (void) texpervertex;
+  (void) colorpervertex;
+  return FALSE;
+#else
   SoState * state = action->getState();
   const cc_glglue * glue = sogl_glue_instance(state);
   const SoGLVBOElement * vboelem = SoGLVBOElement::getInstance(state);
@@ -1691,6 +1755,7 @@ SoShape::startVertexArray(SoGLRenderAction * action,
   SoGLVertexAttributeElement::getInstance(state)->enableVBO(action);
 
   return dovbo;
+#endif
 }
 
 /*!
@@ -1708,6 +1773,14 @@ SoShape::finishVertexArray(SoGLRenderAction * action,
                            const SbBool texpervertex,
                            const SbBool colorpervertex)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) vbo;
+  (void) normpervertex;
+  (void) texpervertex;
+  (void) colorpervertex;
+  return;
+#else
   SoState * state = action->getState();
   const cc_glglue * glue = sogl_glue_instance(state);
 
@@ -1754,11 +1827,16 @@ SoShape::finishVertexArray(SoGLRenderAction * action,
   }
 
   SoGLVertexAttributeElement::getInstance(state)->disableVBO(action);
+#endif
 }
 
 void
 SoShape::validatePVCache(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   SoState * state = action->getState();
   if (PRIVATE(this)->pvcache == NULL ||
       !PRIVATE(this)->pvcache->isValid(state)) {
@@ -1790,6 +1868,7 @@ SoShape::validatePVCache(SoGLRenderAction * action)
     PRIVATE(this)->pvcache->close(state);
     PRIVATE(this)->testSetupShapeHints(this);
   }
+#endif
 }
 
 

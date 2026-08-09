@@ -27,8 +27,6 @@ set(COIN_MISC_FILES
 	SoPrimitiveVertex.cpp
 	SoProto.cpp
 	SoProtoInstance.cpp
-	SoSceneManager.cpp
-	SoSceneManagerP.cpp
 	SoShaderGenerator.cpp
 	SoState.cpp
 	SoTempPath.cpp
@@ -37,6 +35,13 @@ set(COIN_MISC_FILES
 	SoDBP.cpp
 	SoEventManager.cpp
 )
+
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	list(APPEND COIN_MISC_FILES
+		SoSceneManager.cpp
+		SoSceneManagerP.cpp
+	)
+endif()
 
 # Files excluded from public API documentation, included in complete documentation.
 set(COIN_MISC_INTERNAL_FILES

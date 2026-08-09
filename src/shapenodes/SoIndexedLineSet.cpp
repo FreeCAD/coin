@@ -130,7 +130,9 @@ SoIndexedLineSet::SoIndexedLineSet()
 */
 SoIndexedLineSet::~SoIndexedLineSet()
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   delete PRIVATE(this)->vaindexer;
+#endif
   delete PRIVATE(this);
 }
 
@@ -229,6 +231,7 @@ SoIndexedLineSet::findNormalBinding(SoState* state)
 }
 
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoIndexedLineSet::GLRender(SoGLRenderAction * action)
@@ -413,6 +416,7 @@ SoIndexedLineSet::GLRender(SoGLRenderAction * action)
   // send approx number of lines for autocache handling
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, didrenderasvbo);
 }
+#endif
 
 // Documented in superclass.
 SbBool
@@ -781,7 +785,9 @@ SoIndexedLineSet::notify(SoNotList * list)
   SoField *f = list->getLastField();
   if (f == &this->coordIndex) {
     LOCK_VAINDEXER(this);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete PRIVATE(this)->vaindexer;
+#endif
     PRIVATE(this)->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }

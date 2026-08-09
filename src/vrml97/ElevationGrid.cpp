@@ -377,6 +377,7 @@ SoVRMLElevationGrid::~SoVRMLElevationGrid(void)
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
 {
@@ -627,6 +628,7 @@ SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
   if (normalcache) PRIVATE(this)->readUnlockNormalCache();
   state->pop();
 }
+#endif
 
 // Doc in parent
 void

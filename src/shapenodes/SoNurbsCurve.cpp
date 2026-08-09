@@ -208,6 +208,7 @@ SoNurbsCurve::initClass(void)
 }
 
 // Doc from parent class.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsCurve::GLRender(SoGLRenderAction * action)
 {
@@ -238,6 +239,7 @@ SoNurbsCurve::GLRender(SoGLRenderAction * action)
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
   }
 }
+#endif
 
 /*!
   Calculates the bounding box of all control points, and sets the
@@ -372,6 +374,12 @@ void
 SoNurbsCurveP::doNurbs(SoAction * action,
                        const SbBool glrender, const SbBool drawaspoints)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) glrender;
+  (void) drawaspoints;
+  return;
+#else
   if (GLUWrapper()->available == 0 || !GLUWrapper()->gluNewNurbsRenderer) {
 #if COIN_DEBUG
     static int first = 1;
@@ -421,6 +429,7 @@ SoNurbsCurveP::doNurbs(SoAction * action,
                           PUBLIC(this)->knotVector.getNum(),
                           glrender,
                           drawaspoints);
+#endif
 }
 
 #undef PRIVATE

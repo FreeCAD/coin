@@ -108,9 +108,10 @@ SoColorIndex::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoColorIndex, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE(SoGLRenderAction, SoGLColorIndexElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLColorIndexElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc in parent
 void
 SoColorIndex::GLRender(SoGLRenderAction * action)
@@ -126,3 +127,4 @@ SoColorIndex::GLRender(SoGLRenderAction * action)
                                this->index.getValues(0));
   }
 }
+#endif

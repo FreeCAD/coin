@@ -78,6 +78,7 @@
 #include <Inventor/system/gl.h>
 
 #include "nodes/SoSubNodeP.h"
+#include "rendering/SoGL.h"
 
 // *************************************************************************
 
@@ -147,6 +148,7 @@ SoSpotLight::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoSpotLight, SO_FROM_INVENTOR_1|SoNode::VRML1);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc in superclass.
 void
 SoSpotLight::GLRender(SoGLRenderAction * action)
@@ -209,3 +211,4 @@ SoSpotLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_SPOT_EXPONENT, dropoff);
   glLightf(light, GL_SPOT_CUTOFF, cutoff);
 }
+#endif

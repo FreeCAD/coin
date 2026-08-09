@@ -62,8 +62,13 @@ public:
     RGB_TRANSPARENCY = 4
   };
 
+#if COIN_LEGACY_GL_API_AVAILABLE
   SoOffscreenRenderer(const SbViewportRegion & viewportregion);
   SoOffscreenRenderer(SoGLRenderAction * action);
+#else
+  SoOffscreenRenderer(const SbViewportRegion & viewportregion) = delete;
+  SoOffscreenRenderer(SoGLRenderAction * action) = delete;
+#endif
   ~SoOffscreenRenderer();
 
   static float getScreenPixelsPerInch(void);

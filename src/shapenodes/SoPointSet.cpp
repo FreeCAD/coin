@@ -196,6 +196,7 @@ SoPointSet::findNormalBinding(SoState * const state) const
 }
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoPointSet::GLRender(SoGLRenderAction * action)
 {
@@ -298,6 +299,7 @@ SoPointSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, numpts/3, didrenderasvbo);
 
 }
+#endif
 
 // Documented in superclass.
 SbBool

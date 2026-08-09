@@ -380,12 +380,12 @@ SoCamera::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_ABSTRACT_CLASS(SoCamera, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE(SoGLRenderAction, SoFocalDistanceElement);
-  SO_ENABLE(SoGLRenderAction, SoGLProjectionMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoViewVolumeElement);
-  SO_ENABLE(SoGLRenderAction, SoGLViewingMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoResetMatrixElement);
-  SO_ENABLE(SoGLRenderAction, SoCullElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoFocalDistanceElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLProjectionMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoViewVolumeElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLViewingMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoResetMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCullElement);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoFocalDistanceElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoProjectionMatrixElement);
@@ -650,6 +650,7 @@ SoCamera::getViewportBounds(const SbViewportRegion & region) const
   return vp;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc in superclass.
 void
 SoCamera::GLRender(SoGLRenderAction * action)
@@ -725,6 +726,7 @@ SoCamera::GLRender(SoGLRenderAction * action)
   SoViewingMatrixElement::set(state, this, affine);
   SoFocalDistanceElement::set(state, this, this->focalDistance.getValue());
 }
+#endif
 
 // Documented in superclass.
 void
@@ -928,10 +930,12 @@ SoCamera::getView(SoAction * action, SbViewVolume & resultvv, SbViewportRegion &
   resultvv = this->getViewVolume(oldvp, resultvp, mm);
 
   if (resultvp != oldvp) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
     // only draw if this is an SoGLRenderAction
     if (action->isOfType(SoGLRenderAction::getClassTypeId())) {
       this->drawCroppedFrame((SoGLRenderAction*)action, this->viewportMapping.getValue(), oldvp, resultvp);
     }
+#endif
     if (usevpelement) {
       SoViewportRegionElement::set(action->getState(), resultvp);
     }
@@ -941,6 +945,7 @@ SoCamera::getView(SoAction * action, SbViewVolume & resultvv, SbViewportRegion &
 //
 // private method that draws a cropped frame
 //
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCamera::drawCroppedFrame(SoGLRenderAction *action,
                            const int viewportmapping,
@@ -1046,9 +1051,9 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
 
   glPopMatrix();
   glPopAttrib();
-
   state->pop();
 }
+#endif
 
 /*!
   Sets the stereo mode.

@@ -205,6 +205,7 @@ SoIndexedNurbsCurve::computeBBox(SoAction * action,
 }
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
 {
@@ -235,7 +236,9 @@ SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::incNumShapes(state);
   }
 }
+#endif
 
+  // doc from parent
 // doc from parent
 void
 SoIndexedNurbsCurve::rayPick(SoRayPickAction * action)
@@ -328,6 +331,12 @@ void
 SoIndexedNurbsCurveP::doNurbs(SoAction * action,
                               const SbBool glrender, const SbBool drawaspoints)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) glrender;
+  (void) drawaspoints;
+  return;
+#else
   if (GLUWrapper()->available == 0 || !GLUWrapper()->gluNewNurbsRenderer) {
 #if COIN_DEBUG
     static int first = 1;
@@ -378,6 +387,7 @@ SoIndexedNurbsCurveP::doNurbs(SoAction * action,
                           drawaspoints,
                           PUBLIC(this)->coordIndex.getNum(),
                           PUBLIC(this)->coordIndex.getValues(0));
+#endif
 }
 
 #undef PRIVATE

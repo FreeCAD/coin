@@ -443,6 +443,7 @@ SoWWWInline::getReadAsSoFile(void)
 
 // Documented in superclass.  Overridden to render children and/or
 // bounding box.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoWWWInline::GLRender(SoGLRenderAction * action)
 {
@@ -507,6 +508,7 @@ SoWWWInline::GLRender(SoGLRenderAction * action)
 
   state->pop(); // restore state
 }
+#endif
 
 // doc in super
 void

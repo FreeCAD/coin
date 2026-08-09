@@ -74,8 +74,10 @@ public:
   SoSFFloat epsilon;
   SoSFFloat threshold;
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
   void GLRenderInPath(SoGLRenderAction * action) override;
+#endif
 
   void notify(SoNotList * nl) override;
 
