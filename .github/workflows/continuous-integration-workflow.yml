@@ -32,8 +32,8 @@ jobs:
           path: cmake_install_dir/
         if: always()
 
-  ubuntu-core:
-    name: Ubuntu CI (GL core)
+  ubuntu-core-build:
+    name: Ubuntu CI (GL core build)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
