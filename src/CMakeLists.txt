@@ -217,6 +217,13 @@ else()
   )
 endif()
 
+# Keep the renderer selection attached to the final library target as well as
+# the directory scope.  This is important for single-library generators,
+# where all translation units are linked through this target.
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+	COIN_BUILD_LEGACY_GL_RENDERER=${COIN_BUILD_LEGACY_GL_RENDERER_VALUE}
+)
+
 if(NOT COIN_BUILD_LEGACY_GL_RENDERER AND
    CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND
    CMAKE_SYSTEM_NAME STREQUAL "Linux")
