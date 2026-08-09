@@ -94,6 +94,8 @@ public:
   void getAntialiasing(SbBool & smoothing, int & numPasses) const;
   void setGLRenderAction(SoGLRenderAction * const action);
   SoGLRenderAction * getGLRenderAction(void) const;
+  void setRenderPipeline(SoRenderManager::RenderPipeline pipeline);
+  SoRenderManager::RenderPipeline getRenderPipeline(void) const;
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
   void setHandleEventAction(SoHandleEventAction * hea);

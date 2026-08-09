@@ -77,7 +77,9 @@
 #include <Inventor/elements/SoLightModelElement.h>
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/actions/SoGLRenderAction.h>
+#include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoAudioRenderAction.h>
+#include <Inventor/errors/SoDebugError.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/sensors/SoOneShotSensor.h>
 #include <Inventor/fields/SoSFTime.h>
@@ -87,6 +89,8 @@
 #include "coindefs.h"
 #include "tidbitsp.h"
 #include "misc/AudioTools.h"
+#include "rendering/SoGLRenderBackend.h"
+#include "rendering/SoRenderBackend.h"
 #include "coindefs.h"
 
 #if COIN_WORKAROUND(COIN_MSVC, <= COIN_MSVC_6_0_VERSION)
@@ -261,6 +265,16 @@ SoRenderManager::SoRenderManager(void)
 
   PRIVATE(this)->stereostencilmask = NULL;
   PRIVATE(this)->superimpositions = NULL;
+  PRIVATE(this)->renderPipeline =
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    SoRenderManager::RenderPipeline::LEGACY_GL;
+#else
+    SoRenderManager::RenderPipeline::DRAW_LIST;
+#endif
+  PRIVATE(this)->irAction = NULL;
+  PRIVATE(this)->renderBackend = NULL;
+  PRIVATE(this)->renderBackendFrame = 0;
+  PRIVATE(this)->viewport = SbViewportRegion(SbVec2s(400, 400));
 
   PRIVATE(this)->doublebuffer = TRUE;
   PRIVATE(this)->deleteaudiorenderaction = TRUE;
@@ -285,7 +299,11 @@ SoRenderManager::SoRenderManager(void)
     new SoOneShotSensor(SoRenderManagerP::redrawshotTriggeredCB, this);
   PRIVATE(this)->redrawshot->setPriority(PRIVATE(this)->redrawpri);
 
-  PRIVATE(this)->glaction = new SoGLRenderAction(SbViewportRegion(400, 400));
+#if COIN_BUILD_LEGACY_GL_RENDERER
+  PRIVATE(this)->glaction = new SoGLRenderAction(PRIVATE(this)->viewport);
+#else
+  PRIVATE(this)->glaction = NULL;
+#endif
   PRIVATE(this)->audiorenderaction = new SoAudioRenderAction;
 
   PRIVATE(this)->clipsensor = NULL;
@@ -299,9 +317,17 @@ SoRenderManager::SoRenderManager(void)
  */
 SoRenderManager::~SoRenderManager()
 {
+  if (PRIVATE(this)->renderBackend) {
+    PRIVATE(this)->renderBackend->shutdown();
+    delete PRIVATE(this)->renderBackend;
+  }
+  delete PRIVATE(this)->irAction;
+
   PRIVATE(this)->dummynode->unref();
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (PRIVATE(this)->deleteglaction) delete PRIVATE(this)->glaction;
+#endif
   if (PRIVATE(this)->deleteaudiorenderaction) delete PRIVATE(this)->audiorenderaction;
   delete PRIVATE(this)->rootsensor;
   delete PRIVATE(this)->redrawshot;
@@ -479,12 +505,18 @@ SoRenderManager::detachClipSensor(void)
 void
 SoRenderManager::clearBuffers(SbBool color, SbBool depth)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) color;
+  (void) depth;
+  return;
+#else
   GLbitfield mask = 0;
   if (color) mask |= GL_COLOR_BUFFER_BIT;
   if (depth) mask |= GL_DEPTH_BUFFER_BIT;
   const SbColor4f bgcol = PRIVATE(this)->backgroundcolor;
   glClearColor(bgcol[0], bgcol[1], bgcol[2], bgcol[3]);
   glClear(mask);
+#endif
 }
 
 /*
@@ -498,6 +530,11 @@ SoRenderManager::clearBuffers(SbBool color, SbBool depth)
 void
 SoRenderManager::prerendercb(void * userdata, SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) userdata;
+  (void) action;
+  return;
+#else
   // remove callback again
   action->removePreRenderCallback(prerendercb, userdata);
   // MSVC7 on 64-bit Windows wants it to go through this cast.
@@ -514,6 +551,7 @@ SoRenderManager::prerendercb(void * userdata, SoGLRenderAction * action)
 
   // clear the viewport
   glClear(mask);
+#endif
 }
 
 /*!
@@ -588,6 +626,10 @@ SoRenderManager::removeSuperimposition(Superimposition * s)
 void
 SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 {
+  if (PRIVATE(this)->renderPipeline == RenderPipeline::DRAW_LIST) {
+    this->renderDrawListPipeline(clearwindow, clearzbuffer);
+    return;
+  }
 #if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) clearwindow;
   (void) clearzbuffer;
@@ -677,6 +719,12 @@ SoRenderManager::render(SoGLRenderAction * action,
                         const SbBool clearwindow,
                         const SbBool clearzbuffer)
 {
+  if (PRIVATE(this)->renderPipeline == RenderPipeline::DRAW_LIST) {
+    (void) action;
+    (void) initmatrices;
+    this->renderDrawListPipeline(clearwindow, clearzbuffer);
+    return;
+  }
 #if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) action;
   (void) initmatrices;
@@ -712,6 +760,66 @@ SoRenderManager::render(SoGLRenderAction * action,
 
   PRIVATE(this)->invokePostRenderCallbacks();
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
+}
+
+void
+SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
+                                        const SbBool clearzbuffer)
+{
+  if (!PRIVATE(this)->scene) return;
+
+  const SbViewportRegion viewport = PRIVATE(this)->viewport;
+  if (!PRIVATE(this)->irAction) {
+    PRIVATE(this)->irAction = new SoIRRenderAction(viewport);
+  }
+  PRIVATE(this)->irAction->setViewportRegion(viewport);
+  PRIVATE(this)->irAction->setCamera(PRIVATE(this)->camera);
+  PRIVATE(this)->irAction->apply(PRIVATE(this)->scene);
+
+  SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
+  drawlist.buildPickLUT();
+
+  if (!PRIVATE(this)->renderBackend) {
+    PRIVATE(this)->renderBackend = new SoGLRenderBackend;
+    SoRenderBackendInitParams initparams = {};
+    initparams.targetInfo.size = viewport.getViewportSizePixels();
+    initparams.targetInfo.samples = 1;
+    if (!PRIVATE(this)->renderBackend->initialize(initparams)) {
+      delete PRIVATE(this)->renderBackend;
+      PRIVATE(this)->renderBackend = NULL;
+#if COIN_BUILD_LEGACY_GL_RENDERER
+      SoDebugError::postWarning("SoRenderManager::renderDrawListPipeline",
+                                "DrawList backend initialization failed; "
+                                "falling back to LegacyGL");
+      PRIVATE(this)->renderPipeline = RenderPipeline::LEGACY_GL;
+      this->render(clearwindow, clearzbuffer);
+      PRIVATE(this)->renderPipeline = RenderPipeline::DRAW_LIST;
+#else
+      SoDebugError::post("SoRenderManager::renderDrawListPipeline",
+                         "DrawList backend initialization failed in a core-only build");
+#endif
+      return;
+    }
+  }
+
+  SoRenderTargetInfo targetinfo = {};
+  targetinfo.size = viewport.getViewportSizePixels();
+  targetinfo.samples = 1;
+  PRIVATE(this)->renderBackend->resizeTarget(targetinfo);
+
+  SoRenderParams params = {};
+  params.frameIndex = PRIVATE(this)->renderBackendFrame++;
+  params.time = SbTime::getTimeOfDay().getValue();
+  params.viewport = viewport;
+  params.viewMatrix.makeIdentity();
+  params.projMatrix.makeIdentity();
+  params.viewProjMatrix.makeIdentity();
+  params.clearColor = PRIVATE(this)->backgroundcolor;
+  params.clearDepth = 1.0f;
+  params.state = PRIVATE(this)->irAction->getState();
+  params.flags = (clearwindow ? SO_PARAM_CLEAR_WINDOW : 0u) |
+                 (clearzbuffer ? SO_PARAM_CLEAR_DEPTH : 0u);
+  PRIVATE(this)->renderBackend->render(drawlist, params);
 }
 
 /*!
@@ -1222,7 +1330,9 @@ SoRenderManager::initStencilBufferForInterleavedStereo(void)
 void
 SoRenderManager::reinitialize(void)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->invalidateState();
+#endif
 }
 
 /*!
@@ -1263,9 +1373,12 @@ SoRenderManager::setWindowSize(const SbVec2s & newsize)
                          "(%d, %d)", newsize[0], newsize[1]);
 #endif // debug
 
-  SbViewportRegion region = PRIVATE(this)->glaction->getViewportRegion();
+  SbViewportRegion region = PRIVATE(this)->viewport;
   region.setWindowSize(newsize[0], newsize[1]);
+  PRIVATE(this)->viewport = region;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
+#endif
 }
 
 /*!
@@ -1276,7 +1389,7 @@ SoRenderManager::setWindowSize(const SbVec2s & newsize)
 const SbVec2s &
 SoRenderManager::getWindowSize(void) const
 {
-  return PRIVATE(this)->glaction->getViewportRegion().getWindowSize();
+  return PRIVATE(this)->viewport.getWindowSize();
 }
 
 /*!
@@ -1291,10 +1404,13 @@ SoRenderManager::setSize(const SbVec2s & newsize)
                          "(%d, %d)", newsize[0], newsize[1]);
 #endif // debug
 
-  SbViewportRegion region = PRIVATE(this)->glaction->getViewportRegion();
+  SbViewportRegion region = PRIVATE(this)->viewport;
   SbVec2s origin = region.getViewportOriginPixels();
   region.setViewportPixels(origin, newsize);
+  PRIVATE(this)->viewport = region;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
+#endif
 }
 
 /*!
@@ -1303,7 +1419,7 @@ SoRenderManager::setSize(const SbVec2s & newsize)
 const SbVec2s &
 SoRenderManager::getSize(void) const
 {
-  return PRIVATE(this)->glaction->getViewportRegion().getViewportSizePixels();
+  return PRIVATE(this)->viewport.getViewportSizePixels();
 }
 
 /*!
@@ -1320,10 +1436,13 @@ SoRenderManager::setOrigin(const SbVec2s & newOrigin)
                          "(%d, %d)", newOrigin[0], newOrigin[1]);
 #endif // debug
 
-  SbViewportRegion region = PRIVATE(this)->glaction->getViewportRegion();
+  SbViewportRegion region = PRIVATE(this)->viewport;
   SbVec2s size = region.getViewportSizePixels();
   region.setViewportPixels(newOrigin, size);
+  PRIVATE(this)->viewport = region;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
+#endif
 }
 
 /*!
@@ -1334,7 +1453,7 @@ SoRenderManager::setOrigin(const SbVec2s & newOrigin)
 const SbVec2s &
 SoRenderManager::getOrigin(void) const
 {
-  return PRIVATE(this)->glaction->getViewportRegion().getViewportOriginPixels();
+  return PRIVATE(this)->viewport.getViewportOriginPixels();
 }
 
 /*!
@@ -1348,7 +1467,10 @@ SoRenderManager::getOrigin(void) const
 void
 SoRenderManager::setViewportRegion(const SbViewportRegion & newregion)
 {
+  PRIVATE(this)->viewport = newregion;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(newregion);
+#endif
 }
 
 /*!
@@ -1360,7 +1482,7 @@ SoRenderManager::setViewportRegion(const SbViewportRegion & newregion)
 const SbViewportRegion &
 SoRenderManager::getViewportRegion(void) const
 {
-  return PRIVATE(this)->glaction->getViewportRegion();
+  return PRIVATE(this)->viewport;
 }
 
 /*!
@@ -1596,8 +1718,13 @@ SoRenderManager::getStereoOffset(void) const
 void
 SoRenderManager::setAntialiasing(const SbBool smoothing, const int numpasses)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setSmoothing(smoothing);
   PRIVATE(this)->glaction->setNumPasses(numpasses);
+#else
+  (void) smoothing;
+  (void) numpasses;
+#endif
   this->scheduleRedraw();
 }
 
@@ -1609,8 +1736,13 @@ SoRenderManager::setAntialiasing(const SbBool smoothing, const int numpasses)
 void
 SoRenderManager::getAntialiasing(SbBool & smoothing, int & numpasses) const
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   smoothing = PRIVATE(this)->glaction->isSmoothing();
   numpasses = PRIVATE(this)->glaction->getNumPasses();
+#else
+  smoothing = FALSE;
+  numpasses = 1;
+#endif
 }
 
 /*!
@@ -1620,6 +1752,10 @@ SoRenderManager::getAntialiasing(SbBool & smoothing, int & numpasses) const
 void
 SoRenderManager::setGLRenderAction(SoGLRenderAction * const action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   SbBool haveregion = FALSE;
   SbViewportRegion region;
   if (PRIVATE(this)->glaction) { // remember existing viewport region
@@ -1641,6 +1777,7 @@ SoRenderManager::setGLRenderAction(SoGLRenderAction * const action)
   PRIVATE(this)->deleteglaction = FALSE;
   if (PRIVATE(this)->glaction && haveregion)
     PRIVATE(this)->glaction->setViewportRegion(region);
+#endif
 }
 
 /*!
@@ -1650,6 +1787,20 @@ SoGLRenderAction *
 SoRenderManager::getGLRenderAction(void) const
 {
   return PRIVATE(this)->glaction;
+}
+
+void
+SoRenderManager::setRenderPipeline(const RenderPipeline pipeline)
+{
+  if (PRIVATE(this)->renderPipeline == pipeline) return;
+  PRIVATE(this)->renderPipeline = pipeline;
+  this->scheduleRedraw();
+}
+
+SoRenderManager::RenderPipeline
+SoRenderManager::getRenderPipeline(void) const
+{
+  return PRIVATE(this)->renderPipeline;
 }
 
 /*!

@@ -30,6 +30,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
+#define COIN_DRAW_LIST_PICKING 1
+#define COIN_DRAW_LIST_SELECTION 1
+
 #include "CoinOffscreenGLCanvas.cpp"
 #include "SoGL.cpp"
 #if COIN_BUILD_LEGACY_GL_RENDERER
@@ -41,16 +44,14 @@
 #include "SoOffscreenGLXData.cpp"
 #include "SoOffscreenRenderer.cpp"
 #include "SoOffscreenWGLData.cpp"
-#include "SoRenderManager.cpp"
-#include "SoRenderManagerP.cpp"
 #include "SoVBO.cpp"
 #include "SoVertexArrayIndexer.cpp"
 #endif
+#include "SoRenderManager.cpp"
+#include "SoRenderManagerP.cpp"
 #include "SoGLDriverDatabase.cpp"
 #include "SoRenderIR.cpp"
 #include "SoRenderBackend.cpp"
-#define COIN_DRAW_LIST_PICKING 1
-#define COIN_DRAW_LIST_SELECTION 1
 #include "SoGLRenderBackend.cpp"
 #include "SoIDPickBuffer.cpp"
 #undef COIN_DRAW_LIST_PICKING

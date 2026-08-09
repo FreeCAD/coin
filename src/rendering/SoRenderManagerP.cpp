@@ -107,6 +107,9 @@ SoRenderManagerP::updateClippingPlanesCB(void * COIN_UNUSED_ARG(closure), SoSens
 void
 SoRenderManagerP::setClippingPlanes(void)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  return;
+#else
   SoCamera * camera = this->camera;
   SoNode * scene = this->scene;
   if (!camera || !scene) return;
@@ -190,12 +193,17 @@ SoRenderManagerP::setClippingPlanes(void)
   if (SbAbs(oldfar - newfar) > SbAbs(fareps)) {
     camera->farDistance = newfar;
   }
+#endif
 }
 
 void
 SoRenderManagerP::getCameraCoordinateSystem(SbMatrix & matrix,
                                             SbMatrix & inverse)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  matrix = inverse = SbMatrix::identity();
+  return;
+#else
   SoCamera * camera = this->camera;
   SoNode * scene = this->scene;
   assert(camera && scene);
@@ -224,6 +232,7 @@ SoRenderManagerP::getCameraCoordinateSystem(SbMatrix & matrix,
     inverse = this->getmatrixaction->getInverse();
   }
   this->searchaction->reset();
+#endif
 }
 
 //**********************************************************************************
@@ -277,6 +286,11 @@ SoRenderManager::Superimposition::getStateFlags(void) const
 void
 SoRenderManager::Superimposition::render(SoGLRenderAction * action, SbBool clearcolorbuffer)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) clearcolorbuffer;
+  return;
+#else
   if (!PRIVATE(this)->enabled) return;
 
   SoGLRenderAction::TransparencyType oldttype = action->getTransparencyType();
@@ -303,6 +317,7 @@ SoRenderManager::Superimposition::render(SoGLRenderAction * action, SbBool clear
   if (PRIVATE(this)->transparencytype != INHERIT_TRANSPARENCY_TYPE) {
     action->setTransparencyType(oldttype);
   }
+#endif
 }
 
 void
