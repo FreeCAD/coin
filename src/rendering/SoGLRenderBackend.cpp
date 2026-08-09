@@ -738,7 +738,6 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
 
   const float dpr = params.devicePixelRatio > 0.0f
     ? params.devicePixelRatio : 1.0f;
-  if (dpr < 1.0f) dpr = 1.0f;
   bool usePointShader = false;
   if (prim == GL_POINTS || fillMode == 2) {
     float ps = cmd.state.raster.pointSize;
