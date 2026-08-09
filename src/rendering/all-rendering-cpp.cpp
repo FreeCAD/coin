@@ -47,3 +47,4 @@
 #include "SoVertexArrayIndexer.cpp"
 #endif
 #include "SoGLDriverDatabase.cpp"
+#include "SoRenderIR.cpp"
