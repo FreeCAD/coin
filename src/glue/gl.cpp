@@ -2445,8 +2445,17 @@ cc_glglue_instance(int contextid)
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gltmp);
     gi->max_texture_size = gltmp;
 
-    glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
-    gi->max_lights = (int) gltmp;
+    if (gi->context_supports_legacy_rendering) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+      glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
+      gi->max_lights = (int) gltmp;
+#else
+      gi->max_lights = 0;
+#endif
+    }
+    else {
+      gi->max_lights = 0;
+    }
 
     {
       GLfloat vals[2];
@@ -5184,14 +5193,25 @@ cc_glglue_is_texture_size_legal(const cc_glglue * glw,
   GLenum internalformat;
   GLenum format;
   GLenum type = GL_UNSIGNED_BYTE;
+  const SbBool legacy = cc_glglue_context_supports_legacy_rendering(glw);
 
   switch (bytespertexel) {
   default:
   case 1:
-    format = internalformat = GL_LUMINANCE;
+    if (legacy) {
+      format = internalformat = GL_LUMINANCE;
+    } else {
+      internalformat = GL_R8;
+      format = GL_RED;
+    }
     break;
   case 2:
-    format = internalformat = GL_LUMINANCE_ALPHA;
+    if (legacy) {
+      format = internalformat = GL_LUMINANCE_ALPHA;
+    } else {
+      internalformat = GL_RG8;
+      format = GL_RG;
+    }
     break;
   case 3:
     format = internalformat = GL_RGB8;
