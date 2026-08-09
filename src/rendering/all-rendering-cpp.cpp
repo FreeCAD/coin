@@ -48,3 +48,5 @@
 #endif
 #include "SoGLDriverDatabase.cpp"
 #include "SoRenderIR.cpp"
+#include "SoRenderBackend.cpp"
+#include "SoGLRenderBackend.cpp"
