@@ -297,7 +297,9 @@ SoIDPickBuffer::buildIdColorVBOs(const SoDrawList & drawlist, uint32_t /*context
     byCmd[lut[i].commandIndex].push_back({i + 1, &lut[i]});
   }
 
-  for (auto & [ci, entries] : byCmd) {
+  for (auto byCmdIt = byCmd.begin(); byCmdIt != byCmd.end(); ++byCmdIt) {
+    const int ci = byCmdIt->first;
+    auto & entries = byCmdIt->second;
     if (ci < 0 || ci >= numCmds) continue;
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
     int numVerts = static_cast<int>(cmd.geometry.vertexCount);
@@ -306,7 +308,9 @@ SoIDPickBuffer::buildIdColorVBOs(const SoDrawList & drawlist, uint32_t /*context
     // Allocate RGBA8 per-vertex color buffer
     std::vector<uint8_t> colors(static_cast<size_t>(numVerts) * 4, 0);
 
-    for (const auto & [lutId, le] : entries) {
+    for (auto entryIt = entries.begin(); entryIt != entries.end(); ++entryIt) {
+      const uint32_t lutId = entryIt->first;
+      const SoPickLUTEntry * le = entryIt->second;
       uint8_t rgba[4];
       // Encode element type in upper 2 bits: 0=face, 1=edge, 2=vertex
       uint8_t typeCode = 0;
