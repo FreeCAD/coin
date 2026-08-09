@@ -581,7 +581,7 @@ SoShape::IRRender(SoIRRenderAction * action)
   SoState * state = action->getState();
   SoVertexProperty * vertexProperty =
     this->isOfType(SoVertexShape::getClassTypeId())
-      ? static_cast<SoVertexShape *>(this)->vertexProperty.getValue()
+      ? (SoVertexProperty *) static_cast<SoVertexShape *>(this)->vertexProperty.getValue()
       : NULL;
   if (vertexProperty) {
     state->push();
@@ -1167,9 +1167,6 @@ SoShape::invokeTriangleCallbacks(SoAction * const action,
                                  const SoPrimitiveVertex * const v2,
                                  const SoPrimitiveVertex * const v3)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  if (action->isDerivedFrom(SoGLRenderAction::getClassTypeId())) return;
-#endif
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
@@ -1289,9 +1286,6 @@ SoShape::invokeLineSegmentCallbacks(SoAction * const action,
                                     const SoPrimitiveVertex * const v1,
                                     const SoPrimitiveVertex * const v2)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  if (action->isDerivedFrom(SoGLRenderAction::getClassTypeId())) return;
-#endif
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
@@ -1374,9 +1368,6 @@ void
 SoShape::invokePointCallbacks(SoAction * const action,
                               const SoPrimitiveVertex * const v)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  if (action->isDerivedFrom(SoGLRenderAction::getClassTypeId())) return;
-#endif
   if (action->getTypeId().isDerivedFrom(SoRayPickAction::getClassTypeId())) {
     SoRayPickAction * ra = (SoRayPickAction *) action;
 
