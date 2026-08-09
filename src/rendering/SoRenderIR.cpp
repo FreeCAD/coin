@@ -193,7 +193,7 @@ SoIRBuffer::reserve(size_t bytes)
 {
   // Ensure the first chunk is at least this large
   if (this->chunks.empty()) {
-    auto c = std::make_unique<Chunk>();
+    std::unique_ptr<Chunk> c(new Chunk);
     c->data.resize(std::max(bytes, MIN_CHUNK_SIZE));
     this->chunks.push_back(std::move(c));
   } else if (bytes > this->chunks[0]->data.size()) {
@@ -223,7 +223,7 @@ SoIRBuffer::allocate(size_t bytes, size_t alignment)
   // Need a new chunk — size it to at least fit this allocation
   // and to avoid many small chunks
   size_t chunkSize = std::max({bytes, MIN_CHUNK_SIZE, this->highWaterMark / 2});
-  auto c = std::make_unique<Chunk>();
+  std::unique_ptr<Chunk> c(new Chunk);
   c->data.resize(chunkSize);
   c->cursor = bytes;
   void * ptr = c->data.data();
