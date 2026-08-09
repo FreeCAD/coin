@@ -157,7 +157,11 @@
 class SoVRMLIndexedLineSetP {
  public:
   SoVRMLIndexedLineSetP() : vaindexer(NULL) { }
-  ~SoVRMLIndexedLineSetP() { delete this->vaindexer; }
+  ~SoVRMLIndexedLineSetP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vaindexer;
+#endif
+  }
 
   enum Binding {
     // Needs to be these specific values to match the rendering code
@@ -249,6 +253,7 @@ SoVRMLIndexedLineSetP::findMaterialBinding(SoVRMLIndexedLineSet * node,
   return binding;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLIndexedLineSet::GLRender(SoGLRenderAction * action)
 {
@@ -415,6 +420,7 @@ SoVRMLIndexedLineSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, didrenderasvbo);
   state->pop();
 }
+#endif
 
 void
 SoVRMLIndexedLineSet::getPrimitiveCount(SoGetPrimitiveCountAction * action)
@@ -547,7 +553,9 @@ SoVRMLIndexedLineSet::notify(SoNotList * list)
   SoField *f = list->getLastField();
   if (f == &this->coordIndex) {
     LOCK_VAINDEXER(this);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     delete PRIVATE(this)->vaindexer;
+#endif
     PRIVATE(this)->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }

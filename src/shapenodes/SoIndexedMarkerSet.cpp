@@ -147,9 +147,14 @@ SoIndexedMarkerSet::initClass(void)
 }
 
 // doc from parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   int32_t numpts = this->coordIndex.getNum();
   if (numpts == 0) return;
 
@@ -160,6 +165,7 @@ SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
     this->vertexProperty.getValue()->GLRender(action);
   }
 
+  // send approx number of points for autocache handling. Divide
   if (!this->shouldGLRender(action)){
     state->pop();
     return;
@@ -319,4 +325,6 @@ SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
   // send approx number of points for autocache handling. Divide
   // by three so that three points is the same as one triangle.
   sogl_autocache_update(state, numindices/3, FALSE);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif

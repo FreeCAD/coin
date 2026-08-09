@@ -84,7 +84,11 @@ class SoBaseColorP {
     colorpacker_storage(sizeof(void*), alloc_colorpacker, free_colorpacker),
 #endif // COIN_THREADSAFE
     vbo(NULL) { }
-  ~SoBaseColorP() { delete this->vbo; }
+  ~SoBaseColorP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
 
 #ifdef COIN_THREADSAFE
   SbStorage colorpacker_storage;
@@ -149,19 +153,21 @@ SoBaseColor::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoBaseColor, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
   SO_ENABLE(SoCallbackAction, SoLazyElement);
 
   SO_ENABLE(SoCallbackAction, SoDiffuseColorElement);
-  SO_ENABLE(SoGLRenderAction, SoDiffuseColorElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoDiffuseColorElement);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoBaseColor::GLRender(SoGLRenderAction * action)
 {
   SoBaseColor::doAction(action);
 }
+#endif
 
 // Doc from superclass.
 void
@@ -175,6 +181,7 @@ SoBaseColor::doAction(SoAction * action)
     SoLazyElement::setDiffuse(state, this, num,
                               this->rgb.getValues(0), PRIVATE(this)->getColorPacker());
     
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
       SbBool setvbo = FALSE;
       SoBase::staticDataLock();
@@ -194,6 +201,7 @@ SoBaseColor::doAction(SoAction * action)
         SoGLVBOElement::setColorVBO(state, PRIVATE(this)->vbo);
       }
     }
+#endif
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }

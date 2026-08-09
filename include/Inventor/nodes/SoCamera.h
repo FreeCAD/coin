@@ -115,7 +115,9 @@ public:
 
   void doAction(SoAction * action) override;
   void callback(SoCallbackAction * action) override;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void audioRender(SoAudioRenderAction *action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void getMatrix(SoGetMatrixAction * action) override;

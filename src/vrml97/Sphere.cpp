@@ -128,6 +128,7 @@ SoVRMLSphere::~SoVRMLSphere()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLSphere::GLRender(SoGLRenderAction * action)
 {
@@ -158,6 +159,7 @@ SoVRMLSphere::GLRender(SoGLRenderAction * action)
                      &mb,
                      flags, state);
 }
+#endif
 
 // Doc in parent
 void

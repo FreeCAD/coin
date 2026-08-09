@@ -240,9 +240,14 @@ SoIndexedNurbsSurface::computeBBox(SoAction * action,
 }
 
 // Doc in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   if (!this->shouldGLRender(action)) return;
 
   // initialize current material
@@ -265,8 +270,11 @@ SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
     SoGLCacheContextElement::incNumShapes(state);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  // Doc in superclass.
 // Doc in superclass.
 void
 SoIndexedNurbsSurface::rayPick(SoRayPickAction * action)
@@ -349,6 +357,11 @@ typedef SoNurbsP<SoIndexedNurbsSurface>::coin_nurbs_cbdata coin_ins_cbdata;
 void
 SoIndexedNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) glrender;
+  return;
+#else
   if (GLUWrapper()->available == 0 || !GLUWrapper()->gluNewNurbsRenderer) {
 #if COIN_DEBUG
     static int first = 1;
@@ -431,6 +444,7 @@ SoIndexedNurbsSurfaceP::doNurbs(SoAction * action, const SbBool glrender)
                             PUBLIC(this)->coordIndex.getValues(0),
                             texindex ? PUBLIC(this)->textureCoordIndex.getNum() : 0,
                             texindex ? PUBLIC(this)->textureCoordIndex.getValues(0) : NULL);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 

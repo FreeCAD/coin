@@ -34,6 +34,8 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoGL.h"
+
 #ifdef HAVE_VRML97
 
 /*!
@@ -123,6 +125,7 @@ SoVRMLDirectionalLight::~SoVRMLDirectionalLight()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -139,33 +142,37 @@ SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
     return;
   }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   GLenum light = (GLenum) (idx + GL_LIGHT0);
 
-  SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);
-  lightcolor.setRGB(this->color.getValue());
-  lightcolor *= this->ambientIntensity.getValue();
-  glLightfv(light, GL_AMBIENT, lightcolor.getValue());
+    SbColor4f lightcolor(0.0f, 0.0f, 0.0f, 1.0f);
+    lightcolor.setRGB(this->color.getValue());
+    lightcolor *= this->ambientIntensity.getValue();
+    glLightfv(light, GL_AMBIENT, lightcolor.getValue());
 
-  lightcolor.setRGB(this->color.getValue());
-  lightcolor *= this->intensity.getValue();
+    lightcolor.setRGB(this->color.getValue());
+    lightcolor *= this->intensity.getValue();
 
-  glLightfv(light, GL_DIFFUSE, lightcolor.getValue());
-  glLightfv(light, GL_SPECULAR, lightcolor.getValue());
+    glLightfv(light, GL_DIFFUSE, lightcolor.getValue());
+    glLightfv(light, GL_SPECULAR, lightcolor.getValue());
 
-  // GL directional light is specified towards light source
-  SbVec3f dir = - this->direction.getValue();
-  dir.normalize();
+    // GL directional light is specified towards light source
+    SbVec3f dir = - this->direction.getValue();
+    dir.normalize();
 
-  // directional when w = 0.0
-  SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
-  glLightfv(light, GL_POSITION, dirvec.getValue());
+    // directional when w = 0.0
+    SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
+    glLightfv(light, GL_POSITION, dirvec.getValue());
 
-  glLightf(light, GL_SPOT_EXPONENT, 0.0);
-  glLightf(light, GL_SPOT_CUTOFF, 180.0);
-  glLightf(light, GL_CONSTANT_ATTENUATION, 1);
-  glLightf(light, GL_LINEAR_ATTENUATION, 0);
-  glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
-
+    glLightf(light, GL_SPOT_EXPONENT, 0.0);
+    glLightf(light, GL_SPOT_CUTOFF, 180.0);
+    glLightf(light, GL_CONSTANT_ATTENUATION, 1);
+    glLightf(light, GL_LINEAR_ATTENUATION, 0);
+    glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
+#else
+  (void)action;
+#endif
 }
+#endif
 
 #endif // HAVE_VRML97

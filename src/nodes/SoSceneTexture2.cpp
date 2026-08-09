@@ -437,8 +437,8 @@ SoSceneTexture2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoSceneTexture2, SO_FROM_COIN_2_2);
 
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
@@ -523,9 +523,14 @@ SoSceneTexture2::~SoSceneTexture2(void)
 
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSceneTexture2::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void)action;
+  return;
+#else
   SoState * state = action->getState();
   if (SoTextureOverrideElement::getImageOverride(state))
     return;
@@ -597,7 +602,9 @@ SoSceneTexture2::GLRender(SoGLRenderAction * action)
     // ignore the texture here so that all texture for non-supported
     // units will be ignored. pederb, 2003-11-04
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 
 // Documented in superclass.
@@ -679,6 +686,7 @@ SoSceneTexture2::write(SoWriteAction * action)
 
 #define PUBLIC(obj) obj->api
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 SoSceneTexture2P::SoSceneTexture2P(SoSceneTexture2 * apiptr)
 {
   this->api = apiptr;
@@ -1370,6 +1378,34 @@ SoSceneTexture2P::getTransparencyType(SoState * state)
   return (SoGLRenderAction::TransparencyType)
     SoShapeStyleElement::getTransparencyType(state);
 }
+
+#else
+
+SoSceneTexture2P::SoSceneTexture2P(SoSceneTexture2 * apiptr)
+{
+  this->api = apiptr;
+  this->glcontext = NULL;
+  this->buffervalid = FALSE;
+  this->glimagevalid = FALSE;
+  this->glimage = NULL;
+  this->glimagecontext = 0;
+  this->glaction = NULL;
+  this->glcontextsize.setValue(-1, -1);
+  this->glrectangle = FALSE;
+  this->offscreenbuffer = NULL;
+  this->offscreenbuffersize = 0;
+  this->canrendertotexture = FALSE;
+  this->contextid = -1;
+  this->fbodata = NULL;
+}
+
+SoSceneTexture2P::~SoSceneTexture2P()
+{
+  if (this->glimage) this->glimage->unref(NULL);
+  delete [] this->offscreenbuffer;
+}
+
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 
 
 #undef PUBLIC

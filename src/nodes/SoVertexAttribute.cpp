@@ -168,7 +168,7 @@ SoVertexAttribute::initClass(void)
                        SoNode::nextActionMethodIndex++);
 
   SoNode::setCompatibilityTypes(SoVertexAttribute::getClassTypeId(), SO_FROM_COIN_3_0);
-  SO_ENABLE(SoGLRenderAction, SoGLVertexAttributeElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLVertexAttributeElement);
 }
 
 /*!
@@ -247,9 +247,13 @@ SoVertexAttribute::doAction(SoAction * action)
   SoVertexAttributeElement::add(action->getState(), PRIVATE(this)->attributedata);
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVertexAttribute::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void)action;
+#else
   SoState * state = action->getState();
   const cc_glglue * glue = cc_glglue_instance(SoGLCacheContextElement::get(state));
 
@@ -312,7 +316,9 @@ SoVertexAttribute::GLRender(SoGLRenderAction * action)
     PRIVATE(this)->attributedata->vbo->setBufferData(NULL, 0, 0);
   }
   SoBase::staticDataUnlock();
+#endif
 }
+#endif
 
 SoMField *
 SoVertexAttribute::getValuesField(void) const

@@ -132,6 +132,7 @@ SoVRMLBox::~SoVRMLBox()
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBox::GLRender(SoGLRenderAction * action)
 {
@@ -158,6 +159,7 @@ SoVRMLBox::GLRender(SoGLRenderAction * action)
                    &mb,
                    flags, state);
 }
+#endif
 
 // Doc in parent
 void

@@ -346,6 +346,8 @@ static SbBool qmeshNormalize(SbVec3f & v, float toLength2)
   return FALSE;
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
+
 namespace { namespace SoGL { namespace QuadMesh {
 
 #define IDX(r,c) ((r)*rowsize+(c))
@@ -783,6 +785,8 @@ namespace { namespace SoGL { namespace QuadMesh {
 
 } } } // namespace
 
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
+
 /*!
   \copydetails SoNode::initClass(void)
 */
@@ -849,9 +853,14 @@ SoQuadMesh::initClass(void)
   SOGL_QUADMESH_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoQuadMesh::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   SoState * state = action->getState();
   SbBool didpush = FALSE;
 
@@ -979,8 +988,11 @@ SoQuadMesh::GLRender(SoGLRenderAction * action)
   }
 
   if (didpush) state->pop();
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_RESOLVE_ARG3
 #undef SOGL_QUADMESH_GLRENDER_RESOLVE_ARG2

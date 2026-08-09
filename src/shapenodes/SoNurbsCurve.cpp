@@ -208,9 +208,14 @@ SoNurbsCurve::initClass(void)
 }
 
 // Doc from parent class.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsCurve::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   if (!this->shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -237,8 +242,11 @@ SoNurbsCurve::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::shouldAutoCache(state,
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
   }
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  /*!
 /*!
   Calculates the bounding box of all control points, and sets the
   center to the average of these points.
@@ -372,6 +380,12 @@ void
 SoNurbsCurveP::doNurbs(SoAction * action,
                        const SbBool glrender, const SbBool drawaspoints)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  (void) glrender;
+  (void) drawaspoints;
+  return;
+#else
   if (GLUWrapper()->available == 0 || !GLUWrapper()->gluNewNurbsRenderer) {
 #if COIN_DEBUG
     static int first = 1;
@@ -421,6 +435,7 @@ SoNurbsCurveP::doNurbs(SoAction * action,
                           PUBLIC(this)->knotVector.getNum(),
                           glrender,
                           drawaspoints);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
 #undef PRIVATE

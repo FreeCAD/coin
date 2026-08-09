@@ -1133,9 +1133,14 @@ convert_bitmaps(void)
 }
 
 // doc in super
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoMarkerSet::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   // FIXME: the marker bitmaps are toggled off when the leftmost pixel
   // is outside the left border, and ditto for the bottommost pixel
   // versus the bottom border. They should be drawn partially until they
@@ -1275,8 +1280,11 @@ SoMarkerSet::GLRender(SoGLRenderAction * action)
   glPopMatrix();
 
   state->pop(); // we pushed, remember
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  // ----------------------------------------------------------------------------------------------------
 // ----------------------------------------------------------------------------------------------------
 
 // Documented in superclass.

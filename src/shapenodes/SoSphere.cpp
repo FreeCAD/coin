@@ -136,9 +136,14 @@ SoSphere::initClass(void)
 }
 
 // Documented in superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSphere::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   if (!this->shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -171,8 +176,11 @@ SoSphere::GLRender(SoGLRenderAction * action)
                      (int)(SPHERE_NUM_STACKS * complexity),
                      &mb,
                      flags, state);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  // Documented in superclass.
 // Documented in superclass.
 void
 SoSphere::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec3f & center)

@@ -153,7 +153,7 @@ SoDepthBuffer::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoDepthBuffer, SO_FROM_COIN_3_0);
 
-  SO_ENABLE(SoGLRenderAction, SoGLDepthBufferElement);
+  SO_ENABLE_GL(SoGLRenderAction, SoGLDepthBufferElement);
 }
 
 /*!
@@ -186,6 +186,7 @@ SoDepthBuffer::~SoDepthBuffer()
 {
 }
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from parent
 void
 SoDepthBuffer::GLRender(SoGLRenderAction * action)
@@ -217,3 +218,4 @@ SoDepthBuffer::GLRender(SoGLRenderAction * action)
   SoDepthBufferElement::set(state, testenable, writeenable,
                             function, depthrange);
 }
+#endif

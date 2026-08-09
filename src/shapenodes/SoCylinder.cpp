@@ -234,9 +234,14 @@ SoCylinder::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec
 }
 
 // Doc in parent.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCylinder::GLRender(SoGLRenderAction * action)
 {
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  (void) action;
+  return;
+#else
   if (!shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -277,8 +282,11 @@ SoCylinder::GLRender(SoGLRenderAction * action)
                        (int)(CYL_SIDE_NUMTRIS * complexity),
                        &mb,
                        flags, state);
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
+  /*!
 /*!
   Add a \a part to the cylinder.
 

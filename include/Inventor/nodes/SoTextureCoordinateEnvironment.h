@@ -47,7 +47,9 @@ public:
   SoTextureCoordinateEnvironment(void);
 
   void doAction(SoAction * action) override;
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
+#endif
   void pick(SoPickAction * action) override;
   void callback(SoCallbackAction * action) override;
 

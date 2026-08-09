@@ -722,7 +722,9 @@ SoNode::initClasses(void)
   SoBumpMapTransform::initClass();
 
   SoSceneTexture2::initClass();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoSceneTextureCubeMap::initClass();
+#endif
 
   SoTextureCoordinateCube::initClass();
   SoTextureCoordinateSphere::initClass();
@@ -951,6 +953,7 @@ SoNode::getPrimitiveCount(SoGetPrimitiveCountAction * COIN_UNUSED_ARG(action))
   used for calling the SoNode::GLRender() virtual method which does
   the \e real work.
 */
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNode::GLRenderS(SoAction * action, SoNode * node)
 {
@@ -965,30 +968,31 @@ SoNode::GLRenderS(SoAction * action, SoNode * node)
   }
 
   if (COIN_DEBUG) {
-    // Note: debugging code like this is also present in
-    // SoSeparator::GLRenderBelowPath() and SoState::lazyEvaluate(),
-    // but they are default disabled -- even when COIN_DEBUG=1 (due to
-    // performance reasons).
-    //
-    // If you're seeing notifications about GL-errors from this place,
-    // the first thing to do is to enable those debugging checks too
-    // by setting COIN_GLERROR_DEBUGGING to "1".
-    cc_string str;
-    cc_string_construct(&str);
-    const unsigned int errs = coin_catch_gl_errors(&str);
-    if (errs > 0) {
-      const SbBool extradebug = sogl_glerror_debugging();
-      SoDebugError::post("SoNode::GLRenderS",
-                         "GL error: '%s', nodetype: %s %s",
-                         cc_string_get_text(&str),
-                         node->getTypeId().getName().getString(),
-                         extradebug ? "" :
-                         "(set envvar COIN_GLERROR_DEBUGGING=1 "
-                         "and re-run to get more information)");
-    }
-    cc_string_clean(&str);
+      // Note: debugging code like this is also present in
+      // SoSeparator::GLRenderBelowPath() and SoState::lazyEvaluate(),
+      // but they are default disabled -- even when COIN_DEBUG=1 (due to
+      // performance reasons).
+      //
+      // If you're seeing notifications about GL-errors from this place,
+      // the first thing to do is to enable those debugging checks too
+      // by setting COIN_GLERROR_DEBUGGING to "1".
+      cc_string str;
+      cc_string_construct(&str);
+      const unsigned int errs = coin_catch_gl_errors(&str);
+      if (errs > 0) {
+        const SbBool extradebug = sogl_glerror_debugging();
+        SoDebugError::post("SoNode::GLRenderS",
+                          "GL error: '%s', nodetype: %s %s",
+                          cc_string_get_text(&str),
+                          node->getTypeId().getName().getString(),
+                          extradebug ? "" :
+                          "(set envvar COIN_GLERROR_DEBUGGING=1 "
+                          "and re-run to get more information)");
+      }
+      cc_string_clean(&str);
   }
 }
+#endif
 
 // Note that this documentation will also be used for all subclasses
 // which reimplements the method, so keep the doc "generic enough".
@@ -1614,7 +1618,9 @@ static void
 init_action_methods(void)
 {
   SoCallbackAction::addMethod(SoNode::getClassTypeId(), SoNode::callbackS);
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLRenderAction::addMethod(SoNode::getClassTypeId(), SoNode::GLRenderS);
+#endif
   SoGetBoundingBoxAction::addMethod(SoNode::getClassTypeId(), SoNode::getBoundingBoxS);
   SoGetMatrixAction::addMethod(SoNode::getClassTypeId(), SoNode::getMatrixS);
   SoGetPrimitiveCountAction::addMethod(SoNode::getClassTypeId(), SoNode::getPrimitiveCountS);
@@ -1631,7 +1637,9 @@ init_action_methods(void)
   SoRayPickAction::addMethod(SoBumpMap::getClassTypeId(), SoNode::rayPickS);
   SoRayPickAction::addMethod(SoImage::getClassTypeId(), SoNode::rayPickS);
   SoRayPickAction::addMethod(SoSceneTexture2::getClassTypeId(), SoNode::rayPickS);
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoRayPickAction::addMethod(SoSceneTextureCubeMap::getClassTypeId(), SoNode::rayPickS);
+#endif
   SoRayPickAction::addMethod(SoTextureCubeMap::getClassTypeId(), SoNode::rayPickS);
 
   SoSearchAction::addMethod(SoNode::getClassTypeId(), SoNode::searchS);

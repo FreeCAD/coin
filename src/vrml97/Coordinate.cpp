@@ -79,7 +79,11 @@ SO_NODE_SOURCE(SoVRMLCoordinate);
 class SoVRMLCoordinateP {
  public:
   SoVRMLCoordinateP() : vbo(NULL) { }
-  ~SoVRMLCoordinateP() { delete this->vbo; }
+  ~SoVRMLCoordinateP() {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    delete this->vbo;
+#endif
+  }
   SoVBO * vbo;
 };
 
@@ -120,6 +124,7 @@ SoVRMLCoordinate::doAction(SoAction * action)
 }
 
 // Doc in parent
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLCoordinate::GLRender(SoGLRenderAction * action)
 {
@@ -155,6 +160,7 @@ SoVRMLCoordinate::GLRender(SoGLRenderAction * action)
   }
 
 }
+#endif
 
 // Doc in parent
 void
