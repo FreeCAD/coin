@@ -736,7 +736,8 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
     glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
   }
 
-  float dpr = params.devicePixelRatio;
+  const float dpr = params.devicePixelRatio > 0.0f
+    ? params.devicePixelRatio : 1.0f;
   if (dpr < 1.0f) dpr = 1.0f;
   bool usePointShader = false;
   if (prim == GL_POINTS || fillMode == 2) {
@@ -1281,6 +1282,8 @@ SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
                                        const SoRenderParams & params)
 {
   const int count = drawlist.getNumCommands();
+  const float dpr = params.devicePixelRatio > 0.0f
+    ? params.devicePixelRatio : 1.0f;
 
   // Selection/highlight overlays — emissive flat color on top
   glDepthMask(GL_FALSE);
@@ -1327,8 +1330,10 @@ SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
 
   for (int i = 0; i < count; ++i) {
     const SoRenderCommand & cmd = drawlist.getCommand(i);
-    int hlElem = cmd.selection.highlightElement;
-    bool hasHighlight = cmd.selection.highlightWholeObject || (hlElem != -1);
+    int hlElem = cmd.selection.highlightedElements.empty()
+      ? -1 : cmd.selection.highlightedElements.front();
+    bool hasHighlight = cmd.selection.highlightWholeObject
+      || !cmd.selection.highlightedElements.empty();
     bool hasSelection = cmd.selection.selectWholeObject || !cmd.selection.selectedElements.empty();
     if (!hasHighlight && !hasSelection) continue;
 
@@ -1350,7 +1355,7 @@ SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
     if (prim == GL_POINTS) {
       float pointSize = cmd.state.raster.pointSize;
       if (pointSize < 1.0f) pointSize = cmd.state.raster.lineWidth;
-      pointSize = std::max(pointSize, MIN_SELECTION_POINT_SIZE) * params.devicePixelRatio;
+      pointSize = std::max(pointSize, MIN_SELECTION_POINT_SIZE) * dpr;
       if (this->pointShaderProgram) {
         pointShaderActive = true;
         this->bindPointShader(cmd,
@@ -1373,7 +1378,7 @@ SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
       // using GL_ALWAYS to overwrite the black edge with highlight color.
       // This matches the legacy renderer which replaces the edge color.
       glDepthFunc(GL_ALWAYS);
-      float edgeWidth = std::max(cmd.state.raster.lineWidth, 1.0f) * params.devicePixelRatio;
+      float edgeWidth = std::max(cmd.state.raster.lineWidth, 1.0f) * dpr;
       if (this->lineShaderProgram && edgeWidth > 1.0f) {
         glUseProgram(this->lineShaderProgram);
         glUniformMatrix4fv(this->lineUModelLocation, 1, GL_FALSE, &modelMat[0][0]);
@@ -1458,7 +1463,7 @@ SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
         }
         glUniform1f(this->uUseVertexColorLocation, 0.0f);
         glUniform4f(this->uColorLocation, sc[0], sc[1], sc[2], 1.0f);
-        glLineWidth(2.0f * params.devicePixelRatio);
+        glLineWidth(2.0f * dpr);
         glDrawArrays(GL_LINES, 0, 24);
         glLineWidth(1.0f);
         glBindVertexArray(0);
@@ -1648,11 +1653,6 @@ SoGLRenderBackend::logFrameStats(const SoDrawList & drawlist,
   SoDebugError::postInfo("SoGLRenderBackend::render",
                          "frame=%d cmds=%d",
                          params.frameIndex, num);
-  SoIRDumpSummary(drawlist);
-
-  if (coin_render_ir_trace_enabled()) {
-    SoIRDumpFirstN(drawlist, 8);
-  }
 }
 
 bool

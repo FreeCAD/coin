@@ -122,6 +122,11 @@ struct SoRenderParams {
   */
   float              clearDepth;
 
+  // Backend-neutral view metadata used by retained overlays and layered
+  // traversals. Defaults preserve the ordinary full-window path.
+  float              devicePixelRatio;
+  int                bgCommandCount;
+
   /*!
     \brief Pointer to the SoState instance used when building the draw list.
   */
