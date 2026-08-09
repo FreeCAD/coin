@@ -5,7 +5,7 @@
 #endif
 
 #include "rendering/SoIDPickBuffer.h"
-#include "rendering/SoRenderIR.h"
+#include <Inventor/rendering/SoRenderIR.h>
 #include "CoinTracyConfig.h"
 
 #include <Inventor/errors/SoDebugError.h>
