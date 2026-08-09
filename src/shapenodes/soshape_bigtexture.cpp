@@ -214,7 +214,7 @@ soshape_bigtexture::endShape(SoState * state,
 
   // return TRUE if all textures were created in the correct resolution
   return ! this->image->exceededChangeLimit();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 void

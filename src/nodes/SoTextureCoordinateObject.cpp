@@ -186,28 +186,26 @@ SoTextureCoordinateObject::pick(SoPickAction * action)
 }
 
 // texgen callback. Turns on plane texgen in OpenGL
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureCoordinateObject::handleTexgen(void * data)
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    SoTextureCoordinateObject *thisp = (SoTextureCoordinateObject*)data;
-    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-    glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-    glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-    glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+  SoTextureCoordinateObject *thisp = (SoTextureCoordinateObject*)data;
+  glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+  glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+  glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+  glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
 
-    const SbVec4f & s = thisp->factorS.getValue();
-    glTexGenfv(GL_S, GL_OBJECT_PLANE, s.getValue());
+  const SbVec4f & s = thisp->factorS.getValue();
+  glTexGenfv(GL_S, GL_OBJECT_PLANE, s.getValue());
 
-    const SbVec4f & t = thisp->factorT.getValue();
-    glTexGenfv(GL_T, GL_OBJECT_PLANE, t.getValue());
+  const SbVec4f & t = thisp->factorT.getValue();
+  glTexGenfv(GL_T, GL_OBJECT_PLANE, t.getValue());
+  
+  const SbVec4f & r = thisp->factorR.getValue();
+  glTexGenfv(GL_R, GL_OBJECT_PLANE, r.getValue());
 
-    const SbVec4f & r = thisp->factorR.getValue();
-    glTexGenfv(GL_R, GL_OBJECT_PLANE, r.getValue());
-
-    const SbVec4f & q = thisp->factorQ.getValue();
-    glTexGenfv(GL_Q, GL_OBJECT_PLANE, q.getValue());
-#else
-  (void)data;
-#endif
+  const SbVec4f & q = thisp->factorQ.getValue();
+  glTexGenfv(GL_Q, GL_OBJECT_PLANE, q.getValue());
 }
+#endif

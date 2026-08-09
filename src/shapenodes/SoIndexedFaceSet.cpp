@@ -429,10 +429,6 @@ SoIndexedFaceSet::notify(SoNotList * list)
 void
 SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   if (this->coordIndex.getNum() < 3) return;
   SoState * state = action->getState();
 
@@ -517,7 +513,6 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
   }
 
   SbBool convexcacheused = FALSE;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (this->useConvexCache(action, normals, nindices, normalCacheUsed)) {
     cindices = PRIVATE(this)->convexCache->getCoordIndices();
     numindices = PRIVATE(this)->convexCache->getNumCoordIndices();
@@ -533,7 +528,6 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
     if (tbind != NONE) tbind = PER_VERTEX_INDEXED;
     convexcacheused = TRUE;
   }
-#endif
 
   mb.sendFirst(); // make sure we have the correct material
 
@@ -671,11 +665,9 @@ SoIndexedFaceSet::GLRender(SoGLRenderAction * action)
   }
   // send approx number of triangles for autocache handling
   sogl_autocache_update(state, this->coordIndex.getNum() / 4, didrenderasvbo);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
-    // this macro actually makes the code below more readable  :-)
   // this macro actually makes the code below more readable  :-)
 #define DO_VERTEX(idx) \
   if (mbind == PER_VERTEX) {                  \

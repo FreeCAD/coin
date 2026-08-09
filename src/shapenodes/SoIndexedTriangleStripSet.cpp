@@ -225,10 +225,6 @@ SoIndexedTriangleStripSet::findNormalBinding(SoState * const state) const
 void
 SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   // Note: default coordIndex field setting is [ 0 ] so this check is
   // absolutely necessary.
   if (this->coordIndex.getNum() < 3) return;
@@ -336,11 +332,9 @@ SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
   }
   // send approx number of triangles for autocache handling
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, FALSE);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
-  // Documented in superclass.
 // Documented in superclass.
 SbBool
 SoIndexedTriangleStripSet::generateDefaultNormals(SoState *, SoNormalBundle *)

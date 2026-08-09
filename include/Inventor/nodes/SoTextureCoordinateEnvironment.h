@@ -60,7 +60,9 @@ private:
   static const SbVec4f &generate(void * userdata,
                                  const SbVec3f & p,
                                  const SbVec3f & n);
+#if COIN_BUILD_LEGACY_GL_RENDERER
   static void handleTexgen(void *data);
+#endif
 };
 
 #endif // !COIN_SOTEXTURECOORDINATEENVIRONMENT_H

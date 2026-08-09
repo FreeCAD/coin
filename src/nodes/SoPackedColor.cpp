@@ -135,7 +135,7 @@ SoPackedColor::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoPackedColor, SO_FROM_INVENTOR_2_1);
 
   SO_ENABLE(SoCallbackAction, SoLazyElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLazyElement);
 }
 
 #if COIN_BUILD_LEGACY_GL_RENDERER

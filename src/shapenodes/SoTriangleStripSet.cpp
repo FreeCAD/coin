@@ -380,7 +380,7 @@ namespace { namespace SoGL { namespace TriStripSet {
 
 } } } // namespace
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 
 /*!
   \copydetails SoEngine::initClass(void)
@@ -447,10 +447,6 @@ SoTriangleStripSet::initClass(void)
 void
 SoTriangleStripSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   int32_t idx = this->startIndex.getValue();
   int32_t dummyarray[1];
   const int32_t * ptr = this->numVertices.getValues(0);
@@ -535,7 +531,6 @@ SoTriangleStripSet::GLRender(SoGLRenderAction * action)
   // send approx number of triangles for autocache handling
   sogl_autocache_update(state, numv ?
                         (this->numVertices[0]-2)*numv : 0, FALSE);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 

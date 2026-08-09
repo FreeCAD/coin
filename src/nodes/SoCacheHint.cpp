@@ -109,7 +109,7 @@ SoCacheHint::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoCacheHint, SO_FROM_COIN_2_4);
   
-  SO_ENABLE_GL(SoGLRenderAction, SoCacheHintElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCacheHintElement);
 }
 
 void

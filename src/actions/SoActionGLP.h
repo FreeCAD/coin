@@ -10,9 +10,9 @@
    legacy fixed-function GL elements.  Keep this switch out of public
    headers so platform GL headers cannot leak into application code. */
 #if COIN_BUILD_LEGACY_GL_RENDERER
-#define SO_ENABLE_GL(action, element) SO_ENABLE(action, element)
+#define SO_ENABLE_LEGACY_GL(action, element) SO_ENABLE(action, element)
 #else
-#define SO_ENABLE_GL(action, element) do { } WHILE_0
+#define SO_ENABLE_LEGACY_GL(action, element) do { } WHILE_0
 #endif
 
 #endif /* COIN_SOACTIONGLP_H */

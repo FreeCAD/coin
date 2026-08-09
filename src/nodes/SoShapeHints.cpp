@@ -342,8 +342,8 @@ SoShapeHints::initClass(void)
 
   SO_ENABLE(SoCallbackAction, SoCreaseAngleElement);
   SO_ENABLE(SoCallbackAction, SoShapeHintsElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoCreaseAngleElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLShapeHintsElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCreaseAngleElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLShapeHintsElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoCreaseAngleElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoShapeHintsElement);
   SO_ENABLE(SoPickAction, SoCreaseAngleElement);

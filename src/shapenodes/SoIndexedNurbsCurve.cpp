@@ -209,10 +209,6 @@ SoIndexedNurbsCurve::computeBBox(SoAction * action,
 void
 SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   if (!this->shouldGLRender(action)) return;
 
   SoState * state = action->getState();
@@ -239,7 +235,6 @@ SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
     SoGLCacheContextElement::incNumShapes(state);
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
@@ -392,7 +387,7 @@ SoIndexedNurbsCurveP::doNurbs(SoAction * action,
                           drawaspoints,
                           PUBLIC(this)->coordIndex.getNum(),
                           PUBLIC(this)->coordIndex.getValues(0));
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 #undef PRIVATE

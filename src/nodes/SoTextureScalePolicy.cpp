@@ -209,8 +209,8 @@ void
 SoTextureScalePolicy::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTextureScalePolicy, SO_FROM_COIN_2_0);
-  SO_ENABLE_GL(SoGLRenderAction, SoTextureScalePolicyElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoTextureScaleQualityElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoTextureScalePolicyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoTextureScaleQualityElement);
 }
 
 static SoTextureScalePolicyElement::Policy

@@ -332,10 +332,6 @@ SoImage::computeBBox(SoAction * action,
 void
 SoImage::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   SbVec2s size, orgsize;
   int nc;
   size = this->getSize();
@@ -528,7 +524,6 @@ SoImage::GLRender(SoGLRenderAction * action)
   // don't auto cache Image nodes.
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 

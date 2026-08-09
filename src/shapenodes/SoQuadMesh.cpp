@@ -785,7 +785,7 @@ namespace { namespace SoGL { namespace QuadMesh {
 
 } } } // namespace
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 
 /*!
   \copydetails SoNode::initClass(void)
@@ -857,10 +857,6 @@ SoQuadMesh::initClass(void)
 void
 SoQuadMesh::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   SoState * state = action->getState();
   SbBool didpush = FALSE;
 
@@ -988,7 +984,6 @@ SoQuadMesh::GLRender(SoGLRenderAction * action)
   }
 
   if (didpush) state->pop();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 

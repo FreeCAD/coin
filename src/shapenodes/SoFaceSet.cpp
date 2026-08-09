@@ -406,7 +406,7 @@ namespace { namespace SoGL { namespace FaceSet {
 
 } } } // namespace
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 
 /*!
   \copydetails SoNode::initClass(void)
@@ -468,10 +468,6 @@ SoFaceSet::initClass(void)
 void
 SoFaceSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   int32_t dummyarray[1];
   const int32_t *ptr = this->numVertices.getValues(0);
   const int32_t *end = ptr + this->numVertices.getNum();
@@ -660,11 +656,9 @@ SoFaceSet::GLRender(SoGLRenderAction * action)
   // send approx number of triangles for autocache handling
   sogl_autocache_update(state, numv ?
                         (this->numVertices[0]-2)*numv : 0, didusevbo);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
-  #undef SOGL_FACESET_GLRENDER_CALL_FUNC
 #undef SOGL_FACESET_GLRENDER_CALL_FUNC
 #undef SOGL_FACESET_GLRENDER_RESOLVE_ARG3
 #undef SOGL_FACESET_GLRENDER_RESOLVE_ARG2

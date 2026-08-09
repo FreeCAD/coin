@@ -437,8 +437,8 @@ SoSceneTexture2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoSceneTexture2, SO_FROM_COIN_2_2);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
@@ -527,10 +527,6 @@ SoSceneTexture2::~SoSceneTexture2(void)
 void
 SoSceneTexture2::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void)action;
-  return;
-#else
   SoState * state = action->getState();
   if (SoTextureOverrideElement::getImageOverride(state))
     return;
@@ -602,7 +598,6 @@ SoSceneTexture2::GLRender(SoGLRenderAction * action)
     // ignore the texture here so that all texture for non-supported
     // units will be ignored. pederb, 2003-11-04
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
@@ -1405,7 +1400,7 @@ SoSceneTexture2P::~SoSceneTexture2P()
   delete [] this->offscreenbuffer;
 }
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 
 
 #undef PUBLIC

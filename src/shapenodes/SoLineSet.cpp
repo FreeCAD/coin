@@ -372,7 +372,7 @@ namespace { namespace SoGL { namespace LineSet {
 
 } } } // namespace
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 
 /*!
   \copydetails SoNode::initClass(void)
@@ -439,10 +439,6 @@ SoLineSet::initClass(void)
 void
 SoLineSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   SoState * state = action->getState();
   SbBool didpush = FALSE;
 
@@ -521,11 +517,9 @@ SoLineSet::GLRender(SoGLRenderAction * action)
   // send approx number of lines for autocache handling
   sogl_autocache_update(state, numv ?
                         (this->numVertices[0]-1)*numv : 0, FALSE);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
-  #undef SOGL_LINESET_GLRENDER_CALL_FUNC
 #undef SOGL_LINESET_GLRENDER_CALL_FUNC
 #undef SOGL_LINESET_GLRENDER_RESOLVE_ARG3
 #undef SOGL_LINESET_GLRENDER_RESOLVE_ARG2

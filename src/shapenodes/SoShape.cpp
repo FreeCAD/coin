@@ -448,10 +448,9 @@ SoShape::GLRender(SoGLRenderAction * action)
   this->generatePrimitives(action);
 
   if (vp) action->getState()->pop();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
-  // Doc in parent.
 // Doc in parent.
 void
 SoShape::callback(SoCallbackAction * action)
@@ -852,7 +851,7 @@ SoShape::shouldGLRender(SoGLRenderAction * action)
   }
   return TRUE; // let the shape node render the geometry using OpenGL
 #endif // ! generatePrimitives() rendering
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1130,7 +1129,7 @@ SoShape::invokeTriangleCallbacks(SoAction * const action,
       break;
     }
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1212,7 +1211,7 @@ SoShape::invokeLineSegmentCallbacks(SoAction * const action,
       break;
     }
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1268,7 +1267,7 @@ SoShape::invokePointCallbacks(SoAction * const action,
       break;
     }
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1447,7 +1446,7 @@ SoShape::GLRenderBoundingBox(SoGLRenderAction * action)
   sogl_render_cube(size[0], size[1], size[2], &mb,
                    SOGL_NEED_NORMALS | SOGL_NEED_TEXCOORDS, NULL);
   glPopMatrix();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1756,7 +1755,7 @@ SoShape::startVertexArray(SoGLRenderAction * action,
   SoGLVertexAttributeElement::getInstance(state)->enableVBO(action);
 
   return dovbo;
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 /*!
@@ -1828,7 +1827,7 @@ SoShape::finishVertexArray(SoGLRenderAction * action,
   }
 
   SoGLVertexAttributeElement::getInstance(state)->disableVBO(action);
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 void
@@ -1869,7 +1868,7 @@ SoShape::validatePVCache(SoGLRenderAction * action)
     PRIVATE(this)->pvcache->close(state);
     PRIVATE(this)->testSetupShapeHints(this);
   }
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
+#endif
 }
 
 

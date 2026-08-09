@@ -362,7 +362,7 @@ SoProfilerStats::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoProfilerStats, SO_FROM_COIN_3_0);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoProfilerElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoProfilerElement);
   SO_ENABLE(SoHandleEventAction, SoProfilerElement);
 }
 

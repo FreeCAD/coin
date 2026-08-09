@@ -153,11 +153,11 @@ SoBaseColor::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoBaseColor, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLazyElement);
   SO_ENABLE(SoCallbackAction, SoLazyElement);
 
   SO_ENABLE(SoCallbackAction, SoDiffuseColorElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoDiffuseColorElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoDiffuseColorElement);
 }
 
 #if COIN_BUILD_LEGACY_GL_RENDERER

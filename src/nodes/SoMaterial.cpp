@@ -372,7 +372,7 @@ SoMaterial::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoMaterial, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLazyElement);
   SO_ENABLE(SoCallbackAction, SoLazyElement);
 
   SO_ENABLE(SoCallbackAction, SoAmbientColorElement);
@@ -382,12 +382,12 @@ SoMaterial::initClass(void)
   SO_ENABLE(SoCallbackAction, SoShininessElement);
   SO_ENABLE(SoCallbackAction, SoTransparencyElement);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoAmbientColorElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoDiffuseColorElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoEmissiveColorElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoSpecularColorElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoShininessElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoTransparencyElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoAmbientColorElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoDiffuseColorElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoEmissiveColorElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoSpecularColorElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoShininessElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoTransparencyElement);
 }
 
 #if COIN_BUILD_LEGACY_GL_RENDERER

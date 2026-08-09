@@ -263,7 +263,7 @@ SoMaterialBinding::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoMaterialBinding, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoMaterialBindingElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoMaterialBindingElement);
   SO_ENABLE(SoPickAction, SoMaterialBindingElement);
   SO_ENABLE(SoCallbackAction, SoMaterialBindingElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoMaterialBindingElement);

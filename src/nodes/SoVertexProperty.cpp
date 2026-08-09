@@ -308,11 +308,11 @@ SoVertexProperty::initClass(void)
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCoordinateElement);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLCoordinateElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoMaterialBindingElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoNormalBindingElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLNormalElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLCoordinateElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoMaterialBindingElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoNormalBindingElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLNormalElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
 
   SO_ENABLE(SoPickAction, SoCoordinateElement);
   SO_ENABLE(SoPickAction, SoMaterialBindingElement);

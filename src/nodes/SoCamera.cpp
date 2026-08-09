@@ -380,12 +380,12 @@ SoCamera::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_ABSTRACT_CLASS(SoCamera, SO_FROM_INVENTOR_1);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoFocalDistanceElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLProjectionMatrixElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoViewVolumeElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLViewingMatrixElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoResetMatrixElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoCullElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoFocalDistanceElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLProjectionMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoViewVolumeElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLViewingMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoResetMatrixElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCullElement);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoFocalDistanceElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoProjectionMatrixElement);
@@ -945,19 +945,13 @@ SoCamera::getView(SoAction * action, SbViewVolume & resultvv, SbViewportRegion &
 //
 // private method that draws a cropped frame
 //
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCamera::drawCroppedFrame(SoGLRenderAction *action,
                            const int viewportmapping,
                            const SbViewportRegion & oldvp,
                            const SbViewportRegion & newvp)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void)action;
-  (void)viewportmapping;
-  (void)oldvp;
-  (void)newvp;
-  return;
-#else
   if (viewportmapping == SoCamera::CROP_VIEWPORT_NO_FRAME) return;
 
   if (action->handleTransparency(FALSE))
@@ -976,109 +970,90 @@ SoCamera::drawCroppedFrame(SoGLRenderAction *action,
   }
 
   SbVec2s oldorigin = oldvp.getViewportOriginPixels();
-    SbVec2s oldsize = oldvp.getViewportSizePixels();
-    glMatrixMode(GL_PROJECTION);
-    // projection matrix will be set later, so don't push
-    glOrtho(oldorigin[0], oldorigin[0]+oldsize[0]-1,
-            oldorigin[1], oldorigin[1]+oldsize[1]-1,
-            -1, 1);
+  SbVec2s oldsize = oldvp.getViewportSizePixels();
+  glMatrixMode(GL_PROJECTION);
+  // projection matrix will be set later, so don't push
+  glOrtho(oldorigin[0], oldorigin[0]+oldsize[0]-1,
+          oldorigin[1], oldorigin[1]+oldsize[1]-1,
+          -1, 1);
 
-    SoGLMultiTextureEnabledElement::disableAll(state);
+  SoGLMultiTextureEnabledElement::disableAll(state);
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    glPushAttrib(GL_LIGHTING_BIT|
-                GL_FOG_BIT|
-                GL_DEPTH_BUFFER_BIT|
-                GL_TEXTURE_BIT|
-                GL_CURRENT_BIT);
-#else
-    (void)action;
-#endif
+  glPushAttrib(GL_LIGHTING_BIT|
+               GL_FOG_BIT|
+               GL_DEPTH_BUFFER_BIT|
+               GL_TEXTURE_BIT|
+               GL_CURRENT_BIT);
 
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glDisable(GL_LIGHTING);
-    glDisable(GL_FOG);
-    glDisable(GL_DEPTH_TEST);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glDisable(GL_LIGHTING);
+  glDisable(GL_FOG);
+  glDisable(GL_DEPTH_TEST);
 
-    glColor3f(0.8f, 0.8f, 0.8f);
+  glColor3f(0.8f, 0.8f, 0.8f);
 
-    SbVec2s origin = newvp.getViewportOriginPixels();
-    SbVec2s size = newvp.getViewportSizePixels();
-    SbVec2s orgsize = oldvp.getViewportSizePixels();
+  SbVec2s origin = newvp.getViewportOriginPixels();
+  SbVec2s size = newvp.getViewportSizePixels();
+  SbVec2s orgsize = oldvp.getViewportSizePixels();
 
-    if (size[0] < orgsize[0]) {
-      short minpos = origin[0] - 1;
-      short maxpos = origin[0] + size[0];
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
-        glBegin(GL_LINES);
-        glVertex2s(minpos, oldorigin[1]);
-        glVertex2s(minpos, oldorigin[1]+oldsize[1]);
-        glVertex2s(maxpos, oldorigin[1]);
-        glVertex2s(maxpos, oldorigin[1]+oldsize[1]);
-        glEnd();
-      }
-      else {
-        glBegin(GL_QUADS);
-        glVertex2s(oldorigin[0], oldorigin[1]);
-        glVertex2s(oldorigin[0], oldorigin[1]+oldsize[1]-1);
-        glVertex2s(minpos, oldorigin[1]+oldsize[1]);
-        glVertex2s(minpos, oldorigin[1]);
-
-        glVertex2s(maxpos, oldorigin[1]);
-        glVertex2s(maxpos, oldorigin[1]+oldsize[1]-1);
-        glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]+oldsize[1]-1);
-        glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]);
-        glEnd();
-      }
-#else
-      (void)minpos;
-      (void)maxpos;
-#endif
+  if (size[0] < orgsize[0]) {
+    short minpos = origin[0] - 1;
+    short maxpos = origin[0] + size[0];
+    if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
+      glBegin(GL_LINES);
+      glVertex2s(minpos, oldorigin[1]);
+      glVertex2s(minpos, oldorigin[1]+oldsize[1]);
+      glVertex2s(maxpos, oldorigin[1]);
+      glVertex2s(maxpos, oldorigin[1]+oldsize[1]);
+      glEnd();
     }
-    else if (size[1] < orgsize[1]) {
-      short minpos = origin[1] - 1;
-      short maxpos = origin[1] + size[1];
-#if COIN_BUILD_LEGACY_GL_RENDERER
-      if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
-        glBegin(GL_LINES);
-        glVertex2s(oldorigin[0], minpos);
-        glVertex2s(oldorigin[0]+oldsize[0], minpos);
-        glVertex2s(oldorigin[0], maxpos);
-        glVertex2s(oldorigin[0]+oldsize[0], maxpos);
-        glEnd();
-      }
-      else {
-        glBegin(GL_QUADS);
-        glVertex2s(oldorigin[0], minpos);
-        glVertex2s(oldorigin[0]+oldsize[0]-1, minpos);
-        glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]);
-        glVertex2s(oldorigin[0], oldorigin[1]);
+    else {
+      glBegin(GL_QUADS);
+      glVertex2s(oldorigin[0], oldorigin[1]);
+      glVertex2s(oldorigin[0], oldorigin[1]+oldsize[1]-1);
+      glVertex2s(minpos, oldorigin[1]+oldsize[1]);
+      glVertex2s(minpos, oldorigin[1]);
 
-        glVertex2s(oldorigin[0], maxpos);
-        glVertex2s(oldorigin[0], oldorigin[1]+oldsize[1]-1);
-        glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]+oldsize[1]-1);
-        glVertex2s(oldorigin[1]+oldsize[0]-1, maxpos);
-        glEnd();
-      }
-#else
-      (void)minpos;
-      (void)maxpos;
-#endif
+      glVertex2s(maxpos, oldorigin[1]);
+      glVertex2s(maxpos, oldorigin[1]+oldsize[1]-1);
+      glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]+oldsize[1]-1);
+      glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]);
+      glEnd();
     }
+  }
+  else if (size[1] < orgsize[1]) {
+    short minpos = origin[1] - 1;
+    short maxpos = origin[1] + size[1];
+    if (viewportmapping == SoCamera::CROP_VIEWPORT_LINE_FRAME) {
+      glBegin(GL_LINES);
+      glVertex2s(oldorigin[0], minpos);
+      glVertex2s(oldorigin[0]+oldsize[0], minpos);
+      glVertex2s(oldorigin[0], maxpos);
+      glVertex2s(oldorigin[0]+oldsize[0], maxpos);
+      glEnd();
+    }
+    else {
+      glBegin(GL_QUADS);
+      glVertex2s(oldorigin[0], minpos);
+      glVertex2s(oldorigin[0]+oldsize[0]-1, minpos);
+      glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]);
+      glVertex2s(oldorigin[0], oldorigin[1]);
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
-    glPopMatrix();
-    glPopAttrib();
-#else
-    (void)action;
-#endif
+      glVertex2s(oldorigin[0], maxpos);
+      glVertex2s(oldorigin[0], oldorigin[1]+oldsize[1]-1);
+      glVertex2s(oldorigin[0]+oldsize[0]-1, oldorigin[1]+oldsize[1]-1);
+      glVertex2s(oldorigin[1]+oldsize[0]-1, maxpos);
+      glEnd();
+    }
+  }
 
+  glPopMatrix();
+  glPopAttrib();
   state->pop();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
+#endif
 
 /*!
   Sets the stereo mode.

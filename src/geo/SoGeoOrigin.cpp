@@ -280,7 +280,7 @@ SoGeoOrigin::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoGeoOrigin, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoGeoElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGeoElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGeoElement);
   SO_ENABLE(SoGetMatrixAction, SoGeoElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoGeoElement);
   SO_ENABLE(SoPickAction, SoGeoElement);

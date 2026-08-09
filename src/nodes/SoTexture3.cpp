@@ -241,7 +241,7 @@ SoTexture3::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTexture3, SO_FROM_INVENTOR_2_6|SO_FROM_COIN_2_0);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
 }
 
@@ -277,9 +277,6 @@ translateWrap(const SoTexture3::Wrap wrap)
 void
 SoTexture3::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void)action;
-#else
   SoState * state = action->getState();
 
   const cc_glglue * glue = cc_glglue_instance((uint32_t) SoGLCacheContextElement::get(state));
@@ -357,7 +354,6 @@ SoTexture3::GLRender(SoGLRenderAction * action)
   if (this->isOverride() && unit == 0) {
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
-#endif
 }
 #endif
 

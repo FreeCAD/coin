@@ -467,8 +467,8 @@ SoTexture2::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTexture2, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
@@ -515,9 +515,6 @@ translateWrap(const SoTexture2::Wrap wrap)
 void
 SoTexture2::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void)action;
-#else
   SoState * state = action->getState();
   int unit = SoTextureUnitElement::get(state);
   
@@ -617,7 +614,6 @@ SoTexture2::GLRender(SoGLRenderAction * action)
     // ignore the texture here so that all texture for non-supported
     // units will be ignored. pederb, 2003-11-04
   }
-#endif
 }
 #endif
 

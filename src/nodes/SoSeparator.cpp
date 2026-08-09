@@ -492,7 +492,7 @@ SoSeparator::initClass(void)
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCacheElement);
 #if COIN_BUILD_LEGACY_GL_RENDERER
-  SO_ENABLE_GL(SoGLRenderAction, SoCacheElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCacheElement);
 #endif
   SoSeparator::numrendercaches = 2;
 }
@@ -743,24 +743,24 @@ SoSeparator::GLRenderBelowPath(SoGLRenderAction * action)
       }
 
 #if COIN_DEBUG
-        // The GL error test is default disabled for this optimized
-        // path.  If you get a GL error reporting an error in the
-        // Separator node, enable this code by setting the environment
-        // variable COIN_GLERROR_DEBUGGING to "1" to see exactly which
-        // node caused the error.
-        static SbBool chkglerr = sogl_glerror_debugging();
-        if (chkglerr) {
-          cc_string str;
-          cc_string_construct(&str);
-          const unsigned int errs = coin_catch_gl_errors(&str);
-          if (errs > 0) {
-            SoDebugError::post("SoSeparator::GLRenderBelowPath",
-                              "GL error: '%s', nodetype: %s",
-                              cc_string_get_text(&str),
-                              (*this->children)[i]->getTypeId().getName().getString());
-          }
-          cc_string_clean(&str);
+      // The GL error test is default disabled for this optimized
+      // path.  If you get a GL error reporting an error in the
+      // Separator node, enable this code by setting the environment
+      // variable COIN_GLERROR_DEBUGGING to "1" to see exactly which
+      // node caused the error.
+      static SbBool chkglerr = sogl_glerror_debugging();
+      if (chkglerr) {
+        cc_string str;
+        cc_string_construct(&str);
+        const unsigned int errs = coin_catch_gl_errors(&str);
+        if (errs > 0) {
+          SoDebugError::post("SoSeparator::GLRenderBelowPath",
+                             "GL error: '%s', nodetype: %s",
+                             cc_string_get_text(&str),
+                             (*this->children)[i]->getTypeId().getName().getString());
         }
+        cc_string_clean(&str);
+      }
 #endif // COIN_DEBUG
     }
     action->popCurPath();

@@ -139,10 +139,12 @@ private:
                SbViewportRegion & resultvp,
                const SbBool considermodelmatrix = TRUE);
 
+#if COIN_BUILD_LEGACY_GL_RENDERER
   void drawCroppedFrame(SoGLRenderAction * action,
                         const int viewportmapping,
                         const SbViewportRegion & oldvp,
                         const SbViewportRegion & newvp);
+#endif
 
   void lookAt(const SbVec3f & dir, const SbVec3f & up);
 

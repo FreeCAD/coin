@@ -381,10 +381,6 @@ SoVRMLElevationGrid::~SoVRMLElevationGrid(void)
 void
 SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void)action;
-  return;
-#else
   const int xdim = this->xDimension.getValue();
   const int zdim = this->zDimension.getValue();
   if (xdim < 2 || zdim < 2) return;
@@ -631,7 +627,6 @@ SoVRMLElevationGrid::GLRender(SoGLRenderAction * action)
 
   if (normalcache) PRIVATE(this)->readUnlockNormalCache();
   state->pop();
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 

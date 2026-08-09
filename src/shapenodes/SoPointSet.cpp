@@ -200,10 +200,6 @@ SoPointSet::findNormalBinding(SoState * const state) const
 void
 SoPointSet::GLRender(SoGLRenderAction * action)
 {
-#if !COIN_BUILD_LEGACY_GL_RENDERER
-  (void) action;
-  return;
-#else
   int32_t numpts = this->numPoints.getValue();
   if (numpts == 0) return;
   if (!this->shouldGLRender(action)) return;
@@ -302,11 +298,9 @@ SoPointSet::GLRender(SoGLRenderAction * action)
   // by three so that three points is the same as one triangle.
   sogl_autocache_update(state, numpts/3, didrenderasvbo);
 
-#endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 #endif
 
-  // Documented in superclass.
 // Documented in superclass.
 SbBool
 SoPointSet::generateDefaultNormals(SoState *, SoNormalCache * nc)
