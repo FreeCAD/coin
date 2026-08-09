@@ -61,6 +61,7 @@ main()
   const uint32_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
   SoRenderCommand command;
+  command.modelMatrix.makeIdentity();
   command.geometry.topology = SO_TOPOLOGY_TRIANGLES;
   command.geometry.vertexCount = 4;
   command.geometry.indexCount = 6;

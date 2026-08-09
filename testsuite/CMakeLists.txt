@@ -104,7 +104,11 @@ add_test(NAME RetainedIRTest COMMAND RetainedIRTest)
 if(HAVE_EGL)
 	add_executable(DrawListGLTest drawlist-gl-test.cpp)
 	target_link_libraries(DrawListGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListGLTest PRIVATE COIN_INTERNAL)
+	target_compile_definitions(DrawListGLTest PRIVATE
+		COIN_INTERNAL
+		COIN_DRAW_LIST_PICKING
+		COIN_DRAW_LIST_SELECTION
+	)
 	target_include_directories(DrawListGLTest PRIVATE
 		${PROJECT_SOURCE_DIR}/src
 		${PROJECT_SOURCE_DIR}/include
