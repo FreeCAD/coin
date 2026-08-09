@@ -292,7 +292,7 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   this->colorLoc = glGetAttribLocation(this->shaderProgram, "a_color");
 
 #if defined(COIN_DRAW_LIST_PICKING)
-  this->pickBuffer = std::make_unique<SoIDPickBuffer>();
+  this->pickBuffer.reset(new SoIDPickBuffer);
   if (!this->pickBuffer->initialize()) {
     this->emitLog("ID pick buffer initialization failed (picking disabled)");
     this->pickBuffer.reset();
