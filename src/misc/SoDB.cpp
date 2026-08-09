@@ -335,16 +335,22 @@ SoDB::init(void)
   SoProtoInstance::initClass();
 
   SoGLDriverDatabase::init();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLImage::initClass();
   SoGLBigImage::initClass();
+#endif
 
   SoHardCopy::init();
 
   SoShader::init();
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoVBO::init();
+#endif
 
   // FIXME: probably temporary. Add FXViz::init() or something? pederb, 2007-03-09
+#if COIN_BUILD_LEGACY_GL_RENDERER
   SoShadowGroup::init();
+#endif
   SoGeo::init();
 
 #ifdef HAVE_VRML97

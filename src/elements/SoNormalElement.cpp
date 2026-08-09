@@ -84,9 +84,11 @@ SoNormalElement::set(SoState * const state,
                      const SbVec3f * const normals,
                      const SbBool unitLength)
 {
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setNormalVBO(state, NULL);
   }
+#endif
   SoNormalElement * elem = coin_safe_cast<SoNormalElement *>
     (
      SoReplacedElement::getElement(state, classStackIndex, node)

@@ -38,15 +38,35 @@
 #include "rendering/SoGL.h"
 #include "coindefs.h"
 
-#include <cassert>
-#include <cstdio>
-#include <cstring>
+#include <cstdlib>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // HAVE_CONFIG_H
 
 #include <Inventor/C/tidbits.h>
+
+// Used by profile-neutral library code to decide whether to add extra
+// debugging checks for glGetError().
+SbBool
+sogl_glerror_debugging(void)
+{
+  static int COIN_GLERROR_DEBUGGING = -1;
+  if (COIN_GLERROR_DEBUGGING == -1) {
+    const char * str = coin_getenv("COIN_GLERROR_DEBUGGING");
+    COIN_GLERROR_DEBUGGING = str ? atoi(str) : 0;
+  }
+  return (COIN_GLERROR_DEBUGGING == 0) ? FALSE : TRUE;
+}
+
+#if COIN_BUILD_LEGACY_GL_RENDERER
+
+#include "Inventor/C/glue/gl.h"
+
+#include <cassert>
+#include <cstdio>
+#include <cstring>
+
 #include <Inventor/SoOffscreenRenderer.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
@@ -2333,17 +2353,12 @@ sogl_render_pointset(const SoGLCoordinateElement * coords,
       idx);
 }
 
-// Used by library code to decide whether or not to add extra
-// debugging checks for glGetError().
+// Used by library code to query raw runtime support for legacy rendering.
 SbBool
-sogl_glerror_debugging(void)
+sogl_context_supports_legacy_rendering(const SoState * state)
 {
-  static int COIN_GLERROR_DEBUGGING = -1;
-  if (COIN_GLERROR_DEBUGGING == -1) {
-    const char * str = coin_getenv("COIN_GLERROR_DEBUGGING");
-    COIN_GLERROR_DEBUGGING = str ? atoi(str) : 0;
-  }
-  return (COIN_GLERROR_DEBUGGING == 0) ? FALSE : TRUE;
+  const cc_glglue* glue = sogl_glue_instance(state);
+  return cc_glglue_context_supports_legacy_rendering(glue);
 }
 
 static int SOGL_AUTOCACHE_REMOTE_MIN = 500000;
@@ -2446,3 +2461,5 @@ sogl_offscreencontext_callback(void (*cb)(void *, SoAction*),
   offscreencallback->setCallback(cb, closure);
   offscreenrenderer->render(offscreencallback);
 }
+
+#endif // COIN_BUILD_LEGACY_GL_RENDERER
