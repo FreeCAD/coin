@@ -7,6 +7,8 @@ set(COIN_RENDERING_FILES
 	SoRenderBackend.cpp
 	SoGLRenderBackend.cpp
 	SoIDPickBuffer.cpp
+	SoRenderManager.cpp
+	SoRenderManagerP.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -14,8 +16,6 @@ if(COIN_BUILD_LEGACY_GL_RENDERER)
 		SoGLBigImage.cpp
 		SoGLImage.cpp
 		SoGLCubeMapImage.cpp
-		SoRenderManager.cpp
-		SoRenderManagerP.cpp
 		SoOffscreenRenderer.cpp
 		SoOffscreenCGData.cpp
 		SoOffscreenGLXData.cpp

@@ -53,6 +53,11 @@ typedef void SoRenderManagerRenderCB(void * userdata, class SoRenderManager * mg
 class COIN_DLL_API SoRenderManager {
 public:
 
+  enum class RenderPipeline {
+    LEGACY_GL,
+    DRAW_LIST
+  };
+
   class COIN_DLL_API Superimposition {
   public:
     enum StateFlags {
@@ -178,6 +183,8 @@ public:
   void getAntialiasing(SbBool & smoothing, int & numPasses) const;
   void setGLRenderAction(SoGLRenderAction * const action);
   SoGLRenderAction * getGLRenderAction(void) const;
+  void setRenderPipeline(RenderPipeline pipeline);
+  RenderPipeline getRenderPipeline(void) const;
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 
@@ -210,6 +217,8 @@ protected:
                     SbBool initmatrices,
                     SbBool clearwindow,
                     SbBool clearzbuffer);
+
+  void renderDrawListPipeline(SbBool clearwindow, SbBool clearzbuffer);
 
   void renderStereo(SoGLRenderAction * action,
                     SbBool initmatrices,

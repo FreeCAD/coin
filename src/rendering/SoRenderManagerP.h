@@ -59,6 +59,8 @@ class SoGetBoundingBoxAction;
 class SoGetMatrixAction;
 class SoSearchAction;
 class SbPList;
+class SoIRRenderAction;
+class SoRenderBackend;
 
 class SoRenderManagerP {
 public:
@@ -110,6 +112,11 @@ public:
   SoSearchAction * searchaction;
   SbBool deleteaudiorenderaction;
   SbBool deleteglaction;
+  SbViewportRegion viewport;
+  SoRenderManager::RenderPipeline renderPipeline;
+  SoIRRenderAction * irAction;
+  SoRenderBackend * renderBackend;
+  int renderBackendFrame;
 
   SoRenderManager::StereoMode stereostenciltype;
   SoRenderManager::RenderMode rendermode;
