@@ -291,13 +291,6 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   this->normLoc = glGetAttribLocation(this->shaderProgram, "a_normal");
   this->colorLoc = glGetAttribLocation(this->shaderProgram, "a_color");
 
-  // Initialize GPU pick buffer
-  pickBuffer = std::make_unique<SoIDPickBuffer>();
-  if (!pickBuffer->initialize()) {
-    this->emitLog("ID pick buffer initialization failed (picking disabled)");
-    pickBuffer.reset();
-  }
-
   this->setInitialized(TRUE);
   return TRUE;
 }
@@ -308,8 +301,6 @@ SoGLRenderBackend::shutdown()
   if (!this->isInitialized()) {
     return;
   }
-  pickBuffer.reset();
-
   // Destroy all cached GPU resources
   for (auto & entry : gpuCache) {
     destroyCacheEntry(entry);
@@ -629,7 +620,6 @@ SoGLRenderBackend::destroyCacheEntry(CachedGPUCommand & entry)
   if (entry.textureId) { glDeleteTextures(1, &entry.textureId); entry.textureId = 0; }
   if (entry.idxVBO) { glDeleteBuffers(1, &entry.idxVBO); entry.idxVBO = 0; }
   if (entry.vao) { glDeleteVertexArrays(1, &entry.vao); entry.vao = 0; }
-  if (entry.idVAO) { glDeleteVertexArrays(1, &entry.idVAO); entry.idVAO = 0; }
 }
 
 void
@@ -1006,6 +996,7 @@ SoGLRenderBackend::beginFrame(const SoDrawList & drawlist,
   this->logFrameStats(drawlist, params);
   this->currentFrame = params.frameIndex;
 
+#if defined(COIN_DRAW_LIST_PICKING)
   // Only re-render the ID buffer when camera or scene changes
   if (!matricesInitialized ||
       params.viewMatrix != lastViewMatrix ||
@@ -1015,6 +1006,7 @@ SoGLRenderBackend::beginFrame(const SoDrawList & drawlist,
     lastProjMatrix = params.projMatrix;
     matricesInitialized = true;
   }
+#endif
 
   // Drain any GL errors left by legacy Coin code (SoGLRenderAction
   // makes deprecated calls that generate errors in Core Profile)
@@ -1281,6 +1273,7 @@ SoGLRenderBackend::renderOverlayPass(const SoDrawList & drawlist,
   glDisable(GL_BLEND);
 }
 
+#if defined(COIN_DRAW_LIST_SELECTION)
 void
 SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
                                        const SbMat & viewMat,
@@ -1531,6 +1524,9 @@ SoGLRenderBackend::endFrame()
   gcStaleEntries(this->currentFrame);
 }
 
+#endif
+
+#if defined(COIN_DRAW_LIST_PICKING)
 void
 SoGLRenderBackend::renderIDBufferPass(const SoDrawList & drawlist,
                                       const SbMat & viewMat,
@@ -1590,6 +1586,7 @@ SoGLRenderBackend::renderIDBufferPass(const SoDrawList & drawlist,
     pickBuffer->blitToScreen(vpSize[0], vpSize[1]);
   }
 }
+#endif
 
 // -----------------------------------------------------------------------
 // Render — orchestrator
@@ -1611,10 +1608,14 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   renderBackgroundPass(drawlist, viewMat, projMat, params);
   renderOpaquePass(drawlist, viewMat, projMat, params);
   renderTransparentPass(drawlist, viewMat, projMat, params);
+#if defined(COIN_DRAW_LIST_SELECTION)
   renderSelectionPass(drawlist, viewMat, projMat, params);
+#endif
   renderOverlayPass(drawlist, viewMat, projMat, params);
   endFrame();
+#if defined(COIN_DRAW_LIST_PICKING)
   renderIDBufferPass(drawlist, viewMat, projMat, params);
+#endif
 
   return TRUE;
 }
@@ -1627,16 +1628,17 @@ void
 SoGLRenderBackend::resizeTarget(const SoRenderTargetInfo & info)
 {
   this->storedparams.targetInfo = info;
-  this->pickBufferDirty = true;
   SoRenderBackend::resizeTarget(info);
 }
 
+#if defined(COIN_DRAW_LIST_PICKING)
 uint32_t
 SoGLRenderBackend::pick(int x, int y, int pickRadius) const
 {
   if (!pickBuffer) return 0;
   return pickBuffer->pick(x, y, pickRadius);
 }
+#endif
 
 void
 SoGLRenderBackend::logFrameStats(const SoDrawList & drawlist,
@@ -1805,6 +1807,7 @@ SoGLRenderBackend::createShaders()
   return TRUE;
 }
 
+#if defined(COIN_DRAW_LIST_PICKING)
 void
 SoGLRenderBackend::setPickLineWidth(float width)
 {
@@ -1828,3 +1831,4 @@ SoGLRenderBackend::getPickPointSize() const
 {
   return pickBuffer ? pickBuffer->getPickPointSize() : DEFAULT_PICK_SIZE;
 }
+#endif

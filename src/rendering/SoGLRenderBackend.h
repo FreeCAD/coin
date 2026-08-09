@@ -4,7 +4,9 @@
 #define COIN_SOGLRENDERBACKEND_H
 
 #include "rendering/SoRenderBackend.h"
+#if defined(COIN_DRAW_LIST_PICKING)
 #include "rendering/SoIDPickBuffer.h"
+#endif
 
 #include <Inventor/system/gl.h>
 
@@ -23,7 +25,6 @@ struct CachedGPUCommand {
   GLuint textureId = 0;  // GL texture for embedded textures (SoImage)
   GLuint idxVBO = 0;
   GLuint vao = 0;       // visual pass VAO (pos + norm + color + idx)
-  GLuint idVAO = 0;     // ID pass VAO (pos + idColor + idx)
 
   // Cache invalidation keys (CPU pointer addresses + counts)
   const float *    posKey = nullptr;
@@ -33,9 +34,6 @@ struct CachedGPUCommand {
   uint32_t vertexCount = 0;
   uint32_t indexCount = 0;
   uint32_t vertexStride = 0;
-
-  // ID color VBO that was bound when idVAO was last built
-  GLuint boundIdColorVBO = 0;
 
   int lastUsedFrame = 0;
 
@@ -53,12 +51,10 @@ struct CachedGPUCommand {
 
 /*!
   \class SoGLRenderBackend
-  \brief OpenGL backend that renders IR draw lists with GPU picking.
+  \brief OpenGL backend that renders IR draw lists.
 
   Implements the SoRenderBackend interface with real GPU rendering:
   - Per-command VBO/VAO caching (GL_STATIC_DRAW, only re-upload on change)
-  - GPU ID buffer picking via SoIDPickBuffer (O(1) per pick)
-  - Pick LUT integration for per-face element identification
 */
 class SoGLRenderBackend : public SoRenderBackend {
 public:
@@ -73,16 +69,18 @@ public:
                 const SoRenderParams & params) override;
   void resizeTarget(const SoRenderTargetInfo & info) override;
 
+#if defined(COIN_DRAW_LIST_PICKING)
   /// GPU pick at pixel coordinates. Returns pick LUT index (1-based).
-  uint32_t pick(int x, int y, int pickRadius = 5) const override;
+  uint32_t pick(int x, int y, int pickRadius = 5) const;
 
-  void setPickLineWidth(float width) override;
-  void setPickPointSize(float size) override;
-  float getPickLineWidth() const override;
-  float getPickPointSize() const override;
+  void setPickLineWidth(float width);
+  void setPickPointSize(float size);
+  float getPickLineWidth() const;
+  float getPickPointSize() const;
 
   /// Access the pick buffer for debug visualization.
   SoIDPickBuffer * getPickBuffer() { return pickBuffer.get(); }
+#endif
 
   /// Get cached GPU entry for a command index (for ID pass sharing).
   const CachedGPUCommand * getCachedCommand(int cmdIndex) const;
@@ -124,13 +122,17 @@ private:
   void renderOverlayPass(const SoDrawList & drawlist,
                          const SbMat & viewMat, const SbMat & projMat,
                          const SoRenderParams & params);
+#if defined(COIN_DRAW_LIST_SELECTION)
   void renderSelectionPass(const SoDrawList & drawlist,
                            const SbMat & viewMat, const SbMat & projMat,
                            const SoRenderParams & params);
+#endif
   void endFrame();
+#if defined(COIN_DRAW_LIST_PICKING)
   void renderIDBufferPass(const SoDrawList & drawlist,
                           const SbMat & viewMat, const SbMat & projMat,
                           const SoRenderParams & params);
+#endif
 
   CachedGPUCommand & getOrCreateCache(const float * posPtr, const uint32_t * idxPtr);
   void uploadGeometry(CachedGPUCommand & entry, const SoRenderCommand & cmd);
@@ -212,10 +214,12 @@ private:
   std::unordered_map<CacheKey, int, CacheKeyHash> ptrToCacheIndex;
   int currentFrame = 0;
 
+#if defined(COIN_DRAW_LIST_PICKING)
   // GPU picking
   std::unique_ptr<SoIDPickBuffer> pickBuffer;
   bool pickBufferDirty = true;
   size_t lastPickLUTSize = 0;
+#endif
 
   // Previous frame's view/proj for camera change detection
   SbMatrix lastViewMatrix;
