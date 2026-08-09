@@ -129,7 +129,11 @@ if(HAVE_EGL)
 
 	add_executable(DrawListPickingTest drawlist-picking-test.cpp)
 	target_link_libraries(DrawListPickingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListPickingTest PRIVATE COIN_INTERNAL COIN_DRAW_LIST_PICKING)
+	target_compile_definitions(DrawListPickingTest PRIVATE
+		COIN_INTERNAL
+		COIN_DRAW_LIST_PICKING
+		COIN_DRAW_LIST_SELECTION
+	)
 	target_include_directories(DrawListPickingTest PRIVATE
 		${PROJECT_SOURCE_DIR}/src
 		${PROJECT_SOURCE_DIR}/include

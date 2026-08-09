@@ -68,6 +68,8 @@ main()
   command.geometry.vertexStride = sizeof(float) * 3;
   command.material.diffuse.setValue(1.0f, 0.0f, 0.0f, 1.0f);
   command.material.featureFlags = SO_FEAT_BASE_COLOR;
+  command.selection.selectWholeObject = true;
+  command.selection.selectionColor.setValue(0.0f, 1.0f, 0.0f, 1.0f);
   SoRenderElementRange range;
   range.elementType = SO_PICK_WHOLE_BODY;
   range.drawStart = 0;
