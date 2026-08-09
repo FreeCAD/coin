@@ -11,9 +11,9 @@ main()
   SoDB::init();
 
   SoIRRenderAction action(SbViewportRegion(64, 64));
-  SoSeparator root;
-  root.ref();
-  action.apply(&root);
+  SoSeparator * root = new SoSeparator;
+  root->ref();
+  action.apply(root);
   assert(action.getDrawList().getNumCommands() == 0);
 
   SoRenderCommand command;
@@ -25,7 +25,7 @@ main()
   assert(action.getDrawList().getNumCommands() == 1);
   assert(action.getDrawList().getCommand(0).geometry.vertexCount == 3);
 
-  root.unref();
+  root->unref();
   SoDB::finish();
   return 0;
 }
