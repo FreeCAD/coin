@@ -98,6 +98,15 @@ if (USE_PTHREAD)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
 
+add_executable(RetainedIRTest retained-ir-test.cpp)
+target_link_libraries(RetainedIRTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedIRTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedIRTest COMMAND RetainedIRTest)
+
 if(HAVE_EGL)
 	add_executable(EGLBindingTest egl-binding-test.cpp)
 	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
