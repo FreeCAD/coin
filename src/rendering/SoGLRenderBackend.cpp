@@ -291,6 +291,14 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   this->normLoc = glGetAttribLocation(this->shaderProgram, "a_normal");
   this->colorLoc = glGetAttribLocation(this->shaderProgram, "a_color");
 
+#if defined(COIN_DRAW_LIST_PICKING)
+  this->pickBuffer = std::make_unique<SoIDPickBuffer>();
+  if (!this->pickBuffer->initialize()) {
+    this->emitLog("ID pick buffer initialization failed (picking disabled)");
+    this->pickBuffer.reset();
+  }
+#endif
+
   this->setInitialized(TRUE);
   return TRUE;
 }
@@ -301,6 +309,9 @@ SoGLRenderBackend::shutdown()
   if (!this->isInitialized()) {
     return;
   }
+#if defined(COIN_DRAW_LIST_PICKING)
+  this->pickBuffer.reset();
+#endif
   // Destroy all cached GPU resources
   for (auto & entry : gpuCache) {
     destroyCacheEntry(entry);
@@ -1632,6 +1643,9 @@ void
 SoGLRenderBackend::resizeTarget(const SoRenderTargetInfo & info)
 {
   this->storedparams.targetInfo = info;
+#if defined(COIN_DRAW_LIST_PICKING)
+  this->pickBufferDirty = true;
+#endif
   SoRenderBackend::resizeTarget(info);
 }
 
