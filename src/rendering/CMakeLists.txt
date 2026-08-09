@@ -6,6 +6,7 @@ set(COIN_RENDERING_FILES
 	SoRenderIR.cpp
 	SoRenderBackend.cpp
 	SoGLRenderBackend.cpp
+	SoIDPickBuffer.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -50,6 +51,7 @@ set(COIN_RENDERING_INTERNAL_FILES
 	SoRenderIRP.h
 	SoRenderBackend.h
 	SoGLRenderBackend.h
+	SoIDPickBuffer.h
 )
 
 # build library
@@ -59,6 +61,7 @@ if(COIN_BUILD_SINGLE_LIB)
 	endforeach(SRCFILE)
 else()
 	add_library(rendering OBJECT ${COIN_RENDERING_FILES})
+	target_compile_definitions(rendering PRIVATE COIN_DRAW_LIST_PICKING)
 endif()
 
 # define documentation
