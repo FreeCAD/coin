@@ -218,6 +218,11 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		LIBRARIES CoinGLReadbackTestSupport)
 endif()
 
+add_executable(CoreTraversalTest CoreTraversalTest.cpp)
+target_link_libraries(CoreTraversalTest PRIVATE Coin)
+add_test(NAME CoreTraversalTest COMMAND CoreTraversalTest)
+set_tests_properties(CoreTraversalTest PROPERTIES LABELS unit)
+
 if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
