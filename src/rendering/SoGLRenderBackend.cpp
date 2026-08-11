@@ -267,7 +267,9 @@ SoGLRenderBackend::SoGLRenderBackend()
 
 SoGLRenderBackend::~SoGLRenderBackend()
 {
-  if (this->isInitialized()) this->shutdown();
+  if (!this->isInitialized()) return;
+  if (coin_gl_current_context() == this->context) this->shutdown();
+  else this->discard();
 }
 
 const char *
@@ -282,8 +284,9 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   if (this->isInitialized()) return TRUE;
 
   this->setInitParams(params);
-  void * context = coin_gl_current_context();
-  this->glue = context ? cc_glglue_instance_from_context_ptr(context) : nullptr;
+  this->context = coin_gl_current_context();
+  this->glue = this->context
+    ? cc_glglue_instance_from_context_ptr(this->context) : nullptr;
   if (!this->glue || !this->glue->glGenVertexArrays ||
       !this->glue->glBindVertexArray ||
       !this->glue->glDeleteVertexArrays ||
@@ -303,12 +306,14 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
       !this->glue->glBlendFuncSeparate) {
     this->emitError("active context does not provide retained-renderer GL dispatch");
     this->glue = nullptr;
+    this->context = nullptr;
     return FALSE;
   }
 
   if (!this->createShaders()) {
     this->emitError("failed to create retained core-profile shaders");
     this->glue = nullptr;
+    this->context = nullptr;
     return FALSE;
   }
 
@@ -375,7 +380,10 @@ void
 SoGLRenderBackend::shutdown()
 {
   if (!this->isInitialized()) return;
-
+  if (coin_gl_current_context() != this->context) {
+    this->discard();
+    return;
+  }
   this->pickBuffer.reset();
   this->invalidateCache();
   if (this->shaderProgram) {
@@ -403,10 +411,28 @@ SoGLRenderBackend::shutdown()
     this->pixelShaderProgram = 0;
   }
   this->glue = nullptr;
+  this->context = nullptr;
   this->setInitialized(FALSE);
   this->emitLog("shutdown");
 }
 
+void
+SoGLRenderBackend::discard()
+{
+  if (this->pickBuffer) this->pickBuffer->discard();
+  this->pickBuffer.reset();
+  this->gpuCache.clear();
+  this->commandToCache.clear();
+  this->cachedCommandCount = 0;
+  this->haveCacheGeneration = false;
+  this->shaderProgram = 0;
+  this->lineShaderProgram = 0;
+  this->pointShaderProgram = 0;
+  this->pixelShaderProgram = 0;
+  this->glue = nullptr;
+  this->context = nullptr;
+  this->setInitialized(FALSE);
+}
 CachedGPUCommand &
 SoGLRenderBackend::getOrCreateCache(const SoRenderCommand * command)
 {

@@ -58,6 +58,7 @@ public:
   const char * getName() const override;
   SbBool initialize(const SoRenderBackendInitParams & params) override;
   void shutdown() override;
+  void discard() override;
   SbBool render(const SoDrawList & drawlist,
                 const SoRenderParams & params) override;
 
@@ -139,6 +140,7 @@ private:
                            const SbVec2s & viewportSize);
 
   const cc_glglue * glue = nullptr;
+  void * context = nullptr;
   GLuint shaderProgram = 0;
   GLuint lineShaderProgram = 0;
   GLuint lineTriangleShaderProgram = 0;
