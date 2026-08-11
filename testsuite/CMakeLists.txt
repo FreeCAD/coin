@@ -245,6 +245,11 @@ target_link_libraries(LegacyGLABITest PRIVATE Coin)
 add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
 set_tests_properties(LegacyGLABITest PROPERTIES LABELS unit)
 
+add_executable(LegacyBlendingTest LegacyBlendingTest.cpp)
+target_link_libraries(LegacyBlendingTest PRIVATE Coin)
+add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
+set_tests_properties(LegacyBlendingTest PROPERTIES LABELS unit)
+
 if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
