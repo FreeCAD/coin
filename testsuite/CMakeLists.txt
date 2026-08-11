@@ -166,6 +166,15 @@ target_include_directories(CoreTraversalTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME CoreTraversalTest COMMAND CoreTraversalTest)
+
+add_executable(SceneManagerCoreTest scene-manager-core-test.cpp)
+target_link_libraries(SceneManagerCoreTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(SceneManagerCoreTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME SceneManagerCoreTest COMMAND SceneManagerCoreTest)
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
