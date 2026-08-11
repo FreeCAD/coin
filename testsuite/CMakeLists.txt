@@ -116,6 +116,8 @@ endfunction()
 if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
+	coin_add_egl_test(NAME GLSLRuntimeTest SOURCES GLSLRuntimeTest.cpp
+		LABELS requires-egl)
 endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
