@@ -250,6 +250,13 @@ target_link_libraries(LegacyBlendingTest PRIVATE Coin)
 add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
 set_tests_properties(LegacyBlendingTest PROPERTIES LABELS unit)
 
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	coin_add_gl_test(
+		NAME DevicePixelRatioTraversalTest
+		PROFILE compat
+		SOURCES DevicePixelRatioTraversalTest.cpp)
+endif()
+
 if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
