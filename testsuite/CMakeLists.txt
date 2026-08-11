@@ -92,7 +92,8 @@ endif()
 add_test(NAME CoinTests COMMAND CoinTests)
 
 add_library(CoinPrivateTestHeaders INTERFACE)
-target_compile_definitions(CoinPrivateTestHeaders INTERFACE COIN_INTERNAL)
+target_compile_definitions(CoinPrivateTestHeaders INTERFACE
+	COIN_INTERNAL)
 target_include_directories(CoinPrivateTestHeaders INTERFACE
 	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_SOURCE_DIR}/src/glue/khronos)
@@ -198,6 +199,10 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 
 	coin_add_gl_test(NAME GLSLRuntimeTest PROFILE core PRIVATE_COIN_API
 		SOURCES GLSLRuntimeTest.cpp)
+	if(COIN_BUILD_LEGACY_GL_RENDERER)
+		coin_add_gl_test(NAME GLSLDiagnosticsTest PROFILE compat
+			SOURCES GLSLDiagnosticsTest.cpp)
+	endif()
 endif()
 
 if(HAVE_EGL)
