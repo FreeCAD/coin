@@ -109,6 +109,9 @@ jobs:
       - name: Run DrawList raster visual tests
         run: xvfb-run -a ctest --test-dir cmake_build_dir_rt \
           -L visual-raster --output-on-failure -VV
+      - name: Run render-layer DrawList visual suite
+        run: xvfb-run -a ctest --test-dir cmake_build_dir_rt \
+          -L visual-layers --output-on-failure -VV
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
