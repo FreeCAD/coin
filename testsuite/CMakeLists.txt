@@ -99,6 +99,7 @@ if (USE_PTHREAD)
 	target_link_libraries(CoinTests pthread)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
+set_tests_properties(CoinTests PROPERTIES LABELS unit)
 
 add_library(CoinPrivateTestHeaders INTERFACE)
 target_compile_definitions(CoinPrivateTestHeaders INTERFACE
@@ -232,10 +233,17 @@ target_link_libraries(CoreTraversalTest PRIVATE Coin)
 add_test(NAME CoreTraversalTest COMMAND CoreTraversalTest)
 set_tests_properties(CoreTraversalTest PROPERTIES LABELS unit)
 
-add_executable(SceneManagerCoreTest scene-manager-core-test.cpp)
-target_link_libraries(SceneManagerCoreTest PRIVATE Coin)
-add_test(NAME SceneManagerCoreTest COMMAND SceneManagerCoreTest)
-set_tests_properties(SceneManagerCoreTest PROPERTIES LABELS unit)
+if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
+	add_executable(SceneManagerCoreTest SceneManagerCoreTest.cpp)
+	target_link_libraries(SceneManagerCoreTest PRIVATE Coin)
+	add_test(NAME SceneManagerCoreTest COMMAND SceneManagerCoreTest)
+	set_tests_properties(SceneManagerCoreTest PROPERTIES LABELS unit)
+endif()
+
+add_executable(LegacyGLABITest LegacyGLABITest.cpp)
+target_link_libraries(LegacyGLABITest PRIVATE Coin)
+add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
+set_tests_properties(LegacyGLABITest PROPERTIES LABELS unit)
 
 if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
