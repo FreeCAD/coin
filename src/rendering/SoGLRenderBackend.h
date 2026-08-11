@@ -37,6 +37,7 @@ public:
   const char * getName() const override;
   SbBool initialize(const SoRenderBackendInitParams & params) override;
   void shutdown() override;
+  void discard() override;
   SbBool render(const SoDrawList & drawlist,
                 const SoRenderPlan & plan,
                 const SoRenderParams & params) override;
@@ -406,6 +407,7 @@ private:
                        const SbVec2s & viewportSize);
 
   const cc_glglue * glue = nullptr;
+  void * context = nullptr;
   std::vector<CachedCommand> gpuCache;
   std::unordered_map<const SoRenderCommand *, size_t> commandToCache;
   uint32_t cacheGeneration = 0;
