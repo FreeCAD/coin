@@ -23,6 +23,7 @@ include_directories(BEFORE
   "${PROJECT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_BINARY_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${PROJECT_SOURCE_DIR}/src/glue/khronos"
   "${PROJECT_SOURCE_DIR}/include/Inventor/annex"
   "${PROJECT_BINARY_DIR}/data"
 )
@@ -153,6 +154,10 @@ endif()
 
 set(ADDITIONAL_HDRS ${PROJECT_SOURCE_DIR}/include/SoWinEnterScope.h ${PROJECT_SOURCE_DIR}/include/SoWinLeaveScope.h ${PROJECT_SOURCE_DIR}/include/SoDebug.h ${PROJECT_BINARY_DIR}/src/config.h)
 
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+  set(COIN_GLELEMENTS_OBJECTS $<TARGET_OBJECTS:glelements>)
+endif()
+
 # Create the library target
 if(COIN_BUILD_SINGLE_LIB)
   add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES})
@@ -179,7 +184,7 @@ else()
     $<TARGET_OBJECTS:fonts>
     $<TARGET_OBJECTS:foreignfiles>
     $<TARGET_OBJECTS:geo>
-    $<TARGET_OBJECTS:glelements>
+    ${COIN_GLELEMENTS_OBJECTS}
     $<TARGET_OBJECTS:glue>
     $<TARGET_OBJECTS:hardcopy>
     $<TARGET_OBJECTS:io>
@@ -371,6 +376,17 @@ if(COIN_INSTALL)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/Inventor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor COMPONENT development FILES_MATCHING PATTERN "*.h")
   install(DIRECTORY ${CMAKE_BINARY_DIR}/include/Inventor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor COMPONENT development FILES_MATCHING PATTERN "*.h")
   install(FILES ${PROJECT_SOURCE_DIR}/include/SoWinEnterScope.h ${PROJECT_SOURCE_DIR}/include/SoWinLeaveScope.h ${PROJECT_SOURCE_DIR}/include/SoDebug.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT development)
+
+  # Keep Coin's vendored Khronos snapshot under the Coin namespace so it
+  # cannot shadow a platform or application-owned GL/KHR header tree.
+  install(FILES
+    ${PROJECT_SOURCE_DIR}/src/glue/khronos/GL/glcorearb.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
+    COMPONENT development)
+  install(FILES
+    ${PROJECT_SOURCE_DIR}/src/glue/khronos/KHR/khrplatform.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
+    COMPONENT development)
 
 # ############################################################################
 # Install data files
