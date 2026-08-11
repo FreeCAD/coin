@@ -3,6 +3,7 @@
 #include <Inventor/actions/SoIRRenderAction.h>
 
 #include <Inventor/SoPath.h>
+#include <Inventor/SoDB.h>
 #include <Inventor/C/tidbits.h>
 #include <Inventor/SbBasic.h>
 #include <Inventor/errors/SoDebugError.h>
@@ -66,10 +67,16 @@ SO_ACTION_SOURCE(SoIRRenderAction);
 
 class SoIRRenderActionP {
 public:
-  SoIRRenderActionP() = default;
+  ~SoIRRenderActionP()
+  {
+    for (SoPath * path : this->commandPaths) {
+      if (path && SoDB::isInitialized()) path->unref();
+    }
+  }
 
   SoIRBuffer geometryPool;
   SbList<SoIRRenderAction::PrimitiveCollector *> collectorStack;
+  std::vector<SoPath *> commandPaths;
 };
 
 #define PRIVATE(obj) (obj->pimpl)
@@ -185,6 +192,38 @@ SoIRRenderAction::apply(const SoPathList & pathlist, SbBool obeysrules)
 }
 
 void
+SoIRRenderAction::storeCommandPath(int commandIndex, const SoPath * path)
+{
+  if (commandIndex < 0) return;
+
+  std::vector<SoPath *> & paths = PRIVATE(this)->commandPaths;
+  if (static_cast<size_t>(commandIndex) >= paths.size()) {
+    paths.resize(static_cast<size_t>(commandIndex) + 1, NULL);
+  }
+  if (paths[static_cast<size_t>(commandIndex)]) {
+    paths[static_cast<size_t>(commandIndex)]->unref();
+    paths[static_cast<size_t>(commandIndex)] = NULL;
+  }
+  if (path) {
+    SoPath * copy = path->copy();
+    if (copy) {
+      copy->ref();
+      paths[static_cast<size_t>(commandIndex)] = copy;
+    }
+  }
+}
+
+SoPath *
+SoIRRenderAction::getCommandPath(int commandIndex) const
+{
+  if (commandIndex < 0 ||
+      static_cast<size_t>(commandIndex) >= PRIVATE(this)->commandPaths.size()) {
+    return NULL;
+  }
+  return PRIVATE(this)->commandPaths[static_cast<size_t>(commandIndex)];
+}
+
+void
 SoIRRenderAction::beginTraversal(SoNode * node)
 {
   SoViewportRegionElement::set(this->state, this->vpRegion);
@@ -197,7 +236,6 @@ SoIRRenderAction::endTraversal(SoNode * node)
   inherited::endTraversal(node);
 }
 
-void
 SoIRRenderAction::pushPrimitiveCollector(PrimitiveCollector * collector)
 {
   assert(collector != NULL);
@@ -238,4 +276,8 @@ SoIRRenderAction::resetFrameResources()
 {
   PRIVATE(this)->geometryPool.clear();
   PRIVATE(this)->collectorStack.truncate(0);
+  for (SoPath * path : PRIVATE(this)->commandPaths) {
+    if (path && SoDB::isInitialized()) path->unref();
+  }
+  PRIVATE(this)->commandPaths.clear();
 }
