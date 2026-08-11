@@ -239,6 +239,15 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
+add_executable(RenderLayerSemanticsTest RenderLayerSemanticsTest.cpp)
+target_link_libraries(RenderLayerSemanticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RenderLayerSemanticsTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RenderLayerSemanticsTest COMMAND RenderLayerSemanticsTest)
+
 add_executable(RenderManagerPipelineTest RenderManagerPipelineTest.cpp)
 target_link_libraries(RenderManagerPipelineTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RenderManagerPipelineTest PRIVATE
