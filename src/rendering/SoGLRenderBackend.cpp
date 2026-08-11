@@ -163,6 +163,56 @@ applyViewport(const SoRenderParams & params)
 }
 
 void
+applyCommandViewport(const SoRenderCommand & command,
+                     const SoRenderParams & params)
+{
+  if (command.state.raster.viewportOverride) {
+    if (!command.state.raster.viewportEnabled) return;
+    glViewport(command.state.raster.viewportX,
+               command.state.raster.viewportY,
+               command.state.raster.viewportWidth,
+               command.state.raster.viewportHeight);
+    return;
+  }
+  applyViewport(params);
+}
+
+void
+clearCommandDepth(const SoRenderCommand & command,
+                  const SoRenderParams & params)
+{
+  if (!command.clearDepthBefore) return;
+
+  GLint oldScissor[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_SCISSOR_BOX, oldScissor);
+  const GLboolean oldScissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean oldDepthMask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &oldDepthMask);
+
+  GLint x = params.viewport.getViewportOriginPixels()[0];
+  GLint y = params.viewport.getViewportOriginPixels()[1];
+  GLint width = params.viewport.getViewportSizePixels()[0];
+  GLint height = params.viewport.getViewportSizePixels()[1];
+  if (command.state.raster.viewportOverride) {
+    if (!command.state.raster.viewportEnabled) return;
+    x = command.state.raster.viewportX;
+    y = command.state.raster.viewportY;
+    width = command.state.raster.viewportWidth;
+    height = command.state.raster.viewportHeight;
+  }
+  if (width <= 0 || height <= 0) return;
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(x, y, width, height);
+  glDepthMask(GL_TRUE);
+  glClearDepth(params.clearDepth);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glScissor(oldScissor[0], oldScissor[1], oldScissor[2], oldScissor[3]);
+  if (oldScissorEnabled) glEnable(GL_SCISSOR_TEST);
+  else glDisable(GL_SCISSOR_TEST);
+  glDepthMask(oldDepthMask);
+}
+
+void
 logShaderSourceMap(const char * source)
 {
   const std::string marker = "// coin-source-id: ";
@@ -1419,7 +1469,8 @@ SoGLRenderBackend::renderOpaquePass(const SoDrawList & drawlist,
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const int index = i < static_cast<int>(order.size()) ? order[i] : i;
     const SoRenderCommand & command = drawlist.getCommand(index);
-    if (command.pass == SO_RENDERPASS_OPAQUE) {
+    if (command.stage == SoRenderStage::Main &&
+        command.pass == SO_RENDERPASS_OPAQUE) {
       this->drawCommand(drawlist, command, viewMat, projMat, params);
     }
   }
@@ -1435,9 +1486,29 @@ SoGLRenderBackend::renderTransparentPass(const SoDrawList & drawlist,
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const int index = i < static_cast<int>(order.size()) ? order[i] : i;
     const SoRenderCommand & command = drawlist.getCommand(index);
-    if (command.pass == SO_RENDERPASS_TRANSPARENT) {
+    if (command.stage == SoRenderStage::Main &&
+        command.pass == SO_RENDERPASS_TRANSPARENT) {
       this->drawCommand(drawlist, command, viewMat, projMat, params);
     }
+  }
+}
+
+void
+SoGLRenderBackend::renderStagePass(const SoDrawList & drawlist,
+                                   SoRenderStage stage,
+                                   bool transparent,
+                                   const SbMat & viewMat,
+                                   const SbMat & projMat,
+                                   const SoRenderParams & params)
+{
+  const std::vector<int> & order = drawlist.getSortedOrder();
+  for (int i = 0; i < drawlist.getNumCommands(); ++i) {
+    const int index = i < static_cast<int>(order.size()) ? order[i] : i;
+    const SoRenderCommand & command = drawlist.getCommand(index);
+    if (command.stage != stage) continue;
+    const bool isTransparent = command.pass == SO_RENDERPASS_TRANSPARENT;
+    if (isTransparent != transparent) continue;
+    this->drawCommand(drawlist, command, viewMat, projMat, params);
   }
 }
 
@@ -1754,8 +1825,20 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   params.viewMatrix.getValue(view);
   params.projMatrix.getValue(projection);
 
+  this->renderStagePass(drawlist, SoRenderStage::Background, false,
+                        view, projection, params);
+  this->renderStagePass(drawlist, SoRenderStage::Background, true,
+                        view, projection, params);
   this->renderOpaquePass(drawlist, view, projection, params);
   this->renderTransparentPass(drawlist, view, projection, params);
+  this->renderStagePass(drawlist, SoRenderStage::AfterMain, false,
+                        view, projection, params);
+  this->renderStagePass(drawlist, SoRenderStage::AfterMain, true,
+                        view, projection, params);
+  this->renderStagePass(drawlist, SoRenderStage::Foreground, false,
+                        view, projection, params);
+  this->renderStagePass(drawlist, SoRenderStage::Foreground, true,
+                        view, projection, params);
   this->renderSelectionPass(drawlist, view, projection, params);
   this->renderIDBufferPass(drawlist, view, projection, params);
   cc_glglue_glUseProgram(this->glue, 0);

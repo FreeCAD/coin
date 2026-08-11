@@ -25,6 +25,7 @@
 #include <Inventor/elements/SoViewVolumeElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/elements/SoPolygonOffsetElement.h>
+#include "elements/SoRenderPlacementElement.h"
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/nodes/SoDirectionalLight.h>
 #include <Inventor/nodes/SoLight.h>
@@ -485,6 +486,21 @@ renderpass_name(SoRenderPassType pass)
   switch (pass) {
   case SO_RENDERPASS_OPAQUE: return "opaque";
   case SO_RENDERPASS_TRANSPARENT: return "transparent";
+  case SO_RENDERPASS_OVERLAY: return "overlay";
+  case SO_RENDERPASS_SHADOW: return "shadow";
+  case SO_RENDERPASS_CUSTOM: return "custom";
+  default: return "unknown";
+  }
+}
+
+static const char *
+renderstage_name(SoRenderStage stage)
+{
+  switch (stage) {
+  case SoRenderStage::Background: return "background";
+  case SoRenderStage::Main: return "main";
+  case SoRenderStage::AfterMain: return "after-main";
+  case SoRenderStage::Foreground: return "foreground";
   default: return "unknown";
   }
 }
@@ -624,6 +640,12 @@ SoIRRenderContext::applyToState(SoState * state, SbBool applyModelMatrix) const
 
 namespace SoRenderIR {
 
+void
+setCommandMatricesOverride(SoState * state, SbBool enabled)
+{
+  SoRenderPlacementElement::setCommandMatricesOverride(state, enabled);
+}
+
 static SoTextureWrap
 textureWrapFromLegacy(SoMultiTextureImageElement::Wrap wrap)
 {
@@ -731,6 +753,8 @@ void
 fillRenderStateFromState(SoState * state, SoRenderState & rs)
 {
   SoState * mutableState = state;
+  rs.useCommandMatrices =
+    SoRenderPlacementElement::getCommandMatricesOverride(mutableState);
   SbBool depthtest = TRUE;
   SbBool depthwrite = TRUE;
   SoDepthBufferElement::DepthWriteFunction depthfunc =
@@ -821,14 +845,31 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   rs.raster.linePatternScale = static_cast<int16_t>(std::max(
     1, SoLinePatternElement::getScaleFactor(mutableState)));
 
-  const SbViewportRegion & viewport = SoViewportRegionElement::get(mutableState);
-  const SbVec2s & viewportOrigin = viewport.getViewportOriginPixels();
-  const SbVec2s & viewportSize = viewport.getViewportSizePixels();
-  rs.raster.viewportEnabled = viewportSize[0] > 0 && viewportSize[1] > 0;
-  rs.raster.viewportX = viewportOrigin[0];
-  rs.raster.viewportY = viewportOrigin[1];
-  rs.raster.viewportWidth = viewportSize[0];
-  rs.raster.viewportHeight = viewportSize[1];
+  int viewportX = 0;
+  int viewportY = 0;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+  if (SoRenderPlacementElement::getViewport(mutableState,
+                                            viewportX, viewportY,
+                                            viewportWidth, viewportHeight)) {
+    rs.raster.viewportOverride = TRUE;
+    rs.raster.viewportEnabled = viewportWidth > 0 && viewportHeight > 0;
+    rs.raster.viewportX = viewportX;
+    rs.raster.viewportY = viewportY;
+    rs.raster.viewportWidth = viewportWidth;
+    rs.raster.viewportHeight = viewportHeight;
+  }
+  else {
+    rs.raster.viewportOverride = FALSE;
+    const SbViewportRegion & viewport = SoViewportRegionElement::get(mutableState);
+    const SbVec2s & viewportOrigin = viewport.getViewportOriginPixels();
+    const SbVec2s & viewportSize = viewport.getViewportSizePixels();
+    rs.raster.viewportEnabled = viewportSize[0] > 0 && viewportSize[1] > 0;
+    rs.raster.viewportX = viewportOrigin[0];
+    rs.raster.viewportY = viewportOrigin[1];
+    rs.raster.viewportWidth = viewportSize[0];
+    rs.raster.viewportHeight = viewportSize[1];
+  }
 
   float offsetfactor = 0.0f;
   float offsetunits = 0.0f;

@@ -78,6 +78,12 @@ private:
                              const SbMat & viewMat,
                              const SbMat & projMat,
                              const SoRenderParams & params);
+  void renderStagePass(const SoDrawList & drawlist,
+                       SoRenderStage stage,
+                       bool transparent,
+                       const SbMat & viewMat,
+                       const SbMat & projMat,
+                       const SoRenderParams & params);
   void renderSelectionPass(const SoDrawList & drawlist,
                            const SbMat & viewMat,
                            const SbMat & projMat,
