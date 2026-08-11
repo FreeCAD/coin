@@ -1,3 +1,5 @@
+set(COIN_TEST_SKIP_RETURN_CODE 77)
+
 macro(create_testsuite input)
 	get_filename_component(FLNAME "${input}" NAME_WE)
 	get_filename_component(FLPATH "${input}" PATH)
@@ -88,6 +90,33 @@ if (USE_PTHREAD)
 	target_link_libraries(CoinTests pthread)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
+
+function(coin_add_egl_test)
+	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
+	if(NOT ARG_NAME OR NOT ARG_SOURCES)
+		message(FATAL_ERROR "coin_add_egl_test requires NAME and SOURCES")
+	endif()
+	add_executable(${ARG_NAME} ${ARG_SOURCES})
+	target_link_libraries(${ARG_NAME} PRIVATE Coin OpenGL::EGL)
+	target_compile_definitions(${ARG_NAME} PRIVATE
+		COIN_INTERNAL
+		COIN_TEST_SKIP_RETURN_CODE=${COIN_TEST_SKIP_RETURN_CODE})
+	target_include_directories(${ARG_NAME} PRIVATE
+		${PROJECT_SOURCE_DIR}/src)
+	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+	set(test_labels "egl")
+	if(ARG_LABELS)
+		list(APPEND test_labels ${ARG_LABELS})
+	endif()
+	set_tests_properties(${ARG_NAME} PROPERTIES
+		SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
+		LABELS "${test_labels}")
+endfunction()
+
+if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
+		LABELS requires-egl)
+endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
