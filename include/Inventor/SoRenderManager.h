@@ -269,6 +269,12 @@ public:
   void invalidateDrawList(void);
   void invalidateScene(void);
 
+  /*! Release retained backend resources while their owning GL context is current. */
+  void releaseRenderBackendResources(void);
+
+  /*! Forget retained backend resources after context loss without GL deletes. */
+  void discardRenderBackendResources(void);
+
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 

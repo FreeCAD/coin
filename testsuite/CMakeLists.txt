@@ -253,6 +253,8 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		SOURCES DrawListPickingTest.cpp)
 	coin_add_gl_test(NAME DrawListManagerTest PROFILE core
 		SOURCES DrawListManagerTest.cpp)
+	coin_add_gl_test(NAME RenderBackendLifecycleTest PROFILE core PRIVATE_COIN_API
+		SOURCES RenderBackendLifecycleTest.cpp)
 	if(COIN_BUILD_LEGACY_GL_RENDERER)
 		coin_add_gl_test(NAME LegacySoText2RasterLayoutTest PROFILE compat
 			SOURCES LegacySoText2RasterLayoutTest.cpp LABELS requires-legacygl)

@@ -2170,6 +2170,31 @@ SoRenderManager::getRenderPipeline(void) const
   return PRIVATE(this)->renderPipeline;
 }
 
+void
+SoRenderManager::releaseRenderBackendResources(void)
+{
+  if (PRIVATE(this)->renderBackend &&
+      PRIVATE(this)->renderBackend->isInitialized()) {
+    if (backendContextIsCurrent(PRIVATE(this))) {
+      PRIVATE(this)->renderBackend->shutdown();
+    }
+    else {
+      SoDebugError::postWarning(
+        "SoRenderManager::releaseRenderBackendResources",
+        "the backend's owning GL context is not current; use discardRenderBackendResources() after context loss");
+    }
+  }
+}
+
+void
+SoRenderManager::discardRenderBackendResources(void)
+{
+  if (PRIVATE(this)->renderBackend &&
+      PRIVATE(this)->renderBackend->isInitialized()) {
+    PRIVATE(this)->renderBackend->discard();
+  }
+}
+
 SbBool
 SoRenderManager::isRenderPipelineAvailable(const RenderPipeline pipeline) const
 {
