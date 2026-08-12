@@ -34,6 +34,7 @@ set(COIN_ELEMENTS_FILES
 	SoFontNameElement.cpp
 	SoFontSizeElement.cpp
 	SoInt32Element.cpp
+	SoVertexColorElement.cpp
 	SoLazyElement.cpp
 	SoLightAttenuationElement.cpp
 	SoLightElement.cpp
@@ -92,6 +93,7 @@ set(COIN_ELEMENTS_INTERNAL_FILES
 	SoTextureScalePolicyElement.cpp
 	SoTextureScaleQualityElement.h
 	SoTextureScaleQualityElement.cpp
+	SoVertexColorElement.h
 	SoVertexAttributeData.h
 )
 

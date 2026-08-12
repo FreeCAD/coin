@@ -72,6 +72,8 @@
 
 #include <Inventor/elements/SoLazyElement.h>
 
+#include "SoVertexColorElement.h"
+
 #include <cassert>
 #include <cstring>
 
@@ -254,6 +256,7 @@ SoLazyElement::setDiffuse(SoState * state, SoNode * node, int32_t numcolors,
   if (numcolors && (elem->coinstate.diffusenodeid !=
                     get_diffuse_node_id(node, numcolors, colors))) {
     elem = getWInstance(state);
+    SoVertexColorElement::clear(state);
     elem->setDiffuseElt(node, numcolors, colors, packer);
     if (state->isCacheOpen()) elem->lazyDidSet(DIFFUSE_MASK);
   }
@@ -277,6 +280,7 @@ SoLazyElement::setTransparency(SoState *state, SoNode *node, int32_t numvalues,
   if (numvalues && (elem->coinstate.transpnodeid !=
                     get_transp_node_id(node, numvalues, transparency))) {
     elem = getWInstance(state);
+    SoVertexColorElement::clear(state);
     elem->setTranspElt(node, numvalues, transparency, packer);
     if (state->isCacheOpen()) elem->lazyDidSet(TRANSPARENCY_MASK);
   }
@@ -301,6 +305,7 @@ SoLazyElement::setPacked(SoState * state, SoNode * node,
   SoLazyElement * elem = SoLazyElement::getInstance(state);
   if (numcolors && elem->coinstate.diffusenodeid != node->getNodeId()) {
     elem = getWInstance(state);
+    SoVertexColorElement::clear(state);
     elem->setPackedElt(node, numcolors, colors, packedtransparency);
     if (state->isCacheOpen()) elem->lazyDidSet(TRANSPARENCY_MASK|DIFFUSE_MASK);
   }
@@ -319,6 +324,7 @@ SoLazyElement::setColorIndices(SoState *state, SoNode *node,
   SoLazyElement * elem = SoLazyElement::getInstance(state);
   if (numindices && elem->coinstate.diffusenodeid != node->getNodeId()) {
     elem = getWInstance(state);
+    SoVertexColorElement::clear(state);
     elem->setColorIndexElt(node, numindices, indices);
     if (state->isCacheOpen()) elem->lazyDidSet(DIFFUSE_MASK);
   }
@@ -818,6 +824,9 @@ SoLazyElement::setMaterials(SoState * state, SoNode *node, uint32_t bitmask,
 
   if (eltbitmask) {
     welem = getWInstance(state);
+    if (eltbitmask & (DIFFUSE_MASK | TRANSPARENCY_MASK)) {
+      SoVertexColorElement::clear(state);
+    }
     welem->setMaterialElt(node, eltbitmask, packer, diffuse,
                           numdiffuse, transp, numtransp,
                           ambient, emissive, specular, shininess,

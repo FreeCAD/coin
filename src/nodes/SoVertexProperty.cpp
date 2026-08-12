@@ -99,6 +99,9 @@ class SoVBO;
 #include <Inventor/elements/SoCoordinateElement.h>
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include <Inventor/elements/SoNormalElement.h>
+#include <Inventor/lists/SbList.h>
+
+#include "elements/SoVertexColorElement.h"
 
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
@@ -621,10 +624,13 @@ SoVertexProperty::updateMaterial(SoState * state, uint32_t overrideflags, SbBool
   int num = this->orderedRGBA.getNum();
   if (num > 0 && 
       !TEST_OVERRIDE(DIFFUSE_COLOR, overrideflags)) {
-    
+    SbList<float> inheritedOpacities;
+    SoVertexColorElement::captureInheritedOpacities(
+      state, inheritedOpacities);
     SoLazyElement::setPacked(state, this, num,
                              this->orderedRGBA.getValues(0),
                              PRIVATE(this)->transparent);
+    SoVertexColorElement::setPacked(state, inheritedOpacities);
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }

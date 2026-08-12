@@ -56,6 +56,7 @@
 #include <Inventor/lists/SoPathList.h>
 
 #include "actions/SoSubActionP.h"
+#include "elements/SoVertexColorElement.h"
 #include "rendering/SoRenderIRP.h"
 
 #include <cassert>
@@ -80,6 +81,9 @@ SoIRRenderAction::initClass(void)
   if (SoCacheElement::getClassTypeId() == SoType::badType()) {
     SoCacheElement::initClass();
   }
+  if (SoVertexColorElement::getClassTypeId() == SoType::badType()) {
+    SoVertexColorElement::initClass();
+  }
   SO_ACTION_ADD_METHOD_INTERNAL(SoNode, SoNode::IRRenderS);
 
   SO_ENABLE(SoIRRenderAction, SoViewportRegionElement);
@@ -91,6 +95,7 @@ SoIRRenderAction::initClass(void)
   SO_ENABLE(SoIRRenderAction, SoOverrideElement);
   SO_ENABLE(SoIRRenderAction, SoModelMatrixElement);
   SO_ENABLE(SoIRRenderAction, SoLazyElement);
+  SO_ENABLE(SoIRRenderAction, SoVertexColorElement);
   SO_ENABLE(SoIRRenderAction, SoDepthBufferElement);
   SO_ENABLE(SoIRRenderAction, SoDrawStyleElement);
   SO_ENABLE(SoIRRenderAction, SoLineWidthElement);
