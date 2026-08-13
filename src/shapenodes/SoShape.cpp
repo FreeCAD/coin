@@ -331,13 +331,12 @@ private:
       }
       command.pass = transparent ? SO_RENDERPASS_TRANSPARENT
                                  : SO_RENDERPASS_OPAQUE;
-      command.lightingHandle = SoRenderIR::fillLightingFromState(
-        state, this->action->getMutableDrawList());
+      this->action->applyRenderStage(command);
       command.sortKey = SoIRComputeSortKey(command,
                                             static_cast<uint32_t>(command.pass),
                                             0);
       command.userData = this->shape;
-      this->action->getMutableDrawList().addCommand(command);
+      this->action->addCommand(command);
     }
 
     this->vertices.clear();

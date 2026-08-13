@@ -5,6 +5,8 @@
 
 #include <Inventor/SbBasic.h>
 #include <Inventor/SbMatrix.h>
+#include <Inventor/SbViewVolume.h>
+#include <Inventor/SbViewportRegion.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SbVec2f.h>
 #include <Inventor/SbVec4f.h>
@@ -13,6 +15,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+class SoState;
 
 /*!
   \file SoRenderIR.h
@@ -328,6 +332,7 @@ struct SoRasterState {
   uint8_t cullMode = 0;
   SbBool  frontFaceCCW = TRUE;
   SbBool  scissorEnabled = FALSE;
+  SbBool  viewportOverride = FALSE;
   SbBool  viewportEnabled = FALSE;
   int     viewportX = 0;
   int     viewportY = 0;
@@ -353,8 +358,21 @@ struct SoRenderState {
   SoBlendState blend;
   SoAlphaTestState alphaTest;
   SoRasterState raster;
+  //! Use the view/projection matrices captured with the command.
+  SbBool useCommandMatrices = FALSE;
   uint32_t opaqueKey = 0;
   uint32_t translucentKey = 0;
+};
+
+/*!
+  \enum SoRenderStage
+  \brief Ordered scene stage containing one or more render passes.
+*/
+enum class SoRenderStage : uint8_t {
+  Background,
+  Main,
+  AfterMain,
+  Foreground
 };
 
 /*!
@@ -364,6 +382,9 @@ struct SoRenderState {
 enum SoRenderPassType : uint8_t {
   SO_RENDERPASS_OPAQUE = 0,
   SO_RENDERPASS_TRANSPARENT,
+  SO_RENDERPASS_OVERLAY,
+  SO_RENDERPASS_SHADOW,
+  SO_RENDERPASS_CUSTOM,
   SO_RENDERPASS_COUNT
 };
 
@@ -412,7 +433,41 @@ struct SoLightingData {
   std::vector<SoLightData> lights;
 };
 
-/*! 
+/*!
+  \struct SoIRRenderContext
+  \brief State that must survive when a path is replayed after traversal.
+
+  A delayed path is traversed after the original scene traversal has moved on.
+  These values preserve the camera, model, and lighting context that cannot
+  reliably be reconstructed when a delayed subtree is replayed. A full path
+  replay reconstructs its model state from the path, so callers can suppress
+  the model transform when applying the context. The validity flags allow the
+  same delayed path element to remain usable by actions which do not enable
+  every IR state element.
+*/
+struct COIN_DLL_API SoIRRenderContext {
+  SoLightingData lighting;
+  SbMatrix modelMatrix;
+  SbViewportRegion viewport;
+  SbViewVolume viewVolume;
+  SbMatrix viewingMatrix;
+  SbMatrix projectionMatrix;
+  float devicePixelRatio = 1.0f;
+  SbBool hasLighting = FALSE;
+  SbBool hasModelMatrix = FALSE;
+  SbBool hasViewport = FALSE;
+  SbBool hasViewVolume = FALSE;
+  SbBool hasViewingMatrix = FALSE;
+  SbBool hasProjectionMatrix = FALSE;
+  SbBool hasDevicePixelRatio = FALSE;
+
+  //! Capture the replay-relevant state enabled on an Inventor traversal.
+  void captureFromState(SoState * state);
+  //! Apply the captured state to an active Inventor traversal.
+  void applyToState(SoState * state, SbBool applyModelMatrix = TRUE) const;
+};
+
+/*!
   \enum SoPickElementType
   \brief Element types for pick identification.
 */
@@ -423,7 +478,7 @@ enum SoPickElementType : uint8_t {
   SO_PICK_WHOLE_BODY = 3
 };
 
-/*! 
+/*!
   \struct SoRenderElementRange
   \brief Maps one logical subelement to a draw subrange within a command.
 */
@@ -434,7 +489,7 @@ struct SoRenderElementRange {
   int drawCount = 0;
 };
 
-/*! 
+/*!
   \struct SoPickData
   \brief Per-command pick identification data for GPU ID-buffer picking.
 */
@@ -445,7 +500,7 @@ struct SoPickData {
   std::vector<SoRenderElementRange> elementRanges;
 };
 
-/*! 
+/*!
   \struct SoSelectionData
   \brief Mutable selection and preselection state for a render command.
 */
@@ -464,7 +519,7 @@ struct SoSelectionData {
   }
 };
 
-/*! 
+/*!
   \struct SoPickLUTEntry
   \brief Maps a sequential render ID to a draw command element.
 */
@@ -491,7 +546,10 @@ struct SoRenderCommand {
   SbMatrix         viewMatrix;
   SbMatrix         projMatrix;
 
+  SoRenderStage    stage = SoRenderStage::Main;
   SoRenderPassType pass = SO_RENDERPASS_OPAQUE;
+  //! Clear depth once immediately before this command's scoped placement.
+  SbBool           clearDepthBefore = FALSE;
   SoLightingHandle lightingHandle = 0;
   SoPixelRasterData pixelRaster;
   SoPipelineKey    pipelineKey = 0;
@@ -500,6 +558,20 @@ struct SoRenderCommand {
   uint64_t         sortKey = 0; //!< Backend-computed key used by sorting.
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
 };
+
+namespace SoRenderIR {
+//! Capture the effective lighting setup in the current traversal state.
+COIN_DLL_API void captureLightingFromState(SoState * state,
+                                           SoLightingData & lighting);
+//! Capture state required to replay a path after the main traversal.
+COIN_DLL_API void captureRenderContextFromState(SoState * state,
+                                                SoIRRenderContext & context);
+//! Apply a previously captured delayed-path context to the current state.
+COIN_DLL_API void applyRenderContextToState(SoState * state,
+                                            const SoIRRenderContext & context);
+//! Mark screen-space traversal state so emitted commands use their matrices.
+COIN_DLL_API void setCommandMatricesOverride(SoState * state, SbBool enabled);
+}
 
 /*!
   \class SoDrawList

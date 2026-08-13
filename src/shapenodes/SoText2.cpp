@@ -467,9 +467,8 @@ SoText2::IRRender(SoIRRenderAction * action)
   command.state.blend.srcAlphaFactor = SO_BLEND_FACTOR_SRC_ALPHA;
   command.state.blend.dstAlphaFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   command.pass = SO_RENDERPASS_TRANSPARENT;
-  command.lightingHandle = SoRenderIR::fillLightingFromState(
-    state, action->getMutableDrawList());
-  action->getMutableDrawList().addCommand(command);
+  action->applyRenderStage(command);
+  action->addCommand(command);
 
   PRIVATE(this)->unlock();
   state->pop();

@@ -181,6 +181,15 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
+add_executable(RetainedReplayContextTest retained-replay-context-test.cpp)
+target_link_libraries(RetainedReplayContextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedReplayContextTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedReplayContextTest COMMAND RetainedReplayContextTest)
+
 add_executable(RenderLayerSemanticsTest render-layer-semantics-test.cpp)
 target_link_libraries(RenderLayerSemanticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RenderLayerSemanticsTest PRIVATE

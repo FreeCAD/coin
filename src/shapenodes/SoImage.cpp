@@ -628,9 +628,8 @@ SoImage::IRRender(SoIRRenderAction * action)
   command.pass = (this->transparency ||
                   SoRenderIR::isMaterialTransparent(command.material))
     ? SO_RENDERPASS_TRANSPARENT : SO_RENDERPASS_OPAQUE;
-  command.lightingHandle = SoRenderIR::fillLightingFromState(
-    state, action->getMutableDrawList());
-  action->getMutableDrawList().addCommand(command);
+  action->applyRenderStage(command);
+  action->addCommand(command);
 }
 
 // doc from parent

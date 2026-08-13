@@ -77,6 +77,9 @@ void ensureMaterialBlendState(SoRenderState & renderState,
                               const SoMaterialData & material);
 //! Extract the current lighting setup, append/deduplicate it, and return its handle.
 SoLightingHandle fillLightingFromState(SoState * state, SoDrawList & drawlist);
+//! Append a previously captured lighting setup and return its handle.
+SoLightingHandle fillLightingFromState(SoState * state, SoDrawList & drawlist,
+                                       const SoLightingData & lighting);
 //! Return whether the material should be treated as translucent.
 bool isMaterialTransparent(const SoMaterialData & material);
 }
