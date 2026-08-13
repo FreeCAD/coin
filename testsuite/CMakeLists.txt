@@ -239,6 +239,16 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
+add_executable(RetainedReplayContextTest RetainedReplayContextTest.cpp)
+target_link_libraries(RetainedReplayContextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedReplayContextTest PRIVATE COIN_INTERNAL)
+target_include_directories(RetainedReplayContextTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedReplayContextTest COMMAND RetainedReplayContextTest)
+
 add_executable(RenderLayerSemanticsTest RenderLayerSemanticsTest.cpp)
 target_link_libraries(RenderLayerSemanticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RenderLayerSemanticsTest PRIVATE
@@ -302,6 +312,20 @@ if(HAVE_EGL)
 		${COIN_TARGET_INCLUDE_DIRECTORIES}
 	)
 	add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
+
+	add_executable(RenderLayerLifecycleTest RenderLayerLifecycleTest.cpp)
+	target_link_libraries(RenderLayerLifecycleTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(RenderLayerLifecycleTest PRIVATE
+		COIN_INTERNAL
+	)
+	target_include_directories(RenderLayerLifecycleTest PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES}
+	)
+	add_test(NAME RenderLayerLifecycleTest COMMAND RenderLayerLifecycleTest)
+	set_tests_properties(RenderLayerLifecycleTest PROPERTIES SKIP_RETURN_CODE 77)
 
 	add_executable(EGLBindingTest EGLBindingTest.cpp)
 	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
