@@ -193,7 +193,9 @@ enum SoAlphaTestPolicy : uint8_t {
 
 // --- Render param flags (SoRenderParams::flags) ---
 static constexpr uint32_t SO_PARAM_CLEAR_WINDOW = 1u;
+static constexpr uint32_t SO_PARAM_INTERACTIVE  = 2u;  //!< Camera orbiting/panning — skip ID buffer
 static constexpr uint32_t SO_PARAM_CLEAR_DEPTH  = 4u;  //!< Clear depth buffer before rendering
+static constexpr uint32_t SO_PARAM_SKIP_ID      = 8u;  //!< Skip ID buffer rendering entirely
 
 /*!
   \struct SoTextureData
