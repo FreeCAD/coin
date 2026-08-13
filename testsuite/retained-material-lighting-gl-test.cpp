@@ -50,7 +50,7 @@ struct RenderFixture {
     params.projMatrix.makeIdentity();
     params.clearColor = clearColor;
     params.clearDepth = 1.0f;
-    params.flags = SO_PARAM_CLEAR_WINDOW | SO_PARAM_CLEAR_DEPTH;
+    params.flags = SO_PARAM_CLEAR_WINDOW | SO_PARAM_CLEAR_DEPTH | SO_PARAM_SKIP_ID;
     backend.render(drawlist, params);
     glFinish();
     std::vector<uint8_t> pixels(64 * 64 * 4, 0);
