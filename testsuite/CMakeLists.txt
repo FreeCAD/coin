@@ -243,6 +243,8 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		LIBRARIES CoinGLReadbackTestSupport)
 	coin_add_gl_test(NAME DrawListGLTest PROFILE core
 		SOURCES DrawListGLTest.cpp)
+	coin_add_gl_test(NAME RetainedMaterialLightingGLTest PROFILE core
+		SOURCES RetainedMaterialLightingGLTest.cpp)
 endif()
 
 add_executable(CoreTraversalTest CoreTraversalTest.cpp)
