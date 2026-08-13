@@ -247,6 +247,8 @@ if(HAVE_EGL)
 endif()
 
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(RetainedMaterialLightingGLTest
+		RetainedMaterialLightingGLTest.cpp)
 	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
