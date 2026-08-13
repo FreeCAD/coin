@@ -18,7 +18,7 @@ typedef void (*SoRenderBackendLogFn)(const char * message, void * userdata);
 
 /*!
   struct SoRenderParams
-  rief Per-render values consumed by a retained-rendering backend.
+  \brief Per-render values consumed by a retained-rendering backend.
 
   The values describe the currently bound framebuffer and the view being
   rendered into it.  Target ownership and application orchestration remain
@@ -37,7 +37,7 @@ struct SoRenderParams {
 
 /*!
   struct SoRenderBackendInitParams
-  rief Minimal backend initialization hooks.
+  \brief Minimal backend initialization hooks.
 */
 struct SoRenderBackendInitParams {
   void *               userData = nullptr;
@@ -47,7 +47,7 @@ struct SoRenderBackendInitParams {
 
 /*!
   class SoRenderBackend
-  rief Backend-neutral lifecycle and DrawList execution interface.
+  \brief Backend-neutral lifecycle and DrawList execution interface.
 
   The retained IR does not depend on this interface or on a graphics API.
   Concrete backends own all device resources.

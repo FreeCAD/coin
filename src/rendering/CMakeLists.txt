@@ -63,7 +63,6 @@ if(COIN_BUILD_SINGLE_LIB)
 	endforeach(SRCFILE)
 else()
 	add_library(rendering OBJECT ${COIN_RENDERING_FILES})
-	target_compile_definitions(rendering PRIVATE COIN_DRAW_LIST_PICKING)
 endif()
 
 # define documentation
