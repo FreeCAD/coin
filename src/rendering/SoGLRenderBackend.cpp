@@ -1151,6 +1151,9 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
 {
   if (!command.state.raster.visible) return;
   if (!command.geometry.positions || command.geometry.vertexCount == 0) return;
+  if (command.state.raster.viewportOverride &&
+      !command.state.raster.viewportEnabled) return;
+  clearCommandDepth(command, params);
   const auto found = this->commandToCache.find(&command);
   if (found == this->commandToCache.end()) return;
   CachedGPUCommand & entry = this->gpuCache[found->second];
@@ -1162,6 +1165,12 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
     command.pixelRaster.kind != SO_PIXEL_RASTER_NONE;
   const float dpr = params.devicePixelRatio > 0.0f
     ? params.devicePixelRatio : 1.0f;
+  const SbVec2s defaultViewportSize = params.viewport.getViewportSizePixels();
+  const SbVec2s commandViewportSize = command.state.raster.viewportOverride
+    ? SbVec2s(static_cast<short>(command.state.raster.viewportWidth),
+              static_cast<short>(command.state.raster.viewportHeight))
+    : defaultViewportSize;
+  const SbVec2s & viewportSize = commandViewportSize;
   const float pointSize = std::max(1.0f, command.state.raster.pointSize) * dpr;
   const float lineWidth = std::max(1.0f, command.state.raster.lineWidth) * dpr;
   const uint8_t fillMode = command.state.raster.fillMode;
@@ -1188,11 +1197,19 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                               params.viewport.getViewportSizePixels());
   }
 
-  applyViewport(params);
+  applyCommandViewport(command, params);
+  SbMat effectiveView;
+  SbMat effectiveProj;
+  std::memcpy(effectiveView, viewMat, sizeof(effectiveView));
+  std::memcpy(effectiveProj, projMat, sizeof(effectiveProj));
+  if (command.state.useCommandMatrices) {
+    command.viewMatrix.getValue(effectiveView);
+    command.projMatrix.getValue(effectiveProj);
+  }
   this->glue->glUniformMatrix4fv(this->uViewLocation, 1, GL_FALSE,
-                                 &viewMat[0][0]);
+                                 &effectiveView[0][0]);
   this->glue->glUniformMatrix4fv(this->uProjLocation, 1, GL_FALSE,
-                                 &projMat[0][0]);
+                                 &effectiveProj[0][0]);
   SbMat model;
   command.modelMatrix.getValue(model);
   this->glue->glUniformMatrix4fv(this->uModelLocation, 1, GL_FALSE,
