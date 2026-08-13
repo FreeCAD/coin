@@ -280,6 +280,16 @@ target_include_directories(RetainedPickingIdentityTest PRIVATE
 )
 add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
 
+add_executable(RetainedReplayContextTest RetainedReplayContextTest.cpp)
+target_link_libraries(RetainedReplayContextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedReplayContextTest PRIVATE COIN_INTERNAL)
+target_include_directories(RetainedReplayContextTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedReplayContextTest COMMAND RetainedReplayContextTest)
+
 add_executable(RenderLayerSemanticsTest RenderLayerSemanticsTest.cpp)
 target_link_libraries(RenderLayerSemanticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RenderLayerSemanticsTest PRIVATE
@@ -304,6 +314,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(DrawListPickingTest DrawListPickingTest.cpp)
 	coin_add_gl_test(DrawListManagerTest DrawListManagerTest.cpp)
+	coin_add_gl_test(RenderLayerLifecycleTest RenderLayerLifecycleTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)
