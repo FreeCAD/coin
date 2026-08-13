@@ -5,8 +5,7 @@
 #endif
 
 #include "rendering/SoIDPickBuffer.h"
-#include "rendering/SoRenderIR.h"
-#include "CoinTracyConfig.h"
+#include <Inventor/rendering/SoRenderIR.h>
 
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/SbVec3f.h>
@@ -298,7 +297,6 @@ SoIDPickBuffer::resize(int width, int height)
 void
 SoIDPickBuffer::buildIdColorVBOs(const SoDrawList & drawlist, uint32_t /*contextId*/)
 {
-  ZoneScopedN("buildIdColorVBOs");
   const auto & lut = drawlist.getPickLUT();
   int numCmds = drawlist.getNumCommands();
 
@@ -390,7 +388,6 @@ SoIDPickBuffer::render(const float * viewMatrix, const float * projMatrix,
                        const SoDrawList & drawlist,
                        const SoIDPassVBOInfo * vboCache, int vboCacheCount)
 {
-  ZoneScopedN("IDPickBuffer::render");
   if (!fbo || !shaderInitialized) return;
 
   GLint prevFbo = 0;
@@ -577,7 +574,6 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
   // Pass 1: Triangles — normal depth test, standard rendering
   for (int ci = 0; ci < numCmds; ci++) {
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
-    if (cmd.pass == SO_RENDERPASS_OVERLAY) continue;  // not pickable
     if (cmd.geometry.topology != SO_TOPOLOGY_TRIANGLES &&
         cmd.geometry.topology != SO_TOPOLOGY_TRIANGLE_STRIP) continue;
     if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;  // skip textured (SoImage)
@@ -600,7 +596,6 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
   }
   for (int ci = 0; ci < numCmds; ci++) {
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
-    if (cmd.pass == SO_RENDERPASS_OVERLAY) continue;
     if (cmd.geometry.topology != SO_TOPOLOGY_LINES &&
         cmd.geometry.topology != SO_TOPOLOGY_LINE_STRIP) continue;
     if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;
@@ -624,7 +619,6 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
   glDepthMask(GL_FALSE);
   for (int ci = 0; ci < numCmds; ci++) {
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
-    if (cmd.pass == SO_RENDERPASS_OVERLAY) continue;
     if (cmd.geometry.topology != SO_TOPOLOGY_POINTS) continue;
     if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;
     float ps = cmd.state.raster.pointSize;
@@ -646,7 +640,6 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
 uint32_t
 SoIDPickBuffer::pick(int x, int y, int pickRadius) const
 {
-  ZoneScopedN("IDPickBuffer::pick");
   if (!fbo || cachedColor.empty()) return 0;
 
   // Scale viewport coordinates to ID buffer resolution

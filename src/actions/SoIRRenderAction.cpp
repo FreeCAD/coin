@@ -236,6 +236,7 @@ SoIRRenderAction::endTraversal(SoNode * node)
   inherited::endTraversal(node);
 }
 
+void
 SoIRRenderAction::pushPrimitiveCollector(PrimitiveCollector * collector)
 {
   assert(collector != NULL);
