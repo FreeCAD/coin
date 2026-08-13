@@ -262,6 +262,8 @@ add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
 
 add_test(NAME RetainedMaterialLightingTest COMMAND RetainedMaterialLightingTest)
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(RetainedMaterialLightingGLTest
+		RetainedMaterialLightingGLTest.cpp)
 	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
