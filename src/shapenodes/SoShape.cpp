@@ -192,6 +192,12 @@ public:
 
   void finalize()
   {
+    this->flushRun();
+  }
+
+private:
+  void flushRun()
+  {
     if (this->vertices.empty()) return;
 
     SoState * state = this->action->getState();
@@ -242,16 +248,21 @@ public:
                                           0);
     command.userData = this->shape;
     this->action->getMutableDrawList().addCommand(command);
+
+    this->vertices.clear();
   }
 
-private:
   bool ensureTopology(SoPrimitiveTopology candidate)
   {
     if (this->topology == SO_TOPOLOGY_COUNT) {
       this->topology = candidate;
       return true;
     }
-    return this->topology == candidate;
+    if (this->topology == candidate) return true;
+
+    this->flushRun();
+    this->topology = candidate;
+    return true;
   }
 
   void append(const SoPrimitiveVertex * vertex)
