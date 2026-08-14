@@ -225,6 +225,10 @@ else()
   )
 endif()
 
+if(COIN_BUILD_SINGLE_LIB AND TARGET coin_generated_gl_shaders)
+  add_dependencies(${PROJECT_NAME} coin_generated_gl_shaders)
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>)
 

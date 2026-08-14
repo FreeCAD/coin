@@ -139,6 +139,15 @@ if(NOT _coin_build_gl_tests STREQUAL "AUTO" AND
 	NOT _coin_build_gl_tests STREQUAL "OFF")
 	message(FATAL_ERROR "COIN_BUILD_GL_TESTS must be AUTO, ON, or OFF")
 endif()
+add_test(
+	NAME ShaderGeneratorTest
+	COMMAND "${CMAKE_COMMAND}"
+		-DCOIN_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+		-DCOIN_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+		"-DCOIN_GENERATOR=${CMAKE_GENERATOR}"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/shader-generator-test.cmake"
+)
+
 
 set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
 set(COIN_TEST_GLFW_TARGET "")
