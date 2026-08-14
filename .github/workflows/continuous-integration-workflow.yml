@@ -104,7 +104,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always() && matrix.renderer_state == 'enabled'
         with:
-          name: Ubuntu-VisualTest-Artifacts
+          name: Ubuntu-VisualTest-Artifacts-${{ matrix.renderer_state }}
           path: |
             cmake_build_dir_rt/render_artifacts/
             cmake_build_dir_rt/Testing/

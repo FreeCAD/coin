@@ -241,6 +241,8 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(NAME OffscreenReadbackTest PROFILE core PRIVATE_COIN_API
 		SOURCES OffscreenReadbackTest.cpp
 		LIBRARIES CoinGLReadbackTestSupport)
+	coin_add_gl_test(NAME DrawListGLTest PROFILE core
+		SOURCES DrawListGLTest.cpp)
 endif()
 
 add_executable(CoreTraversalTest CoreTraversalTest.cpp)
