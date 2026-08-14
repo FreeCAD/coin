@@ -240,6 +240,11 @@ target_include_directories(RetainedMixedTopologyTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
+
+if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	coin_add_egl_test(NAME DrawListGLTest SOURCES DrawListGLTest.cpp
+		LABELS requires-egl)
+endif()
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
