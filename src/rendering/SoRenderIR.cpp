@@ -10,6 +10,7 @@
 #include <Inventor/elements/SoLightAttenuationElement.h>
 #include <Inventor/elements/SoLightElement.h>
 #include <Inventor/elements/SoLightModelElement.h>
+#include <Inventor/elements/SoLinePatternElement.h>
 #include <Inventor/elements/SoLineWidthElement.h>
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoMultiTextureImageElement.h>
@@ -18,6 +19,7 @@
 #include <Inventor/elements/SoProjectionMatrixElement.h>
 #include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoShapeHintsElement.h>
+#include <Inventor/elements/SoShapeStyleElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/elements/SoPolygonOffsetElement.h>
@@ -640,6 +642,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
     : SO_ALPHA_TEST_POLICY_EXPLICIT;
 
   SoDrawStyleElement::Style style = SoDrawStyleElement::get(mutableState);
+  const SoShapeStyleElement * shapeStyle = SoShapeStyleElement::get(mutableState);
+  rs.raster.visible = style != SoDrawStyleElement::INVISIBLE &&
+    (!shapeStyle || !(shapeStyle->getFlags() & SoShapeStyleElement::INVISIBLE));
   uint8_t fillmode = 0;
   switch (style) {
   case SoDrawStyleElement::LINES:
@@ -656,19 +661,27 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   // Native GL_POINTS are square unless point smoothing is enabled. Keep the
   // primitive shape explicit in the IR so backends do not choose independently.
 
-  // Backface culling from SoShapeHintsElement:
-  // vertexOrdering == COUNTERCLOCKWISE + shapeType == SOLID → cull back faces
+  // Backface culling from SoShapeHintsElement.  Vertex ordering selects the
+  // front-face winding; a solid shape requests back-face culling regardless
+  // of whether its front faces are clockwise or counter-clockwise.
   {
     SoShapeHintsElement::VertexOrdering vo;
     SoShapeHintsElement::ShapeType st;
     SoShapeHintsElement::FaceType ft;
     SoShapeHintsElement::get(mutableState, vo, st, ft);
-    rs.raster.cullMode = (vo == SoShapeHintsElement::COUNTERCLOCKWISE
-                       && st == SoShapeHintsElement::SOLID) ? 1 : 0;
+    rs.raster.cullMode = (st == SoShapeHintsElement::SOLID &&
+                          (vo == SoShapeHintsElement::CLOCKWISE ||
+                           vo == SoShapeHintsElement::COUNTERCLOCKWISE))
+      ? 1 : 0;
+    rs.raster.frontFaceCCW = vo != SoShapeHintsElement::CLOCKWISE;
   }
   rs.raster.scissorEnabled = FALSE;
   rs.raster.lineWidth = SoLineWidthElement::get(mutableState);
   rs.raster.pointSize = SoPointSizeElement::get(mutableState);
+  rs.raster.linePattern = static_cast<uint16_t>(
+    SoLinePatternElement::get(mutableState));
+  rs.raster.linePatternScale = static_cast<int16_t>(std::max(
+    1, SoLinePatternElement::getScaleFactor(mutableState)));
 
   const SbViewportRegion & viewport = SoViewportRegionElement::get(mutableState);
   const SbVec2s & viewportOrigin = viewport.getViewportOriginPixels();
@@ -691,6 +704,12 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   }
   rs.raster.polygonOffsetFactor = offsetfactor;
   rs.raster.polygonOffsetUnits = offsetunits;
+  rs.raster.polygonOffsetFilled = offseton &&
+    (offsetstyle & SoPolygonOffsetElement::FILLED);
+  rs.raster.polygonOffsetLines = offseton &&
+    (offsetstyle & SoPolygonOffsetElement::LINES);
+  rs.raster.polygonOffsetPoints = offseton &&
+    (offsetstyle & SoPolygonOffsetElement::POINTS);
 
   rs.opaqueKey = 0;
   rs.translucentKey = 0;
