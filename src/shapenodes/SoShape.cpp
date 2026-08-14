@@ -908,34 +908,46 @@ SoShape::shouldGLRender(SoGLRenderAction * action)
     PRIVATE(this)->lock();
     this->validatePVCache(action);
 
-    int arrays = SoPrimitiveVertexCache::NORMAL|SoPrimitiveVertexCache::COLOR;
-    SoGLMultiTextureImageElement::Model model;
-    SbColor blendcolor;
-    SoGLImage * glimage = SoGLMultiTextureImageElement::get(state, 0, model, blendcolor);
-    if (glimage) arrays |= SoPrimitiveVertexCache::TEXCOORD;
-
-    SoMaterialBundle mb(action);
-    mb.sendFirst();
-    PRIVATE(this)->setupShapeHints(this, state);
-    PRIVATE(this)->pvcache->depthSortTriangles(state);
-    PRIVATE(this)->pvcache->renderTriangles(state, arrays);
-    if (PRIVATE(this)->pvcache->getNumLineIndices() ||
-        PRIVATE(this)->pvcache->getNumPointIndices()) {
-      const SoNormalElement * nelem = SoNormalElement::getInstance(state);
-      if (nelem->getNum() == 0) {
-        glPushAttrib(GL_LIGHTING_BIT);
-        glDisable(GL_LIGHTING);
-        arrays &= SoPrimitiveVertexCache::NORMAL;
-      }
-      PRIVATE(this)->pvcache->renderLines(state, arrays);
-      PRIVATE(this)->pvcache->renderPoints(state, arrays);
-
-      if (nelem->getNum() == 0) {
-        glPopAttrib();
-      }
+    // Direct-rendering shapes can intentionally produce no primitive-cache
+    // geometry.  Let those shapes continue through their own GLRender path;
+    // only consume sorted transparency after primitive geometry exists.
+    const bool hasPrimitiveGeometry =
+      PRIVATE(this)->pvcache->getNumTriangleIndices() != 0 ||
+      PRIVATE(this)->pvcache->getNumLineIndices() != 0 ||
+      PRIVATE(this)->pvcache->getNumPointIndices() != 0;
+    if (!hasPrimitiveGeometry) {
+      PRIVATE(this)->unlock();
     }
-    PRIVATE(this)->unlock();
-    return FALSE; // tell shape _not_ to render
+    else {
+      int arrays = SoPrimitiveVertexCache::NORMAL|SoPrimitiveVertexCache::COLOR;
+      SoGLMultiTextureImageElement::Model model;
+      SbColor blendcolor;
+      SoGLImage * glimage = SoGLMultiTextureImageElement::get(state, 0, model, blendcolor);
+      if (glimage) arrays |= SoPrimitiveVertexCache::TEXCOORD;
+
+      SoMaterialBundle mb(action);
+      mb.sendFirst();
+      PRIVATE(this)->setupShapeHints(this, state);
+      PRIVATE(this)->pvcache->depthSortTriangles(state);
+      PRIVATE(this)->pvcache->renderTriangles(state, arrays);
+      if (PRIVATE(this)->pvcache->getNumLineIndices() ||
+          PRIVATE(this)->pvcache->getNumPointIndices()) {
+        const SoNormalElement * nelem = SoNormalElement::getInstance(state);
+        if (nelem->getNum() == 0) {
+          glPushAttrib(GL_LIGHTING_BIT);
+          glDisable(GL_LIGHTING);
+          arrays &= SoPrimitiveVertexCache::NORMAL;
+        }
+        PRIVATE(this)->pvcache->renderLines(state, arrays);
+        PRIVATE(this)->pvcache->renderPoints(state, arrays);
+
+        if (nelem->getNum() == 0) {
+          glPopAttrib();
+        }
+      }
+      PRIVATE(this)->unlock();
+      return FALSE; // tell shape _not_ to render
+    }
   }
 
   if (shapestyleflags & SoShapeStyleElement::BIGIMAGE) {
