@@ -239,6 +239,15 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
+add_executable(RenderManagerPipelineTest RenderManagerPipelineTest.cpp)
+target_link_libraries(RenderManagerPipelineTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RenderManagerPipelineTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RenderManagerPipelineTest COMMAND RenderManagerPipelineTest)
+
 if(HAVE_EGL)
 	add_executable(RetainedMaterialLightingGLTest RetainedMaterialLightingGLTest.cpp)
 	target_link_libraries(RetainedMaterialLightingGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
@@ -284,6 +293,18 @@ if(HAVE_EGL)
 		${COIN_TARGET_INCLUDE_DIRECTORIES}
 	)
 	add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
+
+	add_executable(DrawListManagerTest DrawListManagerTest.cpp)
+	target_link_libraries(DrawListManagerTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(DrawListManagerTest PRIVATE COIN_INTERNAL)
+	target_include_directories(DrawListManagerTest PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES}
+	)
+	add_test(NAME DrawListManagerTest COMMAND DrawListManagerTest)
+	set_tests_properties(DrawListManagerTest PROPERTIES SKIP_RETURN_CODE 77)
 
 	add_executable(EGLBindingTest EGLBindingTest.cpp)
 	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
