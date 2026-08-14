@@ -261,9 +261,19 @@ target_include_directories(RetainedMaterialLightingTest PRIVATE
 add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
 
 add_test(NAME RetainedMaterialLightingTest COMMAND RetainedMaterialLightingTest)
+
+add_executable(RetainedRasterTextTest RetainedRasterTextTest.cpp)
+target_link_libraries(RetainedRasterTextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedRasterTextTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(RetainedMaterialLightingGLTest
 		RetainedMaterialLightingGLTest.cpp)
+	coin_add_gl_test(RetainedRasterGLTest RetainedRasterGLTest.cpp)
 	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
