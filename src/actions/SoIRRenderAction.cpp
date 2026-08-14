@@ -62,21 +62,28 @@
 #include "rendering/SoRenderIRP.h"
 
 #include <cassert>
+#include <vector>
 
 SO_ACTION_SOURCE(SoIRRenderAction);
 
 class SoIRRenderActionP {
 public:
+  SoIRRenderActionP()
+    : commandPaths(new std::vector<SoPath *>)
+  {
+  }
+
   ~SoIRRenderActionP()
   {
-    for (SoPath * path : this->commandPaths) {
+    for (SoPath * path : *this->commandPaths) {
       if (path && SoDB::isInitialized()) path->unref();
     }
+    delete this->commandPaths;
   }
 
   SoIRBuffer geometryPool;
   SbList<SoIRRenderAction::PrimitiveCollector *> collectorStack;
-  std::vector<SoPath *> commandPaths;
+  std::vector<SoPath *> * commandPaths;
 };
 
 #define PRIVATE(obj) (obj->pimpl)
@@ -196,7 +203,7 @@ SoIRRenderAction::storeCommandPath(int commandIndex, const SoPath * path)
 {
   if (commandIndex < 0) return;
 
-  std::vector<SoPath *> & paths = PRIVATE(this)->commandPaths;
+  std::vector<SoPath *> & paths = *PRIVATE(this)->commandPaths;
   if (static_cast<size_t>(commandIndex) >= paths.size()) {
     paths.resize(static_cast<size_t>(commandIndex) + 1, NULL);
   }
@@ -217,10 +224,10 @@ SoPath *
 SoIRRenderAction::getCommandPath(int commandIndex) const
 {
   if (commandIndex < 0 ||
-      static_cast<size_t>(commandIndex) >= PRIVATE(this)->commandPaths.size()) {
+      static_cast<size_t>(commandIndex) >= PRIVATE(this)->commandPaths->size()) {
     return NULL;
   }
-  return PRIVATE(this)->commandPaths[static_cast<size_t>(commandIndex)];
+  return (*PRIVATE(this)->commandPaths)[static_cast<size_t>(commandIndex)];
 }
 
 void
@@ -277,8 +284,8 @@ SoIRRenderAction::resetFrameResources()
 {
   PRIVATE(this)->geometryPool.clear();
   PRIVATE(this)->collectorStack.truncate(0);
-  for (SoPath * path : PRIVATE(this)->commandPaths) {
+  for (SoPath * path : *PRIVATE(this)->commandPaths) {
     if (path && SoDB::isInitialized()) path->unref();
   }
-  PRIVATE(this)->commandPaths.clear();
+  PRIVATE(this)->commandPaths->clear();
 }

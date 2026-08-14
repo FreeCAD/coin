@@ -4,11 +4,13 @@
 #define COIN_SOGLRENDERBACKEND_H
 
 #include "rendering/SoRenderBackend.h"
+#include "rendering/SoIDPickBuffer.h"
 
 #include <Inventor/system/gl.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -59,6 +61,9 @@ public:
   SbBool render(const SoDrawList & drawlist,
                 const SoRenderParams & params) override;
 
+  uint32_t pick(int x, int y, int pickRadius = 5) const;
+  SoIDPickBuffer * getPickBuffer() { return this->pickBuffer.get(); }
+
 private:
   bool createShaders();
   void beginFrame(const SoRenderParams & params);
@@ -72,6 +77,14 @@ private:
                              const SbMat & viewMat,
                              const SbMat & projMat,
                              const SoRenderParams & params);
+  void renderSelectionPass(const SoDrawList & drawlist,
+                           const SbMat & viewMat,
+                           const SbMat & projMat,
+                           const SoRenderParams & params);
+  void renderIDBufferPass(const SoDrawList & drawlist,
+                          const SbMat & viewMat,
+                          const SbMat & projMat,
+                          const SoRenderParams & params);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
                    const SbMat & viewMat,
@@ -196,6 +209,8 @@ private:
   GLint colorLoc = -1;
   GLint texcoordLoc = -1;
   GLint lineDistLoc = 4;
+
+  std::unique_ptr<SoIDPickBuffer> pickBuffer;
 
   std::vector<CachedGPUCommand> gpuCache;
   std::unordered_map<const SoRenderCommand *, size_t> commandToCache;

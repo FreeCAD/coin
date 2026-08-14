@@ -1,10 +1,9 @@
 #version 410 core
 
-in vec4 vIdColor;
-
+in vec4 gIdColor;
 out vec4 fragColor;
 
 void main()
 {
-  fragColor = vIdColor;
+  fragColor = gIdColor;
 }

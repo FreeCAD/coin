@@ -327,6 +327,12 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
                                                        "a_texcoord");
   this->normLoc = this->glue->glGetAttribLocation(this->shaderProgram,
                                                    "a_normal");
+
+  this->pickBuffer.reset(new SoIDPickBuffer);
+  if (!this->pickBuffer->initialize(this->glue)) {
+    this->emitLog("ID pick buffer initialization failed (picking disabled)");
+    this->pickBuffer.reset();
+  }
   this->setInitialized(TRUE);
   return TRUE;
 }
@@ -370,6 +376,7 @@ SoGLRenderBackend::shutdown()
 {
   if (!this->isInitialized()) return;
 
+  this->pickBuffer.reset();
   this->invalidateCache();
   if (this->shaderProgram) {
     cc_glglue_glDeleteProgram(this->glue, this->shaderProgram);
@@ -1392,6 +1399,153 @@ SoGLRenderBackend::renderTransparentPass(const SoDrawList & drawlist,
 }
 
 void
+SoGLRenderBackend::renderSelectionPass(const SoDrawList & drawlist,
+                                       const SbMat & viewMat,
+                                       const SbMat & projMat,
+                                       const SoRenderParams & params)
+{
+  bool hasOverlay = false;
+  for (int i = 0; i < drawlist.getNumCommands(); ++i) {
+    const SoSelectionData & selection = drawlist.getCommand(i).selection;
+    if (selection.selectWholeObject || selection.highlightWholeObject ||
+        !selection.selectedElements.empty() ||
+        !selection.highlightedElements.empty()) {
+      hasOverlay = true;
+      break;
+    }
+  }
+  if (!hasOverlay) return;
+
+  cc_glglue_glUseProgram(this->glue, this->shaderProgram);
+  glDisable(GL_CULL_FACE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glDepthMask(GL_FALSE);
+  glEnable(GL_BLEND);
+  cc_glglue_glBlendFuncSeparate(this->glue, GL_SRC_ALPHA,
+                                GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
+                                GL_ONE_MINUS_SRC_ALPHA);
+  this->glue->glUniform1f(this->uUseVertexColorLocation, 0.0f);
+  this->glue->glUniform1f(this->uTextureEnabledLocation, 0.0f);
+  this->glue->glUniform1i(this->uShadingModelLocation, 0);
+  this->glue->glUniform1i(this->uAlphaTestFunctionLocation, 0);
+
+  auto drawSelection = [&](const SoRenderCommand & command,
+                           const SbVec4f & color,
+                           bool whole,
+                           const std::vector<int> & elements) {
+    const auto found = this->commandToCache.find(&command);
+    if (found == this->commandToCache.end()) return;
+    const CachedGPUCommand & entry = this->gpuCache[found->second];
+    if (!entry.vao) return;
+
+    SbMat model;
+    command.modelMatrix.getValue(model);
+    this->glue->glUniformMatrix4fv(this->uViewLocation, 1, GL_FALSE,
+                                   &viewMat[0][0]);
+    this->glue->glUniformMatrix4fv(this->uProjLocation, 1, GL_FALSE,
+                                   &projMat[0][0]);
+    this->glue->glUniformMatrix4fv(this->uModelLocation, 1, GL_FALSE,
+                                   &model[0][0]);
+    this->glue->glUniform4f(this->uColorLocation,
+                            color[0], color[1], color[2], color[3]);
+    this->glue->glBindVertexArray(entry.vao);
+
+    auto drawRange = [&](const SoRenderElementRange & range) {
+      if (range.drawCount <= 0) return;
+      const GLenum primitive = topologyToGL(command.geometry.topology);
+      if (command.geometry.indexCount && command.geometry.indices) {
+        const uintptr_t offset = static_cast<uintptr_t>(range.drawStart) *
+                                 sizeof(uint32_t);
+        cc_glglue_glDrawElements(this->glue, primitive, range.drawCount,
+                                 GL_UNSIGNED_INT,
+                                 reinterpret_cast<const void *>(offset));
+      }
+      else {
+        cc_glglue_glDrawArrays(this->glue, primitive, range.drawStart,
+                               range.drawCount);
+      }
+    };
+
+    if (whole) {
+      if (command.geometry.indexCount && command.geometry.indices) {
+        cc_glglue_glDrawElements(this->glue,
+                                 topologyToGL(command.geometry.topology),
+                                 static_cast<GLsizei>(command.geometry.indexCount),
+                                 GL_UNSIGNED_INT, nullptr);
+      }
+      else {
+        cc_glglue_glDrawArrays(this->glue,
+                               topologyToGL(command.geometry.topology), 0,
+                               static_cast<GLsizei>(command.geometry.vertexCount));
+      }
+    }
+    else {
+      for (int element : elements) {
+        for (const SoRenderElementRange & range : command.pick.elementRanges) {
+          if (range.elementIndex == element) drawRange(range);
+        }
+      }
+    }
+    this->glue->glBindVertexArray(0);
+  };
+
+  for (int i = 0; i < drawlist.getNumCommands(); ++i) {
+    const SoRenderCommand & command = drawlist.getCommand(i);
+    const SoSelectionData & selection = command.selection;
+    if (selection.selectWholeObject || !selection.selectedElements.empty()) {
+      drawSelection(command, selection.selectionColor,
+                    selection.selectWholeObject, selection.selectedElements);
+    }
+    if (selection.highlightWholeObject || !selection.highlightedElements.empty()) {
+      drawSelection(command, selection.highlightColor,
+                    selection.highlightWholeObject, selection.highlightedElements);
+    }
+  }
+
+  glDisable(GL_BLEND);
+  glDepthMask(GL_TRUE);
+}
+
+void
+SoGLRenderBackend::renderIDBufferPass(const SoDrawList & drawlist,
+                                      const SbMat & viewMat,
+                                      const SbMat & projMat,
+                                      const SoRenderParams & params)
+{
+  if (!this->pickBuffer || (params.flags & SO_PARAM_INTERACTIVE) ||
+      (params.flags & SO_PARAM_SKIP_ID)) return;
+
+  SoDrawList & mutableDrawList = const_cast<SoDrawList &>(drawlist);
+  mutableDrawList.buildPickLUT();
+  const SbVec2s viewport = params.viewport.getViewportSizePixels();
+  if (viewport[0] <= 0 || viewport[1] <= 0) return;
+
+  const int idWidth = std::max(1, static_cast<int>(viewport[0]) / 2);
+  const int idHeight = std::max(1, static_cast<int>(viewport[1]) / 2);
+  this->pickBuffer->resize(idWidth, idHeight);
+  this->pickBuffer->setPickScale(
+    static_cast<float>(idWidth) / static_cast<float>(viewport[0]),
+    static_cast<float>(idHeight) / static_cast<float>(viewport[1]));
+  this->pickBuffer->buildIdColorVBOs(mutableDrawList, params.contextId);
+
+  std::vector<SoIDPassVBOInfo> vboInfo(
+    static_cast<size_t>(drawlist.getNumCommands()), SoIDPassVBOInfo{0, 0, 0});
+  for (int i = 0; i < drawlist.getNumCommands(); ++i) {
+    const SoRenderCommand & command = drawlist.getCommand(i);
+    const auto found = this->commandToCache.find(&command);
+    if (found == this->commandToCache.end()) continue;
+    const CachedGPUCommand & entry = this->gpuCache[found->second];
+    vboInfo[static_cast<size_t>(i)] = {
+      entry.posVBO, entry.idxVBO, entry.vertexStride
+    };
+  }
+
+  this->pickBuffer->render(&viewMat[0][0], &projMat[0][0], drawlist,
+                           vboInfo.data(), static_cast<int>(vboInfo.size()));
+}
+
+void
 SoGLRenderBackend::beginFrame(const SoRenderParams & params)
 {
   // Establish a deterministic baseline. These values are not interpretations
@@ -1559,6 +1713,14 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
 
   this->renderOpaquePass(drawlist, view, projection, params);
   this->renderTransparentPass(drawlist, view, projection, params);
+  this->renderSelectionPass(drawlist, view, projection, params);
+  this->renderIDBufferPass(drawlist, view, projection, params);
   cc_glglue_glUseProgram(this->glue, 0);
   return TRUE;
+}
+
+uint32_t
+SoGLRenderBackend::pick(const int x, const int y, const int pickRadius) const
+{
+  return this->pickBuffer ? this->pickBuffer->pick(x, y, pickRadius) : 0;
 }

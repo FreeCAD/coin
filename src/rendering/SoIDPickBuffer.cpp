@@ -22,10 +22,10 @@
 #include <cstring>
 #include <unordered_map>
 
-#include <data/shaders/backend/BackendIdPickFragment.h>
-#include <data/shaders/backend/BackendIdPickLineFragment.h>
-#include <data/shaders/backend/BackendIdPickLineGeometry.h>
-#include <data/shaders/backend/BackendIdPickVertex.h>
+#include <data/shaders/gl/picking/Fragment.h>
+#include <data/shaders/gl/picking/LineFragment.h>
+#include <data/shaders/gl/picking/LineGeometry.h>
+#include <data/shaders/gl/picking/Vertex.h>
 
 // -----------------------------------------------------------------------
 // Encode / Decode
@@ -195,9 +195,11 @@ SoIDPickBuffer::initialize(const cc_glglue * glue)
   }
   this->glue = glue;
 
-  GLuint vs = compileShader(this->glue, GL_VERTEX_SHADER, BACKENDIDPICKVERTEX_shadersource);
+  GLuint vs = compileShader(this->glue, GL_VERTEX_SHADER,
+                            coin_gl_picking_vertex_shadersource);
   if (!vs) return FALSE;
-  GLuint fs = compileShader(this->glue, GL_FRAGMENT_SHADER, BACKENDIDPICKFRAGMENT_shadersource);
+  GLuint fs = compileShader(this->glue, GL_FRAGMENT_SHADER,
+                            coin_gl_picking_fragment_shadersource);
   if (!fs) { cc_glglue_glDeleteShader(this->glue, vs); return FALSE; }
 
   shaderProgram = linkProgram(this->glue, vs, fs);
@@ -215,9 +217,12 @@ SoIDPickBuffer::initialize(const cc_glglue * glue)
 #ifndef GL_GEOMETRY_SHADER
 #define GL_GEOMETRY_SHADER 0x8DD9
 #endif
-  GLuint lvs2 = compileShader(this->glue, GL_VERTEX_SHADER, BACKENDIDPICKVERTEX_shadersource);
-  GLuint lgs2 = compileShader(this->glue, GL_GEOMETRY_SHADER, BACKENDIDPICKLINEGEOMETRY_shadersource);
-  GLuint lfs2 = compileShader(this->glue, GL_FRAGMENT_SHADER, BACKENDIDPICKLINEFRAGMENT_shadersource);
+  GLuint lvs2 = compileShader(this->glue, GL_VERTEX_SHADER,
+                              coin_gl_picking_vertex_shadersource);
+  GLuint lgs2 = compileShader(this->glue, GL_GEOMETRY_SHADER,
+                              coin_gl_picking_line_geometry_shadersource);
+  GLuint lfs2 = compileShader(this->glue, GL_FRAGMENT_SHADER,
+                              coin_gl_picking_line_fragment_shadersource);
   if (lvs2 && lgs2 && lfs2) {
     GLuint lprog = cc_glglue_glCreateProgram(this->glue);
     cc_glglue_glAttachShader(this->glue, lprog, lvs2);
@@ -312,7 +317,10 @@ SoIDPickBuffer::buildIdColorVBOs(const SoDrawList & drawlist, uint32_t /*context
     byCmd[lut[i].commandIndex].push_back({i + 1, &lut[i]});
   }
 
-  for (auto & [ci, entries] : byCmd) {
+  for (auto & commandEntries : byCmd) {
+    const int ci = commandEntries.first;
+    const std::vector<std::pair<uint32_t, const SoPickLUTEntry *> > & entries =
+      commandEntries.second;
     if (ci < 0 || ci >= numCmds) continue;
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
     int numVerts = static_cast<int>(cmd.geometry.vertexCount);
@@ -321,7 +329,9 @@ SoIDPickBuffer::buildIdColorVBOs(const SoDrawList & drawlist, uint32_t /*context
     // Allocate RGBA8 per-vertex color buffer
     std::vector<uint8_t> colors(static_cast<size_t>(numVerts) * 4, 0);
 
-    for (const auto & [lutId, le] : entries) {
+    for (const auto & entry : entries) {
+      const uint32_t lutId = entry.first;
+      const SoPickLUTEntry * le = entry.second;
       uint8_t rgba[4];
       // Encode element type in upper 2 bits: 0=face, 1=edge, 2=vertex
       uint8_t typeCode = 0;
@@ -486,7 +496,11 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
     if (ci >= static_cast<int>(idColorVBOs.size()) || idColorVBOs[ci] == 0) return;
     if (!cmd.geometry.positions || cmd.geometry.vertexCount == 0) return;
     // Skip textured commands (SoImage) — not pickable
-    if (cmd.material.flags & SO_MAT_HAS_TEXTURE) return;
+    const SoTextureData & texture = cmd.material.texture;
+    const bool textured = texture.pixels && texture.width > 0 &&
+      texture.height > 0 && texture.numComponents >= 1 &&
+      texture.numComponents <= 4;
+    if (textured || (cmd.material.flags & SO_MAT_HAS_TEXTURE)) return;
 
     SbMat modelMat;
     cmd.modelMatrix.getValue(modelMat);
@@ -576,7 +590,11 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
     if (cmd.geometry.topology != SO_TOPOLOGY_TRIANGLES &&
         cmd.geometry.topology != SO_TOPOLOGY_TRIANGLE_STRIP) continue;
-    if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;  // skip textured (SoImage)
+    const SoTextureData & texture = cmd.material.texture;
+    const bool textured = texture.pixels && texture.width > 0 &&
+      texture.height > 0 && texture.numComponents >= 1 &&
+      texture.numComponents <= 4;
+    if (textured || (cmd.material.flags & SO_MAT_HAS_TEXTURE)) continue;
     drawIdCmd(cmd, ci, GL_TRIANGLES);
   }
 
@@ -598,7 +616,11 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
     if (cmd.geometry.topology != SO_TOPOLOGY_LINES &&
         cmd.geometry.topology != SO_TOPOLOGY_LINE_STRIP) continue;
-    if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;
+    const SoTextureData & texture = cmd.material.texture;
+    const bool textured = texture.pixels && texture.width > 0 &&
+      texture.height > 0 && texture.numComponents >= 1 &&
+      texture.numComponents <= 4;
+    if (textured || (cmd.material.flags & SO_MAT_HAS_TEXTURE)) continue;
     if (useLineShader) {
       SbMat modelMat;
       cmd.modelMatrix.getValue(modelMat);
@@ -620,7 +642,11 @@ SoIDPickBuffer::renderIdPass(const float * viewMatrix, const float * projMatrix,
   for (int ci = 0; ci < numCmds; ci++) {
     const SoRenderCommand & cmd = drawlist.getCommand(ci);
     if (cmd.geometry.topology != SO_TOPOLOGY_POINTS) continue;
-    if (cmd.material.flags & SO_MAT_HAS_TEXTURE) continue;
+    const SoTextureData & texture = cmd.material.texture;
+    const bool textured = texture.pixels && texture.width > 0 &&
+      texture.height > 0 && texture.numComponents >= 1 &&
+      texture.numComponents <= 4;
+    if (textured || (cmd.material.flags & SO_MAT_HAS_TEXTURE)) continue;
     float ps = cmd.state.raster.pointSize;
     if (ps < 1.0f) ps = cmd.state.raster.lineWidth;
     glPointSize(std::max(ps, pickPointSize));

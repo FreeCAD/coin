@@ -43,8 +43,6 @@ runTest()
 
   SoGLRenderBackend backend;
   SoRenderBackendInitParams initparams = {};
-  initparams.targetInfo.size = SbVec2s(32, 32);
-  initparams.targetInfo.samples = 1;
   if (!backend.initialize(initparams)) {
     canvas.deactivateGLContext();
     return skip("core OpenGL draw-list backend could not initialize");
@@ -98,7 +96,6 @@ runTest()
   params.viewport.setViewportPixels(SbVec2s(0, 0), SbVec2s(32, 32));
   params.viewMatrix.makeIdentity();
   params.projMatrix.makeIdentity();
-  params.viewProjMatrix.makeIdentity();
   params.clearColor.setValue(0.0f, 0.0f, 0.0f, 1.0f);
   params.clearDepth = 1.0f;
   params.flags = SO_PARAM_CLEAR_WINDOW | SO_PARAM_CLEAR_DEPTH;
