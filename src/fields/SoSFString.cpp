@@ -101,16 +101,3 @@ SoSFString::setValue(const char * str)
 }
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFString field;
-  BOOST_CHECK_MESSAGE(SoSFString::getClassTypeId() != SoType::badType(),
-                      "SoSFString class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

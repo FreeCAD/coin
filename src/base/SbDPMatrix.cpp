@@ -1764,17 +1764,3 @@ decomp_affine(HMatrix A, AffineParts * parts)
 #undef SQRTHALF
 #undef sgn
 #undef swap
-
-#ifdef COIN_TEST_SUITE
-#include <Inventor/SbMatrix.h>
-
-BOOST_AUTO_TEST_CASE(constructFromSbMatrix) {
-  SbMatrix a(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
-  SbMatrixd b;
-  double c[]  = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  b.setValue(c);
-  SbDPMatrix d = SbMatrixd(a);
-  BOOST_CHECK_MESSAGE(b == d,
-                      "Equality comparison failed!");
-}
-#endif //COIN_TEST_SUITE

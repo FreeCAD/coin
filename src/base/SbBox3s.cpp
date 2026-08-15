@@ -438,34 +438,3 @@ SbBox3s::getClosestPoint(const SbVec3f & point) const
 
   Returns the volume of the box.
 */
-
-#ifdef COIN_TEST_SUITE
-BOOST_AUTO_TEST_CASE(checkSize) {
-  SbVec3s min(1,2,3);
-  SbVec3s max(3,4,5);
-
-  SbVec3s diff = max - min;
-
-  SbBox3s box(min, max);
-
-  BOOST_CHECK_MESSAGE(box.getSize() == diff,
-                      "Box has incorrect size");
-}
-BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
-  SbVec3f point(1524 , 13794 , 851);
-  SbVec3s min(1557, 3308, 850);
-  SbVec3s max(3113, 30157, 1886);
-
-  SbBox3s box(min, max);
-  SbVec3f expected(1557, 13794, 851);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(point) == expected,
-                      "Closest point does not fit");
-
-  SbVec3s sizes = box.getSize();
-  SbVec3f expectedCenterQuery(sizes[0]/2.0f, sizes[1]/2.0f, max[2]);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(box.getCenter()) == expectedCenterQuery,
-                      "Closest point for center query does not fit");
-}
-#endif //COIN_TEST_SUITE

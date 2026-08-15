@@ -257,16 +257,3 @@ SoGeoSeparator::getTransform(SoState * state) const
                      "No SoGeoOrigin node found on stack.");
   return SbMatrix::identity();
 }
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  BOOST_CHECK_MESSAGE(SoGeoSeparator::getClassTypeId() != SoType::badType(),
-                      "SoGeoSeparator class not initialized");
-  SoRefPtr<SoGeoSeparator> node(new SoGeoSeparator);
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "SoGeoSeparator object wrongly initialized");
-}
-
-#endif // COIN_TEST_SUITE

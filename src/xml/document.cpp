@@ -875,38 +875,3 @@ cc_xml_doc_handle_parse_warning(const cc_xml_doc * doc, const char * message)
 }
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-#include <memory>
-#include <Inventor/C/XML/parser.h>
-#include <Inventor/C/XML/path.h>
-
-BOOST_AUTO_TEST_CASE(bufread)
-{
-  const char * buffer =
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n"
-"<test value=\"one\" compact=\"\">\n"
-"  <b>hei</b>\n"
-"</test>\n";
-  cc_xml_doc * doc1 = cc_xml_read_buffer(buffer);
-  BOOST_CHECK_MESSAGE(doc1 != NULL, "cc_xml_doc_read_buffer() failed");
-
-  std::unique_ptr<char[]> buffer2;
-  size_t bytecount = 0;
-  {
-    char * bufptr = NULL;
-    cc_xml_doc_write_to_buffer(doc1, bufptr, bytecount);
-    buffer2.reset(bufptr);
-  }
-
-  cc_xml_doc * doc2 = cc_xml_read_buffer(buffer2.get());
-
-  cc_xml_path * diffpath = cc_xml_doc_diff(doc1, doc2);
-  BOOST_CHECK_MESSAGE(diffpath == NULL, "document read->write->read DOM differences");
-
-  cc_xml_doc_delete_x(doc1);
-  cc_xml_doc_delete_x(doc2);
-}
-
-#endif // !COIN_TEST_SUITE

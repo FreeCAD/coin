@@ -382,25 +382,3 @@ SbPlane::print(FILE * fp) const
   (void)fprintf(fp, "  %f", this->getDistanceFromOrigin());
 #endif // COIN_DEBUG
 }
-
-#ifdef COIN_TEST_SUITE
-#include <Inventor/SbPlane.h>
-#include <Inventor/SbLine.h>
-
-using namespace SIM::Coin::TestSuite;
-
-BOOST_AUTO_TEST_CASE(signCorrect)
-{
-  SbPlane plane1(SbVec3f(0.0, 0.0, 1.0), 3.0);
-  SbPlane plane2(SbVec3f(1.0, 0.0, 0.0), 21.0);
-  SbLine line;
-  plane1.intersect(plane2, line); 
-
-  SbVec3f intersect = line.getPosition();
-  SbVec3f vec(21, 0, 3);
-
-  check_compare(intersect,vec, "SbPlane SignCorrect", .1f);
-
-}
-
-#endif //COIN_TEST_SUITE

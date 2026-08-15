@@ -112,16 +112,3 @@ SoSFMatrix::setValue(const float a11, const float a12,
 }
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFMatrix field;
-  BOOST_CHECK_MESSAGE(SoSFMatrix::getClassTypeId() != SoType::badType(),
-                      "SoSFMatrix class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

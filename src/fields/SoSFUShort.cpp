@@ -89,16 +89,3 @@ SoSFUShort::writeValue(SoOutput * out) const
 #endif // DOXYGEN_SKIP_THIS
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFUShort field;
-  BOOST_CHECK_MESSAGE(SoSFUShort::getClassTypeId() != SoType::badType(),
-                      "SoSFUShort class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

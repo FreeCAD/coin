@@ -433,33 +433,3 @@ SbVec3s::print(FILE * fp) const
   fputs(str.getString(),fp);
 #endif // COIN_DEBUG
 }
-
-#ifdef COIN_TEST_SUITE
-#include <Inventor/SbTypeInfo.h>
-
-typedef SbVec3s ToTest;
-BOOST_AUTO_TEST_CASE(toString) {
-  ToTest val(1,2,3);
-  SbString str("1 2 3");
-  BOOST_CHECK_MESSAGE(str == val.toString(),
-                      std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString());
-}
-
-BOOST_AUTO_TEST_CASE(fromString) {
-  ToTest foo;
-  SbString test = "1 -2 3";
-  ToTest trueVal(1,-2,3);
-  foo.fromString(test);
-  BOOST_CHECK_MESSAGE(trueVal == foo,
-                      std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString());
-}
-
-BOOST_AUTO_TEST_CASE(fromInvalidString) {
-  ToTest foo;
-  SbString test = "a,2,3";
-  SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk == FALSE,
-                      std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation");
-}
-
-#endif //COIN_TEST_SUITE

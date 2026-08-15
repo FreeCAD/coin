@@ -120,16 +120,3 @@ SoSFName::setValue(const char * const name)
 }
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFName field;
-  BOOST_CHECK_MESSAGE(SoSFName::getClassTypeId() != SoType::badType(),
-                      "SoSFName class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

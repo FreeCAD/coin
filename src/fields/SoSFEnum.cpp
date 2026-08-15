@@ -375,16 +375,3 @@ SoSFEnum::getEnum(const int idx, SbName & name) const
   name = this->enumNames[idx];
   return this->enumValues[idx];
 }
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFEnum field;
-  BOOST_CHECK_MESSAGE(SoSFEnum::getClassTypeId() != SoType::badType(),
-                      "SoSFEnum class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

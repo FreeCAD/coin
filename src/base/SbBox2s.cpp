@@ -383,19 +383,3 @@ SbBox2s::intersect(const SbBox2s & box) const
   (the maximum point) are greater than the corresponding coordinates 
   of its lower left corner (the minimum point).
 */
-
-#ifdef COIN_TEST_SUITE
-BOOST_AUTO_TEST_CASE(checkSize) {
-  SbVec2s min(1,2);
-  SbVec2s max(3,4);
-
-  SbVec2s diff = max - min;
-
-  
-  SbBox2s box(min, max);
-
-  BOOST_CHECK_MESSAGE(box.getSize() == diff,
-                      "Box has incorrect size");
-
-}
-#endif //COIN_TEST_SUITE

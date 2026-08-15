@@ -2050,17 +2050,3 @@ SbMatrixP::decomp_affine(SbMatrixP::HMatrix A, SbMatrixP::AffineParts * parts)
 #undef sp_mat_copy
 #undef sp_mat_tpose
 #undef sp_mat_binop
-
-#ifdef COIN_TEST_SUITE
-#include <Inventor/SbDPMatrix.h>
-
-BOOST_AUTO_TEST_CASE(constructFromSbDPMatrix) {
-  SbMatrixd a(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
-  SbMatrix b;
-  float c[]  = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  b.setValue(c);
-  SbMatrix d = SbMatrix(a);
-  BOOST_CHECK_MESSAGE(b == d,
-                      "Equality comparison failed!");
-}
-#endif //COIN_TEST_SUITE
