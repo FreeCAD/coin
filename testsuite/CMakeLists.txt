@@ -270,11 +270,21 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
+
+add_executable(RetainedPickingIdentityTest RetainedPickingIdentityTest.cpp)
+target_link_libraries(RetainedPickingIdentityTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedPickingIdentityTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(RetainedMaterialLightingGLTest
 		RetainedMaterialLightingGLTest.cpp)
 	coin_add_gl_test(RetainedRasterGLTest RetainedRasterGLTest.cpp)
 	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
+	coin_add_gl_test(DrawListPickingTest DrawListPickingTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)
