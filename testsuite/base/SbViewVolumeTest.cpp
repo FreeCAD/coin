@@ -56,10 +56,8 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/SbViewVolume.h>
 #include <Inventor/SbBox3f.h>
 #include <cfloat>
-BOOST_AUTO_TEST_SUITE(SbViewVolume_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(intersect_ortho)
+TEST_CASE("SbViewVolume_TestSuite.intersect_ortho", "[SbViewVolume_TestSuite]")
 {
   SbViewVolume vv;
   vv.ortho(-0.5, 0.5, -0.5, 0.5, -1, 10);
@@ -74,7 +72,7 @@ BOOST_AUTO_TEST_CASE(intersect_ortho)
   COIN_TESTCASE_CHECK_FLOAT(isect.getMax()[2], 1.0f);
 }
 
-BOOST_AUTO_TEST_CASE(intersect_bbox_inside_vv)
+TEST_CASE("SbViewVolume_TestSuite.intersect_bbox_inside_vv", "[SbViewVolume_TestSuite]")
 {
   SbViewVolume vv;
   vv.ortho(-0.5, 0.5, -0.5, 0.5, -1, 10);
@@ -89,7 +87,7 @@ BOOST_AUTO_TEST_CASE(intersect_bbox_inside_vv)
   COIN_TESTCASE_CHECK_FLOAT(isect.getMax()[2], 0.25f);
 }
 
-BOOST_AUTO_TEST_CASE(intersect_vv_inside_bbox)
+TEST_CASE("SbViewVolume_TestSuite.intersect_vv_inside_bbox", "[SbViewVolume_TestSuite]")
 {
   SbViewVolume vv;
   vv.ortho(-0.5, 0.5, -0.5, 0.5, 0, 5);
@@ -104,7 +102,7 @@ BOOST_AUTO_TEST_CASE(intersect_vv_inside_bbox)
   COIN_TESTCASE_CHECK_FLOAT(isect.getMax()[2], 0.0f);
 }
 
-BOOST_AUTO_TEST_CASE(intersect_perspective)
+TEST_CASE("SbViewVolume_TestSuite.intersect_perspective", "[SbViewVolume_TestSuite]")
 {
   // FIXME: set up a better perspective vv which also tests left/right/top/bottom
   SbViewVolume vv;
@@ -121,6 +119,3 @@ BOOST_AUTO_TEST_CASE(intersect_perspective)
   COIN_TESTCASE_CHECK_FLOAT(isect.getMax()[1], 1.0f);
   COIN_TESTCASE_CHECK_FLOAT(isect.getMax()[2], 0.75f);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

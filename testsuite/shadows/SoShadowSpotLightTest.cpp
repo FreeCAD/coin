@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/annex/FXViz/nodes/SoShadowSpotLight.h>
 
-BOOST_AUTO_TEST_SUITE(SoShadowSpotLight_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoShadowSpotLight_initialized)
+TEST_CASE("SoShadowSpotLight_TestSuite.SoShadowSpotLight_initialized", "[SoShadowSpotLight_TestSuite]")
 {
   SoShadowSpotLight * node = new SoShadowSpotLight;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

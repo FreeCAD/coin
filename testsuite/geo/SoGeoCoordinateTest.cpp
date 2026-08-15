@@ -55,18 +55,10 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoGeoCoordinate.h>
 
-BOOST_AUTO_TEST_SUITE(SoGeoCoordinate_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoGeoCoordinate_initialized)
+TEST_CASE("SoGeoCoordinate_TestSuite.SoGeoCoordinate_initialized", "[SoGeoCoordinate_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoGeoCoordinate::getClassTypeId() != SoType::badType(),
-                      "SoGeoCoordinate class not initialized");
+  do { INFO("SoGeoCoordinate class not initialized"); CHECK((SoGeoCoordinate::getClassTypeId() != SoType::badType())); } while (false);
   SoRefPtr<SoGeoCoordinate> node(new SoGeoCoordinate);
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
-  BOOST_CHECK_EQUAL(node->point.getNum(), 1);
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
+  CHECK(((node->point.getNum()) == (1)));
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

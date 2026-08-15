@@ -62,8 +62,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <cfloat>
 #include <algorithm>
 #include <cmath>
-BOOST_AUTO_TEST_SUITE(SbDPPlane_TestSuite);
-
 
 using namespace SIM::Coin::TestSuite;
 
@@ -99,7 +97,7 @@ float slew(float Start, float End, int steps, int step) {
   return res;
 }
 
-BOOST_AUTO_TEST_CASE(signCorrect)
+TEST_CASE("SbDPPlane_TestSuite.signCorrect", "[SbDPPlane_TestSuite]")
 {
   SbDPPlane plane1(SbVec3d(0.0, 0.0, 1.0), 3.0);
   SbDPPlane plane2(SbVec3d(1.0, 0.0, 0.0), 21.0);
@@ -112,7 +110,7 @@ BOOST_AUTO_TEST_CASE(signCorrect)
   check_compare(intersect,vec, "SbDPPlane SignCorrect", .1f);
 }
 
-BOOST_AUTO_TEST_CASE(equalityToFloatPlane)
+TEST_CASE("SbDPPlane_TestSuite.equalityToFloatPlane", "[SbDPPlane_TestSuite]")
 {
   const float delX = 1;
   const float delY = .1f;
@@ -166,10 +164,8 @@ BOOST_AUTO_TEST_CASE(equalityToFloatPlane)
 
                 //A bit arbitrary, this holds
                 const float tol = .03f;
-                BOOST_CHECK_MESSAGE(
-                                    floatEquals(fp1.getDistance(fv2),(float)dp1.getDistance(dv2),tol)||
-                                    fabs(fp1.getDistance(fv2)-dp1.getDistance(dv2))/fabs(dp1.getDistanceFromOrigin())<tol,
-                                    "Distance from plane is significantly different");
+                do { INFO("Distance from plane is significantly different"); CHECK((floatEquals(fp1.getDistance(fv2),(float)dp1.getDistance(dv2),tol)||
+                                    fabs(fp1.getDistance(fv2)-dp1.getDistance(dv2))/fabs(dp1.getDistanceFromOrigin())<tol)); } while (false);
                 for (int y4=0;y4<YSteps;++y4) {
                   float Y4=slew(YMin,YMax,YSteps,y3);
                   SbPlane fp2(fv2,Y4);
@@ -182,7 +178,7 @@ BOOST_AUTO_TEST_CASE(equalityToFloatPlane)
                     failed = true;
                   }
                   if (!dp1.intersect(dp2, dLine)) {
-                    BOOST_CHECK_MESSAGE(failed,"Float intersection worked, but double intersection failed");
+                    do { INFO("Float intersection worked, but double intersection failed"); CHECK((failed)); } while (false);
                     failed = true;
                   }
                   if (failed)
@@ -203,6 +199,3 @@ BOOST_AUTO_TEST_CASE(equalityToFloatPlane)
   }
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

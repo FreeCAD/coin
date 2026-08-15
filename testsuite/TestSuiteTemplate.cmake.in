@@ -30,6 +30,17 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
+// Keep generated tests on the same feature configuration as the Coin target.
+// setup.h is private, so temporarily provide its internal-build guard.
+#ifndef COIN_INTERNAL
+#define COIN_INTERNAL
+#define COIN_TESTSUITE_UNDEF_COIN_INTERNAL
+#endif
+#include "setup.h"
+#ifdef COIN_TESTSUITE_UNDEF_COIN_INTERNAL
+#undef COIN_INTERNAL
+#undef COIN_TESTSUITE_UNDEF_COIN_INTERNAL
+#endif
 #include "CoinTest.h"
 #include <cassert>
 #include <cstdio>
@@ -41,6 +52,4 @@
 using namespace SIM::Coin3D::Coin;
 using namespace SIM::Coin3D::Coin::TestSuite;
 @COIN_STR_TEST_INCL@
-BOOST_AUTO_TEST_SUITE(@COIN_STR_TEST_CLASS@_TestSuite);
 @COIN_STR_TEST_CODE@
-BOOST_AUTO_TEST_SUITE_END();

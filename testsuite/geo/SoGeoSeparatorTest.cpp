@@ -55,17 +55,9 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoGeoSeparator.h>
 
-BOOST_AUTO_TEST_SUITE(SoGeoSeparator_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoGeoSeparator_initialized)
+TEST_CASE("SoGeoSeparator_TestSuite.SoGeoSeparator_initialized", "[SoGeoSeparator_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoGeoSeparator::getClassTypeId() != SoType::badType(),
-                      "SoGeoSeparator class not initialized");
+  do { INFO("SoGeoSeparator class not initialized"); CHECK((SoGeoSeparator::getClassTypeId() != SoType::badType())); } while (false);
   SoRefPtr<SoGeoSeparator> node(new SoGeoSeparator);
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "SoGeoSeparator object wrongly initialized");
+  do { INFO("SoGeoSeparator object wrongly initialized"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

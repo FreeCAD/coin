@@ -56,73 +56,62 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoShaderParameter.h>
 
-BOOST_AUTO_TEST_SUITE(SoShaderParameter_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoShaderParameter_initialized)
+TEST_CASE("SoShaderParameter_TestSuite.SoShaderParameter_initialized", "[SoShaderParameter_TestSuite]")
 {
   {
     SoShaderParameter1f * parameter1f = new SoShaderParameter1f;
     assert(parameter1f);
     parameter1f->ref();
-    BOOST_CHECK_MESSAGE(parameter1f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter1f->getTypeId() != SoType::badType())); } while (false);
     parameter1f->unref();
   }
   {
     SoShaderParameter1i * parameter1i = new SoShaderParameter1i;
     assert(parameter1i);
     parameter1i->ref();
-    BOOST_CHECK_MESSAGE(parameter1i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter1i->getTypeId() != SoType::badType())); } while (false);
     parameter1i->unref();
   }
   {
     SoShaderParameter2f * parameter2f = new SoShaderParameter2f;
     assert(parameter2f);
     parameter2f->ref();
-    BOOST_CHECK_MESSAGE(parameter2f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter2f->getTypeId() != SoType::badType())); } while (false);
     parameter2f->unref();
   }
   {
     SoShaderParameter2i * parameter2i = new SoShaderParameter2i;
     assert(parameter2i);
     parameter2i->ref();
-    BOOST_CHECK_MESSAGE(parameter2i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter2i->getTypeId() != SoType::badType())); } while (false);
     parameter2i->unref();
   }
   {
     SoShaderParameter3f * parameter3f = new SoShaderParameter3f;
     assert(parameter3f);
     parameter3f->ref();
-    BOOST_CHECK_MESSAGE(parameter3f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter3f->getTypeId() != SoType::badType())); } while (false);
     parameter3f->unref();
   }
   {
     SoShaderParameter3i * parameter3i = new SoShaderParameter3i;
     assert(parameter3i);
     parameter3i->ref();
-    BOOST_CHECK_MESSAGE(parameter3i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter3i->getTypeId() != SoType::badType())); } while (false);
     parameter3i->unref();
   }
   {
     SoShaderParameter4f * parameter4f = new SoShaderParameter4f;
     assert(parameter4f);
     parameter4f->ref();
-    BOOST_CHECK_MESSAGE(parameter4f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter4f->getTypeId() != SoType::badType())); } while (false);
     parameter4f->unref();
   }
   {
     SoShaderParameter4i * parameter4i = new SoShaderParameter4i;
     assert(parameter4i);
     parameter4i->ref();
-    BOOST_CHECK_MESSAGE(parameter4i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parameter4i->getTypeId() != SoType::badType())); } while (false);
     parameter4i->unref();
   }
 
@@ -130,64 +119,56 @@ BOOST_AUTO_TEST_CASE(SoShaderParameter_initialized)
     SoShaderParameterArray1f * parametera1f = new SoShaderParameterArray1f;
     assert(parametera1f);
     parametera1f->ref();
-    BOOST_CHECK_MESSAGE(parametera1f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera1f->getTypeId() != SoType::badType())); } while (false);
     parametera1f->unref();
   }
   {
     SoShaderParameterArray1i * parametera1i = new SoShaderParameterArray1i;
     assert(parametera1i);
     parametera1i->ref();
-    BOOST_CHECK_MESSAGE(parametera1i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera1i->getTypeId() != SoType::badType())); } while (false);
     parametera1i->unref();
   }
   {
     SoShaderParameterArray2f * parametera2f = new SoShaderParameterArray2f;
     assert(parametera2f);
     parametera2f->ref();
-    BOOST_CHECK_MESSAGE(parametera2f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera2f->getTypeId() != SoType::badType())); } while (false);
     parametera2f->unref();
   }
   {
     SoShaderParameterArray2i * parametera2i = new SoShaderParameterArray2i;
     assert(parametera2i);
     parametera2i->ref();
-    BOOST_CHECK_MESSAGE(parametera2i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera2i->getTypeId() != SoType::badType())); } while (false);
     parametera2i->unref();
   }
   {
     SoShaderParameterArray3f * parametera3f = new SoShaderParameterArray3f;
     assert(parametera3f);
     parametera3f->ref();
-    BOOST_CHECK_MESSAGE(parametera3f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera3f->getTypeId() != SoType::badType())); } while (false);
     parametera3f->unref();
   }
   {
     SoShaderParameterArray3i * parametera3i = new SoShaderParameterArray3i;
     assert(parametera3i);
     parametera3i->ref();
-    BOOST_CHECK_MESSAGE(parametera3i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera3i->getTypeId() != SoType::badType())); } while (false);
     parametera3i->unref();
   }
   {
     SoShaderParameterArray4f * parametera4f = new SoShaderParameterArray4f;
     assert(parametera4f);
     parametera4f->ref();
-    BOOST_CHECK_MESSAGE(parametera4f->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera4f->getTypeId() != SoType::badType())); } while (false);
     parametera4f->unref();
   }
   {
     SoShaderParameterArray4i * parametera4i = new SoShaderParameterArray4i;
     assert(parametera4i);
     parametera4i->ref();
-    BOOST_CHECK_MESSAGE(parametera4i->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((parametera4i->getTypeId() != SoType::badType())); } while (false);
     parametera4i->unref();
   }
 
@@ -195,16 +176,14 @@ BOOST_AUTO_TEST_CASE(SoShaderParameter_initialized)
     SoShaderParameterMatrix * matrix = new SoShaderParameterMatrix;
     assert(matrix);
     matrix->ref();
-    BOOST_CHECK_MESSAGE(matrix->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((matrix->getTypeId() != SoType::badType())); } while (false);
     matrix->unref();
   }
   {
     SoShaderParameterMatrixArray * matrixarray = new SoShaderParameterMatrixArray;
     assert(matrixarray);
     matrixarray->ref();
-    BOOST_CHECK_MESSAGE(matrixarray->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((matrixarray->getTypeId() != SoType::badType())); } while (false);
     matrixarray->unref();
   }
 
@@ -212,11 +191,7 @@ BOOST_AUTO_TEST_CASE(SoShaderParameter_initialized)
     SoShaderStateMatrixParameter * statematrix = new SoShaderStateMatrixParameter;
     assert(statematrix);
     statematrix->ref();
-    BOOST_CHECK_MESSAGE(statematrix->getTypeId() != SoType::badType(),
-                        "missing class initialization");
+    do { INFO("missing class initialization"); CHECK((statematrix->getTypeId() != SoType::badType())); } while (false);
     statematrix->unref();
   }
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

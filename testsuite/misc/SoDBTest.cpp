@@ -64,24 +64,21 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoRotationXYZ.h>
-BOOST_AUTO_TEST_SUITE(SoDB_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(globalRealTimeField)
+TEST_CASE("SoDB_TestSuite.globalRealTimeField", "[SoDB_TestSuite]")
 {
   //Need to do this here, since we do not have any manager that calls it for us.
   SoDB::getSensorManager()->processTimerQueue();
   SoSFTime * realtime = (SoSFTime *)SoDB::getGlobalField("realTime");
 
-  BOOST_REQUIRE(realtime != NULL);
-  BOOST_REQUIRE(realtime->getContainer() != NULL);
+  REQUIRE((realtime != NULL));
+  REQUIRE((realtime->getContainer() != NULL));
 
   // check that realtime field actually is initialized with something
   // close to actual time
   const double clockdiff =
     fabs(SbTime::getTimeOfDay().getValue() - realtime->getValue().getValue());
-  BOOST_CHECK_MESSAGE(clockdiff < 5.0,
-                      "realTime global field not close to actual time");
+  do { INFO("realTime global field not close to actual time"); CHECK((clockdiff < 5.0)); } while (false);
 }
 
 // Do-nothing error handler for ignoring read errors while testing.
@@ -91,25 +88,25 @@ readErrorHandler(const SoError * error, void * data)
 }
 
 #ifdef HAVE_VRML97
-BOOST_AUTO_TEST_CASE(readChildList)
+TEST_CASE("SoDB_TestSuite.readChildList", "[SoDB_TestSuite]")
 {
   static const char scene[] = "#VRML V2.0 utf8\n"
                               "DEF TestGroup Group { children [Group{}, Group{}, Group{}] }";
   SoInput in;
   in.setBuffer(scene, strlen(scene));
   SoSeparator * root = SoDB::readAll(&in);
-  BOOST_REQUIRE(root);
+  REQUIRE((root));
   root->ref();
   SoGroup * group = (SoGroup *) SoNode::getByName("TestGroup");
-  BOOST_REQUIRE_MESSAGE(group->getNumChildren() == 3, "Unexpected number of children");
+  do { INFO("Unexpected number of children"); REQUIRE((group->getNumChildren() == 3)); } while (false);
   for (int i = 0; i < group->getNumChildren(); i++) {
-    BOOST_REQUIRE_MESSAGE(group->getChild(i)->isOfType(SoGroup::getClassTypeId()), "Unexpected type");
+    do { INFO("Unexpected type"); REQUIRE((group->getChild(i)->isOfType(SoGroup::getClassTypeId()))); } while (false);
   }
   root->unref();
 }
 #endif
 
-BOOST_AUTO_TEST_CASE(readEmptyChildList)
+TEST_CASE("SoDB_TestSuite.readEmptyChildList", "[SoDB_TestSuite]")
 {
   // FIXME: We are forced to restore the global state before terminating,
   // or independent tests could fail. (sveinung 20071108)
@@ -123,14 +120,14 @@ BOOST_AUTO_TEST_CASE(readEmptyChildList)
   SoSeparator * root = SoDB::readAll(&in);
   if (root) {
     SoGroup * group = (SoGroup *) SoNode::getByName("TestGroup");
-    BOOST_CHECK_MESSAGE(group->getNumChildren() == 0, "Should have no children");
+    do { INFO("Should have no children"); CHECK((group->getNumChildren() == 0)); } while (false);
   }
-  BOOST_CHECK_MESSAGE(root == NULL, "Expected the import to fail");
+  do { INFO("Expected the import to fail"); CHECK((root == NULL)); } while (false);
 
   SoReadError::setHandlerCallback(prevErrorCB, NULL);
 }
 
-BOOST_AUTO_TEST_CASE(readNullChildList)
+TEST_CASE("SoDB_TestSuite.readNullChildList", "[SoDB_TestSuite]")
 {
   // FIXME: We are forced to restore the global state before terminating,
   // or independent tests could fail. (sveinung 20071108)
@@ -146,14 +143,14 @@ BOOST_AUTO_TEST_CASE(readNullChildList)
   if (root) {
     SoNode * object = (SoNode *) SoNode::getByName("TestObject");
     SoMFNode * field = (SoMFNode *) object->getField("testChildren");
-    BOOST_CHECK_MESSAGE(field->getNumNodes() == 0, "Should have no children");
+    do { INFO("Should have no children"); CHECK((field->getNumNodes() == 0)); } while (false);
   }
-  BOOST_CHECK_MESSAGE(root == NULL, "Expected the import to fail");
+  do { INFO("Expected the import to fail"); CHECK((root == NULL)); } while (false);
 
   SoReadError::setHandlerCallback(prevErrorCB, NULL);
 }
 
-BOOST_AUTO_TEST_CASE(readInvalidChildList)
+TEST_CASE("SoDB_TestSuite.readInvalidChildList", "[SoDB_TestSuite]")
 {
   // FIXME: We are forced to restore the global state before terminating,
   // or independent tests could fail. (sveinung 20071108)
@@ -165,12 +162,12 @@ BOOST_AUTO_TEST_CASE(readInvalidChildList)
   SoInput in;
   in.setBuffer(scene, strlen(scene));
   SoSeparator * root = SoDB::readAll(&in);
-  BOOST_CHECK_MESSAGE(root == NULL, "Expected the import to fail");
+  do { INFO("Expected the import to fail"); CHECK((root == NULL)); } while (false);
 
   SoReadError::setHandlerCallback(prevErrorCB, NULL);
 }
 
-BOOST_AUTO_TEST_CASE(testAlternateRepNull)
+TEST_CASE("SoDB_TestSuite.testAlternateRepNull", "[SoDB_TestSuite]")
 {
   // FIXME: We are forced to restore the global state before terminating,
   // or independent tests could fail. (sveinung 20071108)
@@ -182,14 +179,14 @@ BOOST_AUTO_TEST_CASE(testAlternateRepNull)
   SoInput in;
   in.setBuffer(scene, strlen(scene));
   SoSeparator * root = SoDB::readAll(&in);
-  BOOST_CHECK_MESSAGE(root, "Import should succeed");
+  do { INFO("Import should succeed"); CHECK((root)); } while (false);
   root->ref();
   root->unref();
 
   SoReadError::setHandlerCallback(prevErrorCB, NULL);
 }
 
-BOOST_AUTO_TEST_CASE(testInitCleanup)
+TEST_CASE("SoDB_TestSuite.testInitCleanup", "[SoDB_TestSuite]")
 {
   // init already called
   SoDB::finish();
@@ -218,7 +215,7 @@ BOOST_AUTO_TEST_CASE(testInitCleanup)
 //
 // -mortene
 
-BOOST_AUTO_TEST_CASE(globalfield_import)
+TEST_CASE("SoDB_TestSuite.globalfield_import", "[SoDB_TestSuite]")
 {
   char scene[] =
     "#Inventor V2.1 ascii\n\n"
@@ -238,8 +235,7 @@ BOOST_AUTO_TEST_CASE(globalfield_import)
   delete in;
 
   // just to see that we're correct with the syntax
-  BOOST_CHECK_MESSAGE(readok,
-                      "failed to read scene graph with realTime global field");
+  do { INFO("failed to read scene graph with realTime global field"); CHECK((readok)); } while (false);
   if (!readok) { return; }
 
   g->ref();
@@ -247,8 +243,7 @@ BOOST_AUTO_TEST_CASE(globalfield_import)
   SoSFTime * realtime = (SoSFTime *)SoDB::getGlobalField("realTime");
 
   // supposed to get new value from file
-  BOOST_CHECK_MESSAGE(realtime->getValue().getValue() == 0.0,
-                      "realTime global field value not updated from imported value");
+  do { INFO("realTime global field value not updated from imported value"); CHECK((realtime->getValue().getValue() == 0.0)); } while (false);
 
   SoRotationXYZ * r = (SoRotationXYZ *)
     SoBase::getNamedBase("rotnode", SoRotationXYZ::getClassTypeId());
@@ -256,15 +251,11 @@ BOOST_AUTO_TEST_CASE(globalfield_import)
 
   // check connection
   SoField * master;
-  BOOST_CHECK_MESSAGE((r->angle.getNumConnections() == 1) &&
+  do { INFO("connection to realTime global field not set up properly"); CHECK(((r->angle.getNumConnections() == 1) &&
                       r->angle.getConnectedField(master) &&
-                      (master == realtime),
-                      "connection to realTime global field not set up properly");
+                      (master == realtime))); } while (false);
 
   g->unref();
 }
 
 // *************************************************************************
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,9 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbBox2f.h>
 
-BOOST_AUTO_TEST_SUITE(SbBox2f_TestSuite);
-
-BOOST_AUTO_TEST_CASE(checkSize) {
+TEST_CASE("SbBox2f_TestSuite.checkSize", "[SbBox2f_TestSuite]") {
   SbVec2f min(1,2);
   SbVec2f max(3,4);
 
@@ -65,10 +63,9 @@ BOOST_AUTO_TEST_CASE(checkSize) {
 
   SbBox2f box(min, max);
 
-  BOOST_CHECK_MESSAGE(box.getSize() == diff,
-                      "Box has incorrect size");
+  do { INFO("Box has incorrect size"); CHECK((box.getSize() == diff)); } while (false);
 }
-BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
+TEST_CASE("SbBox2f_TestSuite.checkGetClosestPoint", "[SbBox2f_TestSuite]") {
   SbVec2f point(1524, 13794);
   SbVec2f min(1557, 3308);
   SbVec2f max(3113, 30157);
@@ -76,14 +73,10 @@ BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
   SbBox2f box(min, max);
   SbVec2f expected(1557, 13794);
 
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(point) == expected,
-                      "Closest point does not fit");
+  do { INFO("Closest point does not fit"); CHECK((box.getClosestPoint(point) == expected)); } while (false);
 
   SbVec2f sizes = box.getSize();
   SbVec2f expectedCenterQuery(max[0], sizes[1] / 2.0f);
 
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(box.getCenter()) == expectedCenterQuery,
-                      "Closest point for center query does not fit");
+  do { INFO("Closest point for center query does not fit"); CHECK((box.getClosestPoint(box.getCenter()) == expectedCenterQuery)); } while (false);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

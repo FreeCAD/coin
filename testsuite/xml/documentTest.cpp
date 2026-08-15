@@ -57,10 +57,8 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <memory>
 #include <Inventor/C/XML/parser.h>
 #include <Inventor/C/XML/path.h>
-BOOST_AUTO_TEST_SUITE(document_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(bufread)
+TEST_CASE("document_TestSuite.bufread", "[document_TestSuite]")
 {
   const char * buffer =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n"
@@ -68,7 +66,7 @@ BOOST_AUTO_TEST_CASE(bufread)
 "  <b>hei</b>\n"
 "</test>\n";
   cc_xml_doc * doc1 = cc_xml_read_buffer(buffer);
-  BOOST_CHECK_MESSAGE(doc1 != NULL, "cc_xml_doc_read_buffer() failed");
+  do { INFO("cc_xml_doc_read_buffer() failed"); CHECK((doc1 != NULL)); } while (false);
 
   std::unique_ptr<char[]> buffer2;
   size_t bytecount = 0;
@@ -81,11 +79,8 @@ BOOST_AUTO_TEST_CASE(bufread)
   cc_xml_doc * doc2 = cc_xml_read_buffer(buffer2.get());
 
   cc_xml_path * diffpath = cc_xml_doc_diff(doc1, doc2);
-  BOOST_CHECK_MESSAGE(diffpath == NULL, "document read->write->read DOM differences");
+  do { INFO("document read->write->read DOM differences"); CHECK((diffpath == NULL)); } while (false);
 
   cc_xml_doc_delete_x(doc1);
   cc_xml_doc_delete_x(doc2);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

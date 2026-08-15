@@ -56,12 +56,10 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <cassert>
 #include <Inventor/SbPlane.h>
 #include <Inventor/SbLine.h>
-BOOST_AUTO_TEST_SUITE(SbPlane_TestSuite);
-
 
 using namespace SIM::Coin::TestSuite;
 
-BOOST_AUTO_TEST_CASE(signCorrect)
+TEST_CASE("SbPlane_TestSuite.signCorrect", "[SbPlane_TestSuite]")
 {
   SbPlane plane1(SbVec3f(0.0, 0.0, 1.0), 3.0);
   SbPlane plane2(SbVec3f(1.0, 0.0, 0.0), 21.0);
@@ -74,6 +72,3 @@ BOOST_AUTO_TEST_CASE(signCorrect)
   check_compare(intersect,vec, "SbPlane SignCorrect", .1f);
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

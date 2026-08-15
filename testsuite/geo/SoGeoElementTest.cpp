@@ -55,14 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/elements/SoGeoElement.h>
 
-BOOST_AUTO_TEST_SUITE(SoGeoElement_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoGeoElement_initialized)
+TEST_CASE("SoGeoElement_TestSuite.SoGeoElement_initialized", "[SoGeoElement_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoGeoElement::getClassStackIndex() != -1,
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((SoGeoElement::getClassStackIndex() != -1)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

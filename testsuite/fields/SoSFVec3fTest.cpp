@@ -55,17 +55,9 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFVec3f.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFVec3f_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFVec3f_initialized)
+TEST_CASE("SoSFVec3f_TestSuite.SoSFVec3f_initialized", "[SoSFVec3f_TestSuite]")
 {
   SoSFVec3f field;
-  BOOST_CHECK_MESSAGE(SoSFVec3f::getClassTypeId() != SoType::badType(),
-                      "SoSFVec3f class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFVec3f class not initialized"); CHECK((SoSFVec3f::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

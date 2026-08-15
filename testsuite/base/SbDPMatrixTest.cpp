@@ -56,17 +56,12 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbDPMatrix.h>
 #include <Inventor/SbMatrix.h>
-BOOST_AUTO_TEST_SUITE(SbDPMatrix_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(constructFromSbMatrix) {
+TEST_CASE("SbDPMatrix_TestSuite.constructFromSbMatrix", "[SbDPMatrix_TestSuite]") {
   SbMatrix a(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
   SbMatrixd b;
   double c[]  = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
   b.setValue(c);
   SbDPMatrix d = SbMatrixd(a);
-  BOOST_CHECK_MESSAGE(b == d,
-                      "Equality comparison failed!");
+  do { INFO("Equality comparison failed!"); CHECK((b == d)); } while (false);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

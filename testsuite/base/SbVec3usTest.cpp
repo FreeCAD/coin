@@ -54,9 +54,3 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 
 #include <Inventor/SbVec3us.h>
-
-BOOST_AUTO_TEST_SUITE(SbVec3us_TestSuite);
-
-
-
-BOOST_AUTO_TEST_SUITE_END();

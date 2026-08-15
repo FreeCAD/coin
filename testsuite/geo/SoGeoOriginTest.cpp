@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoGeoOrigin.h>
 
-BOOST_AUTO_TEST_SUITE(SoGeoOrigin_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoGeoOrigin_initialized)
+TEST_CASE("SoGeoOrigin_TestSuite.SoGeoOrigin_initialized", "[SoGeoOrigin_TestSuite]")
 {
   SoGeoOrigin * node = new SoGeoOrigin;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

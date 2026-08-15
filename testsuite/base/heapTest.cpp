@@ -55,7 +55,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/C/base/heap.h>
 #include <sstream>
-BOOST_AUTO_TEST_SUITE(heap_TestSuite);
 
 class mock_up {
 public:
@@ -88,7 +87,7 @@ public:
   }
 };
 
-BOOST_AUTO_TEST_CASE(min_heap) {
+TEST_CASE("heap_TestSuite.min_heap", "[heap_TestSuite]") {
   mock_up::wrapped_value val[] = {3, 2, 1, 15, 5, 4, 45};
   cc_heap* heap = cc_heap_construct(256, reinterpret_cast<cc_heap_compare_cb*>(mock_up::min_heap_compare_cb), TRUE);
   for (int i = 0, n = sizeof(val) / sizeof(val[0]); i < n; ++i)
@@ -98,11 +97,10 @@ BOOST_AUTO_TEST_CASE(min_heap) {
   cc_heap_destruct(heap);
   heap = NULL;
   SbString str("1 3 2 15 5 4 45 ");
-  BOOST_CHECK_MESSAGE(str == result,
-    std::string("Mismatch between ") + result.getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") + result.getString() + " and control string " + str.getString()); CHECK((str == result)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(max_heap) {
+TEST_CASE("heap_TestSuite.max_heap", "[heap_TestSuite]") {
   mock_up::wrapped_value val[] = {3, 2, 1, 15, 5, 4, 45};
   cc_heap* heap = cc_heap_construct(256, reinterpret_cast<cc_heap_compare_cb*>(mock_up::max_heap_compare_cb), TRUE);
   for (int i = 0, n = sizeof(val) / sizeof(val[0]); i < n; ++i)
@@ -112,11 +110,10 @@ BOOST_AUTO_TEST_CASE(max_heap) {
   cc_heap_destruct(heap);
   heap = NULL;
   SbString str("45 5 15 2 3 1 4 ");
-  BOOST_CHECK_MESSAGE(str == result,
-    std::string("Mismatch between ") + result.getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") + result.getString() + " and control string " + str.getString()); CHECK((str == result)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(heap_add) {
+TEST_CASE("heap_TestSuite.heap_add", "[heap_TestSuite]") {
   mock_up::wrapped_value val[] = {3, 2, 1, 15, 5, 4, 45};
   cc_heap* heap = cc_heap_construct(256, reinterpret_cast<cc_heap_compare_cb*>(mock_up::min_heap_compare_cb), TRUE);
   for (int i = 0, n = sizeof(val) / sizeof(val[0]); i < n; ++i)
@@ -128,11 +125,10 @@ BOOST_AUTO_TEST_CASE(heap_add) {
   cc_heap_destruct(heap);
   heap = NULL;
   SbString str("1 3 2 12 5 4 45 15 ");
-  BOOST_CHECK_MESSAGE(str == result,
-    std::string("Mismatch between ") + result.getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") + result.getString() + " and control string " + str.getString()); CHECK((str == result)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(heap_remove) {
+TEST_CASE("heap_TestSuite.heap_remove", "[heap_TestSuite]") {
   mock_up::wrapped_value val[] = {3, 2, 1, 15, 5, 4, 45};
   cc_heap* heap = cc_heap_construct(256, reinterpret_cast<cc_heap_compare_cb*>(mock_up::min_heap_compare_cb), TRUE);
   for (int i = 0, n = sizeof(val) / sizeof(val[0]); i < n; ++i)
@@ -143,11 +139,10 @@ BOOST_AUTO_TEST_CASE(heap_remove) {
   cc_heap_destruct(heap);
   heap = NULL;
   SbString str("1 3 2 45 5 4 ");
-  BOOST_CHECK_MESSAGE(str == result,
-    std::string("Mismatch between ") + result.getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") + result.getString() + " and control string " + str.getString()); CHECK((str == result)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(heap_update) {
+TEST_CASE("heap_TestSuite.heap_update", "[heap_TestSuite]") {
   mock_up::wrapped_value val[] = {3, 2, 1, 15, 5, 4, 45};
   cc_heap* heap = cc_heap_construct(256, reinterpret_cast<cc_heap_compare_cb*>(mock_up::min_heap_compare_cb), TRUE);
   for (int i = 0, n = sizeof(val) / sizeof(val[0]); i < n; ++i)
@@ -159,8 +154,5 @@ BOOST_AUTO_TEST_CASE(heap_update) {
   cc_heap_destruct(heap);
   heap = NULL;
   SbString str("1 1 2 3 5 4 45 ");
-  BOOST_CHECK_MESSAGE(str == result,
-    std::string("Mismatch between ") + result.getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") + result.getString() + " and control string " + str.getString()); CHECK((str == result)); } while (false);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

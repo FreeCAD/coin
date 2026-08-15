@@ -55,17 +55,9 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFColor.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFColor_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFColor_initialized)
+TEST_CASE("SoSFColor_TestSuite.SoSFColor_initialized", "[SoSFColor_TestSuite]")
 {
   SoSFColor field;
-  BOOST_CHECK_MESSAGE(SoSFColor::getClassTypeId() != SoType::badType(),
-                      "SoSFColor class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFColor class not initialized"); CHECK((SoSFColor::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

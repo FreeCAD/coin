@@ -55,52 +55,44 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFBool.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFBool_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFBool_initialized)
+TEST_CASE("SoSFBool_TestSuite.SoSFBool_initialized", "[SoSFBool_TestSuite]")
 {
   SoSFBool field;
-  BOOST_CHECK_MESSAGE(SoSFBool::getClassTypeId() != SoType::badType(),
-                      "SoSFBool class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFBool class not initialized"); CHECK((SoSFBool::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoSFBool_TestSuite.textinput", "[SoSFBool_TestSuite]")
 {
   SbBool ok;
   SoSFBool field;
   ok = field.set("TRUE");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'TRUE'");
-  BOOST_CHECK_EQUAL(field.getValue(), TRUE);
+  do { INFO("did not accept 'TRUE'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (TRUE)));
   ok = field.set("FALSE");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'FALSE'");
-  BOOST_CHECK_EQUAL(field.getValue(), FALSE);
+  do { INFO("did not accept 'FALSE'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (FALSE)));
 
   TestSuite::ResetReadErrorCount();
   static const char * filters[] = { "Invalid value", NULL };
   TestSuite::PushMessageSuppressFilters(filters);
   ok = field.set("MAYBE"); // emits two error messages
-  BOOST_CHECK_MESSAGE(ok == FALSE, "did accept 'MAYBE'");
-  BOOST_CHECK_MESSAGE(TestSuite::GetReadErrorCount() == 1, "did not emit error");
+  do { INFO("did accept 'MAYBE'"); CHECK((ok == FALSE)); } while (false);
+  do { INFO("did not emit error"); CHECK((TestSuite::GetReadErrorCount() == 1)); } while (false);
   TestSuite::PopMessageSuppressFilters();
   TestSuite::ResetReadErrorCount();
 
   ok = field.set("0");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept '0'");
-  BOOST_CHECK_EQUAL(field.getValue(), FALSE);
+  do { INFO("did not accept '0'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (FALSE)));
   ok = field.set("1");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept '1'");
-  BOOST_CHECK_EQUAL(field.getValue(), TRUE);
+  do { INFO("did not accept '1'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (TRUE)));
 
   static const char * filters2[] = { "Illegal value", NULL };
   TestSuite::PushMessageSuppressFilters(filters2);
   ok = field.set("2");
-  BOOST_CHECK_MESSAGE(ok == FALSE, "did accept '2'");
+  do { INFO("did accept '2'"); CHECK((ok == FALSE)); } while (false);
   TestSuite::PopMessageSuppressFilters();
   TestSuite::ResetReadErrorCount();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -56,13 +56,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/C/base/rbptree.h>
 #include <cmath>
 #include <Inventor/lists/SbList.h>
-BOOST_AUTO_TEST_SUITE(rbptree_TestSuite);
-
 
 #define FILL_TIMES (50)
 #define FILL_COUNT (10000)
 
-BOOST_AUTO_TEST_CASE(rbptree_stress)
+TEST_CASE("rbptree_TestSuite.rbptree_stress", "[rbptree_TestSuite]")
 {
   srand(123);
   cc_rbptree tree;
@@ -76,14 +74,14 @@ BOOST_AUTO_TEST_CASE(rbptree_stress)
       cc_rbptree_insert(&tree, entry, NULL);
       values.append(entry);
     }
-    BOOST_ASSERT(cc_rbptree_size(&tree) == FILL_COUNT);
+    REQUIRE((cc_rbptree_size(&tree) == FILL_COUNT));
 
     if ((c & 1) == 0) {
       for (i = (FILL_COUNT - 1); i >= 0; --i) cc_rbptree_remove(&tree, values[i]);
     } else {
       for (i = 0; i < FILL_COUNT; ++i) cc_rbptree_remove(&tree, values[i]);
     }
-    BOOST_ASSERT(cc_rbptree_size(&tree) == 0);
+    REQUIRE((cc_rbptree_size(&tree) == 0));
   }
 
   for (int c = 0; c < FILL_TIMES; ++c) {
@@ -93,20 +91,17 @@ BOOST_AUTO_TEST_CASE(rbptree_stress)
       cc_rbptree_insert(&tree, entry, NULL);
       values.append(entry);
     }
-    BOOST_ASSERT(cc_rbptree_size(&tree) == FILL_COUNT);
+    REQUIRE((cc_rbptree_size(&tree) == FILL_COUNT));
 
     if ((c & 1) == 0) {
       for (i = (FILL_COUNT - 1); i >= 0; --i) cc_rbptree_remove(&tree, values[i]);
     } else {
       for (i = 0; i < FILL_COUNT; ++i) cc_rbptree_remove(&tree, values[i]);
     }
-    BOOST_ASSERT(cc_rbptree_size(&tree) == 0);
+    REQUIRE((cc_rbptree_size(&tree) == 0));
 
   }
 
 
   cc_rbptree_clean(&tree);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

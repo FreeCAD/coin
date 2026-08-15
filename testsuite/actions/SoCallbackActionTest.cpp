@@ -57,8 +57,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoCube.h>
-BOOST_AUTO_TEST_SUITE(SoCallbackAction_TestSuite);
-
 
 static SoCallbackAction::Response
 preCB(void * userdata, SoCallbackAction *, const SoNode * node)
@@ -68,7 +66,7 @@ preCB(void * userdata, SoCallbackAction *, const SoNode * node)
   return SoCallbackAction::CONTINUE;
 }
 
-BOOST_AUTO_TEST_CASE(callbackall)
+TEST_CASE("SoCallbackAction_TestSuite.callbackall", "[SoCallbackAction_TestSuite]")
 {
   SbString str;
   SoSwitch * sw = new SoSwitch;
@@ -81,15 +79,12 @@ BOOST_AUTO_TEST_CASE(callbackall)
   SoCallbackAction cba;
   cba.addPreCallback(SoNode::getClassTypeId(), preCB, &str);
   cba.apply(sw);
-  BOOST_CHECK_MESSAGE(str == "switch", "Should not traverse under switch node");
+  do { INFO("Should not traverse under switch node"); CHECK((str == "switch")); } while (false);
 
   str = "";
   cba.setCallbackAll(true);
   cba.apply(sw);
-  BOOST_CHECK_MESSAGE(str == "switchcube", "Should traverse under switch node");
+  do { INFO("Should traverse under switch node"); CHECK((str == "switchcube")); } while (false);
 
   sw->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

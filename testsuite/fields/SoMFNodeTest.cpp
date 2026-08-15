@@ -55,8 +55,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoMFNode.h>
 #include <Inventor/errors/SoReadError.h>
-BOOST_AUTO_TEST_SUITE(SoMFNode_TestSuite);
-
 
 // Do-nothing error handler for ignoring read errors while testing.
 static void
@@ -64,15 +62,14 @@ readErrorHandler(const SoError * error, void * data)
 {
 }
 
-BOOST_AUTO_TEST_CASE(SoMFNode_initialized)
+TEST_CASE("SoMFNode_TestSuite.SoMFNode_initialized", "[SoMFNode_TestSuite]")
 {
   SoMFNode field;
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-  BOOST_CHECK_EQUAL(field.getNum(), 0);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
+  CHECK(((field.getNum()) == (0)));
 }
 
-BOOST_AUTO_TEST_CASE(NULLreading)
+TEST_CASE("SoMFNode_TestSuite.NULLreading", "[SoMFNode_TestSuite]")
 {
   // FIXME: We are forced to restore the global state before terminating,
   // or independent tests could fail. (sveinung 20071108)
@@ -84,11 +81,7 @@ BOOST_AUTO_TEST_CASE(NULLreading)
   SoInput in;
   in.setBuffer(reinterpret_cast<const void *>(file), sizeof(file));
   SoMFNode field;
-  BOOST_CHECK_MESSAGE(field.read(&in, SbName("test")),
-                      "DEF/USE reading in SoMFNode is broken");
+  do { INFO("DEF/USE reading in SoMFNode is broken"); CHECK((field.read(&in, SbName("test")))); } while (false);
 
   SoReadError::setHandlerCallback(prevErrorCB, NULL);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

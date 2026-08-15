@@ -55,9 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbBox3f.h>
 
-BOOST_AUTO_TEST_SUITE(SbBox3f_TestSuite);
-
-BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
+TEST_CASE("SbBox3f_TestSuite.checkGetClosestPoint", "[SbBox3f_TestSuite]") {
   SbVec3f point(1524 , 13794 , 851);
   SbVec3f min(1557, 3308, 850);
   SbVec3f max(3113, 30157, 1886);
@@ -65,14 +63,10 @@ BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
   SbBox3f box(min, max);
   SbVec3f expected(1557, 13794, 851);
 
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(point) == expected,
-                      "Closest point does not fit");
+  do { INFO("Closest point does not fit"); CHECK((box.getClosestPoint(point) == expected)); } while (false);
 
   SbVec3f sizes = box.getSize();
   SbVec3f expectedCenterQuery(sizes[0]/2.0f, sizes[1]/2.0f, max[2]);
 
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(box.getCenter()) == expectedCenterQuery,
-                      "Closest point for center query does not fit");
+  do { INFO("Closest point for center query does not fit"); CHECK((box.getClosestPoint(box.getCenter()) == expectedCenterQuery)); } while (false);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

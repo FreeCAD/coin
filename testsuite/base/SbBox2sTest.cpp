@@ -55,9 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbBox2s.h>
 
-BOOST_AUTO_TEST_SUITE(SbBox2s_TestSuite);
-
-BOOST_AUTO_TEST_CASE(checkSize) {
+TEST_CASE("SbBox2s_TestSuite.checkSize", "[SbBox2s_TestSuite]") {
   SbVec2s min(1,2);
   SbVec2s max(3,4);
 
@@ -66,9 +64,6 @@ BOOST_AUTO_TEST_CASE(checkSize) {
 
   SbBox2s box(min, max);
 
-  BOOST_CHECK_MESSAGE(box.getSize() == diff,
-                      "Box has incorrect size");
+  do { INFO("Box has incorrect size"); CHECK((box.getSize() == diff)); } while (false);
 
 }
-
-BOOST_AUTO_TEST_SUITE_END();

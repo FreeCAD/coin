@@ -61,13 +61,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoText2.h>
 #include <Inventor/C/tidbits.h>
-BOOST_AUTO_TEST_SUITE(SoWriteAction_TestSuite);
-
 
 // check that the realTime GlobalField is written if it has any
 // forward connections.
 
-BOOST_AUTO_TEST_CASE(GlobalField)
+TEST_CASE("SoWriteAction_TestSuite.GlobalField", "[SoWriteAction_TestSuite]")
 {
   SoDB::init();
 
@@ -94,7 +92,7 @@ BOOST_AUTO_TEST_CASE(GlobalField)
   SoInput in;
   in.setBuffer(inlinescenegraph, strlen(inlinescenegraph));
   SoSeparator * top = SoDB::readAll(&in);
-  BOOST_REQUIRE(top);
+  REQUIRE((top));
   top->ref();
 
   // write scene
@@ -112,15 +110,15 @@ BOOST_AUTO_TEST_CASE(GlobalField)
   // read scene again to check if realTime field was written
   in.setBuffer(buffer, strlen(buffer));
   top = SoDB::readAll(&in);
-  BOOST_REQUIRE(top);
+  REQUIRE((top));
   top->ref();
 
   SoText2 * text = (SoText2 *)top->getChild(0);
-  BOOST_REQUIRE(text);
+  REQUIRE((text));
 
   SoField * string = text->getField("string");
-  BOOST_REQUIRE(string);
-  BOOST_CHECK_MESSAGE(string->isConnected(), "String field not connected to realTime field in written scene graph");
+  REQUIRE((string));
+  do { INFO("String field not connected to realTime field in written scene graph"); CHECK((string->isConnected())); } while (false);
 
   free(buffer);
 
@@ -130,6 +128,3 @@ BOOST_AUTO_TEST_CASE(GlobalField)
   realtime->setValue(realTimeStorage);
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,17 +55,9 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFPath.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFPath_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFPath_initialized)
+TEST_CASE("SoSFPath_TestSuite.SoSFPath_initialized", "[SoSFPath_TestSuite]")
 {
   SoSFPath field;
-  BOOST_CHECK_MESSAGE(SoSFPath::getClassTypeId() != SoType::badType(),
-                      "SoSFPath class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFPath class not initialized"); CHECK((SoSFPath::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,15 +55,13 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbString.h>
 #include <Inventor/SbString.h>
-BOOST_AUTO_TEST_SUITE(SbString_TestSuite);
-
 
 static void * createInstance(void)
 {
   return (void *)0x1234;
 }
 
-BOOST_AUTO_TEST_CASE(testAddition)
+TEST_CASE("SbString_TestSuite.testAddition", "[SbString_TestSuite]")
 {
   SbString str1("First");
   SbString str2("Second");
@@ -74,13 +72,7 @@ BOOST_AUTO_TEST_CASE(testAddition)
   SbString b = cstr1 + str2;
   SbString c = str1 + cstr2;
 
-  BOOST_CHECK_MESSAGE(a == SbString("FirstSecond"),
-                      "operator+ error");
-  BOOST_CHECK_MESSAGE(b == SbString("ErsteSecond"),
-                      "operator+ error");
-  BOOST_CHECK_MESSAGE(c == SbString("FirstZweite"),
-                      "operator+ error");
+  do { INFO("operator+ error"); CHECK((a == SbString("FirstSecond"))); } while (false);
+  do { INFO("operator+ error"); CHECK((b == SbString("ErsteSecond"))); } while (false);
+  do { INFO("operator+ error"); CHECK((c == SbString("FirstZweite"))); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

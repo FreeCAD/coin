@@ -62,12 +62,8 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/scxml/ScXMLElt.h>
 #include <Inventor/SbByteBuffer.h>
 #include <Inventor/SbString.h>
-BOOST_AUTO_TEST_SUITE(ScXMLMinimumEvaluator_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE_EXPECTED_FAILURES(MimimumExpressions,1);
-
-BOOST_AUTO_TEST_CASE(MimimumExpressions)
+TEST_CASE("ScXMLMinimumEvaluator_TestSuite.MimimumExpressions", "[ScXMLMinimumEvaluator_TestSuite]")
 {
   std::unique_ptr<ScXMLStateMachine> sm(new ScXMLStateMachine);
   std::unique_ptr<ScXMLEvaluator> evaluator(new ScXMLMinimumEvaluator);
@@ -94,6 +90,3 @@ BOOST_AUTO_TEST_CASE(MimimumExpressions)
   */
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

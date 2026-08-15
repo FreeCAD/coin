@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoVertexShader.h>
 
-BOOST_AUTO_TEST_SUITE(SoVertexShader_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoVertexShader_initialized)
+TEST_CASE("SoVertexShader_TestSuite.SoVertexShader_initialized", "[SoVertexShader_TestSuite]")
 {
   SoVertexShader * node = new SoVertexShader;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

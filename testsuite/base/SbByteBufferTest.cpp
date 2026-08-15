@@ -54,9 +54,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbByteBuffer.h>
 
-BOOST_AUTO_TEST_SUITE(SbByteBuffer_TestSuite);
-
-BOOST_AUTO_TEST_CASE(pushUnique)
+TEST_CASE("SbByteBuffer_TestSuite.pushUnique", "[SbByteBuffer_TestSuite]")
 {
 
   static const char A [] = "ABC";
@@ -80,31 +78,25 @@ BOOST_AUTO_TEST_CASE(pushUnique)
     if (b[i]!=B[i])
       allOk=false;
   }
-  BOOST_CHECK_MESSAGE(c.size()==sizeof(C)-1,"Concatenation does not have correct size");
+  do { INFO("Concatenation does not have correct size"); CHECK((c.size()==sizeof(C)-1)); } while (false);
   for (size_t i=0;i<sizeof(C)-1;++i) {
     if (c[i]!=C[i])
       allOk=false;
   }
 
-  BOOST_CHECK_MESSAGE(allOk,
-                      std::string("Concatenation of ") + A + " and " + B + " is not " + C
-                      );
+  do { INFO(std::string("Concatenation of ") + A + " and " + B + " is not " + C); CHECK((allOk)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(pushOnEmpty)
+TEST_CASE("SbByteBuffer_TestSuite.pushOnEmpty", "[SbByteBuffer_TestSuite]")
 {
   SbByteBuffer a;
   SbByteBuffer b("foo");
 
-  BOOST_CHECK_MESSAGE(a.empty(),
-                      std::string("Size of empty buffer is") + ::CoinTest::stringify(a.size())
-                      );
+  do { INFO(std::string("Size of empty buffer is") + ::CoinTest::stringify(a.size())); CHECK((a.empty())); } while (false);
 
   a.push(b);
 
-  BOOST_CHECK_MESSAGE(a.size() == b.size(),
-                      "Size of buffers differ"
-                      );
+  do { INFO("Size of buffers differ"); CHECK((a.size() == b.size())); } while (false);
 
   for (size_t i=0; i < b.size(); ++i) {
     if(a[i]!=b[i]) {
@@ -112,10 +104,6 @@ BOOST_AUTO_TEST_CASE(pushOnEmpty)
     }
   }
 
-  BOOST_CHECK_MESSAGE(a == b,
-                      "Byte representations differ"
-                      );
+  do { INFO("Byte representations differ"); CHECK((a == b)); } while (false);
 
 }
-
-BOOST_AUTO_TEST_SUITE_END();

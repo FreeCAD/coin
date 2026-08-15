@@ -59,8 +59,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/SoInput.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/fields/SoSFTime.h>
-BOOST_AUTO_TEST_SUITE(SoBaseP_TestSuite);
-
 
 // Tests whether or not our mechanisms with the realTime field works
 // correctly upon references to it in imported iv-files.
@@ -71,7 +69,7 @@ BOOST_AUTO_TEST_SUITE(SoBaseP_TestSuite);
 //
 // -mortene
 
-BOOST_AUTO_TEST_CASE(realTime_globalfield_import)
+TEST_CASE("SoBaseP_TestSuite.realTime_globalfield_import", "[SoBaseP_TestSuite]")
 {
   // SoDB::init() already called by test-suite init, and the realTime
   // global field will be set up there
@@ -100,8 +98,7 @@ BOOST_AUTO_TEST_CASE(realTime_globalfield_import)
 
   // check that the global field is still the same instance
   SoSFTime * realtimeafter = (SoSFTime *)SoDB::getGlobalField("realTime");
-  BOOST_CHECK_MESSAGE(realtime == realtimeafter,
-                      "internal realTime SoGlobalField value changed upon iv import");
+  do { INFO("internal realTime SoGlobalField value changed upon iv import"); CHECK((realtime == realtimeafter)); } while (false);
 
   // clean up
   g->ref();
@@ -111,6 +108,3 @@ BOOST_AUTO_TEST_CASE(realTime_globalfield_import)
   realtime->setValue(realTimeStorage);
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

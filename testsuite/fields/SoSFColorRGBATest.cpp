@@ -55,30 +55,22 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFColorRGBA.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFColorRGBA_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFColorRGBA_initialized)
+TEST_CASE("SoSFColorRGBA_TestSuite.SoSFColorRGBA_initialized", "[SoSFColorRGBA_TestSuite]")
 {
   SoSFColorRGBA field;
-  BOOST_CHECK_MESSAGE(SoSFColorRGBA::getClassTypeId() != SoType::badType(),
-                      "SoSFColorRGBA class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFColorRGBA class not initialized"); CHECK((SoSFColorRGBA::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoSFColorRGBA_TestSuite.textinput", "[SoSFColorRGBA_TestSuite]")
 {
   SbBool ok;
   SoSFColorRGBA field;
   ok = field.set("0.0 .5 0 1");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "could not set value");
-  BOOST_CHECK_EQUAL(field.getValue(), SbColorRGBA(0, .5, 0, 1));
+  do { INFO("could not set value"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (SbColorRGBA(0, .5, 0, 1))));
   ok = field.set("0 0.5 1");
-  BOOST_CHECK_MESSAGE(ok == FALSE, "accepted invalid (missing component) value");
+  do { INFO("accepted invalid (missing component) value"); CHECK((ok == FALSE)); } while (false);
   ok = field.set("1 2 3 4");
-  //BOOST_CHECK_MESSAGE(ok == FALSE, "accepted out-of-range value");
+  //do { INFO("accepted out-of-range value"); CHECK((ok == FALSE)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

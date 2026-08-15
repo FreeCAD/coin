@@ -57,8 +57,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/SbDict.h>
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/nodes/SoSeparator.h>
-BOOST_AUTO_TEST_SUITE(SoTransformerDragger_TestSuite);
-
 
 static
 SoCallbackAction::Response
@@ -76,10 +74,10 @@ ensure_unique_cb(uintptr_t entry, void * value, void * data)
 {
   SbDict * copydict = static_cast<SbDict *>(data);
   void * val = NULL;
-  BOOST_ASSERT(!copydict->find(entry, val));
+  REQUIRE((!copydict->find(entry, val)));
 }
 
-BOOST_AUTO_TEST_CASE(dragger_deep_copy)
+TEST_CASE("SoTransformerDragger_TestSuite.dragger_deep_copy", "[SoTransformerDragger_TestSuite]")
 {
   SbDict origdict, copydict;
 
@@ -119,7 +117,7 @@ BOOST_AUTO_TEST_CASE(dragger_deep_copy)
   copydict.makePList(keys, values);
   const int copydictsize = keys.getLength();
 
-  BOOST_ASSERT(origdictsize == copydictsize);
+  REQUIRE((origdictsize == copydictsize));
 
   // make sure pointer sets have an empty union
   origdict.applyToAll(ensure_unique_cb, &copydict);
@@ -127,6 +125,3 @@ BOOST_AUTO_TEST_CASE(dragger_deep_copy)
   root->unref();
   copy->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,42 +55,33 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SbTypeInfo.h>
-BOOST_AUTO_TEST_SUITE(SbVec3f_TestSuite);
-
 
 typedef SbVec3f ToTest;
-BOOST_AUTO_TEST_CASE(toString) {
+TEST_CASE("SbVec3f_TestSuite.toString", "[SbVec3f_TestSuite]") {
   ToTest val(1.0f/3,2,3);
   SbString str("0.33333334 2 3");
-  BOOST_CHECK_MESSAGE(str == val.toString(),
-                      std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString()); CHECK((str == val.toString())); } while (false);
 
 }
 
-BOOST_AUTO_TEST_CASE(fromString) {
+TEST_CASE("SbVec3f_TestSuite.fromString", "[SbVec3f_TestSuite]") {
   ToTest foo;
   SbString test = "0.333333343 -2 -3.0";
   ToTest trueVal(0.333333343f,-2,-3);
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk && trueVal == foo,
-                      std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString());
+  do { INFO(std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString()); CHECK((conversionOk && trueVal == foo)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(fromInvalidString1) {
+TEST_CASE("SbVec3f_TestSuite.fromInvalidString1", "[SbVec3f_TestSuite]") {
   ToTest foo;
   SbString test = "a 2 3";
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk == FALSE,
-                      std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation");
+  do { INFO(std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation"); CHECK((conversionOk == FALSE)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(fromInvalidString2) {
+TEST_CASE("SbVec3f_TestSuite.fromInvalidString2", "[SbVec3f_TestSuite]") {
   ToTest foo;
   SbString test = "1,2,3";
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk == FALSE,
-                      std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation");
+  do { INFO(std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation"); CHECK((conversionOk == FALSE)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,10 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbBSPTree.h>
 
-BOOST_AUTO_TEST_SUITE(SbBSPTree_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SbBSPTree_initialized)
+TEST_CASE("SbBSPTree_TestSuite.SbBSPTree_initialized", "[SbBSPTree_TestSuite]")
 {
   SbBSPTree bsp;
   SbVec3f p0(0.0f, 0.0f, 0.0f);
@@ -68,36 +65,33 @@ BOOST_AUTO_TEST_CASE(SbBSPTree_initialized)
   void * userdata1 = reinterpret_cast<void*> (&p1);
   void * userdata2 = reinterpret_cast<void*> (&p2);
 
-  BOOST_CHECK_MESSAGE(bsp.addPoint(p0, userdata0) == 0, "unexpected index");
-  BOOST_CHECK_MESSAGE(bsp.addPoint(p1, userdata1) == 1, "unexpected index");
-  BOOST_CHECK_MESSAGE(bsp.addPoint(p2, userdata2) == 2, "unexpected index");
-  BOOST_CHECK_MESSAGE(bsp.addPoint(p2, userdata2) == 2, "unexpected index");
-  BOOST_CHECK_MESSAGE(bsp.numPoints() == 3, "wrong number of points in the tree");
+  do { INFO("unexpected index"); CHECK((bsp.addPoint(p0, userdata0) == 0)); } while (false);
+  do { INFO("unexpected index"); CHECK((bsp.addPoint(p1, userdata1) == 1)); } while (false);
+  do { INFO("unexpected index"); CHECK((bsp.addPoint(p2, userdata2) == 2)); } while (false);
+  do { INFO("unexpected index"); CHECK((bsp.addPoint(p2, userdata2) == 2)); } while (false);
+  do { INFO("wrong number of points in the tree"); CHECK((bsp.numPoints() == 3)); } while (false);
 
-  BOOST_CHECK_MESSAGE(bsp.findPoint(p0) == 0, "wrong index");
-  BOOST_CHECK_MESSAGE(bsp.getUserData(0) == userdata0, "wrong userdata");
-  BOOST_CHECK_MESSAGE(bsp.findPoint(p1) == 1, "wrong index");
-  BOOST_CHECK_MESSAGE(bsp.getUserData(1) == userdata1, "wrong userdata");
-  BOOST_CHECK_MESSAGE(bsp.findPoint(p2) == 2, "wrong index");
-  BOOST_CHECK_MESSAGE(bsp.getUserData(2) == userdata2, "wrong userdata");
+  do { INFO("wrong index"); CHECK((bsp.findPoint(p0) == 0)); } while (false);
+  do { INFO("wrong userdata"); CHECK((bsp.getUserData(0) == userdata0)); } while (false);
+  do { INFO("wrong index"); CHECK((bsp.findPoint(p1) == 1)); } while (false);
+  do { INFO("wrong userdata"); CHECK((bsp.getUserData(1) == userdata1)); } while (false);
+  do { INFO("wrong index"); CHECK((bsp.findPoint(p2) == 2)); } while (false);
+  do { INFO("wrong userdata"); CHECK((bsp.getUserData(2) == userdata2)); } while (false);
 
-  BOOST_CHECK_MESSAGE(bsp.numPoints() == 3, "wrong number of points in the tree");
-  BOOST_CHECK_MESSAGE(bsp.getPointsArrayPtr()[0] == p0, "wrong point at index 0");
-  BOOST_CHECK_MESSAGE(bsp.getPointsArrayPtr()[1] == p1, "wrong point at index 1");
-  BOOST_CHECK_MESSAGE(bsp.getPointsArrayPtr()[2] == p2, "wrong point at index 2");
+  do { INFO("wrong number of points in the tree"); CHECK((bsp.numPoints() == 3)); } while (false);
+  do { INFO("wrong point at index 0"); CHECK((bsp.getPointsArrayPtr()[0] == p0)); } while (false);
+  do { INFO("wrong point at index 1"); CHECK((bsp.getPointsArrayPtr()[1] == p1)); } while (false);
+  do { INFO("wrong point at index 2"); CHECK((bsp.getPointsArrayPtr()[2] == p2)); } while (false);
 
-  BOOST_CHECK_MESSAGE(bsp.removePoint(p1) == 1, "unable to remove point");
-  BOOST_CHECK_MESSAGE(bsp.numPoints() == 2, "wrong number of points after removePoint().");
-  BOOST_CHECK_MESSAGE(bsp.getPointsArrayPtr()[0] == p0, "wrong point at index 0");
-  BOOST_CHECK_MESSAGE(bsp.getUserData(0) == userdata0, "wrong userdata");
-  BOOST_CHECK_MESSAGE(bsp.getPointsArrayPtr()[1] == p2, "wrong point at index 1");
-  BOOST_CHECK_MESSAGE(bsp.getUserData(1) == userdata2, "wrong userdata");
+  do { INFO("unable to remove point"); CHECK((bsp.removePoint(p1) == 1)); } while (false);
+  do { INFO("wrong number of points after removePoint()."); CHECK((bsp.numPoints() == 2)); } while (false);
+  do { INFO("wrong point at index 0"); CHECK((bsp.getPointsArrayPtr()[0] == p0)); } while (false);
+  do { INFO("wrong userdata"); CHECK((bsp.getUserData(0) == userdata0)); } while (false);
+  do { INFO("wrong point at index 1"); CHECK((bsp.getPointsArrayPtr()[1] == p2)); } while (false);
+  do { INFO("wrong userdata"); CHECK((bsp.getUserData(1) == userdata2)); } while (false);
 
-  BOOST_CHECK_MESSAGE(bsp.removePoint(p0) >= 0, "unable to remove point");
-  BOOST_CHECK_MESSAGE(bsp.removePoint(p2) >= 0, "unable to remove point");
-  BOOST_CHECK_MESSAGE(bsp.numPoints() == 0, "wrong number of points after removing all points.");
+  do { INFO("unable to remove point"); CHECK((bsp.removePoint(p0) >= 0)); } while (false);
+  do { INFO("unable to remove point"); CHECK((bsp.removePoint(p2) >= 0)); } while (false);
+  do { INFO("wrong number of points after removing all points."); CHECK((bsp.numPoints() == 0)); } while (false);
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

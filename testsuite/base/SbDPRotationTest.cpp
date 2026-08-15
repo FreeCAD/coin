@@ -55,11 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbDPRotation.h>
 #include <Inventor/SbVec3d.h>
-BOOST_AUTO_TEST_SUITE(SbDPRotation_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(tgsCompliance) {
+TEST_CASE("SbDPRotation_TestSuite.tgsCompliance", "[SbDPRotation_TestSuite]") {
   SbDPRotation v = SbRotationd(SbVec3d(0,1,2),3);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

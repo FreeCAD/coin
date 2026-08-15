@@ -55,29 +55,22 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoMFBool.h>
 
-BOOST_AUTO_TEST_SUITE(SoMFBool_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoMFBool_initialized)
+TEST_CASE("SoMFBool_TestSuite.SoMFBool_initialized", "[SoMFBool_TestSuite]")
 {
   SoMFBool field;
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-  BOOST_CHECK_EQUAL(field.getNum(), 0);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
+  CHECK(((field.getNum()) == (0)));
 }
 
-BOOST_AUTO_TEST_CASE(array_ops)
+TEST_CASE("SoMFBool_TestSuite.array_ops", "[SoMFBool_TestSuite]")
 {
   SoMFBool field;
   field.set1Value(0, TRUE);
   field.set1Value(1, FALSE);
   field.set1Value(2, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 3);
+  CHECK(((field.getNum()) == (3)));
   field.deleteValues(1,1);
-  BOOST_CHECK_EQUAL(field.getNum(), 2);
-  BOOST_CHECK_EQUAL(field[0], TRUE);
-  BOOST_CHECK_EQUAL(field[1], TRUE);
+  CHECK(((field.getNum()) == (2)));
+  CHECK(((field[0]) == (TRUE)));
+  CHECK(((field[1]) == (TRUE)));
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoAnnotation.h>
 
-BOOST_AUTO_TEST_SUITE(SoAnnotation_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoAnnotation_initialized)
+TEST_CASE("SoAnnotation_TestSuite.SoAnnotation_initialized", "[SoAnnotation_TestSuite]")
 {
   SoAnnotation * node = new SoAnnotation;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -14,17 +14,16 @@ macro(create_file_test input testfunc filter)
 	endif()
 	string(REGEX REPLACE "[\\./\\-]+" "" TESTSUITENAME "${input}")
 	set(COIN_STR_TEST_INCL "")
-	set(COIN_STR_TEST_CODE "const char *readError[] = { \"Coin read error:\", 0 };\n")
-	set(COIN_STR_TEST_CLASS "${TESTSUITENAME}")
+	set(COIN_STR_TEST_CODE "static const char *readError[] = { \"Coin read error:\", 0 };\n")
 	set(extra_macro_args ${ARGN})
 	list(LENGTH extra_macro_args num_extra_args)
 	foreach(INPUTFILE ${COIN_IV_FILES})
 		if(${num_extra_args} EQUAL 0 OR NOT ("${INPUTFILE}" MATCHES "${extra_macro_args}"))
 			string(REGEX REPLACE "[\\./\\-]+" "_" TESTNAME "${INPUTFILE}")
 			if (${filter})
-				set(COIN_STR_TEST_CODE "${COIN_STR_TEST_CODE}\nBOOST_AUTO_TEST_CASE(${TESTNAME}) { PushMessageSuppressFilters(readError); ResetReadErrorCount(); test_file(\"${PROJECT_SOURCE_DIR}/${INPUTFILE}\", &${testfunc}); PopMessageSuppressFilters(); }")
+				set(COIN_STR_TEST_CODE "${COIN_STR_TEST_CODE}\nTEST_CASE(\"${TESTSUITENAME}_TestSuite.${TESTNAME}\", \"[${TESTSUITENAME}_TestSuite]\") { PushMessageSuppressFilters(readError); ResetReadErrorCount(); test_file(\"${PROJECT_SOURCE_DIR}/${INPUTFILE}\", &${testfunc}); PopMessageSuppressFilters(); }")
 			else()
-				set(COIN_STR_TEST_CODE "${COIN_STR_TEST_CODE}\nBOOST_AUTO_TEST_CASE(${TESTNAME}) { ResetReadErrorCount(); test_file(\"${PROJECT_SOURCE_DIR}/${INPUTFILE}\", &${testfunc}); }")
+				set(COIN_STR_TEST_CODE "${COIN_STR_TEST_CODE}\nTEST_CASE(\"${TESTSUITENAME}_TestSuite.${TESTNAME}\", \"[${TESTSUITENAME}_TestSuite]\") { ResetReadErrorCount(); test_file(\"${PROJECT_SOURCE_DIR}/${INPUTFILE}\", &${testfunc}); }")
 			endif()
 		endif()
 	endforeach()
@@ -41,6 +40,8 @@ create_file_test("models" "testCorrectFile" false "incorrect")
 create_file_test("models/io/incorrect" "testIncorrectFile" true "(bug039|bug055-5)")
 
 # Include generated model tests and standalone component tests in the target.
+# Keep the generated list explicit so stale files in an existing build tree do
+# not get compiled after the source extractor has been removed.
 set(COIN_TEST_SOURCES
 	"${CMAKE_CURRENT_BINARY_DIR}/modelsTest.cpp"
 	"${CMAKE_CURRENT_BINARY_DIR}/modelsioincorrectTest.cpp"
@@ -60,12 +61,18 @@ target_include_directories(CoinTests PRIVATE
 	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_BINARY_DIR}/include
 	${PROJECT_BINARY_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 if (USE_PTHREAD)
 	target_link_libraries(CoinTests pthread)
 endif()
-add_test(NAME CoinTests COMMAND CoinTests)
+
+# Use Catch2's supported CTest integration. Discovery runs the compiled test
+# executable with --list-test-names-only after it is built.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/catch2")
+include(Catch)
+catch_discover_tests(CoinTests TEST_PREFIX "CoinTests.")
 
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)

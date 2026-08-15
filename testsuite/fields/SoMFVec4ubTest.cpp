@@ -55,39 +55,32 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoMFVec4ub.h>
 
-BOOST_AUTO_TEST_SUITE(SoMFVec4ub_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoMFVec4ub_initialized)
+TEST_CASE("SoMFVec4ub_TestSuite.SoMFVec4ub_initialized", "[SoMFVec4ub_TestSuite]")
 {
   SoMFVec4ub field;
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-  BOOST_CHECK_EQUAL(field.getNum(), 0);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
+  CHECK(((field.getNum()) == (0)));
 }
 
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoMFVec4ub_TestSuite.textinput", "[SoMFVec4ub_TestSuite]")
 {
   SbBool ok;
   SoMFVec4ub field;
   ok = field.set("[]");
-  BOOST_CHECK_EQUAL(ok, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 0);
+  CHECK(((ok) == (TRUE)));
+  CHECK(((field.getNum()) == (0)));
   ok = field.set("1 2 3 4");
-  BOOST_CHECK_EQUAL(ok, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 1);
+  CHECK(((ok) == (TRUE)));
+  CHECK(((field.getNum()) == (1)));
   ok = field.set("[1 2 3 4]");
-  BOOST_CHECK_EQUAL(ok, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 1);
+  CHECK(((ok) == (TRUE)));
+  CHECK(((field.getNum()) == (1)));
   ok = field.set("[1 2 3 4 1 2 3 4]");
-  BOOST_CHECK_EQUAL(ok, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 2);
-  BOOST_CHECK_EQUAL(field[0], field[1]);
+  CHECK(((ok) == (TRUE)));
+  CHECK(((field.getNum()) == (2)));
+  CHECK(((field[0]) == (field[1])));
   ok = field.set("[1 2 3 4, 1 2 3 4,]");
-  BOOST_CHECK_EQUAL(ok, TRUE);
-  BOOST_CHECK_EQUAL(field.getNum(), 2);
-  BOOST_CHECK_EQUAL(field[0], field[1]);
+  CHECK(((ok) == (TRUE)));
+  CHECK(((field.getNum()) == (2)));
+  CHECK(((field[0]) == (field[1])));
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

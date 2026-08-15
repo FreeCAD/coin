@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoFragmentShader.h>
 
-BOOST_AUTO_TEST_SUITE(SoFragmentShader_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoFragmentShader_initialized)
+TEST_CASE("SoFragmentShader_TestSuite.SoFragmentShader_initialized", "[SoFragmentShader_TestSuite]")
 {
   SoFragmentShader * node = new SoFragmentShader;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

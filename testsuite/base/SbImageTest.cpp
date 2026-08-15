@@ -55,10 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbImage.h>
 
-BOOST_AUTO_TEST_SUITE(SbImage_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(copyConstruct)
+TEST_CASE("SbImage_TestSuite.copyConstruct", "[SbImage_TestSuite]")
 {
   unsigned char buf [4];
 
@@ -75,7 +72,7 @@ BOOST_AUTO_TEST_CASE(copyConstruct)
 
 
   for (size_t i=0;i<sizeof(buf); ++i) {
-    BOOST_CHECK_MESSAGE(foo.getValue(tmp1,tmp2)[i]==bar.getValue(tmp1,tmp2)[i],"Input value error");
+    do { INFO("Input value error"); CHECK((foo.getValue(tmp1,tmp2)[i]==bar.getValue(tmp1,tmp2)[i])); } while (false);
   }
 
   for (size_t i=0;i<sizeof(buf); ++i) {
@@ -83,9 +80,7 @@ BOOST_AUTO_TEST_CASE(copyConstruct)
   }
 
   for (size_t i=0;i<sizeof(buf); ++i) {
-    BOOST_CHECK_MESSAGE(foo.getValue(tmp1,tmp2)[i]==sizeof(buf)-bar.getValue(tmp1,tmp2)[i],"Error after changing second buffer");
+    do { INFO("Error after changing second buffer"); CHECK((foo.getValue(tmp1,tmp2)[i]==sizeof(buf)-bar.getValue(tmp1,tmp2)[i])); } while (false);
   }
 
 }
-
-BOOST_AUTO_TEST_SUITE_END();

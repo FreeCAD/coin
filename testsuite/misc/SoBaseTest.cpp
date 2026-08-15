@@ -60,8 +60,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/actions/SoToVRML2Action.h>
 #include <Inventor/VRMLnodes/SoVRMLGroup.h>
-BOOST_AUTO_TEST_SUITE(SoBase_TestSuite);
-
 
 /*This test targets the implementation of SoWriterefCounter::getWriteName
   in the source file SoWriterefCounter.cpp. Test is put here because the
@@ -102,7 +100,7 @@ dont_mangle_output_names(const SoBase *base)
   }
 
 
-BOOST_AUTO_TEST_CASE(checkWriteWithMultiref)
+TEST_CASE("SoBase_TestSuite.checkWriteWithMultiref", "[SoBase_TestSuite]")
 {
 	SoDB::init();
 	   SoNode* scenegraph;
@@ -259,9 +257,9 @@ DEF root Separator {
 
 	   SbList<SbString> node_names(15);
 	   if(j==1)
-		BOOST_CHECK_MESSAGE(dont_mangle_output_names(scenegraph)==TRUE,"don't mangle should be TRUE");
+		do { INFO("don't mangle should be TRUE"); CHECK((dont_mangle_output_names(scenegraph)==TRUE)); } while (false);
 	   else
-		BOOST_CHECK_MESSAGE(dont_mangle_output_names(scenegraph)==FALSE,"don't mangle should be FALSE");
+		do { INFO("don't mangle should be FALSE"); CHECK((dont_mangle_output_names(scenegraph)==FALSE)); } while (false);
 
 	   if(dont_mangle_output_names(scenegraph)) {
 		   node_names.append("_+0");
@@ -313,7 +311,7 @@ DEF root Separator {
 	   }
 
 
-	   BOOST_CHECK_MESSAGE(!fail,"Check failed, written node names should match test template");
+	   do { INFO("Check failed, written node names should match test template"); CHECK((!fail)); } while (false);
 
 	   }
 
@@ -322,6 +320,3 @@ DEF root Separator {
 	   newroot->unref();
 #endif
  }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,25 +55,18 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbVec3d.h>
 
-BOOST_AUTO_TEST_SUITE(SbVec3d_TestSuite);
-
 typedef SbVec3d ToTest;
-BOOST_AUTO_TEST_CASE(toString) {
+TEST_CASE("SbVec3d_TestSuite.toString", "[SbVec3d_TestSuite]") {
   ToTest val(1.0/3,2,3);
   SbString str("0.3333333333333333 2 3");
-  BOOST_CHECK_MESSAGE(str == val.toString(),
-                      std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString()); CHECK((str == val.toString())); } while (false);
 
 }
 
-BOOST_AUTO_TEST_CASE(fromString) {
+TEST_CASE("SbVec3d_TestSuite.fromString", "[SbVec3d_TestSuite]") {
   ToTest foo;
   SbString test = "0.3333333333333333 -2 -3.0";
   ToTest trueVal(0.3333333333333333,-2,-3);
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk && trueVal == foo,
-                      std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString());
+  do { INFO(std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString()); CHECK((conversionOk && trueVal == foo)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

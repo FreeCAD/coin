@@ -55,33 +55,25 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbVec3s.h>
 #include <Inventor/SbTypeInfo.h>
-BOOST_AUTO_TEST_SUITE(SbVec3s_TestSuite);
-
 
 typedef SbVec3s ToTest;
-BOOST_AUTO_TEST_CASE(toString) {
+TEST_CASE("SbVec3s_TestSuite.toString", "[SbVec3s_TestSuite]") {
   ToTest val(1,2,3);
   SbString str("1 2 3");
-  BOOST_CHECK_MESSAGE(str == val.toString(),
-                      std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString()); CHECK((str == val.toString())); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(fromString) {
+TEST_CASE("SbVec3s_TestSuite.fromString", "[SbVec3s_TestSuite]") {
   ToTest foo;
   SbString test = "1 -2 3";
   ToTest trueVal(1,-2,3);
   foo.fromString(test);
-  BOOST_CHECK_MESSAGE(trueVal == foo,
-                      std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString());
+  do { INFO(std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString()); CHECK((trueVal == foo)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(fromInvalidString) {
+TEST_CASE("SbVec3s_TestSuite.fromInvalidString", "[SbVec3s_TestSuite]") {
   ToTest foo;
   SbString test = "a,2,3";
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk == FALSE,
-                      std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation");
+  do { INFO(std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation"); CHECK((conversionOk == FALSE)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

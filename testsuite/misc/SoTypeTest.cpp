@@ -57,27 +57,18 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/SoType.h>
 #include <Inventor/SbName.h>
 #include <Inventor/nodes/SoNode.h>
-BOOST_AUTO_TEST_SUITE(SoType_TestSuite);
-
 
 static void * createInstance(void)
 {
   return (void *)0x1234;
 }
 
-BOOST_AUTO_TEST_CASE(testRemoveType)
+TEST_CASE("SoType_TestSuite.testRemoveType", "[SoType_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoType::fromName(SbName("MyClass")) == SoType::badType(),
-                      "Type didn't init to badType");
+  do { INFO("Type didn't init to badType"); CHECK((SoType::fromName(SbName("MyClass")) == SoType::badType())); } while (false);
   SoType newtype = SoType::createType(SoNode::getClassTypeId(), SbName("MyClass"), createInstance, 0);
-  BOOST_CHECK_MESSAGE(SoType::fromName(SbName("MyClass")) != SoType::badType(),
-                      "Type didn't init correctly");
+  do { INFO("Type didn't init correctly"); CHECK((SoType::fromName(SbName("MyClass")) != SoType::badType())); } while (false);
   bool success = SoType::removeType(SbName("MyClass"));
-  BOOST_CHECK_MESSAGE(success,
-                      "removeType() failed");
-  BOOST_CHECK_MESSAGE(SoType::fromName(SbName("MyClass")) == SoType::badType(),
-                      "Type didn't deregister correctly");
+  do { INFO("removeType() failed"); CHECK((success)); } while (false);
+  do { INFO("Type didn't deregister correctly"); CHECK((SoType::fromName(SbName("MyClass")) == SoType::badType())); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

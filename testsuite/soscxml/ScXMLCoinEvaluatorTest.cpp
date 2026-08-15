@@ -57,8 +57,6 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <cmath>
 #include <cfloat>
 #include <Inventor/scxml/ScXMLStateMachine.h>
-BOOST_AUTO_TEST_SUITE(ScXMLCoinEvaluator_TestSuite);
-
 
 // FIXME: this is no longer possible in the MinimumEvaluator - move testcase to
 // the CoinEvaluator.
@@ -84,7 +82,7 @@ struct DataObjDemangler<ScXMLBoolDataObj> {
 };
 
 #define COIN_REQUIRE_MESSAGE( P , M) \
-  BOOST_REQUIRE_MESSAGE(P , M);      \
+  do { INFO(M); REQUIRE((P)); } while (false);      \
   if (!(P))                          \
     return false;
 
@@ -109,7 +107,7 @@ TestReturnValue(const std::string & evaluationString, typename DataObjDemangler<
 }
 
 
-BOOST_AUTO_TEST_CASE(BasicExpressions)
+TEST_CASE("ScXMLCoinEvaluator_TestSuite.BasicExpressions", "[ScXMLCoinEvaluator_TestSuite]")
 {
   std::unique_ptr<ScXMLStateMachine> sm(new ScXMLStateMachine);
   std::unique_ptr<ScXMLEvaluator> evaluator(new ScXMLCoinEvaluator);
@@ -130,6 +128,3 @@ BOOST_AUTO_TEST_CASE(BasicExpressions)
   TestReturnValue<ScXMLBoolDataObj>("M_PI == M_LN2",FALSE,evaluator.get());
   TestReturnValue<ScXMLBoolDataObj>("false && !false",FALSE,evaluator.get());
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

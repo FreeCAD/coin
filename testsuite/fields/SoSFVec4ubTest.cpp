@@ -55,32 +55,24 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFVec4ub.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFVec4ub_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFVec4ub_initialized)
+TEST_CASE("SoSFVec4ub_TestSuite.SoSFVec4ub_initialized", "[SoSFVec4ub_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoSFVec4ub::getClassTypeId() != SoType::badType(),
-                      "SoSFVec4ub class not initialized");
+  do { INFO("SoSFVec4ub class not initialized"); CHECK((SoSFVec4ub::getClassTypeId() != SoType::badType())); } while (false);
   SoSFVec4ub field;
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "SoSFVec4ub object wrongly initialized");
+  do { INFO("SoSFVec4ub object wrongly initialized"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
   // no default value initialization to test
   field.setValue(1, 2, 3, 4);
-  BOOST_CHECK_EQUAL(field.getValue(), SbVec4ub(1, 2, 3, 4));
+  CHECK(((field.getValue()) == (SbVec4ub(1, 2, 3, 4))));
 }
 
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoSFVec4ub_TestSuite.textinput", "[SoSFVec4ub_TestSuite]")
 {
   TestSuite::ResetReadErrorCount();
   SbBool ok;
   SoSFVec4ub field;
   ok = field.set("1 2 3 4");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "SoSFVec4ub read error");
-  BOOST_CHECK_EQUAL(field.getValue(), SbVec4ub(1, 2, 3, 4));
-  BOOST_CHECK_EQUAL(TestSuite::GetReadErrorCount(), 0);
+  do { INFO("SoSFVec4ub read error"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field.getValue()) == (SbVec4ub(1, 2, 3, 4))));
+  CHECK(((TestSuite::GetReadErrorCount()) == (0)));
   TestSuite::ResetReadErrorCount();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

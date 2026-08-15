@@ -60,11 +60,9 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/SbVec4f.h>
 #include <cassert>
 #include <cstdio>
-BOOST_AUTO_TEST_SUITE(SbRotation_TestSuite);
-
 
 typedef SbRotation ToTest;
-BOOST_AUTO_TEST_CASE(operatorBrackets)
+TEST_CASE("SbRotation_TestSuite.operatorBrackets", "[SbRotation_TestSuite]")
 {
   const int FLOAT_SENSITIVITY = 1;
   const float SQRT2 = sqrt(2.f)/2.f;
@@ -73,45 +71,36 @@ BOOST_AUTO_TEST_CASE(operatorBrackets)
   for (int i=0;i<4;++i) {
     int premultiply = ((i&0x1)*((i&0x2)-1));
     float testVal = premultiply*SQRT2;
-    BOOST_CHECK_MESSAGE(
-                        floatEquals(testVal,rot[i],FLOAT_SENSITIVITY),
-                        std::string("Wrong value when trying to access value #")
+    do { INFO(std::string("Wrong value when trying to access value #")
                         + ::CoinTest::stringify(i)
                         + ": "
                         + ::CoinTest::stringify(rot[i]) +
                         " == "
-                        + ::CoinTest::stringify(testVal)
-                        );
+                        + ::CoinTest::stringify(testVal)); CHECK((floatEquals(testVal,rot[i],FLOAT_SENSITIVITY))); } while (false);
   }
 }
 
-BOOST_AUTO_TEST_CASE(toString) {
+TEST_CASE("SbRotation_TestSuite.toString", "[SbRotation_TestSuite]") {
   ToTest val(SbVec3f(0, -1, 0),  1);
   SbString str("0 -1 0  1");
   SbVec4f expected(0.f, -1.f, 0.f, 1.f), actual;
   sscanf(val.toString().getString(), "%f %f %f  %f", &actual[0], &actual[1], &actual[2], &actual[3]);
-  BOOST_CHECK_MESSAGE(actual.equals(expected, 0.000001f),
-                      std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString());
+  do { INFO(std::string("Mismatch between ") +  val.toString().getString() + " and control string " + str.getString()); CHECK((actual.equals(expected, 0.000001f))); } while (false);
 
 }
 
-BOOST_AUTO_TEST_CASE(fromString) {
+TEST_CASE("SbRotation_TestSuite.fromString", "[SbRotation_TestSuite]") {
   ToTest foo;
   SbString test = "0 -1 0 1";
   ToTest trueVal(SbVec3f(0, -1, 0),  1);
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk && trueVal == foo,
-                      std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString());
+  do { INFO(std::string("Mismatch between ") +  foo.toString().getString() + " and control " + trueVal.toString().getString()); CHECK((conversionOk && trueVal == foo)); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(fromInvalidString) {
+TEST_CASE("SbRotation_TestSuite.fromInvalidString", "[SbRotation_TestSuite]") {
   ToTest foo;
   SbString test = "2.- 2 3 4";
   ToTest trueVal(1,2,3,4);
   SbBool conversionOk = foo.fromString(test);
-  BOOST_CHECK_MESSAGE(conversionOk == FALSE,
-                      std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation");
+  do { INFO(std::string("Able to convert from ") + test.getString() + " which is not a valid " + SbTypeInfo<ToTest>::getTypeName() + " representation"); CHECK((conversionOk == FALSE)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,21 +55,15 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFBitMask.h>
 #include <Inventor/SbName.h>
-BOOST_AUTO_TEST_SUITE(SoSFBitMask_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(SoSFBitMask_initialized)
+TEST_CASE("SoSFBitMask_TestSuite.SoSFBitMask_initialized", "[SoSFBitMask_TestSuite]")
 {
   SoSFBitMask field;
-  BOOST_CHECK_MESSAGE(SoSFBitMask::getClassTypeId() != SoType::badType(),
-                      "SoSFBitMask class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "SoSFBitMask class not initialized");
+  do { INFO("SoSFBitMask class not initialized"); CHECK((SoSFBitMask::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("SoSFBitMask class not initialized"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
 
-// BOOST_AUTO_TEST_CASE_EXPECTED_FAILURES(textinput, 1)
-
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoSFBitMask_TestSuite.textinput", "[SoSFBitMask_TestSuite]")
 {
   enum Values { VALUE1 = 0x01, VALUE2 = 0x02, VALUE3 = 0x04 };
   enum Other { OTHER1 = 0x01, OTHER2 = 0x02, OTHER3 = 0x04 };
@@ -92,48 +86,45 @@ BOOST_AUTO_TEST_CASE(textinput)
   static const char * filters[] = { "Unknown SoSFBitMask bit mask value", NULL };
   TestSuite::PushMessageSuppressFilters(filters);
   ok = field1.set("OTHER1"); // should output error
-  BOOST_CHECK_MESSAGE(ok == FALSE, "accepted 'OTHER1' erroneously");
+  do { INFO("accepted 'OTHER1' erroneously"); CHECK((ok == FALSE)); } while (false);
   TestSuite::PopMessageSuppressFilters();
-  BOOST_CHECK_EQUAL(TestSuite::GetReadErrorCount(), 1);
+  CHECK(((TestSuite::GetReadErrorCount()) == (1)));
   TestSuite::ResetReadErrorCount();
 
   ok = field1.set("VALUE2");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'VALUE2'");
+  do { INFO("did not accept 'VALUE2'"); CHECK((ok == TRUE)); } while (false);
   ok = field2.set("VALUE2");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'VALUE2'");
-  BOOST_CHECK_EQUAL(field1.getValue(), field2.getValue());
-  BOOST_CHECK_MESSAGE(field1.isSame(field2), "SoSFBitmask.isSame() problem");
+  do { INFO("did not accept 'VALUE2'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field1.getValue()) == (field2.getValue())));
+  do { INFO("SoSFBitmask.isSame() problem"); CHECK((field1.isSame(field2))); } while (false);
 
   ok = field1.set("VALUE2");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'VALUE2'");
+  do { INFO("did not accept 'VALUE2'"); CHECK((ok == TRUE)); } while (false);
   ok = field2.set("(VALUE1|VALUE3)");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept '(VALUE1|VALUE3)'");
-  BOOST_CHECK_EQUAL(field2.getValue(), VALUE1|VALUE3);
-  BOOST_CHECK_MESSAGE(!field2.isSame(field1), "SoSFBitmask.isSame() problem");
+  do { INFO("did not accept '(VALUE1|VALUE3)'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field2.getValue()) == (VALUE1|VALUE3)));
+  do { INFO("SoSFBitmask.isSame() problem"); CHECK((!field2.isSame(field1))); } while (false);
 
   // failing test, but unclear if it is required to work
   ok = field2.set("VALUE1|VALUE3"); // this ought to work too, right?
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'VALUE1|VALUE2'");
-  //BOOST_CHECK_EQUAL(field2.getValue(), VALUE1|VALUE3);
+  do { INFO("did not accept 'VALUE1|VALUE2'"); CHECK((ok == TRUE)); } while (false);
+  //CHECK(((field2.getValue()) == (VALUE1|VALUE3)));
 
   // FIXME: try to read the same from a file?
   // Solving this would go into the math-parsing problem?
 
   ok = field1.set("VALUE2");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'VALUE2'");
+  do { INFO("did not accept 'VALUE2'"); CHECK((ok == TRUE)); } while (false);
   ok = field3.set("OTHER2");
-  BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept 'OTHER2'");
-  BOOST_CHECK_EQUAL(field1.getValue(), field3.getValue());
-  BOOST_CHECK_MESSAGE(!field1.isSame(field3), "SoSFBitmask.isSame() false positive");
+  do { INFO("did not accept 'OTHER2'"); CHECK((ok == TRUE)); } while (false);
+  CHECK(((field1.getValue()) == (field3.getValue())));
+  do { INFO("SoSFBitmask.isSame() false positive"); CHECK((!field1.isSame(field3))); } while (false);
 
   // Numeric values don't work.
   //ok = field1.set("0");
-  //BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept '0'");
-  //BOOST_CHECK_MESSAGE(field1.getValue() == 0, "did not set value to 0");
+  //do { INFO("did not accept '0'"); CHECK((ok == TRUE)); } while (false);
+  //do { INFO("did not set value to 0"); CHECK((field1.getValue() == 0)); } while (false);
   //ok = field1.set("1");
-  //BOOST_CHECK_MESSAGE(ok == TRUE, "did not accept '1'");
-  //BOOST_CHECK_MESSAGE(field1.getValue() == 1, "did not set value to 1");
+  //do { INFO("did not accept '1'"); CHECK((ok == TRUE)); } while (false);
+  //do { INFO("did not set value to 1"); CHECK((field1.getValue() == 1)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

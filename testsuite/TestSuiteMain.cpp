@@ -30,12 +30,12 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-#include <iostream>
+#define CATCH_CONFIG_RUNNER
+#include <catch2/catch.hpp>
 
 #include <Inventor/SoDB.h>
 #include <Inventor/SoInteraction.h>
 #include "TestSuiteUtils.h"
-#include "CoinTest.h"
 
 using namespace SIM::Coin3D::Coin;
 
@@ -46,7 +46,8 @@ int main(int argc, char* argv[])
     SoInteraction::init();
     TestSuite::Init();
 
-    int rc = CoinTest::run_all(argc, argv);
+    Catch::Session session;
+    int rc = session.run(argc, argv);
 
     SoDB::finish();
 

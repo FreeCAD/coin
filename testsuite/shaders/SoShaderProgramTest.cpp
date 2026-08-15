@@ -55,18 +55,11 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/nodes/SoShaderProgram.h>
 
-BOOST_AUTO_TEST_SUITE(SoShaderProgram_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoShaderProgram_initialized)
+TEST_CASE("SoShaderProgram_TestSuite.SoShaderProgram_initialized", "[SoShaderProgram_TestSuite]")
 {
   SoShaderProgram * node = new SoShaderProgram;
   assert(node);
   node->ref();
-  BOOST_CHECK_MESSAGE(node->getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((node->getTypeId() != SoType::badType())); } while (false);
   node->unref();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

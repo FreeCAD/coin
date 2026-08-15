@@ -55,10 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/SbVec4f.h>
 
-BOOST_AUTO_TEST_SUITE(SbVec4f_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(noNormalizingNormalized)
+TEST_CASE("SbVec4f_TestSuite.noNormalizingNormalized", "[SbVec4f_TestSuite]")
 {
   const float SQRT2 = sqrt(2.f)/2.f;
   SbVec4f vec(0,-SQRT2,0,SQRT2);
@@ -67,20 +64,17 @@ BOOST_AUTO_TEST_CASE(noNormalizingNormalized)
   for (int i=0;i<4;++i) {
     int premultiply = ((i&0x1)*((i&0x2)-1));
     float testVal = premultiply*SQRT2;
-    BOOST_CHECK_MESSAGE(
-                        testVal==vec[i],
-                        std::string("Wrong value when trying to access value #")
+    do { INFO(std::string("Wrong value when trying to access value #")
                         + ::CoinTest::stringify(i)
                         + ": "
                         + ::CoinTest::stringify(vec[i]) +
                         " == "
-                        + ::CoinTest::stringify(testVal)
-                        );
+                        + ::CoinTest::stringify(testVal)); CHECK((testVal==vec[i])); } while (false);
   }
 
 }
 
-BOOST_AUTO_TEST_CASE(normalizingDeNormalized)
+TEST_CASE("SbVec4f_TestSuite.normalizingDeNormalized", "[SbVec4f_TestSuite]")
 {
   const int FLOAT_SENSITIVITY = 1;
   const float SQRT2 = sqrt(2.f)/2.f;
@@ -90,18 +84,12 @@ BOOST_AUTO_TEST_CASE(normalizingDeNormalized)
   for (int i=0;i<4;++i) {
     int premultiply = ((i&0x1)*((i&0x2)-1));
     float testVal = premultiply*SQRT2;
-    BOOST_CHECK_MESSAGE(
-                        floatEquals(testVal,vec[i],FLOAT_SENSITIVITY),
-                        std::string("Wrong value when trying to access value #")
+    do { INFO(std::string("Wrong value when trying to access value #")
                         + ::CoinTest::stringify(i)
                         + ": "
                         + ::CoinTest::stringify(vec[i]) +
                         " == "
-                        + ::CoinTest::stringify(testVal)
-                        );
+                        + ::CoinTest::stringify(testVal)); CHECK((floatEquals(testVal,vec[i],FLOAT_SENSITIVITY))); } while (false);
   }
 
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -55,14 +55,7 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/annex/FXViz/elements/SoGLShadowCullingElement.h>
 
-BOOST_AUTO_TEST_SUITE(SoGLShadowCullingElement_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoGLShadowCullingElement_initialized)
+TEST_CASE("SoGLShadowCullingElement_TestSuite.SoGLShadowCullingElement_initialized", "[SoGLShadowCullingElement_TestSuite]")
 {
-  BOOST_CHECK_MESSAGE(SoGLShadowCullingElement::getClassStackIndex() != -1,
-                      "missing class initialization");
+  do { INFO("missing class initialization"); CHECK((SoGLShadowCullingElement::getClassStackIndex() != -1)); } while (false);
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();

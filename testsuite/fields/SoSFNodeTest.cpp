@@ -56,20 +56,16 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 #include <Inventor/fields/SoSFNode.h>
 #include <cstring>
 #include <Inventor/nodes/SoNode.h>
-BOOST_AUTO_TEST_SUITE(SoSFNode_TestSuite);
 
-
-BOOST_AUTO_TEST_CASE(SoSFNode_initialized)
+TEST_CASE("SoSFNode_TestSuite.SoSFNode_initialized", "[SoSFNode_TestSuite]")
 {
   SoSFNode field;
-  BOOST_CHECK_MESSAGE(SoSFNode::getClassTypeId() != SoType::badType(),
-                      "SoSFNode class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFNode class not initialized"); CHECK((SoSFNode::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
 
 #ifdef HAVE_VRML97
-BOOST_AUTO_TEST_CASE(vrml97nullchild)
+TEST_CASE("SoSFNode_TestSuite.vrml97nullchild", "[SoSFNode_TestSuite]")
 {
   // NULL values for children must be allowed, or we break VRML97
   // support.  -mortene.
@@ -81,14 +77,10 @@ BOOST_AUTO_TEST_CASE(vrml97nullchild)
   const SbBool readok = SoDB::read(in, g);
   delete in;
 
-  BOOST_CHECK_MESSAGE(readok,
-                      "failed to read VRML97 with NULL child in graph");
+  do { INFO("failed to read VRML97 with NULL child in graph"); CHECK((readok)); } while (false);
   if (g) {
     g->ref();
     g->unref();
   }
 }
 #endif
-
-
-BOOST_AUTO_TEST_SUITE_END();

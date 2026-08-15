@@ -55,39 +55,31 @@ using namespace SIM::Coin3D::Coin::TestSuite;
 
 #include <Inventor/fields/SoSFVec4us.h>
 
-BOOST_AUTO_TEST_SUITE(SoSFVec4us_TestSuite);
-
-
-BOOST_AUTO_TEST_CASE(SoSFVec4us_initialized)
+TEST_CASE("SoSFVec4us_TestSuite.SoSFVec4us_initialized", "[SoSFVec4us_TestSuite]")
 {
   SoSFVec4us field;
-  BOOST_CHECK_MESSAGE(SoSFVec4us::getClassTypeId() != SoType::badType(),
-                      "SoSFVec4us class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
+  do { INFO("SoSFVec4us class not initialized"); CHECK((SoSFVec4us::getClassTypeId() != SoType::badType())); } while (false);
+  do { INFO("missing class initialization"); CHECK((field.getTypeId() != SoType::badType())); } while (false);
 }
 
-BOOST_AUTO_TEST_CASE(textinput)
+TEST_CASE("SoSFVec4us_TestSuite.textinput", "[SoSFVec4us_TestSuite]")
 {
   SoSFVec4us field;
   field.set("1 2 3 4");
-  BOOST_CHECK_EQUAL(field.getValue(), SbVec4us(1, 2, 3, 4));
+  CHECK(((field.getValue()) == (SbVec4us(1, 2, 3, 4))));
   const char * filters[] = { "read error", NULL }; // all read error messages
   TestSuite::ResetReadErrorCount();
   // TestSuite::PushMessageSuppressFilters(filters);
   SbBool ok;
   ok = field.set("-3 4 32 3"); // should emit error message on '-3'
-  BOOST_CHECK_EQUAL(ok, FALSE);
-  //BOOST_CHECK_EQUAL(TestSuite::GetReadErrorCount(), 1);
+  CHECK(((ok) == (FALSE)));
+  //CHECK(((TestSuite::GetReadErrorCount()) == (1)));
   ok = field.set("3 525 32 3"); // should emit error message on '525'
-  //BOOST_CHECK_EQUAL(ok, FALSE);
-  //BOOST_CHECK_EQUAL(TestSuite::GetReadErrorCount(), 2);
+  //CHECK(((ok) == (FALSE)));
+  //CHECK(((TestSuite::GetReadErrorCount()) == (2)));
   ok = field.set("3 32 3"); // error on account of too few numbers
-  BOOST_CHECK_EQUAL(ok, FALSE);
-  //BOOST_CHECK_EQUAL(TestSuite::GetReadErrorCount(), 3);
+  CHECK(((ok) == (FALSE)));
+  //CHECK(((TestSuite::GetReadErrorCount()) == (3)));
   // TestSuite::PopMessageSuppressFilters();
   TestSuite::ResetReadErrorCount();
 }
-
-
-BOOST_AUTO_TEST_SUITE_END();
