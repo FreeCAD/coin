@@ -99,6 +99,85 @@ if (USE_PTHREAD)
 	target_link_libraries(CoinTests pthread)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
+set_tests_properties(CoinTests PROPERTIES LABELS "unit")
+
+# Generic OpenGL tests use the existing GLFW test support.  EGL remains an
+# explicit implementation-contract suite below; it is not the provider for
+# ordinary GL semantics tests.
+set(COIN_BUILD_GL_TESTS "AUTO" CACHE STRING
+	"Build generic GLFW OpenGL integration tests (AUTO, ON, or OFF).")
+set_property(CACHE COIN_BUILD_GL_TESTS PROPERTY STRINGS AUTO ON OFF)
+string(TOUPPER "${COIN_BUILD_GL_TESTS}" COIN_BUILD_GL_TESTS)
+if(NOT COIN_BUILD_GL_TESTS STREQUAL "AUTO" AND
+	NOT COIN_BUILD_GL_TESTS STREQUAL "ON" AND
+	NOT COIN_BUILD_GL_TESTS STREQUAL "OFF")
+	message(FATAL_ERROR "COIN_BUILD_GL_TESTS must be AUTO, ON, or OFF")
+endif()
+
+set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
+set(_coin_glfw_target "")
+if(NOT COIN_BUILD_GL_TESTS STREQUAL "OFF")
+	include(CoinTestDependencies)
+	coin_resolve_test_glfw()
+	set(_coin_glfw_target "${COIN_TEST_GLFW_TARGET}")
+	if(_coin_glfw_target)
+		set(COIN_BUILD_GL_TESTS_EFFECTIVE ON)
+	elseif(COIN_BUILD_GL_TESTS STREQUAL "ON")
+		if(COIN_FETCH_TEST_DEPENDENCIES)
+			message(FATAL_ERROR
+				"COIN_BUILD_GL_TESTS=ON could not resolve GLFW after fetching the pinned dependency")
+		else()
+			message(FATAL_ERROR
+				"COIN_BUILD_GL_TESTS=ON requires GLFW 3.3 or newer; install it or enable COIN_FETCH_TEST_DEPENDENCIES=ON")
+		endif()
+	else()
+		message(STATUS
+			"GLFW not found; generic OpenGL tests are disabled (set COIN_FETCH_TEST_DEPENDENCIES=ON to fetch it)")
+	endif()
+endif()
+
+if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	add_library(CoinGLTestSupport STATIC
+		support/GLTestContext.cpp
+		support/GLTestFramebuffer.cpp)
+	target_include_directories(CoinGLTestSupport PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/support
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	target_link_libraries(CoinGLTestSupport PUBLIC
+		${_coin_glfw_target}
+		${COIN_TARGET_LINK_LIBRARIES})
+
+	function(coin_add_gl_test)
+		cmake_parse_arguments(ARG "" "NAME;PROFILE" "SOURCES;LABELS" ${ARGN})
+		if(NOT ARG_NAME OR NOT ARG_PROFILE OR NOT ARG_SOURCES)
+			message(FATAL_ERROR "coin_add_gl_test requires NAME, PROFILE, and SOURCES")
+		endif()
+		string(TOLOWER "${ARG_PROFILE}" profile)
+		if(NOT profile STREQUAL "core" AND NOT profile STREQUAL "compat")
+			message(FATAL_ERROR "GL test PROFILE must be core or compat")
+		endif()
+		add_executable(${ARG_NAME} ${ARG_SOURCES})
+		target_link_libraries(${ARG_NAME} CoinGLTestSupport Coin
+			${COIN_TARGET_LINK_LIBRARIES})
+		target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+		target_include_directories(${ARG_NAME} PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+		set(test_labels "gl-${profile}")
+		if(ARG_LABELS)
+			list(APPEND test_labels ${ARG_LABELS})
+		endif()
+		set_tests_properties(${ARG_NAME} PROPERTIES
+			SKIP_RETURN_CODE 77 LABELS "${test_labels}")
+	endfunction()
+endif()
 
 function(coin_add_egl_test)
 	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
@@ -111,61 +190,18 @@ function(coin_add_egl_test)
 		COIN_INTERNAL
 		COIN_TEST_SKIP_RETURN_CODE=${COIN_TEST_SKIP_RETURN_CODE})
 	target_include_directories(${ARG_NAME} PRIVATE
-		${PROJECT_SOURCE_DIR}/src)
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
 	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
 	set(test_labels "egl")
 	if(ARG_LABELS)
 		list(APPEND test_labels ${ARG_LABELS})
 	endif()
 	set_tests_properties(${ARG_NAME} PROPERTIES
-		SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
-		LABELS "${test_labels}")
+		SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE} LABELS "${test_labels}")
 endfunction()
-
-if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
-		LABELS requires-egl)
-endif()
-
-# GLFW owns the native window/context plumbing used by profile-neutral OpenGL
-# integration tests. Keep it optional for ordinary developer builds.
-find_package(glfw3 3.3 QUIET)
-set(_coin_glfw_target "")
-if(TARGET glfw)
-	set(_coin_glfw_target glfw)
-elseif(TARGET glfw3::glfw)
-	set(_coin_glfw_target glfw3::glfw)
-endif()
-
-set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
-if(_coin_glfw_target)
-	set(COIN_BUILD_GL_TESTS_EFFECTIVE ON)
-	add_library(CoinGLTestSupport STATIC
-		support/GLTestContext.cpp
-		support/GLTestFramebuffer.cpp)
-	target_include_directories(CoinGLTestSupport PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/support
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	target_link_libraries(CoinGLTestSupport PUBLIC
-		${_coin_glfw_target}
-		${COIN_TARGET_LINK_LIBRARIES})
-
-	function(coin_add_gl_test name)
-		add_executable(${name} ${ARGN})
-		target_link_libraries(${name} CoinGLTestSupport Coin
-			${COIN_TARGET_LINK_LIBRARIES})
-		target_compile_definitions(${name} PRIVATE COIN_INTERNAL)
-		target_include_directories(${name} PRIVATE
-			${PROJECT_SOURCE_DIR}/src
-			${PROJECT_SOURCE_DIR}/include
-			${PROJECT_BINARY_DIR}/include
-			${COIN_TARGET_INCLUDE_DIRECTORIES})
-		add_test(NAME ${name} COMMAND ${name})
-		set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77)
-	endfunction()
-endif()
 
 add_test(
 	NAME ShaderGeneratorTest
@@ -176,7 +212,7 @@ add_test(
 		-P "${CMAKE_CURRENT_SOURCE_DIR}/shader-generator-test.cmake"
 )
 
-add_executable(CoreTraversalTest CoreTraversalTest.cpp)
+	add_executable(CoreTraversalTest CoreTraversalTest.cpp)
 target_link_libraries(CoreTraversalTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(CoreTraversalTest PRIVATE
 	${PROJECT_SOURCE_DIR}/include
@@ -184,15 +220,6 @@ target_include_directories(CoreTraversalTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME CoreTraversalTest COMMAND CoreTraversalTest)
-
-add_executable(LegacyGLABITest LegacyGLABITest.cpp)
-target_link_libraries(LegacyGLABITest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_include_directories(LegacyGLABITest PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
 
 if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
 	add_executable(SceneManagerCoreTest SceneManagerCoreTest.cpp)
@@ -271,15 +298,6 @@ target_include_directories(RetainedRasterTextTest PRIVATE
 )
 add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
-add_executable(RetainedPickingIdentityTest RetainedPickingIdentityTest.cpp)
-target_link_libraries(RetainedPickingIdentityTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_include_directories(RetainedPickingIdentityTest PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
-
 add_executable(RetainedReplayContextTest RetainedReplayContextTest.cpp)
 target_link_libraries(RetainedReplayContextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_compile_definitions(RetainedReplayContextTest PRIVATE COIN_INTERNAL)
@@ -307,26 +325,93 @@ target_include_directories(RenderManagerPipelineTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME RenderManagerPipelineTest COMMAND RenderManagerPipelineTest)
+
+add_executable(LegacyGLABITest LegacyGLABITest.cpp)
+target_link_libraries(LegacyGLABITest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(LegacyGLABITest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
+
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
-	coin_add_gl_test(RetainedMaterialLightingGLTest
-		RetainedMaterialLightingGLTest.cpp)
-	coin_add_gl_test(RetainedRasterGLTest RetainedRasterGLTest.cpp)
-	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
-	coin_add_gl_test(DrawListPickingTest DrawListPickingTest.cpp)
-	coin_add_gl_test(DrawListManagerTest DrawListManagerTest.cpp)
-	coin_add_gl_test(RenderLayerLifecycleTest RenderLayerLifecycleTest.cpp)
-	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
-	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
-	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)
+	coin_add_gl_test(
+		NAME RetainedMaterialLightingGLTest
+		PROFILE core
+		SOURCES RetainedMaterialLightingGLTest.cpp)
+	coin_add_gl_test(
+		NAME RetainedRasterGLTest
+		PROFILE core
+		SOURCES RetainedRasterGLTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListGLTest
+		PROFILE core
+		SOURCES DrawListGLTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListPickingTest
+		PROFILE core
+		SOURCES DrawListPickingTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListManagerTest
+		PROFILE core
+		SOURCES DrawListManagerTest.cpp)
+	coin_add_gl_test(
+		NAME RenderLayerLifecycleTest
+		PROFILE core
+		SOURCES RenderLayerLifecycleTest.cpp)
+	coin_add_gl_test(
+		NAME GLSLRuntimeTest
+		PROFILE core
+		SOURCES GLSLRuntimeTest.cpp)
+	coin_add_gl_test(
+		NAME GLSLDiagnosticsTest
+		PROFILE core
+		SOURCES GLSLDiagnosticsTest.cpp)
+	coin_add_gl_test(
+		NAME OffscreenReadbackTest
+		PROFILE core
+		SOURCES OffscreenReadbackTest.cpp)
 	if(COIN_BUILD_LEGACY_GL_RENDERER)
-		coin_add_gl_test(SoText2RasterLayoutTest
-			SoText2RasterLayoutTest.cpp)
-		coin_add_gl_test(LegacyDirectRasterTransparencyTest
-			LegacyDirectRasterTransparencyTest.cpp)
-		coin_add_gl_test(LegacyShapeGatingOrderTest
-			LegacyShapeGatingOrderTest.cpp)
+		coin_add_gl_test(
+			NAME SoText2RasterLayoutTest
+			PROFILE compat
+			SOURCES SoText2RasterLayoutTest.cpp
+			LABELS legacygl)
+		coin_add_gl_test(
+			NAME LegacyDirectRasterTransparencyTest
+			PROFILE compat
+			SOURCES LegacyDirectRasterTransparencyTest.cpp
+			LABELS legacygl)
+		coin_add_gl_test(
+			NAME LegacyShapeGatingOrderTest
+			PROFILE compat
+			SOURCES LegacyShapeGatingOrderTest.cpp
+			LABELS legacygl)
 	endif()
 endif()
+
+if(HAVE_EGL)
+	coin_add_egl_test(
+		NAME EGLBindingTest
+		SOURCES EGLBindingTest.cpp
+		LABELS egl requires-egl)
+	coin_add_egl_test(
+		NAME OffscreenContextTest
+		SOURCES OffscreenContextTest.cpp
+		LABELS offscreen requires-egl)
+endif()
+
+# Keep the ordinary non-GL tests in the unit capability without maintaining a
+# second test-name manifest. Tests with an explicit rendering/EGL label keep
+# their more specific capability classification.
+get_property(COIN_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
+foreach(COIN_REGISTERED_TEST IN LISTS COIN_REGISTERED_TESTS)
+	get_property(COIN_HAS_LABELS TEST "${COIN_REGISTERED_TEST}" PROPERTY LABELS SET)
+	if(NOT COIN_HAS_LABELS)
+		set_tests_properties(${COIN_REGISTERED_TEST} PROPERTIES LABELS "unit")
+	endif()
+endforeach()
 
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
