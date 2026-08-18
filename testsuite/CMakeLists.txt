@@ -294,18 +294,6 @@ if(HAVE_EGL)
 	)
 	add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
 
-	add_executable(DrawListManagerTest DrawListManagerTest.cpp)
-	target_link_libraries(DrawListManagerTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListManagerTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListManagerTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME DrawListManagerTest COMMAND DrawListManagerTest)
-	set_tests_properties(DrawListManagerTest PROPERTIES SKIP_RETURN_CODE 77)
-
 	add_executable(EGLBindingTest EGLBindingTest.cpp)
 	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 	target_compile_definitions(EGLBindingTest PRIVATE COIN_INTERNAL)
@@ -376,6 +364,24 @@ if(COIN_TEST_GLFW_TARGET)
 		${COIN_TARGET_INCLUDE_DIRECTORIES})
 	add_test(NAME DrawListPickingTest COMMAND DrawListPickingTest)
 	set_tests_properties(DrawListPickingTest PROPERTIES
+		SKIP_RETURN_CODE 77 LABELS "gl-core")
+
+	add_executable(DrawListManagerTest
+		DrawListManagerTest.cpp
+		support/GLTestContext.cpp
+		support/GLTestFramebuffer.cpp)
+	target_link_libraries(DrawListManagerTest Coin
+		${COIN_TEST_GLFW_TARGET}
+		${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(DrawListManagerTest PRIVATE COIN_INTERNAL)
+	target_include_directories(DrawListManagerTest PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/support
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	add_test(NAME DrawListManagerTest COMMAND DrawListManagerTest)
+	set_tests_properties(DrawListManagerTest PROPERTIES
 		SKIP_RETURN_CODE 77 LABELS "gl-core")
 endif()
 
