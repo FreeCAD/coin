@@ -276,18 +276,6 @@ if(HAVE_EGL)
 	add_test(NAME DrawListGLTest COMMAND DrawListGLTest)
 	set_tests_properties(DrawListGLTest PROPERTIES SKIP_RETURN_CODE 77)
 
-	add_executable(DrawListPickingTest DrawListPickingTest.cpp)
-	target_link_libraries(DrawListPickingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListPickingTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListPickingTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME DrawListPickingTest COMMAND DrawListPickingTest)
-	set_tests_properties(DrawListPickingTest PROPERTIES SKIP_RETURN_CODE 77)
-
 	add_executable(RetainedPickingIdentityTest RetainedPickingIdentityTest.cpp)
 	target_link_libraries(RetainedPickingIdentityTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 	target_include_directories(RetainedPickingIdentityTest PRIVATE
@@ -344,6 +332,30 @@ if(HAVE_EGL)
 	)
 	add_test(NAME OffscreenReadbackTest COMMAND OffscreenReadbackTest)
 	set_tests_properties(OffscreenReadbackTest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# Retained picking validates generic core OpenGL behavior. Resolve GLFW as a
+# test-only dependency instead of coupling this coverage to Coin's EGL path.
+include(CoinTestDependencies)
+coin_resolve_test_glfw()
+if(COIN_TEST_GLFW_TARGET)
+	add_executable(DrawListPickingTest
+		DrawListPickingTest.cpp
+		support/GLTestContext.cpp
+		support/GLTestFramebuffer.cpp)
+	target_link_libraries(DrawListPickingTest Coin
+		${COIN_TEST_GLFW_TARGET}
+		${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(DrawListPickingTest PRIVATE COIN_INTERNAL)
+	target_include_directories(DrawListPickingTest PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/support
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	add_test(NAME DrawListPickingTest COMMAND DrawListPickingTest)
+	set_tests_properties(DrawListPickingTest PROPERTIES
+		SKIP_RETURN_CODE 77 LABELS "gl-core")
 endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
