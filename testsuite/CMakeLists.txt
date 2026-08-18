@@ -69,18 +69,6 @@ endforeach()
 # However, those folders are not in the repository.
 if(COIN_BUILD_LEGACY_GL_RENDERER)
 	create_file_test("models" "testCorrectFile" false "incorrect")
-	add_executable(SoText2RasterLayoutTest
-		SoText2RasterLayoutTest.cpp)
-	target_link_libraries(SoText2RasterLayoutTest Coin
-		${COIN_TARGET_LINK_LIBRARIES})
-	target_include_directories(SoText2RasterLayoutTest PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	add_test(NAME SoText2RasterLayoutTest
-		COMMAND SoText2RasterLayoutTest)
-	set_tests_properties(SoText2RasterLayoutTest
-		PROPERTIES SKIP_RETURN_CODE 77)
 else()
 	# ExtSelection is part of the legacy renderer and is not registered in
 	# core-only builds, so do not include scenes that require that node.
@@ -109,6 +97,107 @@ if (USE_PTHREAD)
 	target_link_libraries(CoinTests pthread)
 endif()
 add_test(NAME CoinTests COMMAND CoinTests)
+set_tests_properties(CoinTests PROPERTIES LABELS "unit")
+
+# Generic OpenGL tests use the existing GLFW test support.  EGL remains an
+# explicit implementation-contract suite below; it is not the provider for
+# ordinary GL semantics tests.
+set(COIN_BUILD_GL_TESTS "AUTO" CACHE STRING
+	"Build generic GLFW OpenGL integration tests (AUTO, ON, or OFF).")
+set_property(CACHE COIN_BUILD_GL_TESTS PROPERTY STRINGS AUTO ON OFF)
+string(TOUPPER "${COIN_BUILD_GL_TESTS}" COIN_BUILD_GL_TESTS)
+if(NOT COIN_BUILD_GL_TESTS STREQUAL "AUTO" AND
+	NOT COIN_BUILD_GL_TESTS STREQUAL "ON" AND
+	NOT COIN_BUILD_GL_TESTS STREQUAL "OFF")
+	message(FATAL_ERROR "COIN_BUILD_GL_TESTS must be AUTO, ON, or OFF")
+endif()
+
+set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
+set(COIN_GLFW_TARGET "")
+if(NOT COIN_BUILD_GL_TESTS STREQUAL "OFF")
+	include(CoinTestDependencies)
+	coin_resolve_test_glfw()
+	set(COIN_GLFW_TARGET "${COIN_TEST_GLFW_TARGET}")
+	if(COIN_GLFW_TARGET)
+		set(COIN_BUILD_GL_TESTS_EFFECTIVE ON)
+	elseif(COIN_BUILD_GL_TESTS STREQUAL "ON")
+		if(COIN_FETCH_TEST_DEPENDENCIES)
+			message(FATAL_ERROR
+				"COIN_BUILD_GL_TESTS=ON could not resolve GLFW after fetching the pinned dependency")
+		else()
+			message(FATAL_ERROR
+				"COIN_BUILD_GL_TESTS=ON requires GLFW 3.3 or newer; install it or enable COIN_FETCH_TEST_DEPENDENCIES=ON")
+		endif()
+	else()
+		message(STATUS
+			"GLFW not found; generic OpenGL tests are disabled (set COIN_FETCH_TEST_DEPENDENCIES=ON to fetch it)")
+	endif()
+endif()
+
+if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	add_library(CoinGLTestSupport STATIC
+		support/GLTestContext.cpp
+		support/GLTestFramebuffer.cpp)
+	target_include_directories(CoinGLTestSupport PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/support
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	target_link_libraries(CoinGLTestSupport PUBLIC
+		${COIN_GLFW_TARGET}
+		${COIN_TARGET_LINK_LIBRARIES})
+
+	function(coin_add_gl_test)
+		cmake_parse_arguments(ARG "" "NAME;PROFILE" "SOURCES;LABELS" ${ARGN})
+		if(NOT ARG_NAME OR NOT ARG_PROFILE OR NOT ARG_SOURCES)
+			message(FATAL_ERROR "coin_add_gl_test requires NAME, PROFILE, and SOURCES")
+		endif()
+		string(TOLOWER "${ARG_PROFILE}" profile)
+		if(NOT profile STREQUAL "core" AND NOT profile STREQUAL "compat")
+			message(FATAL_ERROR "GL test PROFILE must be core or compat")
+		endif()
+		add_executable(${ARG_NAME} ${ARG_SOURCES})
+		target_link_libraries(${ARG_NAME} CoinGLTestSupport Coin
+			${COIN_TARGET_LINK_LIBRARIES})
+		target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+		target_include_directories(${ARG_NAME} PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+		set(test_labels "gl-${profile}")
+		if(ARG_LABELS)
+			list(APPEND test_labels ${ARG_LABELS})
+		endif()
+		set_tests_properties(${ARG_NAME} PROPERTIES
+			SKIP_RETURN_CODE 77 LABELS "${test_labels}")
+	endfunction()
+endif()
+
+function(coin_add_egl_test)
+	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
+	if(NOT ARG_NAME OR NOT ARG_SOURCES)
+		message(FATAL_ERROR "coin_add_egl_test requires NAME and SOURCES")
+	endif()
+	add_executable(${ARG_NAME} ${ARG_SOURCES})
+	target_link_libraries(${ARG_NAME} Coin ${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+	target_include_directories(${ARG_NAME} PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+	set(test_labels "egl")
+	if(ARG_LABELS)
+		set(test_labels ${ARG_LABELS})
+	endif()
+	set_tests_properties(${ARG_NAME} PROPERTIES
+		SKIP_RETURN_CODE 77 LABELS "${test_labels}")
+endfunction()
 
 add_test(
 	NAME ShaderGeneratorTest
@@ -127,15 +216,6 @@ target_include_directories(CoreTraversalTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME CoreTraversalTest COMMAND CoreTraversalTest)
-
-add_executable(LegacyGLABITest LegacyGLABITest.cpp)
-target_link_libraries(LegacyGLABITest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_include_directories(LegacyGLABITest PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
 
 if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
 	add_executable(SceneManagerCoreTest SceneManagerCoreTest.cpp)
@@ -156,31 +236,6 @@ target_include_directories(LegacyBlendingTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
 add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
-
-if(COIN_BUILD_LEGACY_GL_RENDERER AND HAVE_EGL)
-	add_executable(LegacyDirectRasterTransparencyTest
-		LegacyDirectRasterTransparencyTest.cpp)
-	target_link_libraries(LegacyDirectRasterTransparencyTest Coin
-		${COIN_TARGET_LINK_LIBRARIES})
-	target_include_directories(LegacyDirectRasterTransparencyTest PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	add_test(NAME LegacyDirectRasterTransparencyTest
-		COMMAND LegacyDirectRasterTransparencyTest)
-	set_tests_properties(LegacyDirectRasterTransparencyTest
-		PROPERTIES SKIP_RETURN_CODE 77)
-	add_executable(LegacyShapeGatingOrderTest
-		LegacyShapeGatingOrderTest.cpp)
-	target_link_libraries(LegacyShapeGatingOrderTest Coin
-		${COIN_TARGET_LINK_LIBRARIES})
-	target_include_directories(LegacyShapeGatingOrderTest PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	add_test(NAME LegacyShapeGatingOrderTest
-		COMMAND LegacyShapeGatingOrderTest)
-	set_tests_properties(LegacyShapeGatingOrderTest
-		PROPERTIES SKIP_RETURN_CODE 77)
-endif()
 
 add_executable(RetainedIRTest RetainedIRTest.cpp)
 target_link_libraries(RetainedIRTest Coin ${COIN_TARGET_LINK_LIBRARIES})
@@ -267,156 +322,92 @@ target_include_directories(RenderManagerPipelineTest PRIVATE
 )
 add_test(NAME RenderManagerPipelineTest COMMAND RenderManagerPipelineTest)
 
+add_executable(LegacyGLABITest LegacyGLABITest.cpp)
+target_link_libraries(LegacyGLABITest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(LegacyGLABITest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME LegacyGLABITest COMMAND LegacyGLABITest)
+
+if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(
+		NAME RetainedMaterialLightingGLTest
+		PROFILE core
+		SOURCES RetainedMaterialLightingGLTest.cpp)
+	coin_add_gl_test(
+		NAME RetainedRasterGLTest
+		PROFILE core
+		SOURCES RetainedRasterGLTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListGLTest
+		PROFILE core
+		SOURCES DrawListGLTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListPickingTest
+		PROFILE core
+		SOURCES DrawListPickingTest.cpp)
+	coin_add_gl_test(
+		NAME DrawListManagerTest
+		PROFILE core
+		SOURCES DrawListManagerTest.cpp)
+	coin_add_gl_test(
+		NAME RenderLayerLifecycleTest
+		PROFILE core
+		SOURCES RenderLayerLifecycleTest.cpp)
+	coin_add_gl_test(
+		NAME GLSLRuntimeTest
+		PROFILE core
+		SOURCES GLSLRuntimeTest.cpp)
+	coin_add_gl_test(
+		NAME GLSLDiagnosticsTest
+		PROFILE core
+		SOURCES GLSLDiagnosticsTest.cpp)
+	coin_add_gl_test(
+		NAME OffscreenReadbackTest
+		PROFILE core
+		SOURCES OffscreenReadbackTest.cpp)
+	if(COIN_BUILD_LEGACY_GL_RENDERER)
+		coin_add_gl_test(
+			NAME SoText2RasterLayoutTest
+			PROFILE compat
+			SOURCES SoText2RasterLayoutTest.cpp
+			LABELS legacygl)
+		coin_add_gl_test(
+			NAME LegacyDirectRasterTransparencyTest
+			PROFILE compat
+			SOURCES LegacyDirectRasterTransparencyTest.cpp
+			LABELS legacygl)
+		coin_add_gl_test(
+			NAME LegacyShapeGatingOrderTest
+			PROFILE compat
+			SOURCES LegacyShapeGatingOrderTest.cpp
+			LABELS legacygl)
+	endif()
+endif()
+
 if(HAVE_EGL)
-	add_executable(RetainedMaterialLightingGLTest RetainedMaterialLightingGLTest.cpp)
-	target_link_libraries(RetainedMaterialLightingGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(RetainedMaterialLightingGLTest PRIVATE COIN_INTERNAL)
-	target_include_directories(RetainedMaterialLightingGLTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME RetainedMaterialLightingGLTest COMMAND RetainedMaterialLightingGLTest)
-	set_tests_properties(RetainedMaterialLightingGLTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(RetainedRasterGLTest RetainedRasterGLTest.cpp)
-	target_link_libraries(RetainedRasterGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(RetainedRasterGLTest PRIVATE COIN_INTERNAL)
-	target_include_directories(RetainedRasterGLTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME RetainedRasterGLTest COMMAND RetainedRasterGLTest)
-	set_tests_properties(RetainedRasterGLTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(DrawListGLTest DrawListGLTest.cpp)
-	target_link_libraries(DrawListGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListGLTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListGLTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME DrawListGLTest COMMAND DrawListGLTest)
-	set_tests_properties(DrawListGLTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(RetainedPickingIdentityTest RetainedPickingIdentityTest.cpp)
-	target_link_libraries(RetainedPickingIdentityTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_include_directories(RetainedPickingIdentityTest PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME RetainedPickingIdentityTest COMMAND RetainedPickingIdentityTest)
-
-	add_executable(RenderLayerLifecycleTest RenderLayerLifecycleTest.cpp)
-	target_link_libraries(RenderLayerLifecycleTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(RenderLayerLifecycleTest PRIVATE
-		COIN_INTERNAL
-	)
-	target_include_directories(RenderLayerLifecycleTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME RenderLayerLifecycleTest COMMAND RenderLayerLifecycleTest)
-	set_tests_properties(RenderLayerLifecycleTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(EGLBindingTest EGLBindingTest.cpp)
-	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(EGLBindingTest PRIVATE COIN_INTERNAL)
-	target_include_directories(EGLBindingTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME EGLBindingTest COMMAND EGLBindingTest)
-	set_tests_properties(EGLBindingTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(GLSLRuntimeTest GLSLRuntimeTest.cpp)
-	target_link_libraries(GLSLRuntimeTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(GLSLRuntimeTest PRIVATE COIN_INTERNAL)
-	target_include_directories(GLSLRuntimeTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME GLSLRuntimeTest COMMAND GLSLRuntimeTest)
-	set_tests_properties(GLSLRuntimeTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
-	target_link_libraries(GLSLDiagnosticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(GLSLDiagnosticsTest PRIVATE COIN_INTERNAL)
-	target_include_directories(GLSLDiagnosticsTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME GLSLDiagnosticsTest COMMAND GLSLDiagnosticsTest)
-	set_tests_properties(GLSLDiagnosticsTest PROPERTIES SKIP_RETURN_CODE 77)
-
-	add_executable(OffscreenReadbackTest OffscreenReadbackTest.cpp)
-	target_link_libraries(OffscreenReadbackTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(OffscreenReadbackTest PRIVATE COIN_INTERNAL)
-	target_include_directories(OffscreenReadbackTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME OffscreenReadbackTest COMMAND OffscreenReadbackTest)
-	set_tests_properties(OffscreenReadbackTest PROPERTIES SKIP_RETURN_CODE 77)
+	coin_add_egl_test(
+		NAME EGLBindingTest
+		SOURCES EGLBindingTest.cpp
+		LABELS egl requires-egl)
+	coin_add_egl_test(
+		NAME OffscreenContextTest
+		SOURCES OffscreenContextTest.cpp
+		LABELS offscreen requires-egl)
 endif()
 
-# Retained picking validates generic core OpenGL behavior. Resolve GLFW as a
-# test-only dependency instead of coupling this coverage to Coin's EGL path.
-include(CoinTestDependencies)
-coin_resolve_test_glfw()
-if(COIN_TEST_GLFW_TARGET)
-	add_executable(DrawListPickingTest
-		DrawListPickingTest.cpp
-		support/GLTestContext.cpp
-		support/GLTestFramebuffer.cpp)
-	target_link_libraries(DrawListPickingTest Coin
-		${COIN_TEST_GLFW_TARGET}
-		${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListPickingTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListPickingTest PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/support
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	add_test(NAME DrawListPickingTest COMMAND DrawListPickingTest)
-	set_tests_properties(DrawListPickingTest PROPERTIES
-		SKIP_RETURN_CODE 77 LABELS "gl-core")
-
-	add_executable(DrawListManagerTest
-		DrawListManagerTest.cpp
-		support/GLTestContext.cpp
-		support/GLTestFramebuffer.cpp)
-	target_link_libraries(DrawListManagerTest Coin
-		${COIN_TEST_GLFW_TARGET}
-		${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListManagerTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListManagerTest PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/support
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES})
-	add_test(NAME DrawListManagerTest COMMAND DrawListManagerTest)
-	set_tests_properties(DrawListManagerTest PROPERTIES
-		SKIP_RETURN_CODE 77 LABELS "gl-core")
-endif()
+# Keep the ordinary non-GL tests in the unit capability without maintaining a
+# second test-name manifest. Tests with an explicit rendering/EGL label keep
+# their more specific capability classification.
+get_property(COIN_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
+foreach(COIN_REGISTERED_TEST IN LISTS COIN_REGISTERED_TESTS)
+	get_property(COIN_HAS_LABELS TEST "${COIN_REGISTERED_TEST}" PROPERTY LABELS SET)
+	if(NOT COIN_HAS_LABELS)
+		set_tests_properties(${COIN_REGISTERED_TEST} PROPERTIES LABELS "unit")
+	endif()
+endforeach()
 
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
