@@ -198,13 +198,20 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		endif()
 
 		add_executable(${ARG_NAME} ${ARG_SOURCES})
-		target_link_libraries(${ARG_NAME} PRIVATE CoinGLTestSupport Coin)
+		target_link_libraries(${ARG_NAME} PRIVATE CoinGLTestSupport Coin
+			${COIN_TARGET_LINK_LIBRARIES})
 		if(ARG_LIBRARIES)
 			target_link_libraries(${ARG_NAME} PRIVATE ${ARG_LIBRARIES})
 		endif()
 		if(ARG_PRIVATE_COIN_API)
 			target_link_libraries(${ARG_NAME} PRIVATE CoinPrivateTestHeaders)
 		endif()
+		target_include_directories(${ARG_NAME} PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
 		target_compile_definitions(${ARG_NAME} PRIVATE
 			COIN_TEST_SKIP_RETURN_CODE=${COIN_TEST_SKIP_RETURN_CODE})
 		add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
@@ -216,7 +223,6 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
 			LABELS "${test_labels}")
 	endfunction()
-
 	coin_add_gl_test(NAME GLSLRuntimeTest PROFILE core PRIVATE_COIN_API
 		SOURCES GLSLRuntimeTest.cpp)
 	if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -256,7 +262,6 @@ if(COIN_BUILD_LEGACY_GL_RENDERER)
 		PROFILE compat
 		SOURCES DevicePixelRatioTraversalTest.cpp)
 endif()
-
 if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)

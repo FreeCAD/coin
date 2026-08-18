@@ -1,5 +1,9 @@
 name: Continuous Integration Build
 
+concurrency:
+  group: coin-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:  # Allow manual triggers
   pull_request: {}
@@ -49,6 +53,7 @@ jobs:
             -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
             -DCOIN_BUILD_TESTS=ON \
             -DCOIN_BUILD_GL_TESTS=ON \
+            -DCOIN_FETCH_TEST_DEPENDENCIES=OFF \
             -DCOIN_BUILD_EXAMPLES=OFF \
             -DCOIN_BUILD_DOCUMENTATION=OFF \
             -DCOIN_BUILD_VISUAL_TESTS=OFF \
@@ -68,7 +73,7 @@ jobs:
       - name: Run generic OpenGL tests
         run: xvfb-run -a ctest -C Release -L "gl-(core|compat)" --output-on-failure
         working-directory: cmake_build_dir
-      - name: Run EGL tests
+      - name: Run EGL implementation-contract tests
         run: ctest -C Release -L requires-egl --output-on-failure
         working-directory: cmake_build_dir
       - name: Configure visual tests
@@ -78,19 +83,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCOIN_BUILD_TESTS=OFF \
             -DCOIN_BUILD_EXAMPLES=OFF \
-            -DCOIN_BUILD_LEGACY_GL_RENDERER=ON \
-            -DCOIN_BUILD_VISUAL_TESTS=ON
+            -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
+            -DCOIN_BUILD_VISUAL_TESTS=ON \
+            -DCOIN_FETCH_TEST_DEPENDENCIES=OFF
       - name: Build visual tests
         if: matrix.renderer_state == 'enabled'
         run: cmake --build cmake_build_dir_rt --config Release -- -j4
-      - name: Run visual smoke test
+      - name: Run visual contract suite
         if: matrix.renderer_state == 'enabled'
-        run: ctest --test-dir cmake_build_dir_rt -L visual-smoke --output-on-failure -VV
-      - name: Run visual suite
+        run: ctest --test-dir cmake_build_dir_rt -L visual-contract --output-on-failure -VV
+      - name: Run visual rendering suite
         if: matrix.renderer_state == 'enabled'
-        run: |
-          ctest --test-dir cmake_build_dir_rt -L visual-contract --output-on-failure -VV
-          xvfb-run -a ctest --test-dir cmake_build_dir_rt -L visual-legacy --output-on-failure -VV
+        run: xvfb-run -a ctest --test-dir cmake_build_dir_rt -L visual-render --output-on-failure -VV
       - name: Create Artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -128,7 +132,7 @@ jobs:
       - name: Create build directory and run CMake
         shell: cmd
         run: |
-          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON -DCOIN_BUILD_GL_TESTS=ON
+          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON -DCOIN_BUILD_GL_TESTS=ON -DCOIN_FETCH_TEST_DEPENDENCIES=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target INSTALL --config Release --parallel 2
       - name: Check installed package
@@ -140,8 +144,12 @@ jobs:
       - name: Run unit tests
         run: ctest -C Release -L unit --output-on-failure
         working-directory: cmake_build_dir
-      - name: Run core-profile tests
+      - name: Run generic core OpenGL tests
         run: ctest -C Release -L gl-core --output-on-failure
+        working-directory: cmake_build_dir
+      - name: Run compatibility OpenGL tests
+        if: matrix.renderer_state == 'enabled'
+        run: ctest -C Release -L gl-compat --output-on-failure
         working-directory: cmake_build_dir
       - name: Create Artifacts
         uses: actions/upload-artifact@v7
@@ -170,7 +178,15 @@ jobs:
         run: scripts/install-dependencies.sh gl
       - name: Create build directory and run CMake
         run: |
-          cmake -S . -B cmake_build_dir -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCMAKE_CXX_STANDARD=11 -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON -DCOIN_BUILD_GL_TESTS=ON
+          cmake -S . -B cmake_build_dir -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=cmake_install_dir \
+            -DCMAKE_CXX_STANDARD=11 \
+            -DCOIN_STRICT_WARNINGS=ON \
+            -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
+            -DCOIN_BUILD_TESTS=ON \
+            -DCOIN_BUILD_GL_TESTS=ON \
+            -DCOIN_FETCH_TEST_DEPENDENCIES=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release --parallel
       - name: Check installed package
@@ -183,7 +199,7 @@ jobs:
       - name: Run unit tests
         run: ctest -C Release -L unit --output-on-failure
         working-directory: cmake_build_dir
-      - name: Run core-profile tests
+      - name: Run generic core OpenGL tests
         run: ctest -C Release -L gl-core --output-on-failure
         working-directory: cmake_build_dir
       - name: Create Artifacts
