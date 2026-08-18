@@ -239,7 +239,6 @@ runTest()
       cameraRoot->unref();
       camera->unref();
       cubeRoot->unref();
-      canvas.deactivateGLContext();
       return 1;
     }
     const SoRenderCommand & sceneCameraCommand = sceneCameraDrawList.getCommand(0);
@@ -257,7 +256,6 @@ runTest()
       cameraRoot->unref();
       camera->unref();
       cubeRoot->unref();
-      canvas.deactivateGLContext();
       return 1;
     }
   }
