@@ -23,6 +23,7 @@ include_directories(BEFORE
   "${PROJECT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_BINARY_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${PROJECT_SOURCE_DIR}/src/glue/khronos"
   "${PROJECT_SOURCE_DIR}/include/Inventor/annex"
   "${PROJECT_BINARY_DIR}/data"
 )
@@ -50,6 +51,14 @@ set(SUBDIRS
 foreach(_subdir ${SUBDIRS})
   add_subdirectory(${_subdir})
 endforeach()
+
+foreach(_coin_target ${SUBDIRS} glelements)
+  if(TARGET ${_coin_target})
+    target_compile_definitions(${_coin_target} PRIVATE
+      COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>)
+  endif()
+endforeach()
+
 add_subdirectory(doc)
 
 # Adding source groups for IDE's (Visual Studio, XCode, Qt Creator, etc.)
@@ -153,6 +162,10 @@ endif()
 
 set(ADDITIONAL_HDRS ${PROJECT_SOURCE_DIR}/include/SoWinEnterScope.h ${PROJECT_SOURCE_DIR}/include/SoWinLeaveScope.h ${PROJECT_SOURCE_DIR}/include/SoDebug.h ${PROJECT_BINARY_DIR}/src/config.h)
 
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+  set(COIN_GLELEMENTS_OBJECTS $<TARGET_OBJECTS:glelements>)
+endif()
+
 # Create the library target
 if(COIN_BUILD_SINGLE_LIB)
   add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES})
@@ -179,7 +192,7 @@ else()
     $<TARGET_OBJECTS:fonts>
     $<TARGET_OBJECTS:foreignfiles>
     $<TARGET_OBJECTS:geo>
-    $<TARGET_OBJECTS:glelements>
+    ${COIN_GLELEMENTS_OBJECTS}
     $<TARGET_OBJECTS:glue>
     $<TARGET_OBJECTS:hardcopy>
     $<TARGET_OBJECTS:io>
@@ -204,6 +217,9 @@ else()
     $<TARGET_OBJECTS:xml>
   )
 endif()
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>)
 
 # Export a Coin::Coin target when the library is built as a cmake subdirectory
 # so that the same target can be linked using find_package and this method
