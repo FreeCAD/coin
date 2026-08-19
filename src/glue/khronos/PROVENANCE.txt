@@ -1,0 +1,37 @@
+Khronos header provenance
+=========================
+
+The headers in this directory are vendored snapshots of generated Khronos
+API headers used by Coin's core-profile OpenGL build, including the Windows
+WGL declarations.
+
+Sources:
+
+  OpenGL and WGL headers:
+    https://github.com/KhronosGroup/OpenGL-Registry
+
+  Khronos platform types:
+    https://github.com/KhronosGroup/EGL-Registry
+
+Imported files:
+
+  GL/glcorearb.h
+  GL/glext.h
+  GL/wglext.h
+  KHR/khrplatform.h
+
+Snapshot metadata:
+
+  Import date: 2026-07-31
+  OpenGL Registry commit:
+    4aa041a5bc6b763aebe9cd3a1b5bc5e04d564584
+  GL_GLEXT_VERSION: 20190326
+  WGL_WGLEXT_VERSION: 20190228
+  khrplatform.h semantic commit:
+    67a3e0864c2d75ea5287b9f3d2eb74a745936692
+
+The GL headers are retained byte-for-byte from the OpenGL Registry commit
+listed above, including upstream formatting and license notices.
+
+If these headers are updated, record the exact upstream commit or release,
+the update date, and verify that the vendored copies remain unmodified.
