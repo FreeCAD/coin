@@ -265,6 +265,22 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		coin_add_gl_test(NAME LegacyShapeGatingOrderTest PROFILE compat
 			SOURCES LegacyShapeGatingOrderTest.cpp LABELS requires-legacygl)
 	endif()
+	if(COIN_BUILD_BENCHMARKS)
+		add_executable(CoinRenderGLBenchmarks CoinRenderGLBenchmarks.cpp)
+		target_link_libraries(CoinRenderGLBenchmarks CoinGLTestSupport
+			CoinPrivateTestHeaders Coin ${COIN_TARGET_LINK_LIBRARIES})
+		target_include_directories(CoinRenderGLBenchmarks PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME CoinRenderGLBenchmarksSmoke
+			COMMAND CoinRenderGLBenchmarks --smoke)
+		set_tests_properties(CoinRenderGLBenchmarksSmoke PROPERTIES
+			SKIP_RETURN_CODE 77
+			LABELS "benchmark;benchmark-gl;benchmark-render")
+	endif()
 endif()
 
 add_executable(CoreTraversalTest CoreTraversalTest.cpp)
@@ -392,6 +408,34 @@ target_include_directories(RetainedReplayContextTest PRIVATE
 	${COIN_TARGET_INCLUDE_DIRECTORIES})
 add_test(NAME RetainedReplayContextTest COMMAND RetainedReplayContextTest)
 set_tests_properties(RetainedReplayContextTest PROPERTIES LABELS "unit")
+if(COIN_BUILD_BENCHMARKS)
+	add_executable(CoinRenderBenchmarks CoinRenderBenchmarks.cpp)
+	target_link_libraries(CoinRenderBenchmarks CoinPrivateTestHeaders Coin
+		${COIN_TARGET_LINK_LIBRARIES})
+	target_include_directories(CoinRenderBenchmarks PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+
+	add_test(NAME CoinRenderBenchmarksSmoke
+		COMMAND CoinRenderBenchmarks --smoke)
+	set_tests_properties(CoinRenderBenchmarksSmoke PROPERTIES
+		LABELS "benchmark;benchmark-render;benchmark-picking;benchmark-selection")
+
+	add_test(NAME CoinRenderLifecycleStress
+		COMMAND CoinRenderBenchmarks --stress --frames 10000)
+	set_tests_properties(CoinRenderLifecycleStress PROPERTIES
+		LABELS "stress;stress-render;stress-picking;stress-lifecycle")
+endif()
+
+get_property(COIN_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
+foreach(COIN_REGISTERED_TEST IN LISTS COIN_REGISTERED_TESTS)
+	get_property(COIN_HAS_LABELS TEST "${COIN_REGISTERED_TEST}" PROPERTY LABELS SET)
+	if(NOT COIN_HAS_LABELS)
+		set_tests_properties(${COIN_REGISTERED_TEST} PROPERTIES LABELS "unit")
+	endif()
+endforeach()
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG(-Wtautological-compare DISABLE_WARNING_TAUTOLOGCOMPARE)
