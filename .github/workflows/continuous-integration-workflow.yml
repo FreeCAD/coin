@@ -53,7 +53,6 @@ jobs:
             -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
             -DCOIN_BUILD_TESTS=ON \
             -DCOIN_BUILD_GL_TESTS=ON \
-            -DCOIN_FETCH_TEST_DEPENDENCIES=OFF \
             -DCOIN_BUILD_EXAMPLES=OFF \
             -DCOIN_BUILD_DOCUMENTATION=OFF \
             -DCOIN_BUILD_VISUAL_TESTS=OFF \
@@ -85,7 +84,7 @@ jobs:
             -DCOIN_BUILD_EXAMPLES=OFF \
             -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
             -DCOIN_BUILD_VISUAL_TESTS=ON \
-            -DCOIN_FETCH_TEST_DEPENDENCIES=OFF
+            -DCOIN_BUILD_DOCUMENTATION=OFF
       - name: Build visual tests
         if: matrix.renderer_state == 'enabled'
         run: cmake --build cmake_build_dir_rt --config Release -- -j4
@@ -132,7 +131,7 @@ jobs:
       - name: Create build directory and run CMake
         shell: cmd
         run: |
-          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON -DCOIN_BUILD_GL_TESTS=ON -DCOIN_FETCH_TEST_DEPENDENCIES=ON
+          cmake -S . -B cmake_build_dir -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake_install_dir -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} -DCOIN_BUILD_TESTS=ON -DCOIN_BUILD_GL_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target INSTALL --config Release --parallel 2
       - name: Check installed package
@@ -185,8 +184,7 @@ jobs:
             -DCOIN_STRICT_WARNINGS=ON \
             -DCOIN_BUILD_LEGACY_GL_RENDERER=${{ matrix.legacy_gl_renderer }} \
             -DCOIN_BUILD_TESTS=ON \
-            -DCOIN_BUILD_GL_TESTS=ON \
-            -DCOIN_FETCH_TEST_DEPENDENCIES=ON
+            -DCOIN_BUILD_GL_TESTS=ON
       - name: Build project
         run: cmake --build cmake_build_dir --target install --config Release --parallel
       - name: Check installed package

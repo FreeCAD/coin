@@ -91,8 +91,6 @@ include(CoinCMakeUtilities)
 
 option(COIN_BUILD_SHARED_LIBS "Build shared library when ON (default), static when OFF." ON)
 option(COIN_BUILD_TESTS "Build unit tests when ON (default), skips them when OFF." ON)
-option(COIN_FETCH_TEST_DEPENDENCIES
-  "Fetch missing test-only dependencies from pinned upstream sources." OFF)
 option(COIN_BUILD_VISUAL_TESTS "Enable visual regression test tooling and CLI helpers." OFF)
 option(COIN_BUILD_DOCUMENTATION "Build and install API documentation (requires Doxygen)." OFF)
 option(COIN_BUILD_AWESOME_DOCUMENTATION "Build and install API documentation in new modern style (requires Doxygen)." OFF)
@@ -176,7 +174,6 @@ cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several c
 report_prepare(
   COIN_BUILD_SHARED_LIBS
   COIN_BUILD_TESTS
-  COIN_FETCH_TEST_DEPENDENCIES
   COIN_BUILD_VISUAL_TESTS
   COIN_BUILD_DOCUMENTATION
   COIN_BUILD_INTERNAL_DOCUMENTATION
@@ -936,26 +933,21 @@ endif()
 
 if(COIN_BUILD_VISUAL_TESTS)
   enable_testing()
-  include(CoinTestDependencies)
-  coin_resolve_test_glfw()
-  if(NOT COIN_TEST_GLFW_TARGET)
-    if(COIN_FETCH_TEST_DEPENDENCIES)
-      message(FATAL_ERROR
-        "COIN_BUILD_VISUAL_TESTS=ON could not resolve GLFW after fetching the pinned dependency")
-    else()
-      message(FATAL_ERROR
-        "COIN_BUILD_VISUAL_TESTS=ON requires GLFW 3.3 or newer; install it or enable COIN_FETCH_TEST_DEPENDENCIES=ON")
-    endif()
+  find_package(glfw3 3.3 REQUIRED)
+  if(TARGET glfw)
+    set(COIN_TEST_GLFW_TARGET glfw)
+  elseif(TARGET glfw3::glfw)
+    set(COIN_TEST_GLFW_TARGET glfw3::glfw)
+  else()
+    message(FATAL_ERROR "GLFW 3.3 or newer did not provide a usable CMake target")
   endif()
-  coin_resolve_test_yaml_cpp()
-  if(NOT COIN_TEST_YAML_TARGET)
-    if(COIN_FETCH_TEST_DEPENDENCIES)
-      message(FATAL_ERROR
-        "COIN_BUILD_VISUAL_TESTS=ON could not resolve yaml-cpp after fetching the pinned dependency")
-    else()
-      message(FATAL_ERROR
-        "COIN_BUILD_VISUAL_TESTS=ON requires yaml-cpp; install it or enable COIN_FETCH_TEST_DEPENDENCIES=ON")
-    endif()
+  find_package(yaml-cpp REQUIRED)
+  if(TARGET yaml-cpp::yaml-cpp)
+    set(COIN_TEST_YAML_TARGET yaml-cpp::yaml-cpp)
+  elseif(TARGET yaml-cpp)
+    set(COIN_TEST_YAML_TARGET yaml-cpp)
+  else()
+    message(FATAL_ERROR "yaml-cpp did not provide a usable CMake target")
   endif()
   add_subdirectory(thirdparty)
   add_subdirectory(tools)
