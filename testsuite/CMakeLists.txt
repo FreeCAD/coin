@@ -293,7 +293,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		add_executable(RenderWorkloadParityTest RenderWorkloadParityTest.cpp)
 		target_link_libraries(RenderWorkloadParityTest
 			CoinRenderWorkloadSupport CoinGLTestSupport
-			CoinTestInternals Coin ${COIN_TARGET_LINK_LIBRARIES})
+			CoinPrivateTestHeaders Coin ${COIN_TARGET_LINK_LIBRARIES})
 		target_include_directories(RenderWorkloadParityTest PRIVATE
 			${CMAKE_CURRENT_SOURCE_DIR}/support
 			${PROJECT_SOURCE_DIR}/src
@@ -309,7 +309,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			support/RenderWorkloadViewerController.cpp)
 		target_link_libraries(CoinRenderWorkloadViewer
 			CoinRenderWorkloadSupport CoinGLTestSupport
-			CoinTestInternals Coin ${COIN_TARGET_LINK_LIBRARIES})
+			CoinPrivateTestHeaders Coin ${COIN_TARGET_LINK_LIBRARIES})
 		target_include_directories(CoinRenderWorkloadViewer PRIVATE
 			${CMAKE_CURRENT_SOURCE_DIR}/support
 			${PROJECT_SOURCE_DIR}/src
