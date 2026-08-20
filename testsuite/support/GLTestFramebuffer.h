@@ -19,6 +19,7 @@ public:
   bool initialize(const cc_glglue * glue, int width, int height);
   void shutdown();
   void bind() const;
+  void blitToDefault() const;
 
   bool isInitialized() const { return this->framebuffer != 0; }
   int width() const { return this->framebufferwidth; }
