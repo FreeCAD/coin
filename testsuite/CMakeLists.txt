@@ -93,7 +93,9 @@ add_test(NAME CoinTests COMMAND CoinTests)
 
 add_library(CoinPrivateTestHeaders INTERFACE)
 target_compile_definitions(CoinPrivateTestHeaders INTERFACE COIN_INTERNAL)
-target_include_directories(CoinPrivateTestHeaders INTERFACE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(CoinPrivateTestHeaders INTERFACE
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/src/glue/khronos)
 
 function(coin_add_egl_test)
 	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})

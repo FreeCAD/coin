@@ -1,7 +1,7 @@
+#include <Inventor/system/gl.h>
 #include <Inventor/C/glue/gl.h>
 
 #include "glue/glp.h"
-#include "glue/glslp.h"
 #include "support/GLTestContext.h"
 #include "support/GLTestUtils.h"
 
@@ -14,14 +14,27 @@ using coin_test::check;
 using coin_test::check_gl_error;
 using coin_test::skip;
 
+bool has_core_glsl(const cc_glglue * glue)
+{
+  return glue != NULL &&
+    glue->glCreateShader && glue->glShaderSource &&
+    glue->glCompileShader && glue->glGetShaderiv &&
+    glue->glGetShaderInfoLog && glue->glDeleteShader &&
+    glue->glCreateProgram && glue->glAttachShader &&
+    glue->glLinkProgram && glue->glUseProgram &&
+    glue->glDeleteProgram && glue->glGetProgramiv &&
+    glue->glGetProgramInfoLog && glue->glGetUniformLocation &&
+    glue->glUniform1f;
+}
+
 void print_shader_log(const cc_glglue * glue, GLuint object, SbBool program)
 {
   GLint length = 0;
   if (program) {
-    cc_glglue_glGetGLSLProgramiv(glue, object, GL_INFO_LOG_LENGTH, &length);
+    glue->glGetProgramiv(object, GL_INFO_LOG_LENGTH, &length);
   }
   else {
-    cc_glglue_glGetShaderiv(glue, object, GL_INFO_LOG_LENGTH, &length);
+    glue->glGetShaderiv(object, GL_INFO_LOG_LENGTH, &length);
   }
 
   if (length <= 1) return;
@@ -29,10 +42,10 @@ void print_shader_log(const cc_glglue * glue, GLuint object, SbBool program)
   std::vector<char> log(static_cast<size_t>(length), '\0');
   GLsizei written = 0;
   if (program) {
-    cc_glglue_glGetProgramInfoLog(glue, object, length, &written, log.data());
+    glue->glGetProgramInfoLog(object, length, &written, log.data());
   }
   else {
-    cc_glglue_glGetShaderInfoLog(glue, object, length, &written, log.data());
+    glue->glGetShaderInfoLog(object, length, &written, log.data());
   }
   std::cerr << "GLSL log: " << log.data() << std::endl;
 }
@@ -40,15 +53,15 @@ void print_shader_log(const cc_glglue * glue, GLuint object, SbBool program)
 bool compile_shader(const cc_glglue * glue, GLenum type, const char * source,
                     GLuint & shader)
 {
-  shader = cc_glglue_glCreateShader(glue, type);
+  shader = glue->glCreateShader(type);
   if (!check(shader != 0, "profile-neutral shader creation failed")) return false;
 
   const char * sources[] = { source };
-  cc_glglue_glShaderSource(glue, shader, 1, sources, NULL);
-  cc_glglue_glCompileShader(glue, shader);
+  glue->glShaderSource(shader, 1, sources, NULL);
+  glue->glCompileShader(shader);
 
   GLint compiled = GL_FALSE;
-  cc_glglue_glGetShaderiv(glue, shader, GL_COMPILE_STATUS, &compiled);
+  glue->glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
   if (!check(compiled == GL_TRUE, "profile-neutral shader compilation failed")) {
     print_shader_log(glue, shader, FALSE);
     return false;
@@ -76,7 +89,7 @@ int main()
 
   const cc_glglue * glue = cc_glglue_instance(context.contextId());
   if (glue == NULL) return skip("GL glue instance is unavailable");
-  if (!cc_glglue_has_glsl(glue)) {
+  if (!has_core_glsl(glue)) {
     return skip("complete GLSL dispatch is unavailable");
   }
   GLuint vertexShader = 0;
@@ -97,23 +110,23 @@ int main()
     if (!compile_shader(glue, GL_VERTEX_SHADER, vertexSource, vertexShader)) break;
     if (!compile_shader(glue, GL_FRAGMENT_SHADER, fragmentSource, fragmentShader)) break;
 
-    program = cc_glglue_glCreateProgram(glue);
+    program = glue->glCreateProgram();
     if (!check(program != 0, "profile-neutral program creation failed")) break;
-    cc_glglue_glAttachShader(glue, program, vertexShader);
-    cc_glglue_glAttachShader(glue, program, fragmentShader);
-    cc_glglue_glLinkProgram(glue, program);
+    glue->glAttachShader(program, vertexShader);
+    glue->glAttachShader(program, fragmentShader);
+    glue->glLinkProgram(program);
 
     GLint linked = GL_FALSE;
-    cc_glglue_glGetGLSLProgramiv(glue, program, GL_LINK_STATUS, &linked);
+    glue->glGetProgramiv(program, GL_LINK_STATUS, &linked);
     if (!check(linked == GL_TRUE, "profile-neutral program linking failed")) {
       print_shader_log(glue, program, TRUE);
       break;
     }
 
-    cc_glglue_glUseProgram(glue, program);
+    glue->glUseProgram(program);
     if (!check_gl_error("profile-neutral glUseProgram failed")) break;
 
-    const GLint location = cc_glglue_glGetUniformLocation(glue, program, "u_scale");
+    const GLint location = glue->glGetUniformLocation(program, "u_scale");
     if (!check(location >= 0, "profile-neutral uniform lookup failed")) break;
     glue->glUniform1f(location, 1.0f);
     if (!check_gl_error("profile-neutral uniform update failed")) break;
@@ -122,11 +135,11 @@ int main()
   } while (false);
 
   if (program != 0) {
-    cc_glglue_glUseProgram(glue, 0);
-    cc_glglue_glDeleteProgram(glue, program);
+    glue->glUseProgram(0);
+    glue->glDeleteProgram(program);
   }
-  if (vertexShader != 0) cc_glglue_glDeleteShader(glue, vertexShader);
-  if (fragmentShader != 0) cc_glglue_glDeleteShader(glue, fragmentShader);
+  if (vertexShader != 0) glue->glDeleteShader(vertexShader);
+  if (fragmentShader != 0) glue->glDeleteShader(fragmentShader);
 
   return result;
 }
