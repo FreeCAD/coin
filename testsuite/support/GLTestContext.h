@@ -42,7 +42,7 @@ public:
   void present();
   void pollEvents();
   bool shouldClose() const;
-  GLFWwindow * window() const { return this->window; }
+  GLFWwindow * window() const { return this->windowhandle; }
   std::vector<uint8_t> readPixels() const;
 
   bool isCoreProfile() const { return this->profile == GLTestProfile::Core; }
@@ -51,11 +51,11 @@ public:
   int contextId() const { return this->contextid; }
   const cc_glglue * glue() const { return this->glueinstance; }
   bool initialized() const {
-    return this->window != nullptr && this->framebuffer.isInitialized();
+    return this->windowhandle != nullptr && this->framebuffer.isInitialized();
   }
 
 private:
-  GLFWwindow * window;
+  GLFWwindow * windowhandle;
   GLTestFramebuffer framebuffer;
   GLTestProfile profile;
   int majorversion;

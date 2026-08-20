@@ -31,7 +31,7 @@ bool versionAtLeast(const int actualMajor, const int actualMinor,
 } // namespace
 
 GLTestContext::GLTestContext()
-  : window(NULL),
+  : windowhandle(NULL),
     profile(GLTestProfile::Core),
     majorversion(0),
     minorversion(0),
@@ -81,9 +81,9 @@ GLTestContext::initialize(const GLTestContextConfig & config)
   }
 #endif
 
-  this->window = glfwCreateWindow(config.width, config.height,
-                                  "Coin GL test", NULL, NULL);
-  if (this->window == NULL) {
+  this->windowhandle = glfwCreateWindow(config.width, config.height,
+                                        "Coin GL test", NULL, NULL);
+  if (this->windowhandle == NULL) {
     std::cerr << "Unable to create requested "
               << (config.profile == GLTestProfile::Core ? "core" : "compatibility")
               << " OpenGL context" << std::endl;
@@ -92,7 +92,7 @@ GLTestContext::initialize(const GLTestContextConfig & config)
   }
 
   this->profile = config.profile;
-  glfwMakeContextCurrent(this->window);
+  glfwMakeContextCurrent(this->windowhandle);
   glfwSwapInterval(config.vsync ? 1 : 0);
 
   this->contextid = nextContextId++;
@@ -146,11 +146,11 @@ GLTestContext::initialize(const GLTestContextConfig & config)
 void
 GLTestContext::shutdown()
 {
-  if (this->window != NULL) {
-    glfwMakeContextCurrent(this->window);
+  if (this->windowhandle != NULL) {
+    glfwMakeContextCurrent(this->windowhandle);
     this->framebuffer.shutdown();
-    glfwDestroyWindow(this->window);
-    this->window = NULL;
+    glfwDestroyWindow(this->windowhandle);
+    this->windowhandle = NULL;
   }
   else {
     this->framebuffer.shutdown();
@@ -170,16 +170,16 @@ GLTestContext::shutdown()
 bool
 GLTestContext::makeCurrent()
 {
-  if (this->window == NULL) return false;
-  glfwMakeContextCurrent(this->window);
-  return glfwGetCurrentContext() == this->window;
+  if (this->windowhandle == NULL) return false;
+  glfwMakeContextCurrent(this->windowhandle);
+  return glfwGetCurrentContext() == this->windowhandle;
 }
 
 bool
 GLTestContext::resizeFramebuffer(const int width, const int height)
 {
-  if (this->window == NULL || width <= 0 || height <= 0) return false;
-  glfwMakeContextCurrent(this->window);
+  if (this->windowhandle == NULL || width <= 0 || height <= 0) return false;
+  glfwMakeContextCurrent(this->windowhandle);
   if (!this->framebuffer.initialize(this->glueinstance, width, height)) return false;
   this->bindFramebuffer();
   return true;
@@ -195,28 +195,30 @@ GLTestContext::bindFramebuffer()
 void
 GLTestContext::present()
 {
-  if (this->window == NULL) return;
-  glfwMakeContextCurrent(this->window);
+  if (this->windowhandle == NULL) return;
+  glfwMakeContextCurrent(this->windowhandle);
   this->framebuffer.blitToDefault();
-  glfwSwapBuffers(this->window);
+  glfwSwapBuffers(this->windowhandle);
 }
 
 void GLTestContext::pollEvents()
 {
   glfwPollEvents();
-  if (this->window && glfwGetKey(this->window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    glfwSetWindowShouldClose(this->window, GLFW_TRUE);
+  if (this->windowhandle &&
+      glfwGetKey(this->windowhandle, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    glfwSetWindowShouldClose(this->windowhandle, GLFW_TRUE);
 }
 
 bool GLTestContext::shouldClose() const
 {
-  return this->window == NULL || glfwWindowShouldClose(this->window) != 0;
+  return this->windowhandle == NULL ||
+    glfwWindowShouldClose(this->windowhandle) != 0;
 }
 
 std::vector<uint8_t>
 GLTestContext::readPixels() const
 {
-  if (this->window == NULL) return std::vector<uint8_t>();
-  glfwMakeContextCurrent(this->window);
+  if (this->windowhandle == NULL) return std::vector<uint8_t>();
+  glfwMakeContextCurrent(this->windowhandle);
   return this->framebuffer.readPixels();
 }
