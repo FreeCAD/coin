@@ -396,6 +396,11 @@ SoRenderManager::SoRenderManager(void)
 #else
     SoRenderManager::RenderPipeline::DRAW_LIST;
 #endif
+  PRIVATE(this)->lastRenderResult.requestedPipeline = PRIVATE(this)->renderPipeline;
+  PRIVATE(this)->lastRenderResult.usedPipeline = PRIVATE(this)->renderPipeline;
+  PRIVATE(this)->lastRenderResult.fallbackReason =
+    SoRenderManager::RenderResult::FallbackReason::NONE;
+  PRIVATE(this)->lastRenderResult.rendered = FALSE;
   PRIVATE(this)->irAction = NULL;
   PRIVATE(this)->renderBackend = NULL;
   PRIVATE(this)->renderBackendContextId = 0;
@@ -404,6 +409,8 @@ SoRenderManager::SoRenderManager(void)
   PRIVATE(this)->pickTargetGeneration = 0;
   PRIVATE(this)->viewport = SbViewportRegion(SbVec2s(400, 400));
   PRIVATE(this)->devicePixelRatio = 1.0f;
+  PRIVATE(this)->cameraInSceneGraph = FALSE;
+  PRIVATE(this)->lightingmode = SoRenderManager::LIT;
 
   PRIVATE(this)->doublebuffer = TRUE;
   PRIVATE(this)->deleteaudiorenderaction = TRUE;
@@ -542,6 +549,18 @@ SoCamera *
 SoRenderManager::getCamera(void) const
 {
   return PRIVATE(this)->camera;
+}
+
+void
+SoRenderManager::setCameraInSceneGraph(SbBool inSceneGraph)
+{
+  PRIVATE(this)->cameraInSceneGraph = inSceneGraph;
+}
+
+SbBool
+SoRenderManager::isCameraInSceneGraph(void) const
+{
+  return PRIVATE(this)->cameraInSceneGraph;
 }
 
 /*
@@ -752,6 +771,11 @@ SoRenderManager::removeSuperimposition(Superimposition * s)
 void
 SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 {
+  PRIVATE(this)->lastRenderResult.requestedPipeline = PRIVATE(this)->renderPipeline;
+  PRIVATE(this)->lastRenderResult.usedPipeline = PRIVATE(this)->renderPipeline;
+  PRIVATE(this)->lastRenderResult.fallbackReason =
+    RenderResult::FallbackReason::NONE;
+  PRIVATE(this)->lastRenderResult.rendered = FALSE;
   if (PRIVATE(this)->renderPipeline == RenderPipeline::DRAW_LIST) {
     this->renderDrawListPipeline(clearwindow, clearzbuffer);
     return;
@@ -829,6 +853,7 @@ SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
     // let SoGLRenderAction handle the accumulation buffer
     this->render(PRIVATE(this)->glaction, TRUE, clearwindow, clearzbuffer);
   }
+  PRIVATE(this)->lastRenderResult.rendered = TRUE;
 #endif // COIN_BUILD_LEGACY_GL_RENDERER
 }
 
@@ -924,12 +949,18 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
       PRIVATE(this)->renderPipeline = SoRenderManager::RenderPipeline::LEGACY_GL;
       this->render(clearwindow, clearzbuffer);
       PRIVATE(this)->renderPipeline = savedPipeline;
+      PRIVATE(this)->lastRenderResult.requestedPipeline = savedPipeline;
+      PRIVATE(this)->lastRenderResult.usedPipeline = RenderPipeline::LEGACY_GL;
+      PRIVATE(this)->lastRenderResult.fallbackReason =
+        RenderResult::FallbackReason::MANAGER_FEATURE_UNSUPPORTED;
 #endif
     }
     else {
       SoDebugError::postWarning(
         "SoRenderManager::renderDrawListPipeline",
         "the selected manager feature is unavailable in the current GL context");
+      PRIVATE(this)->lastRenderResult.fallbackReason =
+        RenderResult::FallbackReason::MANAGER_FEATURE_UNSUPPORTED;
     }
     return;
   }
@@ -939,6 +970,9 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     // Do not shut down or replace a backend after its context disappeared.
     // Lost-context handling discards those resources when that lifecycle path
     // is explicitly requested.
+    PRIVATE(this)->drawListCallbackScope = FALSE;
+    PRIVATE(this)->lastRenderResult.fallbackReason =
+      RenderResult::FallbackReason::CONTEXT_UNSUPPORTED;
     return;
   }
 
@@ -994,6 +1028,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
         PRIVATE(this)->renderPipeline = SoRenderManager::RenderPipeline::LEGACY_GL;
         this->render(clearwindow, clearzbuffer);
         PRIVATE(this)->renderPipeline = savedPipeline;
+        PRIVATE(this)->lastRenderResult.requestedPipeline = savedPipeline;
+        PRIVATE(this)->lastRenderResult.usedPipeline = RenderPipeline::LEGACY_GL;
+        PRIVATE(this)->lastRenderResult.fallbackReason =
+          RenderResult::FallbackReason::BACKEND_INITIALIZATION_FAILED;
 #endif
       }
       else {
@@ -1001,6 +1039,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
           "SoRenderManager::renderDrawListPipeline",
           "DrawList backend initialization failed in the current GL context");
       }
+      PRIVATE(this)->lastRenderResult.fallbackReason =
+        RenderResult::FallbackReason::BACKEND_INITIALIZATION_FAILED;
       return;
     }
     PRIVATE(this)->renderBackendContextId = contextId;
@@ -1021,6 +1061,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   }
   PRIVATE(this)->irAction->setViewportRegion(viewport);
   PRIVATE(this)->irAction->setCamera(PRIVATE(this)->camera);
+  PRIVATE(this)->irAction->setCameraPolicy(
+    PRIVATE(this)->cameraInSceneGraph
+      ? SoIRRenderAction::CameraPolicy::CAMERA_IN_ROOT
+      : SoIRRenderAction::CameraPolicy::USE_CONFIGURED_CAMERA);
   PRIVATE(this)->irAction->setDevicePixelRatio(PRIVATE(this)->devicePixelRatio);
 
   SoState * state = PRIVATE(this)->irAction->getState();
@@ -1051,6 +1095,33 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   }
   PRIVATE(this)->irAction->apply(PRIVATE(this)->scene);
   state->pop();
+
+  if (PRIVATE(this)->irAction->hasUnsupportedRendering()) {
+    const char * reason = PRIVATE(this)->irAction->getUnsupportedReason();
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    if (currentContextSupportsLegacyRendering()) {
+      const SoRenderManager::RenderPipeline savedPipeline =
+        PRIVATE(this)->renderPipeline;
+      PRIVATE(this)->renderPipeline = SoRenderManager::RenderPipeline::LEGACY_GL;
+      this->render(clearwindow, clearzbuffer);
+      PRIVATE(this)->renderPipeline = savedPipeline;
+      PRIVATE(this)->lastRenderResult.requestedPipeline = savedPipeline;
+      PRIVATE(this)->lastRenderResult.usedPipeline = RenderPipeline::LEGACY_GL;
+      PRIVATE(this)->lastRenderResult.fallbackReason =
+        RenderResult::FallbackReason::TRAVERSAL_UNSUPPORTED;
+      PRIVATE(this)->drawListCallbackScope = FALSE;
+      return;
+    }
+#endif
+    SoDebugError::post(
+      "SoRenderManager::renderDrawListPipeline",
+      "retained traversal cannot render this frame: %s",
+      reason ? reason : "unsupported retained rendering semantics");
+    PRIVATE(this)->lastRenderResult.fallbackReason =
+      RenderResult::FallbackReason::TRAVERSAL_UNSUPPORTED;
+    PRIVATE(this)->drawListCallbackScope = FALSE;
+    return;
+  }
 
   SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
 
@@ -1089,6 +1160,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
 
   PRIVATE(this)->invokePostRenderCallbacks();
   PRIVATE(this)->drawListCallbackScope = FALSE;
+  PRIVATE(this)->lastRenderResult.rendered = TRUE;
 }
 
 /*!
@@ -1937,6 +2009,26 @@ SoRenderManager::getRenderMode(void) const
   return PRIVATE(this)->rendermode;
 }
 
+void
+SoRenderManager::setLightingMode(const LightingMode mode)
+{
+  if (PRIVATE(this)->lightingmode == mode) return;
+  PRIVATE(this)->lightingmode = mode;
+#if COIN_BUILD_LEGACY_GL_RENDERER
+  if (PRIVATE(this)->glaction) {
+    PRIVATE(this)->glaction->invalidateState();
+  }
+#endif
+  this->scheduleRedraw();
+  PRIVATE(this)->dummynode->touch();
+}
+
+SoRenderManager::LightingMode
+SoRenderManager::getLightingMode(void) const
+{
+  return PRIVATE(this)->lightingmode;
+}
+
 /*!
   Sets the stereo mode.
 */
@@ -2079,6 +2171,25 @@ SoRenderManager::getRenderPipeline(void) const
 }
 
 SbBool
+SoRenderManager::isRenderPipelineAvailable(const RenderPipeline pipeline) const
+{
+  if (pipeline == RenderPipeline::LEGACY_GL) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    return currentContextSupportsLegacyRendering();
+#else
+    return FALSE;
+#endif
+  }
+  return coin_gl_current_context() != NULL;
+}
+
+const SoRenderManager::RenderResult &
+SoRenderManager::getLastRenderResult(void) const
+{
+  return PRIVATE(this)->lastRenderResult;
+}
+
+SbBool
 SoRenderManager::pickClosest(const int x, const int y, const int radius,
                              SoPickedPoint *& result)
 {
@@ -2159,6 +2270,29 @@ SoRenderManager::pickVisibleRegion(const SbBox2s & region,
   }
   return results.getLength() != 0;
 }
+
+void
+SoRenderManager::invalidateSharedGLState(void)
+{
+#if COIN_BUILD_LEGACY_GL_RENDERER
+  if (PRIVATE(this)->glaction) {
+    PRIVATE(this)->glaction->invalidateState();
+  }
+#endif
+}
+
+void
+SoRenderManager::invalidateDrawList(void)
+{
+  this->invalidateScene();
+}
+
+void
+SoRenderManager::invalidateScene(void)
+{
+  this->scheduleRedraw();
+}
+
 /*!
   This method returns the current auto clipping strategy.
 

@@ -44,6 +44,12 @@ class COIN_DLL_API SoIRRenderAction : public SoAction {
   SO_ACTION_HEADER(SoIRRenderAction);
 
 public:
+  /*! Camera state policy used when starting a root traversal. */
+  enum class CameraPolicy {
+    USE_CONFIGURED_CAMERA,
+    CAMERA_IN_ROOT
+  };
+
   /*!
     \class SoIRRenderAction::PrimitiveCollector
     \brief Callback interface for receiving primitives generated during traversal.
@@ -77,6 +83,8 @@ public:
 
   void setCamera(SoCamera * camera) { this->camera = camera; }
   SoCamera * getCamera(void) const { return this->camera; }
+  void setCameraPolicy(CameraPolicy policy) { this->cameraPolicy = policy; }
+  CameraPolicy getCameraPolicy(void) const { return this->cameraPolicy; }
   void setDevicePixelRatio(float dpr) { this->devicePixelRatio = dpr; }
   float getDevicePixelRatio(void) const { return this->devicePixelRatio; }
 
@@ -135,11 +143,13 @@ protected:
   virtual void beginTraversal(SoNode * node) override;
 
 private:
+  void initializeCameraState(CameraPolicy policy);
   void resetFrameResources();
   void clearCommandPaths();
 
   SbViewportRegion vpRegion;
   SoCamera *       camera = nullptr;
+  CameraPolicy     cameraPolicy = CameraPolicy::USE_CONFIGURED_CAMERA;
   float            devicePixelRatio = 1.0f;
   SoDrawList       drawlist;
   std::vector<SoPath *> commandPaths;
