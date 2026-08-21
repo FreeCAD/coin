@@ -279,6 +279,7 @@ SoDrawList::clear()
 {
   this->commands.clear();
   this->lightingSetups.clear();
+  this->selection = SoSelectionState();
   this->pickLUT.clear();
   this->generation++;
   this->pickLUTGeneration = 0;
@@ -289,6 +290,17 @@ SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
     this->commands.resize(static_cast<size_t>(count));
+    auto trimTargets = [count](std::vector<SoSelectionTarget> & targets) {
+      targets.erase(
+        std::remove_if(
+          targets.begin(), targets.end(),
+          [count](const SoSelectionTarget & target) {
+            return target.commandIndex >= count;
+          }),
+        targets.end());
+    };
+    trimTargets(this->selection.selected);
+    trimTargets(this->selection.highlighted);
     this->pickLUT.clear();
     this->pickLUTGeneration = 0;
   }

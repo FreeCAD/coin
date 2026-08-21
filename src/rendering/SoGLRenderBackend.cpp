@@ -3207,6 +3207,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
     if (target.type == SO_PICK_OBJECT && target.elementIndex < 0) {
       SoPickLUTEntry entry;
       entry.commandIndex = target.commandIndex;
+      entry.objectId = target.objectId != 0
+        ? target.objectId : command.objectId;
       entry.type = SO_PICK_OBJECT;
       const bool indexed = command.geometry.indices != nullptr &&
         command.geometry.indexCount != 0;
@@ -3222,6 +3224,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
           range.elementIndex != target.elementIndex) continue;
       SoPickLUTEntry entry;
       entry.commandIndex = target.commandIndex;
+      entry.objectId = target.objectId != 0
+        ? target.objectId : command.objectId;
       entry.type = range.type;
       entry.elementIndex = range.elementIndex;
       const bool indexed = command.geometry.indices != nullptr &&
