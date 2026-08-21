@@ -123,9 +123,12 @@ public:
   float devicePixelRatio;
   SbBool cameraInSceneGraph;
   SoRenderManager::RenderPipeline renderPipeline;
+  SoRenderManager::RenderResult lastRenderResult;
   SoRenderManager::LightingMode lightingmode;
   SoIRRenderAction * irAction;
   SoRenderBackend * renderBackend;
+  SbBool renderPhaseTimingEnabled;
+  SoRenderManager::RenderPhaseStatistics renderPhaseStatistics;
   uint32_t renderBackendContextId;
   SbBool drawListCallbackScope;
   SbBool pickTargetDirty;
