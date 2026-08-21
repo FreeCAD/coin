@@ -1452,9 +1452,23 @@ SoGLRenderBackend::textureDescriptionMatches(
 }
 
 void
+SoGLRenderBackend::prepareGeometryCache(const SoDrawList & drawlist,
+                                        const bool allowReuse)
+{
+  const size_t commandCount = static_cast<size_t>(drawlist.getNumCommands());
+  if (allowReuse && this->haveCacheGeneration &&
+      this->cacheGeneration == drawlist.getGeneration() &&
+      this->cachedCommandCount == commandCount) {
+    return;
+  }
+  this->updateGeometryCache(drawlist);
+}
+
+void
 SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
 {
   const uint32_t generation = drawlist.getGeneration();
+  const size_t commandCount = static_cast<size_t>(drawlist.getNumCommands());
   if (!this->haveCacheGeneration || this->cacheGeneration != generation) {
     for (CachedCommand & entry : this->gpuCache) {
       if (!entry.persistent) this->destroyCacheEntry(entry);
@@ -1473,7 +1487,7 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
   }
   this->cacheGeneration = generation;
   this->haveCacheGeneration = true;
-  this->cachedCommandCount = static_cast<size_t>(drawlist.getNumCommands());
+  this->cachedCommandCount = commandCount;
 
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
@@ -2952,7 +2966,8 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
   const SbVec2s size = params.viewport.getViewportSizePixels();
   if (!this->ensurePickFramebuffer(size)) return FALSE;
 
-  this->updateGeometryCache(drawlist);
+  this->prepareGeometryCache(
+    drawlist, (params.flags & SO_PARAM_REUSE_DRAW_LIST) != 0);
 
   cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
                               this->pickTarget.framebuffer);
@@ -3428,7 +3443,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
   }
 
   ScopedGLState state(this->glue);
-  this->updateGeometryCache(drawlist);
+  this->prepareGeometryCache(
+    drawlist, (params.flags & SO_PARAM_REUSE_DRAW_LIST) != 0);
   applyViewport(params);
   glEnable(GL_BLEND);
   cc_glglue_glBlendFuncSeparate(this->glue, GL_SRC_ALPHA,
@@ -3523,7 +3539,8 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   }
   const BackendPhaseClock::time_point resourceStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
-  this->updateGeometryCache(drawlist);
+  this->prepareGeometryCache(
+    drawlist, (params.flags & SO_PARAM_REUSE_DRAW_LIST) != 0);
   if (measurePhases) {
     this->phaseStatistics.resourcePreparationNanoseconds =
       elapsedNanoseconds(resourceStart);
