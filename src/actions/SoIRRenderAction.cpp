@@ -60,6 +60,7 @@
 #include <Inventor/lists/SoPathList.h>
 
 #include "actions/SoSubActionP.h"
+#include "elements/SoRenderPlacementElement.h"
 #include "rendering/SoRenderIRP.h"
 
 #include <algorithm>
@@ -91,6 +92,9 @@ public:
   std::vector<int> instancePathIndices;
   SoInstanceId currentInstanceId = 0;
   SoInstanceId nextInstanceId = 1;
+  SoRenderStage renderStage = SoRenderStage::Main;
+  SoIRRenderContext renderContextOverride;
+  bool hasRenderContextOverride = false;
 };
 
 #define PRIVATE(obj) (obj->pimpl)
@@ -104,8 +108,12 @@ SoIRRenderAction::initClass(void)
     SoCacheElement::initClass();
   }
   SO_ACTION_ADD_METHOD_INTERNAL(SoNode, SoNode::IRRenderS);
+  if (SoRenderPlacementElement::getClassTypeId() == SoType::badType()) {
+    SoRenderPlacementElement::initClass();
+  }
 
   SO_ENABLE(SoIRRenderAction, SoViewportRegionElement);
+  SO_ENABLE(SoIRRenderAction, SoRenderPlacementElement);
   SO_ENABLE(SoIRRenderAction, SoDevicePixelRatioElement);
   SO_ENABLE(SoIRRenderAction, SoViewVolumeElement);
   SO_ENABLE(SoIRRenderAction, SoViewingMatrixElement);
@@ -241,6 +249,17 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
       (minimum[2] + maximum[2]) * 0.5f);
     retained.geometry.hasBounds = TRUE;
   }
+  SoState * state = this->getState();
+  const SoIRRenderContext * context = this->getRenderContextOverride();
+  if (context && context->hasLighting) {
+    retained.lightingHandle = SoRenderIR::fillLightingFromState(
+      state, this->drawlist, context->lighting);
+  }
+  else if (retained.lightingHandle == 0 && state) {
+    retained.lightingHandle = SoRenderIR::fillLightingFromState(
+      state, this->drawlist);
+  }
+
   const int commandIndex = this->drawlist.getNumCommands();
   this->drawlist.addCommand(retained);
 
@@ -296,7 +315,10 @@ SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
 void
 SoIRRenderAction::initializeCameraState(CameraPolicy policy)
 {
-  if (policy != CameraPolicy::USE_CONFIGURED_CAMERA || !this->camera) return;
+  if (policy != CameraPolicy::USE_CONFIGURED_CAMERA || !this->camera) {
+    return;
+  }
+
   SbViewportRegion cameraViewport = this->vpRegion;
   const SbViewVolume viewVolume =
     this->camera->getViewVolume(this->vpRegion, cameraViewport);
@@ -307,6 +329,75 @@ SoIRRenderAction::initializeCameraState(CameraPolicy policy)
   SoViewVolumeElement::set(this->state, this->camera, viewVolume);
   SoViewingMatrixElement::set(this->state, this->camera, viewingMatrix);
   SoProjectionMatrixElement::set(this->state, this->camera, projectionMatrix);
+}
+
+void
+SoIRRenderAction::traverseAdditionalRoot(SoNode * root, CameraPolicy policy)
+{
+  if (!root) return;
+  this->traversalMethods->setUp();
+  this->state->push();
+  SoViewportRegionElement::set(this->state, this->vpRegion);
+  SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
+  this->initializeCameraState(policy);
+  this->switchToNodeTraversal(root);
+  this->state->pop();
+}
+
+void
+SoIRRenderAction::traverseAdditionalPath(SoPath * path)
+{
+  this->traverseAdditionalPathInternal(path, nullptr);
+}
+
+void
+SoIRRenderAction::traverseAdditionalPath(SoPath * path,
+                                         const SoIRRenderContext & context)
+{
+  this->traverseAdditionalPathInternal(path, &context);
+}
+
+void
+SoIRRenderAction::traverseAdditionalPathInternal(
+  SoPath * path, const SoIRRenderContext * context)
+{
+  if (!path) return;
+
+  this->traversalMethods->setUp();
+  const bool previousHasContext = PRIVATE(this)->hasRenderContextOverride;
+  const SoIRRenderContext previousContext = PRIVATE(this)->renderContextOverride;
+  PRIVATE(this)->hasRenderContextOverride = context != nullptr;
+  if (context) {
+    PRIVATE(this)->renderContextOverride = *context;
+  }
+  this->state->push();
+  if (context) {
+    // The path traversal reconstructs model state through its ancestors.
+    context->applyToState(this->state, FALSE);
+  }
+  else {
+    SoViewportRegionElement::set(this->state, this->vpRegion);
+    SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
+    this->initializeCameraState(this->cameraPolicy);
+  }
+  this->switchToPathTraversal(path);
+  this->state->pop();
+  PRIVATE(this)->hasRenderContextOverride = previousHasContext;
+  if (previousHasContext) {
+    PRIVATE(this)->renderContextOverride = previousContext;
+  }
+}
+
+SoRenderStage
+SoIRRenderAction::getRenderStage() const
+{
+  return PRIVATE(this)->renderStage;
+}
+
+void
+SoIRRenderAction::setRenderStage(const SoRenderStage stage)
+{
+  PRIVATE(this)->renderStage = stage;
 }
 
 void
@@ -398,6 +489,37 @@ SoIRRenderAction::allocateTextureStorage(const unsigned char * source,
 }
 
 void
+SoIRRenderAction::applyRenderStage(SoRenderCommand & command)
+{
+  if (PRIVATE(this)->renderStage == SoRenderStage::Background) {
+    command.stage = SoRenderStage::Background;
+  }
+  else if (PRIVATE(this)->renderStage == SoRenderStage::AfterMain) {
+    command.stage = SoRenderStage::AfterMain;
+  }
+  else if (PRIVATE(this)->renderStage == SoRenderStage::Foreground
+           || SoRenderPlacementElement::getLayer(this->state)
+              == SoRenderPlacementElement::FOREGROUND) {
+    command.stage = SoRenderStage::Foreground;
+  }
+  if (SoRenderPlacementElement::consumeClearDepth(this->state)) {
+    command.clearDepthBefore = TRUE;
+  }
+}
+
+SoIRRenderStageScope::SoIRRenderStageScope(SoIRRenderAction & action,
+                                           SoRenderStage stage)
+  : action(&action), previousStage(action.getRenderStage())
+{
+  this->action->setRenderStage(stage);
+}
+
+SoIRRenderStageScope::~SoIRRenderStageScope()
+{
+  this->action->setRenderStage(this->previousStage);
+}
+
+void
 SoIRRenderAction::resetFrameResources()
 {
   PRIVATE(this)->geometryPool.clear();
@@ -416,4 +538,7 @@ SoIRRenderAction::clearCommandPaths()
     if (path && SoDB::isInitialized()) path->unref();
   }
   this->commandPaths.clear();
+  PRIVATE(this)->renderStage = SoRenderStage::Main;
+  PRIVATE(this)->hasRenderContextOverride = false;
+  PRIVATE(this)->renderContextOverride = SoIRRenderContext();
 }

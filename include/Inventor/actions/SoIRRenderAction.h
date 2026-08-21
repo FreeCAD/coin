@@ -46,7 +46,9 @@ class COIN_DLL_API SoIRRenderAction : public SoAction {
 public:
   /*! Camera state policy used when starting a root traversal. */
   enum class CameraPolicy {
+    //! Initialize the traversal from the camera configured on this action.
     USE_CONFIGURED_CAMERA,
+    //! Start with the current state and let a camera node in the root set it.
     CAMERA_IN_ROOT
   };
 
@@ -108,10 +110,30 @@ public:
   const SoNode * getUnsupportedNode() const { return this->unsupportedNode; }
   //! Return a static or otherwise frame-stable explanation for the status.
   const char * getUnsupportedReason() const { return this->unsupportedReason; }
+  //! Append a root without clearing the current retained frame.
+  void traverseAdditionalRoot(
+    SoNode * root,
+    CameraPolicy policy = CameraPolicy::USE_CONFIGURED_CAMERA);
+
+  //! Traverse a path without clearing the retained frame. Ancestor traversal
+  //! reconstructs inherited scene state for the replayed path.
+  void traverseAdditionalPath(SoPath * path);
+#ifdef COIN_INTERNAL
+  //! Traverse a path using a copied replay context. The context supplements
+  //! path traversal; it is not a general snapshot of SoState.
+  void traverseAdditionalPath(SoPath * path,
+                              const SoIRRenderContext & context);
+#endif
+#ifdef COIN_INTERNAL
+  SoRenderStage getRenderStage() const;
+  void setRenderStage(SoRenderStage stage);
+  void applyRenderStage(SoRenderCommand & command);
+#endif
+
 
   //! Return the generated draw list for the current frame.
   const SoDrawList & getDrawList(void) const { return this->drawlist; }
-#if defined(COIN_INTERNAL) || defined(COIN_ALLOW_PRIVATE_HEADERS)
+#ifdef COIN_INTERNAL
   //! Mutable access to the generated draw list for the current frame.
   SoDrawList & getMutableDrawList() { return this->drawlist; }
 #endif
@@ -146,6 +168,15 @@ private:
   void initializeCameraState(CameraPolicy policy);
   void resetFrameResources();
   void clearCommandPaths();
+#ifdef COIN_INTERNAL
+  void traverseAdditionalPathInternal(
+    SoPath * path, const SoIRRenderContext * context);
+  const SoIRRenderContext * getRenderContextOverride() const
+  {
+    return this->pimpl->hasRenderContextOverride
+      ? &this->pimpl->renderContextOverride : nullptr;
+  }
+#endif
 
   SbViewportRegion vpRegion;
   SoCamera *       camera = nullptr;
@@ -158,5 +189,21 @@ private:
   const SoNode * unsupportedNode = nullptr;
   const char * unsupportedReason = nullptr;
 };
+
+#ifdef COIN_INTERNAL
+/*! \brief RAII guard for an action-local manager render stage. */
+class COIN_DLL_API SoIRRenderStageScope {
+public:
+  SoIRRenderStageScope(SoIRRenderAction & action, SoRenderStage stage);
+  ~SoIRRenderStageScope();
+
+  SoIRRenderStageScope(const SoIRRenderStageScope &) = delete;
+  SoIRRenderStageScope & operator=(const SoIRRenderStageScope &) = delete;
+
+private:
+  SoIRRenderAction * action;
+  SoRenderStage previousStage;
+};
+#endif
 
 #endif // COIN_SOIRRENDERACTION_H

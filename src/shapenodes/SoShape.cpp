@@ -396,6 +396,7 @@ private:
       if (completePickRanges && pickRanges.size() == expectedRanges) {
         command.pick.elementRanges = pickRanges;
       }
+      this->action->applyRenderStage(command);
       this->action->addCommand(command);
     }
     this->primitiveRanges.clear();

@@ -370,6 +370,17 @@ if(HAVE_EGL)
 		LABELS offscreen requires-egl)
 endif()
 
+add_executable(RetainedReplayContextTest RetainedReplayContextTest.cpp)
+target_link_libraries(RetainedReplayContextTest
+	CoinPrivateTestHeaders $<LINK_ONLY:Coin>
+	${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedReplayContextTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES})
+add_test(NAME RetainedReplayContextTest COMMAND RetainedReplayContextTest)
+set_tests_properties(RetainedReplayContextTest PROPERTIES LABELS "unit")
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG(-Wtautological-compare DISABLE_WARNING_TAUTOLOGCOMPARE)
