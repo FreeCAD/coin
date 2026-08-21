@@ -214,6 +214,12 @@ runTest()
     manager.setCamera(camera);
     manager.setRenderPipeline(SoRenderManager::RenderPipeline::DRAW_LIST);
 
+    if (manager.isRenderPhaseTimingEnabled()) {
+      std::cerr << "FAIL: render phase timing was enabled by default" << std::endl;
+      result = 1;
+    }
+    manager.setRenderPhaseTimingEnabled(TRUE);
+
     if (!manager.isRenderPipelineAvailable(SoRenderManager::RenderPipeline::DRAW_LIST)) {
       std::cerr << "FAIL: DrawList was unavailable in a valid core context" << std::endl;
       result = 1;
@@ -237,6 +243,14 @@ runTest()
       std::cerr << "FAIL: DrawList manager callbacks were not paired exactly once" << std::endl;
       result = 1;
     }
+    const SoRenderManager::RenderPhaseStatistics renderPhases =
+      manager.getRenderPhaseStatistics();
+    if (renderPhases.drawListConstructionNanoseconds == 0 ||
+        renderPhases.planConstructionNanoseconds == 0 ||
+        renderPhases.backendSubmissionNanoseconds == 0) {
+      std::cerr << "FAIL: retained render phases were not measured" << std::endl;
+      result = 1;
+    }
     if (countNonBlack(context) == 0) {
       std::cerr << "FAIL: transformed-camera manager render produced no pixels" << std::endl;
       result = 1;
@@ -254,6 +268,15 @@ runTest()
       result = 1;
     }
     delete closest;
+    const SoRenderManager::RenderPhaseStatistics firstPickPhases =
+      manager.getRenderPhaseStatistics();
+    if (firstPickPhases.pickBufferRefreshes != 1 ||
+        firstPickPhases.pickBufferUpdateNanoseconds == 0 ||
+        firstPickPhases.pickQueryNanoseconds == 0 ||
+        firstPickPhases.pickResultResolutionNanoseconds == 0) {
+      std::cerr << "FAIL: retained pick phases were not measured" << std::endl;
+      result = 1;
+    }
 
     SoPickedPointList stack;
     if (!manager.pickDepthStack(16, 16, 0, 8, stack) ||
@@ -261,6 +284,24 @@ runTest()
         stack[0]->getPath()->getTail()->getTypeId() !=
           SoCube::getClassTypeId()) {
       std::cerr << "FAIL: manager depth-stack query did not return scene hits"
+                << std::endl;
+      result = 1;
+    }
+    const SoRenderManager::RenderPhaseStatistics reusedPickPhases =
+      manager.getRenderPhaseStatistics();
+    if (reusedPickPhases.pickBufferRefreshes != 0 ||
+        reusedPickPhases.pickBufferUpdateNanoseconds != 0 ||
+        reusedPickPhases.pickQueryNanoseconds == 0) {
+      std::cerr << "FAIL: reused pick buffer phases were misreported" << std::endl;
+      result = 1;
+    }
+
+    manager.setRenderPhaseTimingEnabled(FALSE);
+    const SoRenderManager::RenderPhaseStatistics disabledPhases =
+      manager.getRenderPhaseStatistics();
+    if (disabledPhases.drawListConstructionNanoseconds != 0 ||
+        disabledPhases.pickQueryNanoseconds != 0) {
+      std::cerr << "FAIL: disabling render phase timing did not reset statistics"
                 << std::endl;
       result = 1;
     }
