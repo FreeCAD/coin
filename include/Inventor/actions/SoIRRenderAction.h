@@ -15,8 +15,8 @@
 class SoPrimitiveVertex;
 class SoPath;
 class SoPathList;
-class SoNode;
 class SoCamera;
+class SoNode;
 class SoIRRenderActionP;
 
 /*!
@@ -97,10 +97,6 @@ public:
 
   //! Append a retained command produced during the current traversal.
   void addCommand(const SoRenderCommand & command);
-  //! Return the non-owned path retained for a command in this frame.
-  //! The pointer is borrowed and remains valid until the next apply/beginFrame
-  //! on this action or until the action is destroyed.
-  const SoPath * getCommandPath(int commandIndex) const;
 
   //! Mark the current frame as unsupported by the retained renderer.
   void markUnsupported(const SoNode * node, const char * reason);
@@ -110,6 +106,11 @@ public:
   const SoNode * getUnsupportedNode() const { return this->unsupportedNode; }
   //! Return a static or otherwise frame-stable explanation for the status.
   const char * getUnsupportedReason() const { return this->unsupportedReason; }
+  //! Return the non-owned path retained for a command in this frame.
+  //! The pointer is borrowed and remains valid until the next apply/beginFrame
+  //! on this action or until the action is destroyed.
+  const SoPath * getCommandPath(int commandIndex) const;
+
   //! Append a root without clearing the current retained frame.
   void traverseAdditionalRoot(
     SoNode * root,
@@ -173,11 +174,7 @@ private:
 #ifdef COIN_INTERNAL
   void traverseAdditionalPathInternal(
     SoPath * path, const SoIRRenderContext * context);
-  const SoIRRenderContext * getRenderContextOverride() const
-  {
-    return this->pimpl->hasRenderContextOverride
-      ? &this->pimpl->renderContextOverride : nullptr;
-  }
+  const SoIRRenderContext * getRenderContextOverride() const;
 #endif
 
   SbViewportRegion vpRegion;

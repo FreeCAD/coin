@@ -2961,25 +2961,6 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
   SbMat frameProjection;
   params.viewMatrix.getValue(frameView);
   params.projMatrix.getValue(frameProjection);
-  auto drawPickRange = [&](const SoRenderStage stage,
-                           const uint32_t begin,
-                           const uint32_t end) {
-    std::vector<size_t> entries;
-    for (size_t i = 0; i < this->pickTarget.lookup.size(); ++i) {
-      const int commandIndex = this->pickTarget.lookup[i].commandIndex;
-      if (commandIndex < 0 ||
-          static_cast<uint32_t>(commandIndex) < begin ||
-          static_cast<uint32_t>(commandIndex) >= end) continue;
-      if (drawlist.getCommand(commandIndex).stage != stage) continue;
-      entries.push_back(i);
-    }
-    for (const size_t index : entries) {
-      this->drawPickEntry(drawlist, this->pickTarget.lookup[index],
-                          static_cast<GLuint>(index + 1),
-                          frameView, frameProjection, params);
-    }
-  };
-
   auto drawPickCommand = [&](const uint32_t commandIndex) {
     for (size_t i = 0; i < this->pickTarget.lookup.size(); ++i) {
       const int lookupCommandIndex = this->pickTarget.lookup[i].commandIndex;
@@ -3193,10 +3174,42 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
 
   const SoDrawList & drawlist = *this->pickTarget.drawlist;
   if (drawlist.getGeneration() != this->pickTarget.generation) return FALSE;
-  const SoRenderPlan & plan = this->pickTarget.plan;
+  const SoRenderPlan plan = this->pickTarget.plan;
   const SoRenderParams & params = this->pickTarget.params;
   const uint32_t commandCount = static_cast<uint32_t>(
     drawlist.getNumCommands());
+
+  // A depth clear starts a new visual depth segment only where that clear
+  // applies. At a local-viewport cursor, later segments supersede earlier
+  // ones; outside that viewport, depth continuity is preserved.
+  std::vector<std::vector<uint32_t> > segments(1);
+  const SbVec2s baseOrigin = params.viewport.getViewportOriginPixels();
+  const std::vector<SoDepthClearEvent> & events =
+    drawlist.getDepthClearEvents();
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type == SoRenderOperationType::DRAW) {
+      if (operation.commandIndex >= commandCount) return FALSE;
+      segments.back().push_back(operation.commandIndex);
+      continue;
+    }
+    if (operation.type != SoRenderOperationType::CLEAR_DEPTH ||
+        operation.depthClearEventIndex >= events.size()) continue;
+    const SoDepthClearEvent & event = events[operation.depthClearEventIndex];
+    int clearX = 0;
+    int clearY = 0;
+    int clearWidth = width;
+    int clearHeight = height;
+    if (event.viewportOverride) {
+      clearX = event.viewportX - baseOrigin[0];
+      clearY = event.viewportY - baseOrigin[1];
+      clearWidth = event.viewportWidth;
+      clearHeight = event.viewportHeight;
+    }
+    const bool cursorInside = x >= clearX && y >= clearY &&
+      x < clearX + clearWidth && y < clearY + clearHeight;
+    if (cursorInside) segments.push_back(std::vector<uint32_t>());
+  }
 
   ScopedGLState state(this->glue);
   ScopedPixelPackState packState;
@@ -3251,7 +3264,8 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     return ordered;
   };
 
-  auto renderLayer = [&](const int previousDepth, const int targetDepth,
+  auto renderLayer = [&](const std::vector<uint32_t> & commands,
+                         const int previousDepth, const int targetDepth,
                          const bool peel) {
     cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
                                 this->pickTarget.framebuffer);
@@ -3291,9 +3305,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
                             frameView, frameProjection, params);
       }
     };
-    for (int i = 0; i < plan.getNumDraws(); ++i) {
-      const uint32_t commandIndex = plan.getDraw(i).commandIndex;
-      if (commandIndex >= commandCount) return false;
+    for (const uint32_t commandIndex : commands) {
       drawPickCommand(commandIndex);
     }
     return true;
@@ -3301,39 +3313,49 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
 
   results.generation = this->pickTarget.generation;
   std::vector<GLuint> seenIds;
-  int currentDepth = 0;
-  for (int layer = 0; layer <= maxLayers; ++layer) {
-    const std::vector<SoPickResult> layerHits = readLayer();
-    if (layerHits.empty()) break;
-    if (layer == maxLayers) {
-      results.truncated = TRUE;
+  bool queryFailed = false;
+  for (auto segment = segments.rbegin(); segment != segments.rend();
+       ++segment) {
+    if (segment->empty()) continue;
+    int currentDepth = 0;
+    if (!renderLayer(*segment, 1, currentDepth, false)) {
+      results.hits.clear();
+      queryFailed = true;
       break;
     }
-    for (const SoPickResult & hit : layerHits) {
-      if (std::find(seenIds.begin(), seenIds.end(), hit.id) !=
-          seenIds.end()) continue;
-      if (static_cast<int>(results.hits.size()) >= maxHits) {
+    for (int layer = 0; layer <= maxLayers; ++layer) {
+      const std::vector<SoPickResult> layerHits = readLayer();
+      if (layerHits.empty()) break;
+      if (layer == maxLayers) {
         results.truncated = TRUE;
         break;
       }
-      seenIds.push_back(hit.id);
-      results.hits.push_back(hit);
+      for (const SoPickResult & hit : layerHits) {
+        if (std::find(seenIds.begin(), seenIds.end(), hit.id) !=
+            seenIds.end()) continue;
+        if (static_cast<int>(results.hits.size()) >= maxHits) {
+          results.truncated = TRUE;
+          break;
+        }
+        seenIds.push_back(hit.id);
+        results.hits.push_back(hit);
+      }
+      if (results.truncated) break;
+      const int nextDepth = 1 - currentDepth;
+      if (!renderLayer(*segment, currentDepth, nextDepth, true)) {
+        results.hits.clear();
+        queryFailed = true;
+        break;
+      }
+      currentDepth = nextDepth;
     }
-    if (results.truncated) break;
-    const int nextDepth = 1 - currentDepth;
-    if (!renderLayer(currentDepth, nextDepth, true)) {
-      results.hits.clear();
-      results.truncated = FALSE;
-      break;
-    }
-    currentDepth = nextDepth;
+    if (results.truncated || queryFailed) break;
   }
 
-  // Restore the frontmost target in the queried region so subsequent hover
-  // queries remain cheap and observe the same snapshot.
-  renderLayer(1, 0, false);
+  // A depth-stack query mutates the ping-pong attachments. Rebuild the cached
+  // frontmost target once so ordinary hover remains a read-only tiny query.
   this->pickTarget.peelEnabled = false;
-  this->pickTarget.activeDepth = 0;
+  this->updatePickBuffer(drawlist, plan, params);
   return !results.hits.empty();
 }
 

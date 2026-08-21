@@ -63,10 +63,10 @@
 #include "elements/SoRenderPlacementElement.h"
 #include "rendering/SoRenderIRP.h"
 
-#include <algorithm>
 #include <cassert>
-#include <limits>
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 SO_ACTION_SOURCE(SoIRRenderAction);
@@ -271,6 +271,15 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
   this->commandPaths[static_cast<size_t>(commandIndex)] = retainedPath;
 }
 
+void
+SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
+{
+  if (this->unsupportedRendering) return;
+  this->unsupportedRendering = true;
+  this->unsupportedNode = node;
+  this->unsupportedReason = reason ? reason : "unsupported retained rendering semantics";
+}
+
 const SoPath *
 SoIRRenderAction::getCommandPath(int commandIndex) const
 {
@@ -303,16 +312,6 @@ SoIRRenderAction::apply(const SoPathList & pathlist, SbBool obeysrules)
 }
 
 void
-SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
-{
-  if (this->unsupportedRendering) return;
-  this->unsupportedRendering = true;
-  this->unsupportedNode = node;
-  this->unsupportedReason = reason ? reason :
-    "unsupported retained rendering semantics";
-}
-
-void
 SoIRRenderAction::initializeCameraState(CameraPolicy policy)
 {
   if (policy != CameraPolicy::USE_CONFIGURED_CAMERA || !this->camera) {
@@ -340,6 +339,8 @@ SoIRRenderAction::traverseAdditionalRoot(SoNode * root, CameraPolicy policy)
   SoViewportRegionElement::set(this->state, this->vpRegion);
   SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
   this->initializeCameraState(policy);
+  SoRenderIR::setCommandMatricesOverride(
+    this->state, policy == CameraPolicy::CAMERA_IN_ROOT);
   this->switchToNodeTraversal(root);
   this->state->pop();
 }
@@ -374,11 +375,14 @@ SoIRRenderAction::traverseAdditionalPathInternal(
   if (context) {
     // The path traversal reconstructs model state through its ancestors.
     context->applyToState(this->state, FALSE);
+    SoRenderIR::setCommandMatricesOverride(this->state, TRUE);
   }
   else {
     SoViewportRegionElement::set(this->state, this->vpRegion);
     SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
     this->initializeCameraState(this->cameraPolicy);
+    SoRenderIR::setCommandMatricesOverride(
+      this->state, this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT);
   }
   this->switchToPathTraversal(path);
   this->state->pop();
@@ -400,12 +404,21 @@ SoIRRenderAction::setRenderStage(const SoRenderStage stage)
   PRIVATE(this)->renderStage = stage;
 }
 
+const SoIRRenderContext *
+SoIRRenderAction::getRenderContextOverride() const
+{
+  return PRIVATE(this)->hasRenderContextOverride
+    ? &PRIVATE(this)->renderContextOverride : nullptr;
+}
+
 void
 SoIRRenderAction::beginTraversal(SoNode * node)
 {
   SoViewportRegionElement::set(this->state, this->vpRegion);
   SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
   this->initializeCameraState(this->cameraPolicy);
+  SoRenderIR::setCommandMatricesOverride(
+    this->state, this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT);
   inherited::beginTraversal(node);
 }
 
@@ -497,13 +510,10 @@ SoIRRenderAction::applyRenderStage(SoRenderCommand & command)
   else if (PRIVATE(this)->renderStage == SoRenderStage::AfterMain) {
     command.stage = SoRenderStage::AfterMain;
   }
-  else if (PRIVATE(this)->renderStage == SoRenderStage::Foreground
-           || SoRenderPlacementElement::getLayer(this->state)
-              == SoRenderPlacementElement::FOREGROUND) {
+  else if (PRIVATE(this)->renderStage == SoRenderStage::Foreground ||
+           SoRenderPlacementElement::getLayer(this->state) ==
+             SoRenderPlacementElement::FOREGROUND) {
     command.stage = SoRenderStage::Foreground;
-  }
-  if (SoRenderPlacementElement::consumeClearDepth(this->state)) {
-    command.clearDepthBefore = TRUE;
   }
 }
 
@@ -511,12 +521,13 @@ void
 SoIRRenderAction::requestDepthClear()
 {
   SoDepthClearEvent event;
-  event.stage = this->renderStage;
+  event.stage = PRIVATE(this)->renderStage;
   if (SoRenderPlacementElement::getLayer(this->state) ==
       SoRenderPlacementElement::FOREGROUND) {
     event.stage = SoRenderStage::Foreground;
   }
-  event.sequence = static_cast<uint32_t>(this->drawlist.getNumCommands());
+  event.sequence = static_cast<uint32_t>(
+    this->drawlist.getNumCommands());
   int x = 0;
   int y = 0;
   int width = 0;
