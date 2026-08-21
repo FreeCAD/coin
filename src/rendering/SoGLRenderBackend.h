@@ -306,6 +306,13 @@ private:
     bool ready = false;
   } pickTarget;
 
+  struct CommandFrame {
+    SbMat view;
+    SbMat projection;
+    SbVec2s viewportOrigin;
+    SbVec2s viewportSize;
+  };
+
   bool createShaders();
   const VisualProgram & selectSurfaceProgram(
     const SoRenderCommand & command) const;
@@ -346,6 +353,12 @@ private:
                                      const SbVec2s & viewportSize);
   void setupLineRasterVAO(CachedCommand & entry);
   void destroyLineRasterStream(CachedCommand & entry);
+  CommandFrame effectiveCommandFrame(const SoRenderCommand & command,
+                                      const SoRenderParams & params,
+                                      bool framebufferLocal) const;
+  void clearDepthEvent(const SoDepthClearEvent & event,
+                       const SoRenderParams & params,
+                       bool framebufferLocal);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
                    const SbMat & viewMat,

@@ -507,6 +507,31 @@ SoIRRenderAction::applyRenderStage(SoRenderCommand & command)
   }
 }
 
+void
+SoIRRenderAction::requestDepthClear()
+{
+  SoDepthClearEvent event;
+  event.stage = this->renderStage;
+  if (SoRenderPlacementElement::getLayer(this->state) ==
+      SoRenderPlacementElement::FOREGROUND) {
+    event.stage = SoRenderStage::Foreground;
+  }
+  event.sequence = static_cast<uint32_t>(this->drawlist.getNumCommands());
+  int x = 0;
+  int y = 0;
+  int width = 0;
+  int height = 0;
+  if (SoRenderPlacementElement::getViewport(
+        this->state, x, y, width, height)) {
+    event.viewportOverride = TRUE;
+    event.viewportX = x;
+    event.viewportY = y;
+    event.viewportWidth = width;
+    event.viewportHeight = height;
+  }
+  this->drawlist.addDepthClearEvent(event);
+}
+
 SoIRRenderStageScope::SoIRRenderStageScope(SoIRRenderAction & action,
                                            SoRenderStage stage)
   : action(&action), previousStage(action.getRenderStage())

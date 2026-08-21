@@ -124,6 +124,8 @@ public:
   void traverseAdditionalPath(SoPath * path,
                               const SoIRRenderContext & context);
 #endif
+  //! Record a depth-clear barrier at the current traversal position.
+  void requestDepthClear();
 #ifdef COIN_INTERNAL
   SoRenderStage getRenderStage() const;
   void setRenderStage(SoRenderStage stage);

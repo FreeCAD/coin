@@ -1079,34 +1079,85 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
       : SoIRRenderAction::CameraPolicy::USE_CONFIGURED_CAMERA);
   PRIVATE(this)->irAction->setDevicePixelRatio(PRIVATE(this)->devicePixelRatio);
 
-  SoState * state = PRIVATE(this)->irAction->getState();
-  state->push();
-  SoNode * stateNode = PRIVATE(this)->dummynode;
-  if (!this->isTexturesEnabled()) {
-    SoTextureQualityElement::set(state, stateNode, 0.0f);
-    SoTextureOverrideElement::setQualityOverride(state, TRUE);
+  SoIRRenderAction * action = PRIVATE(this)->irAction;
+  SoState * state = action->getState();
+  action->beginFrame();
+
+  const auto applyTraversalState = [this, renderMode](SoState * traversalState) {
+    SoNode * stateNode = PRIVATE(this)->dummynode;
+    if (!this->isTexturesEnabled()) {
+      SoTextureQualityElement::set(traversalState, stateNode, 0.0f);
+      SoTextureOverrideElement::setQualityOverride(traversalState, TRUE);
+    }
+    switch (renderMode) {
+    case SoRenderManager::WIREFRAME:
+      SoDrawStyleElement::set(traversalState, stateNode, SoDrawStyleElement::LINES);
+      SoLightModelElement::set(traversalState, stateNode, SoLightModelElement::BASE_COLOR);
+      SoOverrideElement::setDrawStyleOverride(traversalState, stateNode, TRUE);
+      SoOverrideElement::setLightModelOverride(traversalState, stateNode, TRUE);
+      break;
+    case SoRenderManager::POINTS:
+      SoDrawStyleElement::set(traversalState, stateNode, SoDrawStyleElement::POINTS);
+      SoLightModelElement::set(traversalState, stateNode, SoLightModelElement::BASE_COLOR);
+      SoOverrideElement::setDrawStyleOverride(traversalState, stateNode, TRUE);
+      SoOverrideElement::setLightModelOverride(traversalState, stateNode, TRUE);
+      break;
+    case SoRenderManager::AS_IS:
+      break;
+    default:
+      assert(false && "unsupported DrawList render mode");
+      break;
+    }
+    if (PRIVATE(this)->lightingmode == SoRenderManager::UNLIT) {
+      SoLightModelElement::set(traversalState, stateNode,
+                               SoLightModelElement::BASE_COLOR);
+      SoOverrideElement::setLightModelOverride(traversalState, stateNode, TRUE);
+    }
+  };
+
+  if (PRIVATE(this)->renderLayerBackgroundRoot) {
+    SoIRRenderStageScope backgroundScope(*action, SoRenderStage::Background);
+    state->push();
+    SoDevicePixelRatioElement::set(state, PRIVATE(this)->dummynode,
+                                   PRIVATE(this)->devicePixelRatio);
+    applyTraversalState(state);
+    action->traverseAdditionalRoot(PRIVATE(this)->renderLayerBackgroundRoot);
+    state->pop();
+    if (clearzbuffer) action->requestDepthClear();
   }
-  switch (renderMode) {
-  case SoRenderManager::WIREFRAME:
-    SoDrawStyleElement::set(state, stateNode, SoDrawStyleElement::LINES);
-    SoLightModelElement::set(state, stateNode, SoLightModelElement::BASE_COLOR);
-    SoOverrideElement::setDrawStyleOverride(state, stateNode, TRUE);
-    SoOverrideElement::setLightModelOverride(state, stateNode, TRUE);
-    break;
-  case SoRenderManager::POINTS:
-    SoDrawStyleElement::set(state, stateNode, SoDrawStyleElement::POINTS);
-    SoLightModelElement::set(state, stateNode, SoLightModelElement::BASE_COLOR);
-    SoOverrideElement::setDrawStyleOverride(state, stateNode, TRUE);
-    SoOverrideElement::setLightModelOverride(state, stateNode, TRUE);
-    break;
-  case SoRenderManager::AS_IS:
-    break;
-  default:
-    assert(false && "unsupported DrawList render mode");
-    break;
+
+  if (PRIVATE(this)->scene) {
+    state->push();
+    SoDevicePixelRatioElement::set(state, PRIVATE(this)->dummynode,
+                                   PRIVATE(this)->devicePixelRatio);
+    applyTraversalState(state);
+    action->traverseAdditionalRoot(
+      PRIVATE(this)->scene,
+      PRIVATE(this)->cameraInSceneGraph
+        ? SoIRRenderAction::CameraPolicy::CAMERA_IN_ROOT
+        : SoIRRenderAction::CameraPolicy::USE_CONFIGURED_CAMERA);
+    state->pop();
   }
-  PRIVATE(this)->irAction->apply(PRIVATE(this)->scene);
-  state->pop();
+
+  {
+    SoIRRenderStageScope afterMainScope(*action, SoRenderStage::AfterMain);
+    state->push();
+    SoDevicePixelRatioElement::set(state, PRIVATE(this)->dummynode,
+                                   PRIVATE(this)->devicePixelRatio);
+    applyTraversalState(state);
+    PRIVATE(this)->invokeAfterMainSceneCallbacks(action);
+    state->pop();
+  }
+
+  if (PRIVATE(this)->renderLayerForegroundRoot) {
+    SoIRRenderStageScope foregroundScope(*action, SoRenderStage::Foreground);
+    state->push();
+    SoDevicePixelRatioElement::set(state, PRIVATE(this)->dummynode,
+                                   PRIVATE(this)->devicePixelRatio);
+    applyTraversalState(state);
+    action->traverseAdditionalRoot(PRIVATE(this)->renderLayerForegroundRoot);
+    state->pop();
+  }
 
   if (PRIVATE(this)->irAction->hasUnsupportedRendering()) {
     const char * reason = PRIVATE(this)->irAction->getUnsupportedReason();

@@ -313,6 +313,15 @@ target_include_directories(RenderPlanTest PRIVATE
 )
 add_test(NAME RenderPlanTest COMMAND RenderPlanTest)
 
+add_executable(RenderLayerSemanticsTest RenderLayerSemanticsTest.cpp)
+target_link_libraries(RenderLayerSemanticsTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RenderLayerSemanticsTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES})
+add_test(NAME RenderLayerSemanticsTest COMMAND RenderLayerSemanticsTest)
+set_tests_properties(RenderLayerSemanticsTest PROPERTIES LABELS "unit")
+
 add_executable(RetainedNodeTest RetainedNodeTest.cpp)
 target_link_libraries(RetainedNodeTest PRIVATE CoinPrivateTestHeaders Coin
 	${COIN_TARGET_LINK_LIBRARIES})
