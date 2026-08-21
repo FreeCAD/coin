@@ -359,8 +359,12 @@ runTest()
 
   // The active context remains valid while normal GL destruction happens.
   backend.shutdown();
-  if (backend.isInitialized()) {
-    std::cerr << "FAIL: backend remained initialized after shutdown" << std::endl;
+  SoRenderPlan shutdownPlan;
+  SoRenderPlanner shutdownPlanner;
+  shutdownPlanner.build(drawlist, params.viewMatrix, shutdownPlan);
+  if (backend.render(drawlist, shutdownPlan, params)) {
+    std::cerr << "FAIL: backend accepted rendering after shutdown"
+              << std::endl;
     result = 1;
   }
   return result;
