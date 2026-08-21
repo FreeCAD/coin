@@ -17,6 +17,8 @@ p95 timings, workload sizes, sample counts, and sanity checksums:
 build-bench/bin/CoinRenderBenchmarks --output results.json
 build-bench/bin/CoinRenderBenchmarks --samples 50 --output results.json
 build-bench/bin/CoinRenderGLBenchmarks --samples 50 --output gl-results.json
+build-bench/bin/CoinRenderGLBenchmarks --rebuild-only 5000 \
+  --samples 10 --output rebuild-5000.json
 ```
 
 ## Viewing generated workloads
@@ -91,11 +93,12 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-4 separates draw-list construction, render-plan construction, and backend
-submission. Backend submission is further divided into frame setup, resource
-preparation, command execution, and selection overlays. Picking reports target
-preparation and rendering, depth rendering and peeling, readback, hit
-processing, target restoration, and final scene-result resolution.
+5 identifies each result as `per_frame_traversal`, `steady_state`, or
+`forced_rebuild`. It separates draw-list construction, render-plan construction,
+and backend submission. Backend submission is further divided into frame setup,
+resource preparation, command execution, and selection overlays. Picking
+reports target preparation and rendering, depth rendering and peeling,
+readback, hit processing, target restoration, and final scene-result resolution.
 
 Timing remains disabled for normal `SoRenderManager` users, so clock reads do
 not affect ordinary rendering. A zero-valued phase means it did not run; for
@@ -107,6 +110,14 @@ reuses its draw list until a scene, camera, layer, viewport-dependent traversal
 setting, or explicit `invalidateDrawList()` call invalidates it. The
 `drawlist_rebuilds` field makes that distinction visible in benchmark output;
 it is normally zero after warmup.
+
+Use `--rebuild-only N` to isolate the feature-rich scene at `N` semantic
+draws. The focused run compares LegacyGL's normal per-frame traversal with
+steady-state and forced-rebuild DrawList rendering in compatibility and core
+profiles. Before each forced-rebuild sample, the benchmark invalidates the
+retained draw list; `drawlist_rebuilds` must therefore equal the sample count.
+This mode reuses the feature-rich workload rather than maintaining a separate
+benchmark scene.
 
 The deterministic workloads currently cover traversal/IR construction, render
 plan construction (including transparent sorting and depth segments), retained
