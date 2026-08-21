@@ -98,13 +98,15 @@ target_include_directories(CoinPrivateTestHeaders INTERFACE
 	${PROJECT_SOURCE_DIR}/src/glue/khronos)
 
 function(coin_add_egl_test)
-	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
+	cmake_parse_arguments(ARG "PRIVATE_COIN_API" "NAME" "SOURCES;LABELS" ${ARGN})
 	if(NOT ARG_NAME OR NOT ARG_SOURCES)
 		message(FATAL_ERROR "coin_add_egl_test requires NAME and SOURCES")
 	endif()
 	add_executable(${ARG_NAME} ${ARG_SOURCES})
-	target_link_libraries(${ARG_NAME} PRIVATE
-		CoinPrivateTestHeaders Coin OpenGL::EGL)
+	target_link_libraries(${ARG_NAME} PRIVATE Coin OpenGL::EGL)
+	if(ARG_PRIVATE_COIN_API)
+		target_link_libraries(${ARG_NAME} PRIVATE CoinPrivateTestHeaders)
+	endif()
 	target_compile_definitions(${ARG_NAME} PRIVATE
 		COIN_TEST_SKIP_RETURN_CODE=${COIN_TEST_SKIP_RETURN_CODE})
 	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
@@ -167,7 +169,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		PRIVATE Coin ${COIN_TEST_OPENGL_TARGET})
 
 	function(coin_add_gl_test)
-		cmake_parse_arguments(ARG "INTERNAL" "NAME;PROFILE" "SOURCES;LABELS" ${ARGN})
+		cmake_parse_arguments(ARG "PRIVATE_COIN_API" "NAME;PROFILE" "SOURCES;LABELS" ${ARGN})
 		if(NOT ARG_NAME OR NOT ARG_PROFILE OR NOT ARG_SOURCES)
 			message(FATAL_ERROR "coin_add_gl_test requires NAME, PROFILE, and SOURCES")
 		endif()
@@ -179,7 +181,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 
 		add_executable(${ARG_NAME} ${ARG_SOURCES})
 		target_link_libraries(${ARG_NAME} PRIVATE CoinGLTestSupport Coin)
-		if(ARG_INTERNAL)
+		if(ARG_PRIVATE_COIN_API)
 			target_link_libraries(${ARG_NAME} PRIVATE CoinPrivateTestHeaders)
 		endif()
 		target_compile_definitions(${ARG_NAME} PRIVATE
@@ -194,12 +196,12 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			LABELS "${test_labels}")
 	endfunction()
 
-	coin_add_gl_test(NAME GLSLRuntimeTest PROFILE core INTERNAL
+	coin_add_gl_test(NAME GLSLRuntimeTest PROFILE core PRIVATE_COIN_API
 		SOURCES GLSLRuntimeTest.cpp)
 endif()
 
 if(HAVE_EGL)
-	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
+	coin_add_egl_test(NAME EGLBindingTest PRIVATE_COIN_API SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
 endif()
 
