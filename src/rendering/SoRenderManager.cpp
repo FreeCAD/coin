@@ -471,6 +471,14 @@ SoRenderManager::~SoRenderManager()
 #endif
   if (PRIVATE(this)->deleteaudiorenderaction) delete PRIVATE(this)->audiorenderaction;
   delete PRIVATE(this)->rootsensor;
+  if (PRIVATE(this)->renderLayerBackgroundSensor) {
+    PRIVATE(this)->renderLayerBackgroundSensor->detach();
+    delete PRIVATE(this)->renderLayerBackgroundSensor;
+  }
+  if (PRIVATE(this)->renderLayerForegroundSensor) {
+    PRIVATE(this)->renderLayerForegroundSensor->detach();
+    delete PRIVATE(this)->renderLayerForegroundSensor;
+  }
   delete PRIVATE(this)->redrawshot;
 
   if (PRIVATE(this)->superimpositions != NULL) {
@@ -484,6 +492,10 @@ SoRenderManager::~SoRenderManager()
 
   if (PRIVATE(this)->scene)
     PRIVATE(this)->scene->unref();
+  if (PRIVATE(this)->renderLayerBackgroundRoot)
+    PRIVATE(this)->renderLayerBackgroundRoot->unref();
+  if (PRIVATE(this)->renderLayerForegroundRoot)
+    PRIVATE(this)->renderLayerForegroundRoot->unref();
   this->setCamera(NULL);
 
   delete PRIVATE(this);
@@ -2195,6 +2207,58 @@ SoRenderManager::discardRenderBackendResources(void)
   }
 }
 
+void
+SoRenderManager::setRenderLayerRoot(RenderLayer layer, SoNode * root)
+{
+  SoNode ** slot = NULL;
+  SoNodeSensor ** sensorSlot = NULL;
+  switch (layer) {
+  case RENDER_LAYER_BACKGROUND:
+    slot = &PRIVATE(this)->renderLayerBackgroundRoot;
+    sensorSlot = &PRIVATE(this)->renderLayerBackgroundSensor;
+    break;
+  case RENDER_LAYER_FOREGROUND:
+    slot = &PRIVATE(this)->renderLayerForegroundRoot;
+    sensorSlot = &PRIVATE(this)->renderLayerForegroundSensor;
+    break;
+  default:
+    assert(0 && "unknown render layer");
+    return;
+  }
+  if (*slot == root) return;
+  if (*sensorSlot) (*sensorSlot)->detach();
+  if (*slot) (*slot)->unref();
+  *slot = root;
+  if (root) {
+    root->ref();
+    if (!*sensorSlot) {
+      *sensorSlot = new SoNodeSensor(SoRenderManager::nodesensorCB, this);
+    }
+    (*sensorSlot)->attach(root);
+  }
+  this->scheduleRedraw();
+}
+
+SoNode *
+SoRenderManager::getRenderLayerRoot(RenderLayer layer) const
+{
+  switch (layer) {
+  case RENDER_LAYER_BACKGROUND:
+    return PRIVATE(this)->renderLayerBackgroundRoot;
+  case RENDER_LAYER_FOREGROUND:
+    return PRIVATE(this)->renderLayerForegroundRoot;
+  default:
+    assert(0 && "unknown render layer");
+    return NULL;
+  }
+}
+
+void
+SoRenderManager::invalidateForeground(void)
+{
+  this->scheduleRedraw();
+}
+
 SbBool
 SoRenderManager::isRenderPipelineAvailable(const RenderPipeline pipeline) const
 {
@@ -2548,6 +2612,26 @@ SoRenderManager::removePostRenderCallback(SoRenderManagerRenderCB * cb, void * d
         "Tried to remove a cb,data tuple which doesn't exist"
         );
   PRIVATE(this)->postRenderCallbacks.erase(findit);
+}
+
+void
+SoRenderManager::addAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data)
+{
+  PRIVATE(this)->afterMainSceneCallbacks.push_back(
+    SoRenderManagerP::StageCBTouple(cb, data));
+}
+
+void
+SoRenderManager::removeAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data)
+{
+  std::vector<SoRenderManagerP::StageCBTouple>::iterator findit =
+    std::find(PRIVATE(this)->afterMainSceneCallbacks.begin(),
+              PRIVATE(this)->afterMainSceneCallbacks.end(),
+              SoRenderManagerP::StageCBTouple(cb, data));
+  assert(findit != PRIVATE(this)->afterMainSceneCallbacks.end());
+  if (findit != PRIVATE(this)->afterMainSceneCallbacks.end()) {
+    PRIVATE(this)->afterMainSceneCallbacks.erase(findit);
+  }
 }
 
 #undef PRIVATE

@@ -353,6 +353,13 @@ target_include_directories(RenderManagerPipelineTest PRIVATE
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES})
 add_test(NAME RenderManagerPipelineTest COMMAND RenderManagerPipelineTest)
+add_executable(RenderLayerManagerTest RenderLayerManagerTest.cpp)
+target_link_libraries(RenderLayerManagerTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RenderLayerManagerTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES})
+add_test(NAME RenderLayerManagerTest COMMAND RenderLayerManagerTest)
 set_tests_properties(RenderManagerPipelineTest PROPERTIES LABELS "unit")
 
 if(HAVE_EGL)

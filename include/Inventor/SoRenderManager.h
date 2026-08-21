@@ -46,6 +46,7 @@ class SbViewportRegion;
 class SoEvent;
 class SoPath;
 class SoDetail;
+class SoAction;
 #if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
 #endif
@@ -60,6 +61,9 @@ class SoPickedPoint;
 class SoPickedPointList;
 
 typedef void SoRenderManagerRenderCB(void * userdata, class SoRenderManager * mgr);
+typedef void SoRenderManagerStageCB(void * userdata,
+                                    class SoRenderManager * mgr,
+                                    SoAction * action);
 
 /*!
   \class SoRenderManager SoRenderManager.h Inventor/SoRenderManager.h
@@ -138,6 +142,11 @@ public:
   enum LightingMode {
     LIT,
     UNLIT
+  };
+
+  enum RenderLayer {
+    RENDER_LAYER_BACKGROUND,
+    RENDER_LAYER_FOREGROUND
   };
 
   enum StereoMode {
@@ -275,6 +284,10 @@ public:
   /*! Forget retained backend resources after context loss without GL deletes. */
   void discardRenderBackendResources(void);
 
+  void setRenderLayerRoot(RenderLayer layer, SoNode * root);
+  SoNode * getRenderLayerRoot(RenderLayer layer) const;
+  void invalidateForeground(void);
+
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 
@@ -287,6 +300,9 @@ public:
 
   void addPostRenderCallback(SoRenderManagerRenderCB * cb, void * data);
   void removePostRenderCallback(SoRenderManagerRenderCB * cb, void * data);
+
+  void addAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data);
+  void removeAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data);
 
   void reinitialize(void);
 
