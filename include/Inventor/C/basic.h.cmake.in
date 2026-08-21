@@ -323,6 +323,9 @@ typedef uint32_t SbUniqueId;
 #  ifdef COIN_MAKE_DLL
 #   define COIN_DLL_API __declspec(dllexport)
 #  endif /* COIN_MAKE_DLL */
+# elif defined(COIN_INTERNAL)
+   /* Private consumers may instantiate internal templates, but do not
+      import or export Coin's DLL ABI. */
 # else /* !COIN_BUILDING_COIN */
 #  ifdef COIN_DLL
 #   ifdef COIN_NOT_DLL

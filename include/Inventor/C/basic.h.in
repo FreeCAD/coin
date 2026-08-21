@@ -309,9 +309,11 @@ typedef uint32_t SbUniqueId;
    20011201 mortene. */
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 # ifdef COIN_INTERNAL
+#  ifdef COIN_BUILDING_COIN
 #  ifdef COIN_MAKE_DLL
 #   define COIN_DLL_API __declspec(dllexport)
 #  endif /* COIN_MAKE_DLL */
+#  endif /* COIN_BUILDING_COIN */
 # else /* !COIN_INTERNAL */
 #  ifdef COIN_DLL
 #   ifdef COIN_NOT_DLL
