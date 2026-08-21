@@ -4,6 +4,32 @@
 #include <Inventor/system/gl.h>
 #include <Inventor/C/glue/gl.h>
 
+#ifndef APIENTRY
+#define APIENTRY
+#endif
+
+namespace {
+
+typedef void (APIENTRY * CoinTestBlitFramebufferProc)(
+  GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+  GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+  GLbitfield mask, GLenum filter);
+
+CoinTestBlitFramebufferProc
+getBlitFramebufferProc(const cc_glglue * glue)
+{
+  CoinTestBlitFramebufferProc proc =
+    reinterpret_cast<CoinTestBlitFramebufferProc>(
+      cc_glglue_getprocaddress(glue, "glBlitFramebuffer"));
+  if (proc == NULL) {
+    proc = reinterpret_cast<CoinTestBlitFramebufferProc>(
+      cc_glglue_getprocaddress(glue, "glBlitFramebufferEXT"));
+  }
+  return proc;
+}
+
+} // namespace
+
 GLTestFramebuffer::GLTestFramebuffer()
   : glue(NULL),
     framebuffer(0),
@@ -102,6 +128,21 @@ GLTestFramebuffer::bind() const
 {
   cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER, this->framebuffer);
   glViewport(0, 0, this->framebufferwidth, this->framebufferheight);
+}
+
+void
+GLTestFramebuffer::blitToDefault() const
+{
+  if (!this->isInitialized()) return;
+  cc_glglue_glBindFramebuffer(this->glue, GL_READ_FRAMEBUFFER,
+                              this->framebuffer);
+  cc_glglue_glBindFramebuffer(this->glue, GL_DRAW_FRAMEBUFFER, 0);
+  CoinTestBlitFramebufferProc proc = getBlitFramebufferProc(this->glue);
+  if (proc != NULL) {
+    proc(0, 0, this->framebufferwidth, this->framebufferheight,
+         0, 0, this->framebufferwidth, this->framebufferheight,
+         GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  }
 }
 
 std::vector<uint8_t>
