@@ -26,6 +26,7 @@ target_include_directories(CoinVisualTests PRIVATE
 
 target_compile_features(CoinVisualTests PRIVATE cxx_std_17)
 target_compile_definitions(CoinVisualTests PRIVATE
+  COIN_ALLOW_PRIVATE_HEADERS
   COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>)
 
 target_link_libraries(CoinVisualTests PRIVATE
