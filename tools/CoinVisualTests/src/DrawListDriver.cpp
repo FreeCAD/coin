@@ -54,7 +54,7 @@ public:
 
     SoIRRenderAction action(viewport);
     action.apply(scene);
-    SoDrawList& drawlist = action.getMutableDrawList();
+    const SoDrawList & drawlist = action.getDrawList();
 
     SbMatrix view;
     SbMatrix projection;
