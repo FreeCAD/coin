@@ -17,6 +17,8 @@
 
 #include <Inventor/system/gl.h>
 
+struct cc_glglue;
+
 class GLTestFramebuffer {
 public:
   GLTestFramebuffer();
@@ -25,7 +27,7 @@ public:
   GLTestFramebuffer(const GLTestFramebuffer &) = delete;
   GLTestFramebuffer & operator=(const GLTestFramebuffer &) = delete;
 
-  bool initialize(int width, int height);
+  bool initialize(const cc_glglue * glue, int width, int height);
   void shutdown();
   void bind() const;
   void blitToDefault() const;
@@ -37,6 +39,7 @@ public:
   std::vector<uint8_t> readPixels() const;
 
 private:
+  const cc_glglue * glue_;
   GLuint framebuffer_;
   GLuint colorTexture_;
   GLuint depthRenderbuffer_;
