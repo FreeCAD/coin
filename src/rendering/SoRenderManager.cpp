@@ -158,6 +158,9 @@ retainedRenderParams(const SoRenderManagerP * manager)
   params.devicePixelRatio = manager->devicePixelRatio;
   params.clearColor = manager->backgroundcolor;
   params.clearDepth = 1.0f;
+  if (manager->drawListValid && !manager->drawListDirty) {
+    params.flags |= SO_PARAM_REUSE_DRAW_LIST;
+  }
   return params;
 }
 
@@ -406,6 +409,12 @@ SoRenderManager::SoRenderManager(void)
   PRIVATE(this)->renderPhaseStatistics = RenderPhaseStatistics();
   PRIVATE(this)->renderBackendContextId = 0;
   PRIVATE(this)->drawListCallbackScope = FALSE;
+  PRIVATE(this)->drawListValid = FALSE;
+  PRIVATE(this)->drawListDirty = TRUE;
+  PRIVATE(this)->drawListSceneRevision = 0;
+  PRIVATE(this)->drawListCameraRevision = 0;
+  PRIVATE(this)->drawListBackgroundRevision = 0;
+  PRIVATE(this)->drawListForegroundRevision = 0;
   PRIVATE(this)->pickTargetDirty = TRUE;
   PRIVATE(this)->pickTargetGeneration = 0;
   PRIVATE(this)->viewport = SbViewportRegion(SbVec2s(400, 400));
@@ -512,6 +521,7 @@ SoRenderManager::setSceneGraph(SoNode * const sceneroot)
   PRIVATE(this)->cameraInSceneGraph = FALSE;
 
   PRIVATE(this)->scene = sceneroot;
+  PRIVATE(this)->drawListDirty = TRUE;
 
   if (PRIVATE(this)->scene) {
     PRIVATE(this)->scene->ref();
@@ -544,6 +554,7 @@ SoRenderManager::setCamera(SoCamera * camera)
     PRIVATE(this)->camera->unref();
   }
   PRIVATE(this)->camera = camera;
+  PRIVATE(this)->drawListDirty = TRUE;
   if (camera) camera->ref();
 }
 
@@ -559,7 +570,9 @@ SoRenderManager::getCamera(void) const
 void
 SoRenderManager::setCameraInSceneGraph(SbBool inSceneGraph)
 {
+  if (PRIVATE(this)->cameraInSceneGraph == inSceneGraph) return;
   PRIVATE(this)->cameraInSceneGraph = inSceneGraph;
+  PRIVATE(this)->drawListDirty = TRUE;
 }
 
 SbBool
@@ -582,7 +595,9 @@ SoRenderManager::nodesensorCB(void * data, SoSensor * /* sensor */)
   SoDebugError::postInfo("SoRenderManager::nodesensorCB",
                          "detected change in scene graph");
 #endif // debug
-  ((SoRenderManager *)data)->scheduleRedraw();
+  SoRenderManager * manager = static_cast<SoRenderManager *>(data);
+  PRIVATE(manager)->drawListDirty = TRUE;
+  manager->scheduleRedraw();
 }
 
 /*!
@@ -1009,9 +1024,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   phaseStatistics.backendResourcePreparationNanoseconds = 0;
   phaseStatistics.backendCommandExecutionNanoseconds = 0;
   phaseStatistics.backendSelectionNanoseconds = 0;
+  phaseStatistics.drawListRebuilds = 0;
   const SbBool measurePhases = PRIVATE(this)->renderPhaseTimingEnabled;
-  const RenderPhaseClock::time_point drawListStart = measurePhases
-    ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
   const SoRenderManager::RenderMode renderMode = PRIVATE(this)->rendermode;
   const SoRenderManager::StereoMode stereoMode = PRIVATE(this)->stereomode;
   const SbBool hasSuperimpositions =
@@ -1157,7 +1171,29 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
 
   SoIRRenderAction * action = PRIVATE(this)->irAction;
   SoState * state = action->getState();
-  action->beginFrame();
+  const uint64_t sceneRevision = PRIVATE(this)->scene
+    ? static_cast<uint64_t>(PRIVATE(this)->scene->getNodeId()) : 0;
+  const uint64_t cameraRevision = PRIVATE(this)->camera
+    ? static_cast<uint64_t>(PRIVATE(this)->camera->getNodeId()) : 0;
+  const uint64_t backgroundRevision = PRIVATE(this)->renderLayerBackgroundRoot
+    ? static_cast<uint64_t>(
+        PRIVATE(this)->renderLayerBackgroundRoot->getNodeId()) : 0;
+  const uint64_t foregroundRevision = PRIVATE(this)->renderLayerForegroundRoot
+    ? static_cast<uint64_t>(
+        PRIVATE(this)->renderLayerForegroundRoot->getNodeId()) : 0;
+  const SbBool rebuildDrawList =
+    !PRIVATE(this)->drawListValid || PRIVATE(this)->drawListDirty ||
+    !PRIVATE(this)->afterMainSceneCallbacks.empty() ||
+    PRIVATE(this)->drawListSceneRevision != sceneRevision ||
+    PRIVATE(this)->drawListCameraRevision != cameraRevision ||
+    PRIVATE(this)->drawListBackgroundRevision != backgroundRevision ||
+    PRIVATE(this)->drawListForegroundRevision != foregroundRevision;
+  phaseStatistics.drawListRebuilds = rebuildDrawList ? 1 : 0;
+  const RenderPhaseClock::time_point drawListStart =
+    measurePhases && rebuildDrawList
+      ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
+
+  if (rebuildDrawList) action->beginFrame();
 
   const auto applyTraversalState = [this, renderMode](SoState * traversalState) {
     SoNode * stateNode = PRIVATE(this)->dummynode;
@@ -1195,7 +1231,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     }
   };
 
-  if (PRIVATE(this)->renderLayerBackgroundRoot) {
+  if (rebuildDrawList && PRIVATE(this)->renderLayerBackgroundRoot) {
     SoIRRenderStageScope backgroundScope(*action, SoRenderStage::Background);
     state->push();
     SoDevicePixelRatioElement::set(state,
@@ -1209,7 +1245,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     }
   }
 
-  if (PRIVATE(this)->scene) {
+  if (rebuildDrawList && PRIVATE(this)->scene) {
     state->push();
     SoDevicePixelRatioElement::set(state,
                                    PRIVATE(this)->dummynode,
@@ -1223,7 +1259,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     state->pop();
   }
 
-  {
+  if (rebuildDrawList) {
     SoIRRenderStageScope afterMainScope(*action, SoRenderStage::AfterMain);
     state->push();
     SoDevicePixelRatioElement::set(state,
@@ -1234,7 +1270,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     state->pop();
   }
 
-  if (PRIVATE(this)->renderLayerForegroundRoot) {
+  if (rebuildDrawList && PRIVATE(this)->renderLayerForegroundRoot) {
     SoIRRenderStageScope foregroundScope(*action, SoRenderStage::Foreground);
     state->push();
     SoDevicePixelRatioElement::set(state,
@@ -1245,8 +1281,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     state->pop();
   }
 
-  if (action->hasUnsupportedRendering()) {
-    const char * reason = action->getUnsupportedReason();
+  if (rebuildDrawList && PRIVATE(this)->irAction->hasUnsupportedRendering()) {
+    const char * reason = PRIVATE(this)->irAction->getUnsupportedReason();
 #if COIN_BUILD_LEGACY_GL_RENDERER
     if (currentContextSupportsLegacyRendering()) {
       SoDebugError::postWarning(
@@ -1278,9 +1314,18 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     return;
   }
 
+  if (rebuildDrawList) {
+    PRIVATE(this)->drawListValid = TRUE;
+    PRIVATE(this)->drawListDirty = FALSE;
+    PRIVATE(this)->drawListSceneRevision = sceneRevision;
+    PRIVATE(this)->drawListCameraRevision = cameraRevision;
+    PRIVATE(this)->drawListBackgroundRevision = backgroundRevision;
+    PRIVATE(this)->drawListForegroundRevision = foregroundRevision;
+  }
+
   SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
 
-  if (measurePhases) {
+  if (measurePhases && rebuildDrawList) {
     phaseStatistics.drawListConstructionNanoseconds =
       static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         RenderPhaseClock::now() - drawListStart).count());
@@ -1308,7 +1353,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   params.clearColor = PRIVATE(this)->backgroundcolor;
   params.clearDepth = 1.0f;
   params.flags = (clearwindow ? SO_PARAM_CLEAR_WINDOW : 0u) |
-                 (clearzbuffer ? SO_PARAM_CLEAR_DEPTH : 0u);
+                 (clearzbuffer ? SO_PARAM_CLEAR_DEPTH : 0u) |
+                 (!rebuildDrawList ? SO_PARAM_REUSE_DRAW_LIST : 0u);
   SoRenderPlanner planner;
   SoRenderPlan plan;
   const RenderPhaseClock::time_point planStart = measurePhases
@@ -1338,8 +1384,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     phaseStatistics.backendSelectionNanoseconds =
       backendPhases.selectionNanoseconds;
   }
-  PRIVATE(this)->pickTargetDirty = TRUE;
-  PRIVATE(this)->pickTargetGeneration = 0;
+  if (rebuildDrawList) {
+    PRIVATE(this)->pickTargetDirty = TRUE;
+    PRIVATE(this)->pickTargetGeneration = 0;
+  }
 
   if (SoRenderManager::isRealTimeUpdateEnabled()) {
     SoField * realtime = SoDB::getGlobalField("realTime");
@@ -1897,6 +1945,7 @@ SoRenderManager::setWindowSize(const SbVec2s & newsize)
   SbViewportRegion region = PRIVATE(this)->viewport;
   region.setWindowSize(newsize[0], newsize[1]);
   PRIVATE(this)->viewport = region;
+  PRIVATE(this)->drawListDirty = TRUE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
 #endif
@@ -1918,6 +1967,7 @@ SoRenderManager::setDevicePixelRatio(float dpr)
 {
   if (PRIVATE(this)->devicePixelRatio == dpr) return;
   PRIVATE(this)->devicePixelRatio = dpr;
+  PRIVATE(this)->drawListDirty = TRUE;
   this->scheduleRedraw();
 }
 
@@ -1943,6 +1993,7 @@ SoRenderManager::setSize(const SbVec2s & newsize)
   SbVec2s origin = region.getViewportOriginPixels();
   region.setViewportPixels(origin, newsize);
   PRIVATE(this)->viewport = region;
+  PRIVATE(this)->drawListDirty = TRUE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
 #endif
@@ -1975,6 +2026,7 @@ SoRenderManager::setOrigin(const SbVec2s & newOrigin)
   SbVec2s size = region.getViewportSizePixels();
   region.setViewportPixels(newOrigin, size);
   PRIVATE(this)->viewport = region;
+  PRIVATE(this)->drawListDirty = TRUE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(region);
 #endif
@@ -2003,6 +2055,7 @@ void
 SoRenderManager::setViewportRegion(const SbViewportRegion & newregion)
 {
   PRIVATE(this)->viewport = newregion;
+  PRIVATE(this)->drawListDirty = TRUE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->setViewportRegion(newregion);
 #endif
@@ -2190,7 +2243,9 @@ SoRenderManager::isAutoRedraw(void) const
 void
 SoRenderManager::setRenderMode(const RenderMode mode)
 {
+  if (PRIVATE(this)->rendermode == mode) return;
   PRIVATE(this)->rendermode = mode;
+  PRIVATE(this)->drawListDirty = TRUE;
   this->scheduleRedraw();
   PRIVATE(this)->dummynode->touch();
 }
@@ -2209,6 +2264,7 @@ SoRenderManager::setLightingMode(const LightingMode mode)
 {
   if (PRIVATE(this)->lightingmode == mode) return;
   PRIVATE(this)->lightingmode = mode;
+  PRIVATE(this)->drawListDirty = TRUE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
   if (PRIVATE(this)->glaction) {
     PRIVATE(this)->glaction->invalidateState();
@@ -2415,6 +2471,7 @@ SoRenderManager::setRenderLayerRoot(RenderLayer layer, SoNode * root)
   if (*slot) (*slot)->unref();
 
   *slot = root;
+  PRIVATE(this)->drawListDirty = TRUE;
   if (root) {
     root->ref();
     if (!*sensorSlot) {
@@ -2649,12 +2706,14 @@ SoRenderManager::invalidateDrawList(void)
 void
 SoRenderManager::invalidateScene(void)
 {
+  PRIVATE(this)->drawListDirty = TRUE;
   this->scheduleRedraw();
 }
 
 void
 SoRenderManager::invalidateForeground(void)
 {
+  PRIVATE(this)->drawListDirty = TRUE;
   this->scheduleRedraw();
 }
 
@@ -2708,7 +2767,9 @@ SoRenderManager::getNearPlaneValue(void) const
 void
 SoRenderManager::setTexturesEnabled(const SbBool onoff)
 {
+  if (PRIVATE(this)->texturesenabled == onoff) return;
   PRIVATE(this)->texturesenabled = onoff;
+  PRIVATE(this)->drawListDirty = TRUE;
 }
 
 /*!
@@ -2895,6 +2956,7 @@ SoRenderManager::addAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * d
 {
   PRIVATE(this)->afterMainSceneCallbacks.push_back(
     SoRenderManagerP::StageCBTouple(cb, data));
+  PRIVATE(this)->drawListDirty = TRUE;
 }
 
 void
@@ -2908,6 +2970,7 @@ SoRenderManager::removeAfterMainSceneCallback(SoRenderManagerStageCB * cb, void 
          "Tried to remove an after-main-scene callback which doesn't exist");
   if (findit != PRIVATE(this)->afterMainSceneCallbacks.end()) {
     PRIVATE(this)->afterMainSceneCallbacks.erase(findit);
+    PRIVATE(this)->drawListDirty = TRUE;
   }
 }
 
