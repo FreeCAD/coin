@@ -113,7 +113,7 @@ function(coin_add_egl_test)
 		LABELS "${test_labels}")
 endfunction()
 
-if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(HAVE_EGL)
 	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
 endif()
