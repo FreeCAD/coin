@@ -41,7 +41,8 @@ public:
   void discard() override;
   SbBool render(const SoDrawList & drawlist,
                 const SoRenderPlan & plan,
-                const SoRenderParams & params) override;
+                const SoRenderParams & params,
+                const SoSelectionState * selection = nullptr) override;
 
   //! Render the current DrawList into the explicit integer picking buffer.
   SbBool updatePickBuffer(const SoDrawList & drawlist,

@@ -3419,7 +3419,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
 SbBool
 SoGLRenderBackend::render(const SoDrawList & drawlist,
                           const SoRenderPlan & plan,
-                          const SoRenderParams & params)
+                          const SoRenderParams & params,
+                          const SoSelectionState * selection)
 {
   if (!this->isInitialized()) {
     this->emitError("render called before backend initialization");
@@ -3437,6 +3438,27 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   const uint32_t commandCount = static_cast<uint32_t>(drawlist.getNumCommands());
   const uint32_t eventCount = static_cast<uint32_t>(
     drawlist.getDepthClearEvents().size());
+  SoSelectionState queuedSelection;
+  const auto queueTargets = [&](const uint32_t commandIndex) {
+    if (!selection) return;
+    for (const SoSelectionTarget & target : selection->selected) {
+      if (target.commandIndex == static_cast<int>(commandIndex)) {
+        queuedSelection.selected.push_back(target);
+      }
+    }
+    for (const SoSelectionTarget & target : selection->highlighted) {
+      if (target.commandIndex == static_cast<int>(commandIndex)) {
+        queuedSelection.highlighted.push_back(target);
+      }
+    }
+  };
+  const auto flushSelection = [&]() {
+    if (!queuedSelection.selected.empty() ||
+        !queuedSelection.highlighted.empty()) {
+      this->renderSelection(drawlist, queuedSelection, params);
+      queuedSelection = SoSelectionState();
+    }
+  };
   for (int i = 0; i < plan.getNumOperations(); ++i) {
     const SoRenderOperation & operation = plan.getOperation(i);
     if (operation.type == SoRenderOperationType::DRAW) {
@@ -3447,6 +3469,10 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       this->drawCommand(drawlist,
                         drawlist.getCommand(static_cast<int>(operation.commandIndex)),
                         view, projection, params);
+      queueTargets(operation.commandIndex);
+    }
+    else if (operation.type == SoRenderOperationType::END_DEPTH_SEGMENT) {
+      flushSelection();
     }
     else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
       if (operation.depthClearEventIndex >= eventCount) {

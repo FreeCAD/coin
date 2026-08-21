@@ -1210,7 +1210,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   SoRenderPlan plan;
   planner.build(drawlist, params.viewMatrix, plan);
 
-  PRIVATE(this)->renderBackend->render(drawlist, plan, params);
+  PRIVATE(this)->renderBackend->render(
+    drawlist, plan, params, &drawlist.getSelectionState());
   PRIVATE(this)->pickTargetDirty = TRUE;
   PRIVATE(this)->pickTargetGeneration = 0;
 
