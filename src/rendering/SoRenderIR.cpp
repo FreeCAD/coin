@@ -313,6 +313,7 @@ SoDrawList::clear()
   this->generation++;
   this->contentRevision++;
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
 }
 
 void
@@ -339,6 +340,7 @@ SoDrawList::truncate(int count)
     }
     this->pickLUT.clear();
     this->pickLUTGeneration = 0;
+    this->pickLUTValid = false;
   }
 }
 
@@ -355,6 +357,7 @@ SoDrawList::addCommand(const SoRenderCommand & cmd)
   this->commands.push_back(cmd);
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
 }
 
 void
@@ -364,6 +367,7 @@ SoDrawList::addCommand(SoRenderCommand && cmd)
   this->commands.push_back(std::move(cmd));
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
 }
 
 SoRenderCommand &
@@ -372,6 +376,7 @@ SoDrawList::emplaceCommand()
   ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
   this->commands.emplace_back();
   return this->commands.back();
 }
@@ -424,6 +429,14 @@ SoDrawList::markGeometryResourcesChanged()
   ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
+}
+
+SoRenderCommand &
+SoDrawList::getCommandPreservingPickTopology(int i)
+{
+  ++this->contentRevision;
+  return this->commands[static_cast<size_t>(i)];
 }
 
 const SoGeometryDesc &
@@ -467,6 +480,7 @@ SoDrawList::getCommand(int i)
   ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
   return this->commands[static_cast<size_t>(i)];
 }
 
@@ -504,8 +518,11 @@ SoDrawList::getLighting(SoLightingHandle handle) const
 void
 SoDrawList::buildPickLUT() const
 {
+  if (this->pickLUTValid) return;
   this->pickLUT.clear();
   this->pickLUTGeneration = this->generation;
+  ++this->pickLUTRevision;
+  this->pickLUTValid = true;
 
   for (int commandIndex = 0; commandIndex < this->getNumCommands(); ++commandIndex) {
     const SoRenderCommand & command = this->getCommand(commandIndex);
@@ -562,6 +579,7 @@ SoDrawList::begin()
   ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
   return this->commands.empty() ? nullptr : this->commands.data();
 }
 
@@ -571,6 +589,7 @@ SoDrawList::end()
   ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+  this->pickLUTValid = false;
   return this->commands.empty() ? nullptr : this->commands.data() + this->commands.size();
 }
 

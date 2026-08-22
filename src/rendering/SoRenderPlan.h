@@ -29,9 +29,12 @@ struct SoRenderOperation {
 
   The plan owns no command data. It contains only stable indices into the
   source SoDrawList and is therefore cheap to rebuild for each invocation.
-  Opaque commands retain insertion order; transparent commands are resolved
-  back-to-front after opaque commands within each depth segment.  The plan
-  also owns the stage and depth-barrier execution sequence.
+  Eligible opaque triangle surfaces and native solid lines may be grouped by
+  geometry resource. Wide or patterned lines, points, and other
+  ordering-sensitive commands follow the grouped passes;
+  transparent commands are resolved back-to-front after opaque commands
+  within each depth segment. The plan also owns the stage and depth-barrier
+  execution sequence.
 */
 class SoRenderPlan {
 public:

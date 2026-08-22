@@ -762,7 +762,7 @@ SoIRRenderAction::updateCommandMatricesForStatePaths(
     replacements.push_back(matrixAction.getMatrix());
   }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    this->drawlist.getCommand(
+    this->drawlist.getCommandPreservingPickTopology(
       static_cast<int>(commandIndices[i])).modelMatrix = replacements[i];
   }
   return static_cast<int>(commandIndices.size());
@@ -888,7 +888,7 @@ SoIRRenderAction::updateCommandMaterialsForStatePaths(
     replacements.push_back(replay);
   }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    SoRenderCommand & command = this->drawlist.getCommand(
+    SoRenderCommand & command = this->drawlist.getCommandPreservingPickTopology(
       static_cast<int>(commandIndices[i]));
     command.material = replacements[i].material;
     if (command.finalizationEnabledBlend) command.state.blend = SoBlendState();
