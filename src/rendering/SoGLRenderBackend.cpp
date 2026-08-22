@@ -946,6 +946,7 @@ SoGLRenderBackend::discard()
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
   this->cacheGeneration = 0;
+  this->cacheContentRevision = 0;
   this->visualProgram = VisualProgram();
   this->rasterPrograms = RasterPrograms();
   this->pickPrograms = PickPrograms();
@@ -1642,6 +1643,7 @@ SoGLRenderBackend::prepareGeometryCache(const SoDrawList & drawlist,
   const size_t commandCount = static_cast<size_t>(drawlist.getNumCommands());
   if (allowReuse && this->haveCacheGeneration &&
       this->cacheGeneration == drawlist.getGeneration() &&
+      this->cacheContentRevision == drawlist.getContentRevision() &&
       this->cachedCommandCount == commandCount) {
     return;
   }
@@ -1670,6 +1672,7 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
     this->commandToCache.clear();
   }
   this->cacheGeneration = generation;
+  this->cacheContentRevision = drawlist.getContentRevision();
   this->haveCacheGeneration = true;
   this->cachedCommandCount = commandCount;
 

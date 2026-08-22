@@ -19,6 +19,8 @@ build-bench/bin/CoinRenderBenchmarks --samples 50 --output results.json
 build-bench/bin/CoinRenderGLBenchmarks --samples 50 --output gl-results.json
 build-bench/bin/CoinRenderGLBenchmarks --rebuild-only 5000 \
   --samples 10 --output rebuild-5000.json
+build-bench/bin/CoinRenderGLBenchmarks --mutation-only 50000 \
+  --samples 20 --output mutations-50000.json
 ```
 
 ## Viewing generated workloads
@@ -93,8 +95,8 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-6 identifies each result as `per_frame_traversal`, `steady_state`, or
-`forced_rebuild`. It separates draw-list construction into primitive generation,
+7 identifies each result as `per_frame_traversal`, `steady_state`,
+`forced_rebuild`, or `incremental_update`. It separates draw-list construction into primitive generation,
 geometry packing, and command emission, and also reports render-plan construction
 and backend submission. Command emission includes command state capture and path
 retention. Work outside these nested shape phases remains visible as the
@@ -121,6 +123,23 @@ profiles. Before each forced-rebuild sample, the benchmark invalidates the
 retained draw list; `drawlist_rebuilds` must therefore equal the sample count.
 This mode reuses the feature-rich workload rather than maintaining a separate
 benchmark scene.
+
+Use `--mutation-only N` to isolate retained update scaling in an `N`-command
+scene. The benchmark applies deterministic batches of 1, 10, and 100
+translation and diffuse-material edits, plus one geometry edit, through both
+DrawList compatibility and core contexts. Every sample must report the exact
+number of incrementally updated commands, with no DrawList reconstruction.
+Results include median and p95 frame time, the update count, and construction
+time so a silent fallback cannot appear to be a valid incremental result. The
+normal and smoke benchmark runs include the same curves at their standard
+scene sizes.
+
+The mutation run also edits one geometry definition in each assembly ownership
+model. Expanded geometry updates one face/edge pair; shared-source and
+shared-recipe geometry update every face/edge resource owned by the first
+definition. These samples exercise transactional multi-resource regeneration,
+assert the exact owner count, and compare the final pixels with a forced
+rebuild outside the measured interval.
 
 `shared_assembly_depth_stack` moves the shared occurrences onto one overlapping
 view ray and measures bounded front-to-back depth peeling. Its counters cover

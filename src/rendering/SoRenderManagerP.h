@@ -38,6 +38,7 @@
 #endif // HAVE_CONFIG_H
 
 #include <vector>
+#include <unordered_map>
 
 #ifdef COIN_THREADSAFE
 #include <Inventor/threads/SbMutex.h>
@@ -137,6 +138,7 @@ public:
   uint64_t drawListCameraRevision;
   uint64_t drawListBackgroundRevision;
   uint64_t drawListForegroundRevision;
+  std::unordered_map<SoNode *, SbBool> incrementalUniqueParentCache;
   SbBool pickTargetDirty;
   uint32_t pickTargetGeneration;
 
@@ -176,27 +178,45 @@ public:
 
 // *************************************************************************
 
-// This class inherits SoNodeSensor and overrides its notify() method
-// to provide a means of debugging notifications on the root node.
+// This sensor retains a bounded, de-duplicated set of changed paths for
+// incremental DrawList updates. It also supports root-notification debugging.
 //
 // Good for debugging cases when there are continuous redraws due to
 // scene graph changes we have no clue as to the source of.
 //
-// A sensor of this class is only made if the below debugging envvar
-// is set. Otherwise, and ordinary SoNodeSensor is used instead.
-
 class SoRenderManagerRootSensor : public SoNodeSensor {
   typedef SoNodeSensor inherited;
 
 public:
-  SoRenderManagerRootSensor(SoSensorCB * func, void * data) : inherited(func, data) { }
-  virtual ~SoRenderManagerRootSensor() { }
+  enum { MAX_RETAINED_NOTIFICATIONS = 4096 };
+  SoRenderManagerRootSensor(SoSensorCB * func, void * data);
+  virtual ~SoRenderManagerRootSensor();
 
   void notify(SoNotList * l) override;
+  SoNode * getChangedNode(void) const { return this->changedNode; }
+  SoField * getChangedField(void) const { return this->changedField; }
+  const SoPath * getChangedPath(void) const { return this->changedPath; }
+  unsigned int getNotificationCount(void) const {
+    return this->notificationCount;
+  }
+  unsigned int getRetainedNotificationCount(void) const {
+    return static_cast<unsigned int>(this->changedPaths.size());
+  }
+  SoNode * getChangedNode(unsigned int index) const;
+  SoField * getChangedField(unsigned int index) const;
+  const SoPath * getChangedPath(unsigned int index) const;
+  void resetNotification(void);
   static SbBool debug(void);
 
 private:
   static int debugrootnotifications;
+  SoNode * changedNode;
+  SoField * changedField;
+  SoPath * changedPath;
+  unsigned int notificationCount;
+  std::vector<SoNode *> changedNodes;
+  std::vector<SoField *> changedFields;
+  std::vector<SoPath *> changedPaths;
 };
 
 // *************************************************************************
