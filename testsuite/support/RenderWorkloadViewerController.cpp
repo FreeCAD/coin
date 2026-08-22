@@ -35,6 +35,10 @@ struct RenderWorkloadViewerControllerImpl {
   bool animate = false;
   bool paused = false;
   bool hasHover = false;
+  bool hoverRequestPending = false;
+  uint64_t cursorSerial = 0;
+  uint64_t requestCursorSerial = 0;
+  SoRenderManager::PickRequest hoverRequest;
   std::vector<SbVec3f> baseTranslations;
   std::chrono::steady_clock::time_point animationStart;
 
@@ -101,6 +105,8 @@ void cursorCallback(GLFWwindow * window, double x, double y)
   }
   viewer->cursorX = x;
   viewer->cursorY = y;
+  ++viewer->cursorSerial;
+  viewer->hasHover = false;
 }
 
 void keyCallback(GLFWwindow * window, int key, int, int action, int)
@@ -108,7 +114,10 @@ void keyCallback(GLFWwindow * window, int key, int, int action, int)
   if (action != GLFW_PRESS) return;
   RenderWorkloadViewerControllerImpl * viewer = state(window);
   if (!viewer) return;
-  if (key == GLFW_KEY_M) viewer->animate = !viewer->animate;
+  if (key == GLFW_KEY_M) {
+    viewer->animate = !viewer->animate;
+    viewer->hasHover = false;
+  }
   else if (key == GLFW_KEY_SPACE) viewer->paused = !viewer->paused;
   else if (key == GLFW_KEY_R) viewer->manager.invalidateDrawList();
 }
@@ -151,6 +160,17 @@ bool RenderWorkloadViewerController::pollEvents()
 
 void RenderWorkloadViewerController::beforeRender()
 {
+  if (impl_->hoverRequestPending) {
+    SoPickedPoint * picked = nullptr;
+    const SoRenderManager::PickStatus status =
+      impl_->manager.pollPickClosestAsync(impl_->hoverRequest, picked);
+    if (status != SoRenderManager::PickStatus::PENDING) {
+      impl_->hoverRequestPending = false;
+      impl_->hasHover = status == SoRenderManager::PickStatus::HIT &&
+        impl_->requestCursorSerial == impl_->cursorSerial;
+    }
+    delete picked;
+  }
   if (!impl_->animate || impl_->mutations.transforms.empty()) return;
   const double seconds = std::chrono::duration<double>(
     std::chrono::steady_clock::now() - impl_->animationStart).count();
@@ -161,12 +181,12 @@ void RenderWorkloadViewerController::beforeRender()
 
 void RenderWorkloadViewerController::afterRender(const bool pickingEnabled)
 {
-  if (!pickingEnabled) return;
+  if (!pickingEnabled || impl_->animate || impl_->hoverRequestPending) return;
   const int pickX = static_cast<int>(impl_->cursorX);
   const int pickY = impl_->height - 1 - static_cast<int>(impl_->cursorY);
-  SoPickedPoint * picked = nullptr;
-  impl_->hasHover = impl_->manager.pickClosest(pickX, pickY, 2, picked);
-  delete picked;
+  impl_->hoverRequestPending = impl_->manager.requestPickClosestAsync(
+    pickX, pickY, 2, impl_->hoverRequest);
+  impl_->requestCursorSerial = impl_->cursorSerial;
 }
 
 bool RenderWorkloadViewerController::resize(const int width, const int height)
@@ -174,6 +194,8 @@ bool RenderWorkloadViewerController::resize(const int width, const int height)
   if (!impl_->session.resize(width, height)) return false;
   impl_->width = width;
   impl_->height = height;
+  ++impl_->cursorSerial;
+  impl_->hasHover = false;
   return true;
 }
 
@@ -181,11 +203,14 @@ void RenderWorkloadViewerController::setCursorPosition(double x, double y)
 {
   impl_->cursorX = x;
   impl_->cursorY = y;
+  ++impl_->cursorSerial;
+  impl_->hasHover = false;
 }
 
 void RenderWorkloadViewerController::setAnimationEnabled(const bool enabled)
 {
   impl_->animate = enabled;
+  if (enabled) impl_->hasHover = false;
 }
 
 bool RenderWorkloadViewerController::hasHoverTarget() const

@@ -250,7 +250,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		SOURCES RetainedRasterGLTest.cpp)
 	coin_add_gl_test(NAME RetainedSoText2RasterLayoutTest PROFILE core
 		SOURCES RetainedSoText2RasterLayoutTest.cpp)
-	coin_add_gl_test(NAME DrawListPickingTest PROFILE core
+	coin_add_gl_test(NAME DrawListPickingTest PROFILE core PRIVATE_COIN_API
 		SOURCES DrawListPickingTest.cpp)
 	coin_add_gl_test(NAME DrawListManagerTest PROFILE core
 		SOURCES DrawListManagerTest.cpp)

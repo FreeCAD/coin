@@ -25,6 +25,30 @@ runTest()
   root->ref();
 
   int result = 0;
+  SoDrawList pickTopology;
+  SoRenderCommand pickCommand;
+  pickCommand.geometry.vertexCount = 3;
+  pickTopology.addCommand(pickCommand);
+  pickTopology.buildPickLUT();
+  const uint64_t initialPickRevision = pickTopology.getPickLUTRevision();
+  pickTopology.getCommandPreservingPickTopology(0).modelMatrix =
+    SbMatrix::identity();
+  pickTopology.buildPickLUT();
+  if (initialPickRevision == 0 ||
+      pickTopology.getPickLUTRevision() != initialPickRevision) {
+    std::cerr << "FAIL: matrix-only update rebuilt stable pick topology"
+              << std::endl;
+    result = 1;
+  }
+  pickTopology.getCommand(0).state.raster.visible = false;
+  pickTopology.buildPickLUT();
+  if (pickTopology.getPickLUTRevision() == initialPickRevision ||
+      !pickTopology.getPickLUT().empty()) {
+    std::cerr << "FAIL: pick-affecting update reused stale pick topology"
+              << std::endl;
+    result = 1;
+  }
+
   SoDrawList resourceDrawList;
   SoGeometryResource resource;
   resource.geometry.vertexCount = 3;

@@ -735,6 +735,11 @@ public:
   //! Discard resources appended by an internal transactional replay.
   void truncateGeometryResources(int count);
   void markGeometryResourcesChanged();
+  //! Mutable access for updates that preserve the complete pick topology.
+  //!
+  //! Callers must not change pickability, visibility, geometry, element
+  //! ranges, or retained identity through the returned reference.
+  SoRenderCommand & getCommandPreservingPickTopology(int i);
 #endif
   //! Resolve a command resource, falling back to its embedded descriptor.
   const SoGeometryDesc & getCommandGeometry(
@@ -775,6 +780,10 @@ public:
   const SoPickLUTEntry * resolvePickId(uint32_t id) const;
   //! Return the generation for which the current pick table was built.
   uint32_t getPickLUTGeneration() const { return pickLUTGeneration; }
+#ifdef COIN_INTERNAL
+  //! Internal serial incremented whenever the pick lookup is reconstructed.
+  uint64_t getPickLUTRevision() const { return pickLUTRevision; }
+#endif
   //! Return the immutable snapshot of the current frame's pick table.
   const std::vector<SoPickLUTEntry> & getPickLUT() const { return pickLUT; }
 
@@ -796,6 +805,8 @@ private:
   uint32_t generation = 0;
   uint64_t contentRevision = 0;
   mutable uint32_t pickLUTGeneration = 0;
+  mutable uint64_t pickLUTRevision = 0;
+  mutable bool pickLUTValid = false;
 };
 
 #endif // COIN_SORENDERIR_H

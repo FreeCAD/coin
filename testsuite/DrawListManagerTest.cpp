@@ -267,7 +267,8 @@ runTest()
     const SoRenderManager::RenderPhaseStatistics reusedRenderPhases =
       manager.getRenderPhaseStatistics();
     if (reusedRenderPhases.drawListRebuilds != 0 ||
-        reusedRenderPhases.drawListConstructionNanoseconds != 0) {
+        reusedRenderPhases.drawListConstructionNanoseconds != 0 ||
+        reusedRenderPhases.incrementalUpdateNanoseconds != 0) {
       std::cerr << "FAIL: unchanged retained frame was rebuilt" << std::endl;
       result = 1;
     }
@@ -276,7 +277,8 @@ runTest()
     const SoRenderManager::RenderPhaseStatistics transformPhases =
       manager.getRenderPhaseStatistics();
     if (transformPhases.drawListRebuilds != 0 ||
-        transformPhases.incrementalCommandUpdates != 1) {
+        transformPhases.incrementalCommandUpdates != 1 ||
+        transformPhases.incrementalUpdateNanoseconds == 0) {
       std::cerr << "FAIL: isolated translation did not patch its retained "
                    "command" << std::endl;
       result = 1;
@@ -790,6 +792,17 @@ runTest()
       result = 1;
     }
 
+    cubeTranslation->translation.setValue(0.21f, 0.0f, -3.0f);
+    manager.render(TRUE, TRUE);
+    closest = NULL;
+    if (!manager.pickClosest(16, 16, 1, closest) || !closest ||
+        manager.getRenderPhaseStatistics().pickBufferRefreshes != 1) {
+      std::cerr << "FAIL: incremental update did not refresh retained picking"
+                << std::endl;
+      result = 1;
+    }
+    delete closest;
+
     SoPickedPointList stack;
     if (!manager.pickDepthStack(16, 16, 0, 8, stack) ||
         stack.getLength() == 0 ||
@@ -805,8 +818,49 @@ runTest()
         reusedPickPhases.pickBufferUpdateNanoseconds != 0 ||
         reusedPickPhases.pickQueryNanoseconds == 0 ||
         reusedPickPhases.backendPickDepthRenderingNanoseconds == 0 ||
+        reusedPickPhases.pickDrawCalls == 0 ||
         reusedPickPhases.backendPickTargetRestoreNanoseconds == 0) {
       std::cerr << "FAIL: reused pick buffer phases were misreported" << std::endl;
+      result = 1;
+    }
+
+    SoRenderManager::PickRequest asyncRequest;
+    SoPickedPoint * asyncClosest = NULL;
+    if (!manager.requestPickClosestAsync(16, 16, 1, asyncRequest)) {
+      std::cerr << "FAIL: manager asynchronous pick request failed"
+                << std::endl;
+      result = 1;
+    }
+    else {
+      SoRenderManager::PickStatus status =
+        manager.pollPickClosestAsync(asyncRequest, asyncClosest);
+      if (status == SoRenderManager::PickStatus::PENDING) {
+        glFinish();
+        status = manager.pollPickClosestAsync(asyncRequest, asyncClosest);
+      }
+      if (status != SoRenderManager::PickStatus::HIT || !asyncClosest ||
+          asyncClosest->getPath()->getTail()->getTypeId() !=
+            SoCube::getClassTypeId()) {
+        std::cerr << "FAIL: manager asynchronous pick did not resolve scene hit"
+                  << std::endl;
+        result = 1;
+      }
+      delete asyncClosest;
+    }
+
+    SoRenderManager::PickRequest staleRequest;
+    if (!manager.requestPickClosestAsync(16, 16, 1, staleRequest)) {
+      std::cerr << "FAIL: manager stale-pick setup failed" << std::endl;
+      result = 1;
+    }
+    cubeTranslation->translation.setValue(0.22f, 0.0f, -3.0f);
+    manager.render(TRUE, TRUE);
+    asyncClosest = NULL;
+    if (manager.pollPickClosestAsync(staleRequest, asyncClosest) !=
+          SoRenderManager::PickStatus::STALE || asyncClosest) {
+      std::cerr << "FAIL: manager accepted a stale asynchronous pick"
+                << std::endl;
+      delete asyncClosest;
       result = 1;
     }
 

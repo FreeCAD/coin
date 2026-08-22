@@ -100,6 +100,28 @@ public:
     SbBool rendered;
   };
 
+  enum class PickStatus {
+    /*! GPU readback has not completed. */
+    PENDING,
+    /*! A scene hit was resolved; the caller owns the returned point. */
+    HIT,
+    /*! Readback completed without a hit. */
+    MISS,
+    /*! The pick target changed after the request was queued. */
+    STALE,
+    /*! The request is invalid or readback failed. */
+    FAILED
+  };
+
+  /*! Copyable token for one nonblocking closest-pick request. */
+  struct PickRequest {
+  private:
+    friend class SoRenderManager;
+    uint64_t requestId = 0;
+    uint64_t targetSerial = 0;
+    uint32_t generation = 0;
+  };
+
   /*! Optional CPU timings for the most recent retained render and pick.
 
     Timing is disabled by default. When enabled, the manager records coarse
@@ -108,6 +130,20 @@ public:
     existing pick buffer.
   */
   struct RenderPhaseStatistics {
+    //! Logical retained commands and physical GL submissions for the frame.
+    uint64_t semanticDrawCommands = 0;
+    uint64_t submittedDrawCalls = 0;
+    uint64_t instancedTriangleBatches = 0;
+    uint64_t instancedTriangleCommands = 0;
+    uint64_t instancedLineBatches = 0;
+    uint64_t instancedLineCommands = 0;
+    uint64_t selectionTargets = 0;
+    uint64_t selectionDrawCalls = 0;
+    uint64_t selectionInstancedBatches = 0;
+    uint64_t selectionInstancedCommands = 0;
+    uint64_t pickDrawCalls = 0;
+    uint64_t pickInstancedBatches = 0;
+    uint64_t pickInstancedCommands = 0;
     uint64_t drawListConstructionNanoseconds = 0;
     uint64_t drawListPrimitiveGenerationNanoseconds = 0;
     uint64_t drawListGeometryPackingNanoseconds = 0;
@@ -119,6 +155,7 @@ public:
     uint64_t drawListGeometryResourceNanoseconds = 0;
     uint64_t drawListAppendNanoseconds = 0;
     uint64_t drawListPathDependencyNanoseconds = 0;
+    uint64_t incrementalUpdateNanoseconds = 0;
     uint64_t planConstructionNanoseconds = 0;
     uint64_t backendSubmissionNanoseconds = 0;
     uint64_t backendFrameSetupNanoseconds = 0;
@@ -311,6 +348,17 @@ public:
 
   /*! Return the closest renderer-neutral scene hit. The caller owns result. */
   SbBool pickClosest(int x, int y, int radius, SoPickedPoint *& result);
+  /*! Queue closest-pick readback without waiting for GPU completion.
+
+    A later scene or pick-target update makes the request stale. Keep the
+    token and pass it to pollPickClosestAsync() until a terminal status is
+    returned.
+  */
+  SbBool requestPickClosestAsync(int x, int y, int radius,
+                                 PickRequest & request);
+  /*! Poll a queued request without waiting. The caller owns result on HIT. */
+  PickStatus pollPickClosestAsync(const PickRequest & request,
+                                  SoPickedPoint *& result);
   /*! Return front-to-back renderer-neutral scene hits around a cursor. */
   SbBool pickDepthStack(int x, int y, int radius, int maxLayers,
                         SoPickedPointList & results, int maxHits = 32);
