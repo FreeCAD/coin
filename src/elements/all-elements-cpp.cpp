@@ -85,6 +85,7 @@
 #include "SoPickRayElement.cpp"
 #include "SoPickStyleElement.cpp"
 #include "SoPointSizeElement.cpp"
+#include "SoRenderMatrixPolicyElement.cpp"
 #include "SoPolygonOffsetElement.cpp"
 #include "SoProfileCoordinateElement.cpp"
 #include "SoProfileElement.cpp"

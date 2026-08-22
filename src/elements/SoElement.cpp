@@ -435,6 +435,7 @@ SoElement::initElements(void)
   SoGLLineWidthElement::initClass();
 #endif
   SoPointSizeElement::initClass();
+  SoRenderMatrixPolicyElement::initClass();
 #if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLPointSizeElement::initClass();
 #endif
