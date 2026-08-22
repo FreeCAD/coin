@@ -149,7 +149,8 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		${COIN_TARGET_LINK_LIBRARIES})
 
 	function(coin_add_gl_test)
-		cmake_parse_arguments(ARG "" "NAME;PROFILE" "SOURCES;LABELS" ${ARGN})
+		cmake_parse_arguments(ARG "PRIVATE_COIN_API" "NAME;PROFILE"
+			"SOURCES;LABELS" ${ARGN})
 		if(NOT ARG_NAME OR NOT ARG_PROFILE OR NOT ARG_SOURCES)
 			message(FATAL_ERROR "coin_add_gl_test requires NAME, PROFILE, and SOURCES")
 		endif()
@@ -157,10 +158,17 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		if(NOT profile STREQUAL "core" AND NOT profile STREQUAL "compat")
 			message(FATAL_ERROR "GL test PROFILE must be core or compat")
 		endif()
+		if(ARG_PRIVATE_COIN_API AND WIN32 AND COIN_BUILD_SHARED_LIBS)
+			message(STATUS
+				"Skipping ${ARG_NAME}: private Coin symbols are not exported by the Windows DLL")
+			return()
+		endif()
 		add_executable(${ARG_NAME} ${ARG_SOURCES})
 		target_link_libraries(${ARG_NAME} CoinGLTestSupport Coin
 			${COIN_TARGET_LINK_LIBRARIES})
-		target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+		if(ARG_PRIVATE_COIN_API)
+			target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+		endif()
 		target_include_directories(${ARG_NAME} PRIVATE
 			${CMAKE_CURRENT_SOURCE_DIR}/support
 			${PROJECT_SOURCE_DIR}/src
@@ -296,7 +304,6 @@ add_test(NAME RetainedRasterTextTest COMMAND RetainedRasterTextTest)
 
 add_executable(RetainedReplayContextTest RetainedReplayContextTest.cpp)
 target_link_libraries(RetainedReplayContextTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedReplayContextTest PRIVATE COIN_INTERNAL)
 target_include_directories(RetainedReplayContextTest PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_BINARY_DIR}/include
@@ -347,6 +354,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(
 		NAME DrawListPickingTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES DrawListPickingTest.cpp)
 	coin_add_gl_test(
 		NAME DrawListManagerTest
@@ -359,14 +367,17 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(
 		NAME GLSLRuntimeTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES GLSLRuntimeTest.cpp)
 	coin_add_gl_test(
 		NAME GLSLDiagnosticsTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(
 		NAME OffscreenReadbackTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES OffscreenReadbackTest.cpp)
 	if(COIN_BUILD_LEGACY_GL_RENDERER)
 		coin_add_gl_test(
