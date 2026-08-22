@@ -56,7 +56,6 @@ SoRenderPlacementElement::init(SoState * state)
   this->viewportY = 0;
   this->viewportWidth = 0;
   this->viewportHeight = 0;
-  this->commandMatricesOverride = FALSE;
 }
 
 void
@@ -71,7 +70,6 @@ SoRenderPlacementElement::push(SoState * state)
   this->viewportY = prev->viewportY;
   this->viewportWidth = prev->viewportWidth;
   this->viewportHeight = prev->viewportHeight;
-  this->commandMatricesOverride = prev->commandMatricesOverride;
 }
 
 void
@@ -124,18 +122,6 @@ SoRenderPlacementElement::setViewport(SoState * state,
   }
 }
 
-void
-SoRenderPlacementElement::setCommandMatricesOverride(SoState * state,
-                                                      SbBool enabled)
-{
-  SoRenderPlacementElement * elem =
-    static_cast<SoRenderPlacementElement *>(
-      SoElement::getElement(state, classStackIndex));
-  if (elem) {
-    elem->commandMatricesOverride = enabled;
-  }
-}
-
 SoRenderPlacementElement::Layer
 SoRenderPlacementElement::getLayer(SoState * state)
 {
@@ -158,13 +144,4 @@ SoRenderPlacementElement::getViewport(SoState * state,
   width = elem->viewportWidth;
   height = elem->viewportHeight;
   return elem->viewportOverride;
-}
-
-SbBool
-SoRenderPlacementElement::getCommandMatricesOverride(SoState * state)
-{
-  const SoRenderPlacementElement * elem =
-    static_cast<const SoRenderPlacementElement *>(
-      SoElement::getConstElement(state, classStackIndex));
-  return elem ? elem->commandMatricesOverride : FALSE;
 }

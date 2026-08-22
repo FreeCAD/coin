@@ -94,6 +94,7 @@
 #include <Inventor/elements/SoGLLineWidthElement.h>
 #endif
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLPointSizeElement.h>
 #endif

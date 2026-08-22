@@ -52,6 +52,7 @@
 #include <Inventor/elements/SoDecimationTypeElement.h>
 #include <Inventor/elements/SoTextureOverrideElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/nodes/SoShaderProgram.h>
 #include <Inventor/nodes/SoCamera.h>
@@ -107,6 +108,7 @@ SoIRRenderAction::initClass(void)
 
   SO_ENABLE(SoIRRenderAction, SoViewportRegionElement);
   SO_ENABLE(SoIRRenderAction, SoRenderPlacementElement);
+  SO_ENABLE(SoIRRenderAction, SoRenderMatrixPolicyElement);
   SO_ENABLE(SoIRRenderAction, SoDevicePixelRatioElement);
   SO_ENABLE(SoIRRenderAction, SoViewVolumeElement);
   SO_ENABLE(SoIRRenderAction, SoViewingMatrixElement);
@@ -315,8 +317,11 @@ SoIRRenderAction::traverseAdditionalRoot(SoNode * root, CameraPolicy policy)
   SoViewportRegionElement::set(this->state, this->vpRegion);
   SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
   this->initializeCameraState(policy);
-  SoRenderIR::setCommandMatricesOverride(
-    this->state, policy == CameraPolicy::CAMERA_IN_ROOT);
+  SoRenderMatrixPolicyElement::set(
+    this->state, nullptr,
+    policy == CameraPolicy::CAMERA_IN_ROOT
+      ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+      : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   this->switchToNodeTraversal(root);
   this->state->pop();
 }
@@ -351,14 +356,19 @@ SoIRRenderAction::traverseAdditionalPathInternal(
   if (context) {
     // The path traversal reconstructs model state through its ancestors.
     context->applyToState(this->state, FALSE);
-    SoRenderIR::setCommandMatricesOverride(this->state, TRUE);
+    SoRenderMatrixPolicyElement::set(
+      this->state, nullptr,
+      SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES);
   }
   else {
     SoViewportRegionElement::set(this->state, this->vpRegion);
     SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
     this->initializeCameraState(this->cameraPolicy);
-    SoRenderIR::setCommandMatricesOverride(
-      this->state, this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT);
+    SoRenderMatrixPolicyElement::set(
+      this->state, nullptr,
+      this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT
+        ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+        : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   }
   this->switchToPathTraversal(path);
   this->state->pop();
@@ -374,8 +384,11 @@ SoIRRenderAction::beginTraversal(SoNode * node)
   SoViewportRegionElement::set(this->state, this->vpRegion);
   SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
   this->initializeCameraState(this->cameraPolicy);
-  SoRenderIR::setCommandMatricesOverride(
-    this->state, this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT);
+  SoRenderMatrixPolicyElement::set(
+    this->state, nullptr,
+    this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT
+      ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+      : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   inherited::beginTraversal(node);
 }
 
