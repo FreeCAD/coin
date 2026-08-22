@@ -283,7 +283,7 @@ runTest()
   if (validIndexedLineReuse) {
     const SoRenderCommand & repeatedLineCommand =
       action.getDrawList().getCommand(1);
-    const std::vector<SoRenderElementRange> & repeatedLineRanges =
+    const SbInlineVector<SoRenderElementRange, 1> & repeatedLineRanges =
       action.getDrawList().getCommandElementRanges(repeatedLineCommand);
     const SoGeometryResource * repeatedLineResource =
       action.getDrawList().getGeometryResource(

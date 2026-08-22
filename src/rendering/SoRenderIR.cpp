@@ -43,6 +43,7 @@
 #include <climits>
 #include <cstdlib>
 #include <inttypes.h>
+#include <utility>
 
 namespace {
 
@@ -317,6 +318,7 @@ void
 SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
+    ++this->contentRevision;
     this->commands.resize(static_cast<size_t>(count));
     auto trimTargets = [count](std::vector<SoSelectionTarget> & targets) {
       targets.erase(
@@ -348,7 +350,17 @@ SoDrawList::reserve(int count)
 void
 SoDrawList::addCommand(const SoRenderCommand & cmd)
 {
+  ++this->contentRevision;
   this->commands.push_back(cmd);
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
+}
+
+void
+SoDrawList::addCommand(SoRenderCommand && cmd)
+{
+  ++this->contentRevision;
+  this->commands.push_back(std::move(cmd));
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
 }
@@ -356,6 +368,7 @@ SoDrawList::addCommand(const SoRenderCommand & cmd)
 SoRenderCommand &
 SoDrawList::emplaceCommand()
 {
+  ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   this->commands.emplace_back();
@@ -399,6 +412,7 @@ void
 SoDrawList::truncateGeometryResources(int count)
 {
   if (count >= 0 && count < static_cast<int>(this->geometryResources.size())) {
+    ++this->contentRevision;
     this->geometryResources.resize(static_cast<size_t>(count));
   }
 }
@@ -419,7 +433,7 @@ SoDrawList::getCommandGeometry(const SoRenderCommand & command) const
   return resource ? resource->geometry : command.geometry;
 }
 
-const std::vector<SoRenderElementRange> &
+const SbInlineVector<SoRenderElementRange, 1> &
 SoDrawList::getCommandElementRanges(const SoRenderCommand & command) const
 {
   if (command.pick.useResourceElementRanges) {
@@ -433,6 +447,7 @@ SoDrawList::getCommandElementRanges(const SoRenderCommand & command) const
 void
 SoDrawList::addDepthClearEvent(const SoDepthClearEvent & event)
 {
+  ++this->contentRevision;
   SoDepthClearEvent recorded = event;
   recorded.sequence = std::min(recorded.sequence,
                                static_cast<uint32_t>(this->commands.size()));
@@ -448,6 +463,7 @@ SoDrawList::getNumCommands() const
 SoRenderCommand &
 SoDrawList::getCommand(int i)
 {
+  ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands[static_cast<size_t>(i)];
@@ -500,7 +516,7 @@ SoDrawList::buildPickLUT() const
                                        : command.geometry.vertexCount;
     if (drawLimit == 0) continue;
 
-    const std::vector<SoRenderElementRange> & elementRanges =
+    const SbInlineVector<SoRenderElementRange, 1> & elementRanges =
       this->getCommandElementRanges(command);
     if (elementRanges.empty()) {
       SoPickLUTEntry entry;
@@ -546,6 +562,7 @@ SoDrawList::resolvePickId(uint32_t id) const
 SoRenderCommand *
 SoDrawList::begin()
 {
+  ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data();
@@ -554,6 +571,7 @@ SoDrawList::begin()
 SoRenderCommand *
 SoDrawList::end()
 {
+  ++this->contentRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data() + this->commands.size();
@@ -711,6 +729,36 @@ SoIRRenderContext::applyToState(SoState * state, SbBool applyModelMatrix) const
 
 namespace SoRenderIR {
 
+static void fillRenderStateFromSnapshot(
+  SoState * state, SoRenderState & renderState,
+  const SoLazyElementP::RenderSnapshot & lazy);
+
+static void
+fillMaterialFromSnapshot(const SoLazyElementP::RenderSnapshot & lazy,
+                         SoMaterialData & material)
+{
+  // Keep diffuse and emissive independent. The explicit lighting shader owns
+  // emissive contribution and must not infer it from default-looking diffuse.
+  material.diffuse.setValue(lazy.diffuse[0], lazy.diffuse[1], lazy.diffuse[2],
+                            1.0f - lazy.transparency);
+  // PHONG retains Coin's legacy Gouraud contract until a distinct
+  // per-fragment shading model is represented in the IR.
+  material.shadingModel = lazy.lightModel == SoLightModelElement::BASE_COLOR
+    ? SO_SHADING_UNLIT : SO_SHADING_LEGACY_GOURAUD;
+  material.twoSidedLighting = lazy.twoSidedLighting != FALSE;
+  material.ambient.setValue(
+    lazy.ambient[0], lazy.ambient[1], lazy.ambient[2], 1.0f);
+  material.specular.setValue(
+    lazy.specular[0], lazy.specular[1], lazy.specular[2], 1.0f);
+  material.emissive.setValue(
+    lazy.emissive[0], lazy.emissive[1], lazy.emissive[2], 1.0f);
+  material.shininess = lazy.shininess;
+  material.opacity = 1.0f - lazy.transparency;
+  material.texture = SoTextureData();
+  material.textureAlphaIncludesOpacity = false;
+  material.vertexColorAlphaIncludesOpacity = false;
+}
+
 static void fillTextureFromState(SoState * state, SoIRRenderAction * action,
                                  SoMaterialData & material);
 
@@ -764,19 +812,28 @@ textureHasTransparency(const SoTextureData & texture)
   return false;
 }
 
+static void
+fillCommandTraversalStateFromSnapshot(
+  SoIRRenderAction * action, SoRenderCommand & command,
+  const SoLazyElementP::RenderSnapshot & lazy)
+{
+  SoState * state = action->getState();
+  command.modelMatrix = SoModelMatrixElement::get(state);
+  command.viewMatrix = SoViewingMatrixElement::get(state);
+  command.projMatrix = SoProjectionMatrixElement::get(state);
+  fillRenderStateFromSnapshot(state, command.state, lazy);
+  command.lightingHandle = action->captureLightingHandle();
+  command.pick.pickable = SoPickStyleElement::get(state) !=
+    SoPickStyleElement::UNPICKABLE;
+}
+
 void
 fillCommandTraversalStateFromAction(SoIRRenderAction * action,
                                     SoRenderCommand & command)
 {
-  SoState * state = action->getState();
-  SoDrawList & drawlist = action->getMutableDrawList();
-  command.modelMatrix = SoModelMatrixElement::get(state);
-  command.viewMatrix = SoViewingMatrixElement::get(state);
-  command.projMatrix = SoProjectionMatrixElement::get(state);
-  fillRenderStateFromState(state, command.state);
-  command.lightingHandle = fillLightingFromState(state, drawlist);
-  command.pick.pickable = SoPickStyleElement::get(state) !=
-    SoPickStyleElement::UNPICKABLE;
+  fillCommandTraversalStateFromSnapshot(
+    action, command,
+    SoLazyElementP::captureRenderSnapshot(action->getState(), 0));
 }
 
 void
@@ -785,47 +842,25 @@ fillCommandStateFromAction(SoIRRenderAction * action,
                            const int materialIndex)
 {
   SoState * state = action->getState();
-  fillCommandTraversalStateFromAction(action, command);
-  fillMaterialFromState(state, command.material, materialIndex);
+  const SoLazyElementP::RenderSnapshot lazy =
+    SoLazyElementP::captureRenderSnapshot(state, materialIndex);
+  fillCommandTraversalStateFromSnapshot(action, command, lazy);
+  fillMaterialFromSnapshot(lazy, command.material);
   fillTextureFromState(state, action, command.material);
+  if (lazy.packedVertexColors) {
+    command.material.opacity = lazy.packedOpacity;
+    command.material.diffuse[3] = lazy.packedOpacity;
+  }
+  command.material.vertexColorAlphaIncludesOpacity =
+    command.geometry.colors != nullptr && !lazy.packedVertexColors;
 }
 
 void
 fillMaterialFromState(SoState * state, SoMaterialData & material,
                       int materialIndex)
 {
-  SoState * mutableState = state;
-  const SbColor & diffuse = SoLazyElement::getDiffuse(mutableState, materialIndex);
-  const SbColor & ambient = SoLazyElement::getAmbient(mutableState);
-  const SbColor & specular = SoLazyElement::getSpecular(mutableState);
-  const SbColor & emissive = SoLazyElement::getEmissive(mutableState);
-  const float transparency = SoLazyElement::getTransparency(mutableState, materialIndex);
-
-  // Keep diffuse and emissive independent. The explicit lighting shader owns
-  // emissive contribution, so inferring diffuse from a default-looking
-  // material would double-count emissive-only materials.
-  material.diffuse.setValue(diffuse[0], diffuse[1], diffuse[2],
-                            1.0f - transparency);
-
-  // Capture the effective shading contract explicitly. Coin's traditional
-  // PHONG light model currently maps to the legacy-compatible Gouraud path;
-  // a true per-fragment PHONG path can be introduced without changing the
-  // material/light payload carried by the IR.
-  const int lightModel = SoLightModelElement::get(mutableState);
-  const bool baseColor = lightModel == SoLightModelElement::BASE_COLOR;
-  material.shadingModel = baseColor
-    ? SO_SHADING_UNLIT
-    : SO_SHADING_LEGACY_GOURAUD;
-  material.twoSidedLighting = SoLazyElement::getTwoSidedLighting(mutableState) != FALSE;
-  material.ambient.setValue(ambient[0], ambient[1], ambient[2], 1.0f);
-  material.specular.setValue(specular[0], specular[1], specular[2], 1.0f);
-  material.emissive.setValue(emissive[0], emissive[1], emissive[2], 1.0f);
-  material.shininess = SoLazyElement::getShininess(mutableState);
-  material.opacity = 1.0f - transparency;
-
-  material.texture = SoTextureData();
-  material.textureAlphaIncludesOpacity = false;
-  material.vertexColorAlphaIncludesOpacity = false;
+  fillMaterialFromSnapshot(
+    SoLazyElementP::captureRenderSnapshot(state, materialIndex), material);
 }
 
 static void
@@ -877,8 +912,9 @@ fillTextureFromState(SoState * state, SoIRRenderAction * action,
                             material.texture);
 }
 
-void
-fillRenderStateFromState(SoState * state, SoRenderState & rs)
+static void
+fillRenderStateFromSnapshot(SoState * state, SoRenderState & rs,
+                            const SoLazyElementP::RenderSnapshot & lazy)
 {
   SoState * mutableState = state;
   rs.useCommandMatrices =
@@ -897,7 +933,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
 
   int srcfactor = 0;
   int dstfactor = 0;
-  rs.blend.enabled = SoLazyElement::getBlending(mutableState, srcfactor, dstfactor);
+  rs.blend.enabled = lazy.blending;
+  srcfactor = lazy.blendSource;
+  dstfactor = lazy.blendDestination;
   rs.blend.srcRGBFactor = blendFactorFromLegacyGL(srcfactor);
   rs.blend.dstRGBFactor = blendFactorFromLegacyGL(dstfactor);
 
@@ -905,8 +943,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   // Only explicit separate-alpha state supplies different alpha factors.
   int srcAlphaFactor = 0;
   int dstAlphaFactor = 0;
-  if (SoLazyElement::getAlphaBlending(mutableState,
-                                      srcAlphaFactor, dstAlphaFactor)) {
+  srcAlphaFactor = lazy.alphaBlendSource;
+  dstAlphaFactor = lazy.alphaBlendDestination;
+  if (lazy.blending && lazy.separateBlending) {
     rs.blend.srcAlphaFactor = blendFactorFromLegacyGL(srcAlphaFactor);
     rs.blend.dstAlphaFactor = blendFactorFromLegacyGL(dstAlphaFactor);
   } else {
@@ -921,9 +960,8 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   rs.blend.rgbEquation = SO_BLEND_EQUATION_ADD;
   rs.blend.alphaEquation = SO_BLEND_EQUATION_ADD;
 
-  float alphaTestValue = 0.5f;
-  const int alphaTestFunction = SoLazyElementP::getAlphaTestSemantic(
-    mutableState, alphaTestValue);
+  const float alphaTestValue = lazy.alphaTestValue;
+  const int alphaTestFunction = lazy.alphaTestFunction;
   rs.alphaTest.function = static_cast<SoAlphaTestFunction>(alphaTestFunction);
   rs.alphaTest.reference = alphaTestValue;
   rs.alphaTest.policy = rs.alphaTest.function == SO_ALPHA_TEST_NONE
@@ -1015,6 +1053,13 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
     (offsetstyle & SoPolygonOffsetElement::LINES);
   rs.raster.polygonOffsetPoints = offseton &&
     (offsetstyle & SoPolygonOffsetElement::POINTS);
+}
+
+void
+fillRenderStateFromState(SoState * state, SoRenderState & renderState)
+{
+  fillRenderStateFromSnapshot(
+    state, renderState, SoLazyElementP::captureRenderSnapshot(state, 0));
 }
 
 void
@@ -1120,7 +1165,7 @@ isMaterialTransparent(const SoMaterialData & material)
   return material.opacity < 0.999f || textureHasTransparency(material.texture);
 }
 
-void
+bool
 ensureMaterialBlendState(SoRenderState & renderState,
                          const SoMaterialData & material)
 {
@@ -1129,7 +1174,7 @@ ensureMaterialBlendState(SoRenderState & renderState,
   // transparency setup. Make that implicit IR contract explicit without
   // replacing an actual non-standard blend state.
   if (renderState.blend.enabled || !isMaterialTransparent(material)) {
-    return;
+    return false;
   }
 
   renderState.blend.enabled = TRUE;
@@ -1139,12 +1184,14 @@ ensureMaterialBlendState(SoRenderState & renderState,
   renderState.blend.dstAlphaFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   renderState.blend.rgbEquation = SO_BLEND_EQUATION_ADD;
   renderState.blend.alphaEquation = SO_BLEND_EQUATION_ADD;
+  return true;
 }
 
 void
 finalizeCommand(SoRenderCommand & command)
 {
-  ensureMaterialBlendState(command.state, command.material);
+  command.finalizationEnabledBlend =
+    ensureMaterialBlendState(command.state, command.material);
   bool transparent = isMaterialTransparent(command.material);
   if (!transparent && command.geometry.colors) {
     for (uint32_t i = 0; i < command.geometry.vertexCount; ++i) {
@@ -1157,6 +1204,7 @@ finalizeCommand(SoRenderCommand & command)
   command.opacityClass = transparent
     ? SO_OPACITY_TRANSPARENT : SO_OPACITY_OPAQUE;
   if (transparent && !command.state.blend.enabled) {
+    command.finalizationEnabledBlend = true;
     command.state.blend.enabled = TRUE;
     command.state.blend.srcRGBFactor = SO_BLEND_FACTOR_SRC_ALPHA;
     command.state.blend.dstRGBFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;

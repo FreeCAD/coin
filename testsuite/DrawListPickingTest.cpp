@@ -555,6 +555,39 @@ runTest()
       result = 1;
     }
 
+    // Stable target identity may reuse its grouping plan, but colors remain
+    // frame-local submission data.
+    instancedSelection.selected[0].color =
+      SbColor4f(0.0f, 1.0f, 0.0f, 0.5f);
+    instancedSelection.selected[1].color =
+      SbColor4f(1.0f, 0.0f, 0.0f, 0.5f);
+    if (!render(backend, drawlist, params) ||
+        !backend.renderSelection(drawlist, instancedSelection, params)) {
+      std::cerr << "FAIL: stable selection plan reuse failed" << std::endl;
+      result = 1;
+    }
+
+    // Compatible targets can still batch when an unrelated geometry target
+    // appears between them in selection order.
+    SoRenderCommand middleSelectionCommand = command;
+    middleSelectionCommand.geometry.cacheKey = 0x53454c4d4944444cULL;
+    drawlist.clear();
+    drawlist.addCommand(leftSelectionCommand);
+    drawlist.addCommand(middleSelectionCommand);
+    drawlist.addCommand(rightSelectionCommand);
+    SoSelectionState interleavedSelection;
+    SoSelectionTarget middleTarget;
+    middleTarget.commandIndex = 1;
+    interleavedSelection.selected.push_back(leftTarget);
+    interleavedSelection.selected.push_back(middleTarget);
+    rightTarget.commandIndex = 2;
+    interleavedSelection.selected.push_back(rightTarget);
+    if (!render(backend, drawlist, params) ||
+        !backend.renderSelection(drawlist, interleavedSelection, params)) {
+      std::cerr << "FAIL: interleaved selection grouping failed" << std::endl;
+      result = 1;
+    }
+
     // Explicit highlighting is independent of hit-test eligibility.
     SoRenderCommand nonPickableCommand = command;
     nonPickableCommand.pick.pickable = false;

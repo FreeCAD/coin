@@ -4,6 +4,7 @@
 #define COIN_SORENDERIR_H
 
 #include <Inventor/SbBasic.h>
+#include <Inventor/SbInlineVector.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewVolume.h>
@@ -134,7 +135,7 @@ struct SoGeometryResource {
   SoGeometryDesc geometry;
   uint64_t sourceKey = 0;
   uint64_t revision = 0;
-  std::vector<SoRenderElementRange> elementRanges;
+  SbInlineVector<SoRenderElementRange, 1> elementRanges;
 };
 
 /*!
@@ -520,7 +521,7 @@ struct SoLightData {
 */
 struct SoLightingData {
   SbVec3f ambient = SbVec3f(0.2f, 0.2f, 0.2f);
-  std::vector<SoLightData> lights;
+  SbInlineVector<SoLightData, 2> lights;
 };
 
 #ifdef COIN_INTERNAL
@@ -569,7 +570,7 @@ struct COIN_DLL_API SoIRRenderContext {
 struct SoPickData {
   bool pickable = true;
   bool useResourceElementRanges = false;
-  std::vector<SoRenderElementRange> elementRanges;
+  SbInlineVector<SoRenderElementRange, 1> elementRanges;
 };
 
 /*!
@@ -679,6 +680,8 @@ struct SoRenderCommand {
   SbMatrix         projMatrix;
 
   SoOpacityClass   opacityClass = SO_OPACITY_OPAQUE;
+  //! True when command finalization synthesized the current blend state.
+  bool             finalizationEnabledBlend = false;
   SoRenderStage    stage = SoRenderStage::Main;
   SoLightingHandle lightingHandle = 0;
   int32_t          materialIndex = 0; //!< Effective Inventor material index.
@@ -714,10 +717,11 @@ public:
 
   //! Return the generation number incremented when clear() starts a new frame.
   uint32_t getGeneration() const { return generation; }
-  //! Monotonic serial for in-place retained content changes.
+  //! Monotonic serial for changes that may affect planning or submission.
   uint64_t getContentRevision() const { return contentRevision; }
 
   void addCommand(const SoRenderCommand & cmd);
+  void addCommand(SoRenderCommand && cmd);
   SoRenderCommand & emplaceCommand();
 
   //! Append a geometry resource and return its stable one-based handle.
@@ -736,7 +740,7 @@ public:
   const SoGeometryDesc & getCommandGeometry(
     const SoRenderCommand & command) const;
   //! Resolve command-local or shared geometry subelement ranges.
-  const std::vector<SoRenderElementRange> & getCommandElementRanges(
+  const SbInlineVector<SoRenderElementRange, 1> & getCommandElementRanges(
     const SoRenderCommand & command) const;
 
   int getNumCommands() const;

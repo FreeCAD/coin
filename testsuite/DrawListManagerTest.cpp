@@ -24,6 +24,7 @@
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoLightModel.h>
 #include <Inventor/nodes/SoMaterial.h>
+#include <Inventor/nodes/SoMaterialBinding.h>
 #include <Inventor/nodes/SoTranslation.h>
 
 #include <cmath>
@@ -312,6 +313,37 @@ runTest()
                 << std::endl;
       result = 1;
     }
+    const auto verifyIncrementalMaterial = [&](const char * description) {
+      manager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics phases =
+        manager.getRenderPhaseStatistics();
+      const std::vector<uint8_t> incrementalPixels = context.readPixels();
+      manager.invalidateDrawList();
+      manager.render(TRUE, TRUE);
+      const std::vector<uint8_t> rebuiltPixels = context.readPixels();
+      if (phases.drawListRebuilds != 0 ||
+          phases.incrementalCommandUpdates != 1 ||
+          incrementalPixels != rebuiltPixels) {
+        std::cerr << "FAIL: incremental " << description
+                  << " differs from full rebuild" << std::endl;
+        result = 1;
+      }
+    };
+    cubeMaterial->ambientColor.setValue(0.15f, 0.1f, 0.05f);
+    verifyIncrementalMaterial("ambient color");
+    cubeMaterial->emissiveColor.setValue(0.05f, 0.02f, 0.01f);
+    verifyIncrementalMaterial("emissive color");
+    cubeMaterial->specularColor.setValue(0.4f, 0.4f, 0.4f);
+    verifyIncrementalMaterial("specular color");
+    cubeMaterial->shininess.setValue(0.6f);
+    verifyIncrementalMaterial("shininess");
+    cubeMaterial->ambientColor.setValue(0.2f, 0.15f, 0.1f);
+    cubeMaterial->shininess.setValue(0.7f);
+    verifyIncrementalMaterial("batched material fields");
+    cubeMaterial->transparency.setValue(0.35f);
+    verifyIncrementalMaterial("transparent transition");
+    cubeMaterial->transparency.setValue(0.0f);
+    verifyIncrementalMaterial("opaque transition");
     cubeNestedTranslation->translation.setValue(0.2f, 0.0f, 0.0f);
     cubeMaterial->diffuseColor.setValue(0.5f, 0.4f, 0.3f);
     manager.render(TRUE, TRUE);
@@ -407,6 +439,152 @@ runTest()
     }
     geometryRoot->unref();
 
+    SoSeparator * vertexColorRoot = new SoSeparator;
+    SoSeparator * vertexColorOccurrence = new SoSeparator;
+    SoMaterial * vertexColorMaterial = new SoMaterial;
+    const SbColor vertexColors[] = {
+      SbColor(1.0f, 0.0f, 0.0f),
+      SbColor(0.0f, 1.0f, 0.0f),
+      SbColor(0.0f, 0.0f, 1.0f)
+    };
+    vertexColorMaterial->diffuseColor.setValues(0, 3, vertexColors);
+    SoMaterialBinding * vertexColorBinding = new SoMaterialBinding;
+    vertexColorBinding->value = SoMaterialBinding::PER_VERTEX;
+    SoCoordinate3 * vertexColorCoordinates = new SoCoordinate3;
+    vertexColorCoordinates->point.setValues(0, 3, triangle);
+    SoFaceSet * vertexColorFace = new SoFaceSet;
+    vertexColorFace->numVertices.set1Value(0, 3);
+    vertexColorOccurrence->addChild(vertexColorMaterial);
+    vertexColorOccurrence->addChild(vertexColorBinding);
+    vertexColorOccurrence->addChild(vertexColorCoordinates);
+    vertexColorOccurrence->addChild(vertexColorFace);
+    vertexColorRoot->addChild(vertexColorOccurrence);
+    vertexColorRoot->ref();
+    {
+      SoRenderManager vertexColorManager;
+      vertexColorManager.setViewportRegion(testViewport);
+      vertexColorManager.setSceneGraph(vertexColorRoot);
+      vertexColorManager.setCamera(camera);
+      vertexColorManager.setRenderPipeline(
+        SoRenderManager::RenderPipeline::DRAW_LIST);
+      vertexColorManager.setRenderPhaseTimingEnabled(TRUE);
+      vertexColorManager.render(TRUE, TRUE);
+      vertexColorMaterial->transparency.set1Value(0, 0.25f);
+      vertexColorManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics vertexColorPhases =
+        vertexColorManager.getRenderPhaseStatistics();
+      if (vertexColorPhases.drawListRebuilds != 1 ||
+          vertexColorPhases.incrementalCommandUpdates != 0) {
+        std::cerr << "FAIL: opacity composed into vertex colors did not use "
+                     "the safe rebuild path" << std::endl;
+        result = 1;
+      }
+    }
+    vertexColorRoot->unref();
+
+    // A shared state node has several occurrence paths, but Coin reports only
+    // one of them with a field notification. Rebuild so no retained occurrence
+    // can keep stale material state.
+    SoSeparator * sharedMaterialRoot = new SoSeparator;
+    SoMaterial * sharedMaterial = new SoMaterial;
+    const auto addSharedMaterialOccurrence = [&](int i) {
+      SoSeparator * occurrence = new SoSeparator;
+      SoTranslation * offset = new SoTranslation;
+      offset->translation.setValue(
+        0.7f * static_cast<float>(i - 1), 0.0f, -3.0f);
+      occurrence->addChild(offset);
+      occurrence->addChild(sharedMaterial);
+      occurrence->addChild(new SoCube);
+      sharedMaterialRoot->addChild(occurrence);
+    };
+    addSharedMaterialOccurrence(1);
+    sharedMaterialRoot->ref();
+    {
+      SoRenderManager sharedMaterialManager;
+      sharedMaterialManager.setViewportRegion(testViewport);
+      sharedMaterialManager.setSceneGraph(sharedMaterialRoot);
+      sharedMaterialManager.setCamera(camera);
+      sharedMaterialManager.setLightingMode(SoRenderManager::UNLIT);
+      sharedMaterialManager.setRenderPipeline(
+        SoRenderManager::RenderPipeline::DRAW_LIST);
+      sharedMaterialManager.render(TRUE, TRUE);
+      sharedMaterial->diffuseColor.setValue(0.3f, 0.6f, 0.8f);
+      sharedMaterialManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics uniqueMaterialPhases =
+        sharedMaterialManager.getRenderPhaseStatistics();
+      addSharedMaterialOccurrence(0);
+      addSharedMaterialOccurrence(2);
+      sharedMaterialManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics structuralMaterialPhases =
+        sharedMaterialManager.getRenderPhaseStatistics();
+      sharedMaterial->diffuseColor.setValue(0.2f, 0.7f, 0.4f);
+      sharedMaterialManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics sharedMaterialPhases =
+        sharedMaterialManager.getRenderPhaseStatistics();
+      const std::vector<uint8_t> sharedMaterialPixels = context.readPixels();
+      sharedMaterialManager.invalidateDrawList();
+      sharedMaterialManager.render(TRUE, TRUE);
+      const std::vector<uint8_t> rebuiltSharedMaterialPixels =
+        context.readPixels();
+      if (uniqueMaterialPhases.drawListRebuilds != 0 ||
+          uniqueMaterialPhases.incrementalCommandUpdates != 1 ||
+          structuralMaterialPhases.drawListRebuilds != 1 ||
+          sharedMaterialPhases.drawListRebuilds != 1 ||
+          sharedMaterialPhases.incrementalCommandUpdates != 0 ||
+          sharedMaterialPixels != rebuiltSharedMaterialPixels) {
+        std::cerr << "FAIL: shared material did not use the safe rebuild path"
+                  << std::endl;
+        result = 1;
+      }
+    }
+    sharedMaterialRoot->unref();
+
+    // Material replay is intentionally bounded. The largest accepted batch
+    // updates in place; one additional notification selects full traversal.
+    SoSeparator * materialBatchRoot = new SoSeparator;
+    std::vector<SoMaterial *> materialBatchNodes;
+    for (int i = 0; i < 257; ++i) {
+      SoSeparator * occurrence = new SoSeparator;
+      SoMaterial * material = new SoMaterial;
+      occurrence->addChild(material);
+      occurrence->addChild(new SoCube);
+      materialBatchRoot->addChild(occurrence);
+      materialBatchNodes.push_back(material);
+    }
+    materialBatchRoot->ref();
+    {
+      SoRenderManager materialBatchManager;
+      materialBatchManager.setViewportRegion(testViewport);
+      materialBatchManager.setSceneGraph(materialBatchRoot);
+      materialBatchManager.setCamera(camera);
+      materialBatchManager.setLightingMode(SoRenderManager::UNLIT);
+      materialBatchManager.setRenderPipeline(
+        SoRenderManager::RenderPipeline::DRAW_LIST);
+      materialBatchManager.render(TRUE, TRUE);
+      for (int i = 0; i < 256; ++i) {
+        materialBatchNodes[static_cast<size_t>(i)]->diffuseColor.setValue(
+          0.2f, 0.4f, 0.6f);
+      }
+      materialBatchManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics boundedMaterialPhases =
+        materialBatchManager.getRenderPhaseStatistics();
+      for (SoMaterial * material : materialBatchNodes) {
+        material->diffuseColor.setValue(0.6f, 0.4f, 0.2f);
+      }
+      materialBatchManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics fallbackMaterialPhases =
+        materialBatchManager.getRenderPhaseStatistics();
+      if (boundedMaterialPhases.drawListRebuilds != 0 ||
+          boundedMaterialPhases.incrementalCommandUpdates != 256 ||
+          fallbackMaterialPhases.drawListRebuilds != 1 ||
+          fallbackMaterialPhases.incrementalCommandUpdates != 0) {
+        std::cerr << "FAIL: material batch boundary changed behavior"
+                  << std::endl;
+        result = 1;
+      }
+    }
+    materialBatchRoot->unref();
+
     SoSeparator * visibilityRoot = new SoSeparator;
     SoSwitch * visibilitySwitch = new SoSwitch;
     visibilitySwitch->whichChild = SO_SWITCH_ALL;
@@ -459,6 +637,85 @@ runTest()
       visibilityManager.setSceneGraph(NULL);
     }
     visibilityRoot->unref();
+
+    SoSeparator * switchBatchRoot = new SoSeparator;
+    SoSwitch * leftSwitch = new SoSwitch;
+    SoSwitch * rightSwitch = new SoSwitch;
+    leftSwitch->whichChild = SO_SWITCH_ALL;
+    rightSwitch->whichChild = SO_SWITCH_ALL;
+    leftSwitch->addChild(new SoCube);
+    rightSwitch->addChild(new SoCube);
+    switchBatchRoot->addChild(leftSwitch);
+    switchBatchRoot->addChild(rightSwitch);
+    switchBatchRoot->ref();
+    {
+      SoRenderManager switchBatchManager;
+      switchBatchManager.setViewportRegion(testViewport);
+      switchBatchManager.setSceneGraph(switchBatchRoot);
+      switchBatchManager.setCamera(camera);
+      switchBatchManager.setRenderPipeline(
+        SoRenderManager::RenderPipeline::DRAW_LIST);
+      switchBatchManager.render(TRUE, TRUE);
+      const std::vector<uint8_t> originalSwitchPixels = context.readPixels();
+      leftSwitch->whichChild = SO_SWITCH_NONE;
+      rightSwitch->whichChild = SO_SWITCH_NONE;
+      switchBatchManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics hiddenSwitchPhases =
+        switchBatchManager.getRenderPhaseStatistics();
+      const int hiddenSwitchPixels = countNonBlack(context);
+      leftSwitch->whichChild = SO_SWITCH_ALL;
+      rightSwitch->whichChild = SO_SWITCH_ALL;
+      switchBatchManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics shownSwitchPhases =
+        switchBatchManager.getRenderPhaseStatistics();
+      if (hiddenSwitchPhases.drawListRebuilds != 0 ||
+          hiddenSwitchPhases.incrementalCommandUpdates != 2 ||
+          shownSwitchPhases.drawListRebuilds != 0 ||
+          shownSwitchPhases.incrementalCommandUpdates != 2 ||
+          hiddenSwitchPixels != 0 ||
+          context.readPixels() != originalSwitchPixels) {
+        std::cerr << "FAIL: disjoint switch batch was not transactional"
+                  << std::endl;
+        result = 1;
+      }
+    }
+    switchBatchRoot->unref();
+
+    SoSeparator * nestedSwitchRoot = new SoSeparator;
+    SoSwitch * outerSwitch = new SoSwitch;
+    SoSwitch * innerSwitch = new SoSwitch;
+    outerSwitch->whichChild = SO_SWITCH_ALL;
+    innerSwitch->whichChild = SO_SWITCH_ALL;
+    innerSwitch->addChild(new SoCube);
+    outerSwitch->addChild(innerSwitch);
+    nestedSwitchRoot->addChild(outerSwitch);
+    nestedSwitchRoot->ref();
+    {
+      SoRenderManager nestedSwitchManager;
+      nestedSwitchManager.setViewportRegion(testViewport);
+      nestedSwitchManager.setSceneGraph(nestedSwitchRoot);
+      nestedSwitchManager.setCamera(camera);
+      nestedSwitchManager.setRenderPipeline(
+        SoRenderManager::RenderPipeline::DRAW_LIST);
+      nestedSwitchManager.render(TRUE, TRUE);
+      innerSwitch->whichChild = SO_SWITCH_NONE;
+      outerSwitch->whichChild = SO_SWITCH_NONE;
+      nestedSwitchManager.render(TRUE, TRUE);
+      const SoRenderManager::RenderPhaseStatistics nestedSwitchPhases =
+        nestedSwitchManager.getRenderPhaseStatistics();
+      if (nestedSwitchPhases.drawListRebuilds != 1 ||
+          nestedSwitchPhases.incrementalCommandUpdates != 0 ||
+          countNonBlack(context) != 0) {
+        std::cerr << "FAIL: overlapping switch batch did not rebuild safely"
+                  << " (rebuilds=" << nestedSwitchPhases.drawListRebuilds
+                  << ", updates="
+                  << nestedSwitchPhases.incrementalCommandUpdates
+                  << ", pixels=" << countNonBlack(context) << ')'
+                  << std::endl;
+        result = 1;
+      }
+    }
+    nestedSwitchRoot->unref();
 
     SoSeparator * structuralSwitchRoot = new SoSeparator;
     SoSwitch * structuralSwitch = new SoSwitch;

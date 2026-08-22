@@ -65,6 +65,11 @@ struct Measurement {
   double primitiveGenerationMedianMs = 0.0;
   double geometryPackingMedianMs = 0.0;
   double commandEmissionMedianMs = 0.0;
+  double commandIdentityMedianMs = 0.0;
+  double commandStateMedianMs = 0.0;
+  double geometryResourceMedianMs = 0.0;
+  double drawListAppendMedianMs = 0.0;
+  double pathDependencyMedianMs = 0.0;
   double planConstructionMedianMs = 0.0;
   double backendSubmissionMedianMs = 0.0;
   double backendFrameSetupMedianMs = 0.0;
@@ -198,6 +203,11 @@ bool runVariant(GLTestProfile profile,
   std::vector<double> primitiveGeneration;
   std::vector<double> geometryPacking;
   std::vector<double> commandEmission;
+  std::vector<double> commandIdentity;
+  std::vector<double> commandState;
+  std::vector<double> geometryResource;
+  std::vector<double> drawListAppend;
+  std::vector<double> pathDependency;
   std::vector<double> planConstruction;
   std::vector<double> backendSubmission;
   std::vector<double> backendFrameSetup;
@@ -224,6 +234,16 @@ bool runVariant(GLTestProfile profile,
       renderPhases.drawListGeometryPackingNanoseconds / 1000000.0);
     commandEmission.push_back(
       renderPhases.drawListCommandEmissionNanoseconds / 1000000.0);
+    commandIdentity.push_back(
+      renderPhases.drawListCommandIdentityNanoseconds / 1000000.0);
+    commandState.push_back(
+      renderPhases.drawListCommandStateNanoseconds / 1000000.0);
+    geometryResource.push_back(
+      renderPhases.drawListGeometryResourceNanoseconds / 1000000.0);
+    drawListAppend.push_back(
+      renderPhases.drawListAppendNanoseconds / 1000000.0);
+    pathDependency.push_back(
+      renderPhases.drawListPathDependencyNanoseconds / 1000000.0);
     planConstruction.push_back(
       renderPhases.planConstructionNanoseconds / 1000000.0);
     backendSubmission.push_back(
@@ -303,6 +323,10 @@ bool runVariant(GLTestProfile profile,
     if (pipeline == SoRenderManager::RenderPipeline::DRAW_LIST) {
       const SoRenderManager::RenderPhaseStatistics phases =
         manager.getRenderPhaseStatistics();
+      if (phases.pickPlanConstructionNanoseconds != 0) {
+        std::cerr << "FAIL: picking rebuilt the current visual render plan\n";
+        std::exit(1);
+      }
       coldPickBufferUpdate =
         phases.pickBufferUpdateNanoseconds / 1000000.0;
       coldPickTargetPreparation =
@@ -341,6 +365,10 @@ bool runVariant(GLTestProfile profile,
     if (pipeline == SoRenderManager::RenderPipeline::DRAW_LIST) {
       const SoRenderManager::RenderPhaseStatistics phases =
         manager.getRenderPhaseStatistics();
+      if (phases.pickPlanConstructionNanoseconds != 0) {
+        std::cerr << "FAIL: refreshed picking rebuilt the current visual plan\n";
+        std::exit(1);
+      }
       refreshPickBufferUpdate =
         phases.pickBufferUpdateNanoseconds / 1000000.0;
       refreshPickTargetPreparation =
@@ -384,6 +412,11 @@ bool runVariant(GLTestProfile profile,
   result.primitiveGenerationMedianMs = percentile(primitiveGeneration, 0.5);
   result.geometryPackingMedianMs = percentile(geometryPacking, 0.5);
   result.commandEmissionMedianMs = percentile(commandEmission, 0.5);
+  result.commandIdentityMedianMs = percentile(commandIdentity, 0.5);
+  result.commandStateMedianMs = percentile(commandState, 0.5);
+  result.geometryResourceMedianMs = percentile(geometryResource, 0.5);
+  result.drawListAppendMedianMs = percentile(drawListAppend, 0.5);
+  result.pathDependencyMedianMs = percentile(pathDependency, 0.5);
   result.planConstructionMedianMs = percentile(planConstruction, 0.5);
   result.backendSubmissionMedianMs = percentile(backendSubmission, 0.5);
   result.backendFrameSetupMedianMs = percentile(backendFrameSetup, 0.5);
@@ -469,6 +502,7 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
                            const std::function<void(int)> & mutate) {
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
+    std::vector<double> planTimes;
     for (int sample = 0; sample < samples; ++sample) {
       mutate(sample);
       context.bindFramebuffer();
@@ -479,13 +513,17 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
         manager.getRenderPhaseStatistics();
       constructionTimes.push_back(
         phases.drawListConstructionNanoseconds / 1000000.0);
+      planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
       if (phases.drawListRebuilds != 0 ||
           phases.incrementalCommandUpdates !=
-            static_cast<uint64_t>(changedCount)) {
+            static_cast<uint64_t>(changedCount) ||
+          phases.planConstructionNanoseconds == 0) {
         std::ostringstream reason;
         reason << mutation << '_' << changedCount << " updated "
                << phases.incrementalCommandUpdates << " commands with "
-               << phases.drawListRebuilds << " rebuilds";
+               << phases.drawListRebuilds << " draw-list rebuilds and "
+               << phases.planConstructionNanoseconds
+               << " ns of plan construction";
         unavailable = reason.str();
         return false;
       }
@@ -508,6 +546,7 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     result.mutationP95Ms = result.cpuP95Ms;
     result.drawListConstructionMedianMs =
       percentile(constructionTimes, 0.5);
+    result.planConstructionMedianMs = percentile(planTimes, 0.5);
     result.incrementalCommandUpdates = static_cast<uint64_t>(changedCount);
     result.pixelChecksum = checksumPixels(context.readPixels());
     results.push_back(result);
@@ -550,12 +589,66 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     });
     if (!valid) break;
     if (changedCount == 1) {
+      valid = measure("transparency", changedCount, [&](int sample) {
+        mutations.materials[0]->transparency.set1Value(
+          0, (sample & 1) ? 0.25f : 0.0f);
+      });
+      if (!valid) break;
       valid = measure("geometry", changedCount, [&](int sample) {
         const float offset = (sample & 1) ? -0.01f : 0.01f;
         mutations.coordinates[0]->point.set1Value(
           0, positions[0] + SbVec3f(offset, 0.0f, 0.0f));
       });
       if (!valid) break;
+    }
+  }
+
+  if (valid && drawCount > 256) {
+    const int changedCount = 257;
+    std::vector<double> frameTimes;
+    std::vector<double> constructionTimes;
+    for (int sample = 0; sample < samples; ++sample) {
+      const SbColor color = (sample & 1)
+        ? SbColor(0.65f, 0.3f, 0.2f) : SbColor(0.2f, 0.45f, 0.7f);
+      for (int i = 0; i < changedCount; ++i) {
+        mutations.materials[static_cast<size_t>(i)]->diffuseColor = color;
+      }
+      context.bindFramebuffer();
+      const Clock::time_point start = Clock::now();
+      manager.render(TRUE, TRUE);
+      frameTimes.push_back(elapsedMs(start));
+      const SoRenderManager::RenderPhaseStatistics phases =
+        manager.getRenderPhaseStatistics();
+      constructionTimes.push_back(
+        phases.drawListConstructionNanoseconds / 1000000.0);
+      if (phases.drawListRebuilds != 1 ||
+          phases.incrementalCommandUpdates != 0) {
+        unavailable = "bounded material batch did not use full rebuild";
+        valid = false;
+        break;
+      }
+    }
+    if (valid) {
+      Measurement result;
+      result.workload = "material_fallback_257_of_" +
+        std::to_string(drawCount);
+      result.renderer = "DrawList";
+      result.profile = profile == GLTestProfile::Core
+        ? "core" : "compatibility";
+      result.executionMode = "full_rebuild_fallback";
+      result.semanticDraws = drawCount;
+      result.samples = samples;
+      result.cpuMedianMs = percentile(frameTimes, 0.5);
+      result.cpuP95Ms = percentile(frameTimes, 0.95);
+      result.completionMedianMs = result.cpuMedianMs;
+      result.completionP95Ms = result.cpuP95Ms;
+      result.mutationMedianMs = result.cpuMedianMs;
+      result.mutationP95Ms = result.cpuP95Ms;
+      result.drawListConstructionMedianMs =
+        percentile(constructionTimes, 0.5);
+      result.drawListRebuilds = static_cast<uint64_t>(samples);
+      result.pixelChecksum = checksumPixels(context.readPixels());
+      results.push_back(result);
     }
   }
 
@@ -777,6 +870,16 @@ std::string toJson(const std::vector<Measurement> & results,
         << r.geometryPackingMedianMs
         << ", \"drawlist_command_emission_median_ms\": "
         << r.commandEmissionMedianMs
+        << ", \"drawlist_command_identity_median_ms\": "
+        << r.commandIdentityMedianMs
+        << ", \"drawlist_command_state_median_ms\": "
+        << r.commandStateMedianMs
+        << ", \"drawlist_geometry_resource_median_ms\": "
+        << r.geometryResourceMedianMs
+        << ", \"drawlist_append_median_ms\": "
+        << r.drawListAppendMedianMs
+        << ", \"drawlist_path_dependency_median_ms\": "
+        << r.pathDependencyMedianMs
         << ", \"plan_construction_median_ms\": "
         << r.planConstructionMedianMs
         << ", \"backend_submission_median_ms\": "
