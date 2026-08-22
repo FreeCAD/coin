@@ -707,6 +707,8 @@ public:
 #ifdef COIN_INTERNAL
   //! Internal serial for changes that may alter render-plan operation order.
   uint64_t getRenderPlanRevision() const { return renderPlanRevision; }
+  //! Internal serial for changes that require GPU resource validation.
+  uint64_t getResourceRevision() const { return resourceRevision; }
 #endif
 
   void addCommand(const SoRenderCommand & cmd);
@@ -796,6 +798,7 @@ private:
   uint32_t generation = 0;
   uint64_t contentRevision = 0;
   uint64_t renderPlanRevision = 0;
+  uint64_t resourceRevision = 0;
   mutable uint32_t pickLUTGeneration = 0;
   mutable uint64_t pickLUTRevision = 0;
   mutable bool pickLUTValid = false;

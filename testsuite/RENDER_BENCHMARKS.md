@@ -147,6 +147,11 @@ classification and order, so their plan-construction time must remain zero.
 Transparent matrix updates, opacity, visibility, geometry, and structural
 changes conservatively rebuild the plan.
 
+The DrawList also tracks GPU-resource revision separately from dynamic command
+state. Matrix and material updates therefore reuse validated geometry and
+texture resources, while geometry and structural mutations retain full cache
+validation and upload behavior.
+
 Timing remains disabled for normal `SoRenderManager` users, so clock reads do
 not affect ordinary rendering. A zero-valued phase means it did not run; for
 example, a warm hover pick normally reuses its existing pick buffer, and a

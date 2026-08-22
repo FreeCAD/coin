@@ -32,26 +32,32 @@ main()
   revisions.addCommand(revisionCommand);
   uint64_t contentRevision = revisions.getContentRevision();
   uint64_t planRevision = revisions.getRenderPlanRevision();
+  uint64_t resourceRevision = revisions.getResourceRevision();
   revisions.getCommandForStateUpdate(0).modelMatrix.makeIdentity();
   result = check(revisions.getContentRevision() > contentRevision &&
-                 revisions.getRenderPlanRevision() == planRevision,
+                 revisions.getRenderPlanRevision() == planRevision &&
+                 revisions.getResourceRevision() == resourceRevision,
                  "dynamic state update invalidated derived layout") && result;
 
   contentRevision = revisions.getContentRevision();
   planRevision = revisions.getRenderPlanRevision();
+  resourceRevision = revisions.getResourceRevision();
   revisions.getCommandPreservingPickTopology(0).opacityClass =
     SO_OPACITY_TRANSPARENT;
   result = check(revisions.getContentRevision() > contentRevision &&
-                 revisions.getRenderPlanRevision() > planRevision,
+                 revisions.getRenderPlanRevision() > planRevision &&
+                 revisions.getResourceRevision() == resourceRevision,
                  "ordering update did not isolate render-plan invalidation") &&
     result;
 
   contentRevision = revisions.getContentRevision();
   planRevision = revisions.getRenderPlanRevision();
+  resourceRevision = revisions.getResourceRevision();
   revisions.getCommand(0).geometry.revision++;
   result = check(revisions.getContentRevision() > contentRevision &&
-                 revisions.getRenderPlanRevision() > planRevision,
-                 "generic mutation did not invalidate render planning") &&
+                 revisions.getRenderPlanRevision() > planRevision &&
+                 revisions.getResourceRevision() > resourceRevision,
+                 "generic mutation did not invalidate all derived state") &&
     result;
 #endif // COIN_INTERNAL
 
