@@ -274,6 +274,27 @@ SoIRBuffer::allocate(size_t bytes, size_t alignment)
   return ptr;
 }
 
+SoIRBuffer::Checkpoint
+SoIRBuffer::checkpoint() const
+{
+  Checkpoint result;
+  result.chunkCount = this->chunks.size();
+  result.totalAllocated = this->totalAllocated;
+  result.cursors.reserve(result.chunkCount);
+  for (const auto & chunk : this->chunks) result.cursors.push_back(chunk->cursor);
+  return result;
+}
+
+void
+SoIRBuffer::rewind(const Checkpoint & checkpoint)
+{
+  this->chunks.resize(checkpoint.chunkCount);
+  for (size_t i = 0; i < checkpoint.cursors.size(); ++i) {
+    this->chunks[i]->cursor = checkpoint.cursors[i];
+  }
+  this->totalAllocated = checkpoint.totalAllocated;
+}
+
 SoDrawList::SoDrawList()
 {
 }
@@ -288,6 +309,7 @@ SoDrawList::clear()
   this->depthClearEvents.clear();
   this->pickLUT.clear();
   this->generation++;
+  this->contentRevision++;
   this->pickLUTGeneration = 0;
 }
 
@@ -371,6 +393,22 @@ int
 SoDrawList::getNumGeometryResources() const
 {
   return static_cast<int>(this->geometryResources.size());
+}
+
+void
+SoDrawList::truncateGeometryResources(int count)
+{
+  if (count >= 0 && count < static_cast<int>(this->geometryResources.size())) {
+    this->geometryResources.resize(static_cast<size_t>(count));
+  }
+}
+
+void
+SoDrawList::markGeometryResourcesChanged()
+{
+  ++this->contentRevision;
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
 }
 
 const SoGeometryDesc &

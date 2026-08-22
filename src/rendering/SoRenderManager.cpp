@@ -65,15 +65,22 @@
 
 #include <algorithm>
 #include <chrono>
+#include <unordered_map>
 //FIXME:Need this include early, since including it via SoRenderManagerP.h will cause problems for cygwin. Don't understand the root cause BFG 20090629
 #include <vector>
 
 #include <Inventor/system/gl.h>
 #include <Inventor/nodes/SoInfo.h>
 #include <Inventor/nodes/SoCamera.h>
+#include <Inventor/nodes/SoCoordinate3.h>
+#include <Inventor/nodes/SoGroup.h>
+#include <Inventor/nodes/SoMaterial.h>
+#include <Inventor/nodes/SoSwitch.h>
+#include <Inventor/nodes/SoTranslation.h>
 #include <Inventor/SoPath.h>
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/lists/SoPickedPointList.h>
+#include <Inventor/lists/SoAuditorList.h>
 #include <Inventor/details/SoDetail.h>
 #include <Inventor/details/SoFaceDetail.h>
 #include <Inventor/details/SoLineDetail.h>
@@ -115,6 +122,97 @@
 #include "SoRenderManagerP.h"
 
 namespace {
+
+const unsigned int MAX_INCREMENTAL_MATERIAL_NOTIFICATIONS = 256;
+
+enum class RetainedBatchKind {
+  Unsupported,
+  Switch,
+  Translation,
+  DiffuseColor,
+  Geometry
+};
+
+bool
+hasOneParentOccurrence(
+  SoNode * node, std::unordered_map<SoNode *, SbBool> & cache)
+{
+  if (!node) return false;
+  const auto cached = cache.find(node);
+  if (cached != cache.end()) return cached->second != FALSE;
+
+  const SoAuditorList & auditors = node->getAuditors();
+  unsigned int occurrences = 0;
+  for (int auditorIndex = 0; auditorIndex < auditors.getLength();
+       ++auditorIndex) {
+    if (auditors.getType(auditorIndex) != SoNotRec::PARENT) continue;
+    SoNode * parentNode = static_cast<SoNode *>(
+      auditors.getObject(auditorIndex));
+    if (!parentNode->isOfType(SoGroup::getClassTypeId())) {
+      cache[node] = FALSE;
+      return false;
+    }
+    SoGroup * parent = static_cast<SoGroup *>(parentNode);
+    for (int childIndex = 0; childIndex < parent->getNumChildren();
+         ++childIndex) {
+      if (parent->getChild(childIndex) == node && ++occurrences > 1) {
+        cache[node] = FALSE;
+        return false;
+      }
+    }
+  }
+  const SbBool unique = occurrences == 1;
+  cache[node] = unique;
+  return unique != FALSE;
+}
+
+RetainedBatchKind
+classifyRetainedBatch(const SoRenderManagerRootSensor * sensor,
+                      unsigned int retainedCount,
+                      std::unordered_map<SoNode *, SbBool> & parentCache)
+{
+  RetainedBatchKind batchKind = RetainedBatchKind::Unsupported;
+  for (unsigned int i = 0; i < retainedCount; ++i) {
+    SoNode * node = sensor->getChangedNode(i);
+    SoField * field = sensor->getChangedField(i);
+    if (!sensor->getChangedPath(i) ||
+        !hasOneParentOccurrence(node, parentCache)) {
+      return RetainedBatchKind::Unsupported;
+    }
+
+    RetainedBatchKind changeKind = RetainedBatchKind::Unsupported;
+    if (node->isOfType(SoSwitch::getClassTypeId())) {
+      SoSwitch * switchNode = static_cast<SoSwitch *>(node);
+      const int whichChild = switchNode->whichChild.getValue();
+      if (field == &switchNode->whichChild &&
+          switchNode->getNumChildren() == 1 &&
+          (whichChild == SO_SWITCH_ALL || whichChild == SO_SWITCH_NONE ||
+           whichChild == 0)) {
+        changeKind = RetainedBatchKind::Switch;
+      }
+    }
+    else if (node->isOfType(SoTranslation::getClassTypeId()) &&
+        field == &static_cast<SoTranslation *>(node)->translation) {
+      changeKind = RetainedBatchKind::Translation;
+    }
+    else if (retainedCount <= MAX_INCREMENTAL_MATERIAL_NOTIFICATIONS &&
+             node->isOfType(SoMaterial::getClassTypeId()) &&
+             field == &static_cast<SoMaterial *>(node)->diffuseColor) {
+      changeKind = RetainedBatchKind::DiffuseColor;
+    }
+    else if (node->isOfType(SoCoordinate3::getClassTypeId()) &&
+             field == &static_cast<SoCoordinate3 *>(node)->point) {
+      changeKind = RetainedBatchKind::Geometry;
+    }
+    if (changeKind == RetainedBatchKind::Unsupported ||
+        (batchKind != RetainedBatchKind::Unsupported &&
+         batchKind != changeKind)) {
+      return RetainedBatchKind::Unsupported;
+    }
+    batchKind = changeKind;
+  }
+  return batchKind;
+}
 
 SbBool
 backendContextIsCurrent(const SoRenderManagerP * manager)
@@ -621,9 +719,8 @@ void
 SoRenderManager::attachRootSensor(SoNode * const sceneroot)
 {
   if (!PRIVATE(this)->rootsensor) {
-    (SoRenderManagerRootSensor::debug()) ?
-      PRIVATE(this)->rootsensor = new SoRenderManagerRootSensor(SoRenderManager::nodesensorCB, this):
-      PRIVATE(this)->rootsensor = new SoNodeSensor(SoRenderManager::nodesensorCB, this);
+    PRIVATE(this)->rootsensor = new SoRenderManagerRootSensor(
+      SoRenderManager::nodesensorCB, this);
     // set a high priority on the root sensor. The actual redraw
     // scheduling is handled by the redraw sensor at the correct
     // priority (root sensor callback triggers the redraw sensor). Set
@@ -971,6 +1068,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   phaseStatistics.backendCommandExecutionNanoseconds = 0;
   phaseStatistics.backendSelectionNanoseconds = 0;
   phaseStatistics.drawListRebuilds = 0;
+  phaseStatistics.incrementalCommandUpdates = 0;
   const SbBool measurePhases = PRIVATE(this)->renderPhaseTimingEnabled;
   const SoRenderManager::RenderMode renderMode = PRIVATE(this)->rendermode;
   const SoRenderManager::StereoMode stereoMode = PRIVATE(this)->stereomode;
@@ -1126,6 +1224,108 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   const uint64_t foregroundRevision = PRIVATE(this)->renderLayerForegroundRoot
     ? static_cast<uint64_t>(
         PRIVATE(this)->renderLayerForegroundRoot->getNodeId()) : 0;
+  const bool sceneRevisionChanged =
+    PRIVATE(this)->drawListSceneRevision != sceneRevision;
+  SoRenderManagerRootSensor * rootSensor =
+    static_cast<SoRenderManagerRootSensor *>(PRIVATE(this)->rootsensor);
+  const bool canPatchStateChanges = rootSensor &&
+    PRIVATE(this)->drawListValid && sceneRevisionChanged &&
+    rootSensor->getNotificationCount() <=
+      SoRenderManagerRootSensor::MAX_RETAINED_NOTIFICATIONS &&
+    rootSensor->getRetainedNotificationCount() > 0 &&
+    rootSensor->getChangedNode() && rootSensor->getChangedPath() &&
+    PRIVATE(this)->afterMainSceneCallbacks.empty() &&
+    PRIVATE(this)->drawListCameraRevision == cameraRevision &&
+    PRIVATE(this)->drawListBackgroundRevision == backgroundRevision &&
+    PRIVATE(this)->drawListForegroundRevision == foregroundRevision;
+  int updated = 0;
+  const unsigned int retainedNotificationCount = rootSensor
+    ? rootSensor->getRetainedNotificationCount() : 0;
+  std::unordered_map<SoNode *, SbBool> & parentCache =
+    PRIVATE(this)->incrementalUniqueParentCache;
+  if (canPatchStateChanges &&
+      (rootSensor->getNotificationCount() > 1 ||
+       retainedNotificationCount > 1)) {
+    const RetainedBatchKind batchKind = classifyRetainedBatch(
+      rootSensor, retainedNotificationCount, parentCache);
+    if (batchKind != RetainedBatchKind::Unsupported) {
+      std::vector<const SoPath *> changedPaths;
+      changedPaths.reserve(retainedNotificationCount);
+      for (unsigned int i = 0; i < retainedNotificationCount; ++i) {
+        changedPaths.push_back(rootSensor->getChangedPath(i));
+      }
+      if (batchKind == RetainedBatchKind::Translation) {
+        updated = action->updateCommandMatricesForStatePaths(changedPaths);
+      }
+      else if (batchKind == RetainedBatchKind::DiffuseColor) {
+        updated = action->updateCommandDiffuseColorsForStatePaths(changedPaths);
+      }
+      else if (batchKind == RetainedBatchKind::Geometry) {
+        updated = action->updateCommandGeometryForStatePaths(changedPaths);
+      }
+      else {
+        for (unsigned int i = 0; i < retainedNotificationCount; ++i) {
+          SoSwitch * switchNode = static_cast<SoSwitch *>(
+            rootSensor->getChangedNode(i));
+          const int patched = action->updateCommandVisibilityForSwitchPath(
+            rootSensor->getChangedPath(i),
+            switchNode->whichChild.getValue() != SO_SWITCH_NONE);
+          if (patched == 0) {
+            updated = 0;
+            break;
+          }
+          updated += patched;
+        }
+      }
+    }
+  }
+  else if (canPatchStateChanges &&
+      hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
+      rootSensor->getChangedNode()->isOfType(SoTranslation::getClassTypeId()) &&
+      rootSensor->getChangedField() ==
+        &static_cast<SoTranslation *>(rootSensor->getChangedNode())->translation) {
+    updated = action->updateCommandMatricesForStatePath(
+      rootSensor->getChangedPath());
+  }
+  else if (canPatchStateChanges &&
+           hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
+           rootSensor->getChangedNode()->isOfType(SoMaterial::getClassTypeId()) &&
+           rootSensor->getChangedField() ==
+             &static_cast<SoMaterial *>(
+               rootSensor->getChangedNode())->diffuseColor) {
+    updated = action->updateCommandDiffuseColorsForStatePath(
+      rootSensor->getChangedPath());
+  }
+  else if (canPatchStateChanges &&
+           hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
+           rootSensor->getChangedNode()->isOfType(
+             SoCoordinate3::getClassTypeId()) &&
+           rootSensor->getChangedField() ==
+             &static_cast<SoCoordinate3 *>(
+               rootSensor->getChangedNode())->point) {
+    updated = action->updateCommandGeometryForStatePath(
+      rootSensor->getChangedPath());
+  }
+  else if (canPatchStateChanges &&
+           hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
+           rootSensor->getChangedNode()->isOfType(SoSwitch::getClassTypeId())) {
+    SoSwitch * switchNode = static_cast<SoSwitch *>(
+      rootSensor->getChangedNode());
+    const int whichChild = switchNode->whichChild.getValue();
+    if (rootSensor->getChangedField() == &switchNode->whichChild &&
+        switchNode->getNumChildren() == 1 &&
+        (whichChild == SO_SWITCH_ALL || whichChild == SO_SWITCH_NONE ||
+         whichChild == 0)) {
+      updated = action->updateCommandVisibilityForSwitchPath(
+        rootSensor->getChangedPath(), whichChild != SO_SWITCH_NONE);
+    }
+  }
+  if (updated > 0) {
+    phaseStatistics.incrementalCommandUpdates = static_cast<uint64_t>(updated);
+    PRIVATE(this)->drawListDirty = FALSE;
+    PRIVATE(this)->drawListSceneRevision = sceneRevision;
+  }
+  if (rootSensor) rootSensor->resetNotification();
   const SbBool rebuildDrawList =
     !PRIVATE(this)->drawListValid || PRIVATE(this)->drawListDirty ||
     !PRIVATE(this)->afterMainSceneCallbacks.empty() ||
@@ -1138,7 +1338,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     measurePhases && rebuildDrawList
       ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
 
-  if (rebuildDrawList) action->beginFrame();
+  if (rebuildDrawList) {
+    PRIVATE(this)->incrementalUniqueParentCache.clear();
+    action->beginFrame();
+  }
 
   const auto applyTraversalState = [this, renderMode](SoState * traversalState) {
     SoNode * stateNode = PRIVATE(this)->dummynode;
