@@ -112,6 +112,22 @@ struct SoGeometryDesc {
 using SoGeometryHandle = uint32_t;
 static constexpr SoGeometryHandle SO_INVALID_GEOMETRY_HANDLE = 0;
 
+//! Backend-neutral identity kinds retained for picking.
+enum SoPickElementType : uint8_t {
+  SO_PICK_OBJECT = 0,
+  SO_PICK_FACE,
+  SO_PICK_EDGE,
+  SO_PICK_VERTEX
+};
+
+//! Maps one logical subelement to a geometry draw range.
+struct SoRenderElementRange {
+  SoPickElementType type = SO_PICK_OBJECT;
+  int elementIndex = -1;
+  uint32_t drawStart = 0;
+  uint32_t drawCount = 0;
+};
+
 /*!
   \struct SoGeometryResource
   \brief Draw-list-owned geometry descriptor with producer identity.
@@ -124,6 +140,7 @@ struct SoGeometryResource {
   SoGeometryDesc geometry;
   uint64_t sourceKey = 0;
   uint64_t revision = 0;
+  std::vector<SoRenderElementRange> elementRanges;
 };
 
 /*!
@@ -529,35 +546,12 @@ struct COIN_DLL_API SoIRRenderContext {
   void applyToState(SoState * state, SbBool applyModelMatrix = TRUE) const;
 };
 
-/*!
-  \enum SoPickElementType
-  \brief Backend-neutral identity kinds retained for picking.
-*/
-enum SoPickElementType : uint8_t {
-  SO_PICK_OBJECT = 0,
-  SO_PICK_FACE,
-  SO_PICK_EDGE,
-  SO_PICK_VERTEX
-};
-
-/*! \struct SoRenderElementRange
-  \brief Maps one logical subelement to a geometry draw range.
-
-  For indexed geometry, drawStart/drawCount refer to indices. For
-  non-indexed geometry, they refer to vertices.
-*/
-struct SoRenderElementRange {
-  SoPickElementType type = SO_PICK_OBJECT;
-  int elementIndex = -1;
-  uint32_t drawStart = 0;
-  uint32_t drawCount = 0;
-};
-
 /*! \struct SoPickData
   \brief Backend-neutral pickability and optional subelement ranges.
 */
 struct SoPickData {
   bool pickable = true;
+  bool useResourceElementRanges = false;
   std::vector<SoRenderElementRange> elementRanges;
 };
 
@@ -711,6 +705,9 @@ public:
   int getNumGeometryResources() const;
   //! Resolve a command resource, falling back to its embedded descriptor.
   const SoGeometryDesc & getCommandGeometry(
+    const SoRenderCommand & command) const;
+  //! Resolve command-local or shared geometry subelement ranges.
+  const std::vector<SoRenderElementRange> & getCommandElementRanges(
     const SoRenderCommand & command) const;
 
   int getNumCommands() const;
