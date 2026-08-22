@@ -55,6 +55,7 @@ extern "C" {
 /* Pre-declare this. Actual definition of struct is hidden in
    implementation. Client code must treat structure as opaque. */
 typedef struct cc_glglue cc_glglue;
+typedef struct cc_glglue_sync_handle * cc_glglue_sync;
 
 /* ********************************************************************** */
 
@@ -400,6 +401,15 @@ COIN_DLL_API void cc_glglue_glMultiDrawArraysIndirect(
 COIN_DLL_API void cc_glglue_glMultiDrawElementsIndirect(
   const cc_glglue * glue, GLenum mode, GLenum type, const GLvoid * indirect,
   GLsizei drawcount, GLsizei stride);
+COIN_DLL_API cc_glglue_sync cc_glglue_glFenceSync(const cc_glglue * glue,
+                                                  GLenum condition,
+                                                  GLbitfield flags);
+COIN_DLL_API void cc_glglue_glDeleteSync(const cc_glglue * glue,
+                                         cc_glglue_sync sync);
+COIN_DLL_API GLenum cc_glglue_glClientWaitSync(const cc_glglue * glue,
+                                               cc_glglue_sync sync,
+                                               GLbitfield flags,
+                                               uint64_t timeout);
 COIN_DLL_API void cc_glglue_glDrawRangeElements(const cc_glglue * glue, 
                                                 GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid * indices);
 COIN_DLL_API void cc_glglue_glArrayElement(const cc_glglue * glue, GLint i);
