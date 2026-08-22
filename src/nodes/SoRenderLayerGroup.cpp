@@ -74,6 +74,7 @@
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #include <Inventor/misc/SoChildList.h>
 #include <Inventor/misc/SoState.h>
 #if COIN_HAVE_LEGACY_GL_RENDERER
@@ -344,7 +345,8 @@ SoRenderLayerGroup::doAction(SoAction * action)
       SoViewportRegionElement::set(state, viewport);
       SoRenderPlacementElement::setViewport(state, viewportX, viewportY,
                                             viewportWidth, viewportHeight);
-      SoRenderPlacementElement::setCommandMatricesOverride(state, TRUE);
+      SoRenderMatrixPolicyElement::set(
+        state, this, SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES);
     }
     if (layerValue == SoRenderLayerGroup::FOREGROUND) {
       SoRenderPlacementElement::setLayer(state, SoRenderPlacementElement::FOREGROUND);

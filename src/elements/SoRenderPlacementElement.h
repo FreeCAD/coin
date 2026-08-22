@@ -87,18 +87,12 @@ public:
   static void setViewport(SoState * state,
                           int x, int y, int width, int height);
 
-  //! Select command-local view/projection matrices for retained rendering.
-  static void setCommandMatricesOverride(SoState * state, SbBool enabled);
-
   //! Return the current logical placement hint.
   static Layer getLayer(SoState * state);
 
   //! Return whether a viewport override is active and, if so, its rectangle.
   static SbBool getViewport(SoState * state,
                             int & x, int & y, int & width, int & height);
-
-  //! Return whether command-local matrices are selected.
-  static SbBool getCommandMatricesOverride(SoState * state);
 
 private:
   Layer layer;
@@ -107,7 +101,6 @@ private:
   int viewportY;
   int viewportWidth;
   int viewportHeight;
-  SbBool commandMatricesOverride;
 };
 
 #endif // !COIN_SORENDERPLACEMENTELEMENT_H

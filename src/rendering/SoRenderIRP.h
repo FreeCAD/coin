@@ -64,8 +64,6 @@ void captureRenderContextFromState(SoState * state,
                                    SoIRRenderContext & context);
 void applyRenderContextToState(SoState * state,
                                const SoIRRenderContext & context);
-void setCommandMatricesOverride(SoState * state, SbBool enabled);
-
 //! Capture matrices, render state, and lighting shared by retained producers.
 void fillCommandTraversalStateFromAction(SoIRRenderAction * action,
                                          SoRenderCommand & command);

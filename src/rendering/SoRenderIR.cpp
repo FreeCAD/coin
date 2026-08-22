@@ -18,6 +18,7 @@
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoMultiTextureImageElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoProjectionMatrixElement.h>
@@ -616,12 +617,6 @@ namespace SoRenderIR {
 static void fillTextureFromState(SoState * state, SoIRRenderAction * action,
                                  SoMaterialData & material);
 
-void
-setCommandMatricesOverride(SoState * state, SbBool enabled)
-{
-  SoRenderPlacementElement::setCommandMatricesOverride(state, enabled);
-}
-
 static SoTextureWrap
 textureWrapFromLegacy(SoMultiTextureImageElement::Wrap wrap)
 {
@@ -777,7 +772,8 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
 {
   SoState * mutableState = state;
   rs.useCommandMatrices =
-    SoRenderPlacementElement::getCommandMatricesOverride(mutableState);
+    SoRenderMatrixPolicyElement::get(mutableState) ==
+      SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES;
   SbBool depthtest = TRUE;
   SbBool depthwrite = TRUE;
   SoDepthBufferElement::DepthWriteFunction depthfunc =
