@@ -1,0 +1,200 @@
+RETAINED RENDERER PERFORMANCE RESTACK PLAN
+==========================================
+
+This plan audits integration/retained-performance-wip at 707784b61.  It is a
+read-only plan: no review branches have been created and no published history
+has been rewritten.
+
+The current branch contains 63 commits above
+stack/render-geometry-resource-reuse at c8ce046c3.  Those commits form a sound
+implementation, but their chronological development history is not the best
+review history.  Restack by dependency and reviewer concern instead of making
+one branch per optimization.
+
+
+LOWER-LAYER AMENDMENTS
+======================
+
+Amend existing layers before creating new review layers:
+
+  stack/render-geometry-resource-reuse
+    Fold 0f96ea021 and 88451203d into the geometry-source reuse work.  Indexed
+    triangle and line sources are extensions of the resource model already
+    introduced by this layer, not a separate feature.
+
+  stack/render-performance-instrumentation
+    Rebuild 707784b61 here so private backend diagnostics are grouped before
+    later counters are added.  Keep the existing flat public
+    RenderPhaseStatistics adapter source-compatible during this stack.
+
+    Move 8da3c83db here if it applies without pulling incremental-update
+    machinery downstack.  It attributes construction phases already introduced
+    by the instrumentation and construction-phase work.
+
+Do not move depth-stack, selection, or asynchronous-pick counters down before
+their operations exist.  Add those counters to the grouped internal snapshot
+in their owning layers.
+
+
+PROPOSED REVIEW LAYERS
+======================
+
+Create five review layers above the amended geometry-resource layer.
+
+1. retained-submission-batching
+-------------------------------
+
+Purpose: reduce physical GL submissions without changing scene semantics.
+
+Include:
+
+  * shared pick-range reuse;
+  * visual instancing foundation;
+  * material, indexed, textured, vertex-color, transparent, and lit batches;
+  * retained picking, subelement picking, and depth-stack picking batches;
+  * selection and subelement-selection batches with bounded amplification;
+  * compatible opaque grouping and shared indexed-edge batching.
+
+Keep semantic and pixel tests next to the implementation.  This layer should
+make the draw-call reduction reviewable independently of later scene-update
+optimizations.
+
+2. retained-incremental-updates
+-------------------------------
+
+Purpose: patch stable retained frames when scene fields change.
+
+Include:
+
+  * frame-owned command-path snapshots;
+  * isolated transform and material updates;
+  * unique and shared geometry-resource regeneration;
+  * command dependency indexing;
+  * bounded update batches and stable switch visibility;
+  * geometry-regeneration batching;
+  * stable material-update batches;
+  * mutation-scaling and assembly-mutation benchmarks.
+
+This layer owns notification correctness, invalidation policy, and the decision
+between patching and rebuilding.
+
+3. retained-cpu-reuse
+---------------------
+
+Purpose: reduce retained-frame construction and unchanged-frame CPU work.
+
+Include:
+
+  * move-finalized command storage;
+  * streamlined lazy-state and command construction;
+  * SbInlineVector and common inline retained collections;
+  * geometry-source lookup reuse;
+  * instance classification, stable render-plan, lighting-capture,
+    selection-plan, and dependency-index reuse;
+  * compact retained command paths;
+  * construction attribution and forced-rebuild comparisons not already
+    folded into the instrumentation layer.
+
+The reusable container belongs here because this is the first layer that needs
+it and includes its independent unit test.
+
+4. retained-interaction-performance
+-----------------------------------
+
+Purpose: make hover and repeated retained picking reuse stable work.
+
+Include:
+
+  * shared primitive-pick batching;
+  * stable pick topology and pick-submission plans;
+  * explicit pick-target refresh measurements;
+  * asynchronous closest-pick backend readback;
+  * the SoRenderManager asynchronous closest-pick API;
+  * workload-viewer asynchronous hover;
+  * backend and manager hover-latency benchmarks;
+  * depth-stack submission diagnostics and depth-stack scaling coverage.
+
+Keep backend request tokens private.  The public API remains scene-oriented
+through SoPickedPoint.
+
+5. retained-workload-coverage
+-----------------------------
+
+Purpose: complete representative coverage without changing renderer policy.
+
+Include:
+
+  * visibility and structural-edit workloads;
+  * assembly transform, material, geometry, selection, subelement-selection,
+    and depth-stack curves not already placed with their implementation;
+  * benchmark documentation and the API roadmap;
+  * the final saved-WIP parity audit.
+
+This layer should contain only shared workload construction, reporting, and
+documentation.  Renderer changes discovered while building it must be folded
+into one of the four implementation layers below it.
+
+
+FOLD AND FIXUP TABLE
+====================
+
+Fold these development commits into their owning changes during the rewrite:
+
+  752323eb4  -> 7a09d9ec1  pick-range reuse
+  767bfce99  -> f7277eaf6  indexed-instancing coverage
+  31b34b2a4  -> 972fa7f8e/e43807339  selection batching policy
+  e524ab7ee  -> b19d6f0ca  correct auditor snapshot ownership
+  6a4536e48 + a50d48928    create and reuse dependency indexes together
+  0452b86c8 + 9013d3fe9   bounded, stable incremental batching
+  5535f58b4 + 731fecb57   material patching and its mature batch path
+  748a70835 -> f7277eaf6  instance classification lifetime
+  85425f8e2 -> selection batching layer
+  2ccd05cad + b78fdc79e   asynchronous hover measurements
+  556822bec + 05a403a0e   manager async API and its viewer consumer
+  964c5d811 + 782ae6645  depth-stack batching and diagnostics
+  d323a5764 -> pick-target reuse implementation
+  707784b61 -> instrumentation layer, before later diagnostic extensions
+
+Benchmark commits may remain separate inside a review layer when they make a
+large workload easier to review, but they should not form separate branches.
+
+
+PUBLIC API REVIEW POINTS
+========================
+
+Before publishing each rewritten layer, explicitly inspect changes to:
+
+  * SoRenderManager.h;
+  * SoIRRenderAction.h;
+  * SoRenderIR.h;
+  * SoPath.h;
+  * SoRenderBackend.h, even though it is private implementation infrastructure.
+
+The intended public additions are the retained manager behavior, asynchronous
+SoPickedPoint request API, and reusable SbInlineVector.  Diagnostic fields are
+provisional compatibility output for this stack; backend-specific detail must
+remain private and benchmark JSON must not become a production ABI.
+
+
+EXECUTION ORDER
+===============
+
+  1. Create immutable backup refs for the current integration tip and every
+     published performance branch.
+  2. Rewrite the instrumentation and geometry-resource branches first.
+  3. Rebase the current integration tip onto the amended lower layers in a
+     temporary rewrite worktree.
+  4. Build the five layers above using commit-range reconstruction, not
+     one-by-one blind cherry-picking.
+  5. At every boundary, build core and compatibility configurations and run the
+     layer-relevant tests.
+  6. At the top, run all configured tests and compare representative benchmark
+     JSON with the preserved integration tip.
+  7. Only after tree and benchmark parity are established, update published
+     branches with force-with-lease and create or retarget review PRs.
+
+Above the existing render-performance-infrastructure foundation, the desired
+outcome is seven review branches: the instrumentation and geometry-resource
+layers plus five coherent layers above them.  This is enough separation for
+review without reproducing the 63-commit development history as dozens of
+branches.

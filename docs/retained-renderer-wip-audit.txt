@@ -1,0 +1,116 @@
+RETAINED RENDERER WIP PARITY AUDIT
+==================================
+
+This audit compares the rewritten retained-renderer work with the saved
+performance branch at wip/retained-renderer-performance.  The histories are
+deliberately divergent, so commit counts and patch identity are not useful
+measures of parity.  The comparison is by capability and observable workload.
+
+Audit date: 2026-08-22
+Rewritten tip: c4fb80de8
+Saved WIP tip: 2bb634004
+
+
+CAPABILITIES PRESENT IN THE REWRITTEN STACK
+===========================================
+
+Renderer architecture
+---------------------
+
+  * DrawList traversal, planning, compatibility execution, and core execution;
+  * render-manager integration, render layers, depth barriers, and replay state;
+  * retained backend resource lifecycle and context-loss recovery;
+  * renderer-neutral producer ownership of frame-local selection state.
+
+Incremental retained updates
+----------------------------
+
+  * stable command batches and reusable unchanged plans;
+  * dependency indexing for targeted material, transform, visibility, and
+    geometry changes;
+  * in-place shared and unique geometry-resource regeneration;
+  * unchanged lighting reuse and stable switch updates;
+  * geometry-recipe, pick-range, selection-plan, and scratch-storage reuse.
+
+Submission optimization
+-----------------------
+
+  * opaque, indexed, textured, vertex-colored, edge, and transparent
+    instancing where ordering and state permit it;
+  * selection-overlay, subelement-selection, subelement-picking, and
+    depth-stack-picking instancing;
+  * bounded amplification policies that preserve the cheaper path for small
+    or irregular batches.
+
+Picking and selection
+---------------------
+
+  * object and subelement identity through retained commands;
+  * visual-depth-segment picking and selection at depth barriers;
+  * asynchronous closest-pick readback through SoRenderManager;
+  * retained selection overlays driven by producer-owned frame state.
+
+Workloads and diagnostics
+-------------------------
+
+  * shared deterministic scenes for benchmarks, tests, and the workload viewer;
+  * LegacyGL, DrawList compatibility, and DrawList core comparisons;
+  * assembly geometry, material, transform, visibility, and structural edits;
+  * hover, preselection, selection churn, subelement selection, and depth stacks;
+  * phase, draw, instance, resource, and depth-stack submission reporting;
+  * reusable visible GL sessions and an interactive workload viewer.
+
+These areas cover the performance-relevant behavior of the saved WIP branch.
+Several implementations are intentionally finer-grained than their old WIP
+counterparts because they were rebuilt on the repaired renderer stack.
+
+
+INTENTIONALLY SUPERSEDED WIP DESIGNS
+====================================
+
+The following old designs should not be replayed:
+
+  * the asynchronous pick-identity API, which exposed transient retained
+    command identity and mixed backend identity with interaction policy;
+  * manager-owned selection/highlight state, which conflicts with frame-local
+    producer ownership;
+  * the large public SoRenderStatistics surface, which coupled public API to
+    experimental backend counters;
+  * private implementation exports and private-header test dependencies;
+  * vendored or fetched GL test dependencies where native shared test support
+    now provides the same coverage;
+  * duplicate coarse implementations replaced by dependency-indexed resources,
+    stable plans, and bounded batching policies.
+
+Possible future public picking and instrumentation APIs are recorded in
+retained-renderer-roadmap.txt and remain evidence-gated.
+
+
+NON-BLOCKING TOOLING DIFFERENCES
+================================
+
+The saved viewer could inject backend identities into manager-owned hover and
+selection overlays, and exposed keys for visibility and structural mutations.
+The rewritten viewer uses the supported asynchronous SoPickedPoint path and
+does not reintroduce that discarded ownership model.  Selection rendering is
+still implemented and benchmarked through producer-owned scene state.
+
+Visibility and structural mutations are covered by deterministic benchmark
+workloads even though the viewer does not currently expose keys for them.  They
+may be added as viewer conveniences without changing renderer architecture.
+
+The saved branch also contained profiling notes and intermediate reporting
+formats tied to its implementation.  The rewritten benchmark JSON and current
+phase statistics replace those formats; additional production instrumentation
+should follow the roadmap rather than replay them.
+
+
+CONCLUSION
+==========
+
+No performance-relevant renderer capability remains to be blindly replayed
+from the saved WIP branch.  The rewritten stack is the better foundation:
+continue from it, retain the saved branch as an archaeological reference, and
+treat any future port as a response to a concrete missing workload or measured
+regression.  The next integration task is to clean and restack the rewritten
+commits above the repaired public stack, not to merge or replay the old branch.
