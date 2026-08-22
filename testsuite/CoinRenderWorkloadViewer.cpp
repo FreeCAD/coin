@@ -173,6 +173,8 @@ int main(int argc, char ** argv)
       return 1;
     }
     if (options.smoke && totalFrames == 6) manager.invalidateDrawList();
+    if (options.smoke && totalFrames == 7)
+      viewer.setAnimationEnabled(false);
 
     session.render();
     viewer.afterRender(
