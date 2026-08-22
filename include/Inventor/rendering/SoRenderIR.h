@@ -649,9 +649,9 @@ struct SoRenderCommand {
 
   SoOpacityClass   opacityClass = SO_OPACITY_OPAQUE;
   SoRenderStage    stage = SoRenderStage::Main;
-  // Stable scene identity. Zero means that the producer did not provide one.
-  uint64_t         objectId = 0;
   SoLightingHandle lightingHandle = 0;
+  int32_t          materialIndex = 0; //!< Effective Inventor material index.
+  uint64_t         objectId = 0;   //!< Optional producer semantic identity.
   SoPixelRasterData pixelRaster;
   SoPickData       pick;
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
@@ -684,6 +684,8 @@ public:
 
   //! Return the generation number incremented when clear() starts a new frame.
   uint32_t getGeneration() const { return generation; }
+  //! Monotonic serial for in-place retained content changes.
+  uint64_t getContentRevision() const { return contentRevision; }
 
   void addCommand(const SoRenderCommand & cmd);
   SoRenderCommand & emplaceCommand();
@@ -695,6 +697,11 @@ public:
   const SoGeometryResource * getGeometryResource(
     SoGeometryHandle handle) const;
   int getNumGeometryResources() const;
+#ifdef COIN_INTERNAL
+  //! Discard resources appended by an internal transactional replay.
+  void truncateGeometryResources(int count);
+  void markGeometryResourcesChanged();
+#endif
   //! Resolve a command resource, falling back to its embedded descriptor.
   const SoGeometryDesc & getCommandGeometry(
     const SoRenderCommand & command) const;
@@ -753,6 +760,7 @@ private:
   SoSelectionState selection;
   mutable std::vector<SoPickLUTEntry> pickLUT;
   uint32_t generation = 0;
+  uint64_t contentRevision = 0;
   mutable uint32_t pickLUTGeneration = 0;
 };
 
