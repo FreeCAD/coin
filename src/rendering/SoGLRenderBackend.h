@@ -395,9 +395,11 @@ private:
                       const SoRenderCommand & command,
                       const SurfaceUniforms & uniforms);
 
-  CachedCommand & getOrCreateCache(const SoRenderCommand * command);
+  CachedCommand & getOrCreateCache(const SoRenderCommand * command,
+                                   const SoGeometryDesc & geometry);
   void uploadGeometry(CachedCommand & entry,
-                      const SoRenderCommand & command);
+                      const SoRenderCommand & command,
+                      const SoGeometryDesc & geometry);
   void uploadVertexBuffers(CachedCommand & entry,
                            const SoGeometryDesc & geometry);
   void uploadTexture(CachedCommand & entry,
@@ -409,6 +411,7 @@ private:
                      const SoGeometryDesc & geometry);
   void updateCacheDescription(CachedCommand & entry,
                               const SoRenderCommand & command,
+                              const SoGeometryDesc & geometry,
                               GLsizei vertexStride);
   void setupVisualVAO(CachedCommand & entry);
   void destroyCacheEntry(CachedCommand & entry);

@@ -93,9 +93,12 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-5 identifies each result as `per_frame_traversal`, `steady_state`, or
-`forced_rebuild`. It separates draw-list construction, render-plan construction,
-and backend submission. Backend submission is further divided into frame setup,
+6 identifies each result as `per_frame_traversal`, `steady_state`, or
+`forced_rebuild`. It separates draw-list construction into primitive generation,
+geometry packing, and command emission, and also reports render-plan construction
+and backend submission. Command emission includes command state capture and path
+retention. Work outside these nested shape phases remains visible as the
+difference from total draw-list construction. Backend submission is divided into frame setup,
 resource preparation, command execution, and selection overlays. Picking
 reports target preparation and rendering, depth rendering and peeling,
 readback, hit processing, target restoration, and final scene-result resolution.

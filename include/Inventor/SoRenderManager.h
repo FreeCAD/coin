@@ -109,6 +109,9 @@ public:
   */
   struct RenderPhaseStatistics {
     uint64_t drawListConstructionNanoseconds = 0;
+    uint64_t drawListPrimitiveGenerationNanoseconds = 0;
+    uint64_t drawListGeometryPackingNanoseconds = 0;
+    uint64_t drawListCommandEmissionNanoseconds = 0;
     uint64_t planConstructionNanoseconds = 0;
     uint64_t backendSubmissionNanoseconds = 0;
     uint64_t backendFrameSetupNanoseconds = 0;
