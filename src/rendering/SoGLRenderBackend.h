@@ -503,6 +503,10 @@ private:
                            const SoRenderCommand & next) const;
   bool canInstanceEligibleCommandsTogether(const SoRenderCommand & first,
                                            const SoRenderCommand & next) const;
+  bool canInstanceEligibleCommandsTogether(const SoRenderCommand & first,
+                                           const SoRenderCommand & next,
+                                           size_t firstCacheIndex,
+                                           size_t nextCacheIndex) const;
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
                              const SoRenderParams & params);
@@ -547,6 +551,8 @@ private:
   void * context = nullptr;
   std::vector<CachedCommand> gpuCache;
   std::unordered_map<const SoRenderCommand *, size_t> commandToCache;
+  // Stable command-order lookup used after resource preparation has completed.
+  std::vector<size_t> commandCacheIndices;
   std::unordered_map<ResourceCacheKey, size_t, ResourceCacheKeyHash> resourceToCache;
   uint32_t cacheGeneration = 0;
   uint64_t cacheResourceRevision = 0;

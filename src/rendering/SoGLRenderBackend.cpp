@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -881,6 +882,7 @@ SoGLRenderBackend::invalidateCache()
   }
   this->gpuCache.clear();
   this->commandToCache.clear();
+  this->commandCacheIndices.clear();
   this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
@@ -1009,6 +1011,7 @@ SoGLRenderBackend::discard()
   this->clearSelectionScratch();
   this->gpuCache.clear();
   this->commandToCache.clear();
+  this->commandCacheIndices.clear();
   this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
@@ -1760,6 +1763,8 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
   this->cacheResourceRevision = drawlist.getResourceRevision();
   this->haveCacheGeneration = true;
   this->cachedCommandCount = commandCount;
+  this->commandCacheIndices.assign(commandCount,
+                                   std::numeric_limits<size_t>::max());
 
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
@@ -1769,6 +1774,8 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
         geometry.vertexCount > MAX_VERTEX_COUNT) continue;
 
     CachedCommand & entry = this->getOrCreateCache(&command, geometry);
+    this->commandCacheIndices[static_cast<size_t>(i)] =
+      static_cast<size_t>(&entry - this->gpuCache.data());
     const uint32_t vertexStride = geometry.vertexStride
       ? geometry.vertexStride : sizeof(float) * 3;
     const bool lineGeometry = geometry.topology == SO_TOPOLOGY_LINES ||
@@ -2245,6 +2252,16 @@ SoGLRenderBackend::canInstanceEligibleCommandsTogether(
   if (firstCache == this->commandToCache.end() ||
       nextCache == this->commandToCache.end() ||
       firstCache->second != nextCache->second) return false;
+  return this->canInstanceEligibleCommandsTogether(
+    first, next, firstCache->second, nextCache->second);
+}
+
+bool
+SoGLRenderBackend::canInstanceEligibleCommandsTogether(
+  const SoRenderCommand & first, const SoRenderCommand & next,
+  const size_t firstCacheIndex, const size_t nextCacheIndex) const
+{
+  if (firstCacheIndex != nextCacheIndex) return false;
   const bool materialMatches = sameMaterialUniforms(first.material,
                                                      next.material) ||
     sameInstancedUnlitMaterial(first.material, next.material);
@@ -4660,6 +4677,10 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
         static_cast<int>(operation.commandIndex));
       std::vector<uint32_t> & instanceCommands =
         this->instanceCommandScratch;
+      const size_t noCache = std::numeric_limits<size_t>::max();
+      const size_t firstCacheIndex = operation.commandIndex <
+          this->commandCacheIndices.size()
+        ? this->commandCacheIndices[operation.commandIndex] : noCache;
       instanceCommands.clear();
       if (this->canInstanceCommand(drawlist, first)) {
         instanceCommands.push_back(operation.commandIndex);
@@ -4669,9 +4690,13 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
               candidate.commandIndex >= commandCount) break;
           const SoRenderCommand & nextCommand = drawlist.getCommand(
             static_cast<int>(candidate.commandIndex));
+          const size_t nextCacheIndex = candidate.commandIndex <
+              this->commandCacheIndices.size()
+            ? this->commandCacheIndices[candidate.commandIndex] : noCache;
           if (!this->canInstanceCommand(drawlist, nextCommand) ||
               !this->canInstanceEligibleCommandsTogether(
-                first, nextCommand)) break;
+                first, nextCommand, firstCacheIndex,
+                nextCacheIndex)) break;
           instanceCommands.push_back(candidate.commandIndex);
         }
       }
