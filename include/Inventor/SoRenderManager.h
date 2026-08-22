@@ -114,6 +114,13 @@ public:
     uint64_t drawListPrimitiveGenerationNanoseconds = 0;
     uint64_t drawListGeometryPackingNanoseconds = 0;
     uint64_t drawListCommandEmissionNanoseconds = 0;
+    // Diagnostic subphases nested inside command emission. Do not add these
+    // values to drawListCommandEmissionNanoseconds.
+    uint64_t drawListCommandIdentityNanoseconds = 0;
+    uint64_t drawListCommandStateNanoseconds = 0;
+    uint64_t drawListGeometryResourceNanoseconds = 0;
+    uint64_t drawListAppendNanoseconds = 0;
+    uint64_t drawListPathDependencyNanoseconds = 0;
     uint64_t planConstructionNanoseconds = 0;
     uint64_t backendSubmissionNanoseconds = 0;
     uint64_t backendFrameSetupNanoseconds = 0;

@@ -51,6 +51,7 @@
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/sensors/SoNodeSensor.h>
 #include <Inventor/misc/SoNotification.h>
+#include "rendering/SoRenderPlan.h"
 
 class SbMatrix;
 class SoNodeSensor;
@@ -130,6 +131,11 @@ public:
   SoRenderBackend * renderBackend;
   SbBool renderPhaseTimingEnabled;
   SoRenderManager::RenderPhaseStatistics renderPhaseStatistics;
+  SoRenderPlan renderPlan;
+  const SoDrawList * renderPlanDrawList;
+  SbMatrix renderPlanViewMatrix;
+  uint64_t renderPlanContentRevision;
+  SbBool renderPlanValid;
   uint32_t renderBackendContextId;
   SbBool drawListCallbackScope;
   SbBool drawListValid;

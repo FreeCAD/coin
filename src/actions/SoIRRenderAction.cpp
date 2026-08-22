@@ -68,15 +68,29 @@
 
 #include <cassert>
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cstring>
 #include <limits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 SO_ACTION_SOURCE(SoIRRenderAction);
 
 class SoIRRenderActionP {
 public:
+  struct PathRecord {
+    size_t first = 0;
+    size_t length = 0;
+  };
+
+  struct GeometrySourceCacheEntry {
+    uint64_t sourceKey = 0;
+    uint64_t revision = 0;
+    SoGeometryHandle handle = SO_INVALID_GEOMETRY_HANDLE;
+  };
+
   struct TextureStorage {
     const unsigned char * source = nullptr;
     size_t bytes = 0;
@@ -92,23 +106,124 @@ public:
     size_t next;
   };
 
+  struct DependencyHead {
+    SoNode * node = nullptr;
+    size_t link = std::numeric_limits<size_t>::max();
+  };
+
+  // Dependency heads are rebuilt every retained frame. Keep an open-addressed
+  // table at half capacity so rebuilding clears reusable storage instead of
+  // allocating one hash-map node for every scene-graph branch.
+  DependencyHead * dependencyHead(SoNode * node, bool create)
+  {
+    if (this->branchDependencyHeads.empty()) {
+      if (!create) return nullptr;
+      this->branchDependencyHeads.resize(16);
+    }
+    if (create && (this->branchDependencyCount + 1) * 2 >
+                    this->branchDependencyHeads.size()) {
+      std::vector<DependencyHead> previous =
+        std::move(this->branchDependencyHeads);
+      this->branchDependencyHeads.assign(previous.size() * 2,
+                                         DependencyHead());
+      this->branchDependencyCount = 0;
+      for (const DependencyHead & entry : previous) {
+        if (!entry.node) continue;
+        this->dependencyHead(entry.node, true)->link = entry.link;
+      }
+    }
+    const size_t mask = this->branchDependencyHeads.size() - 1;
+    size_t slot = (reinterpret_cast<uintptr_t>(node) >> 4) & mask;
+    while (this->branchDependencyHeads[slot].node) {
+      if (this->branchDependencyHeads[slot].node == node) {
+        return &this->branchDependencyHeads[slot];
+      }
+      slot = (slot + 1) & mask;
+    }
+    if (!create) return nullptr;
+    this->branchDependencyHeads[slot].node = node;
+    ++this->branchDependencyCount;
+    return &this->branchDependencyHeads[slot];
+  }
+
+  void resetDependencyHeads()
+  {
+    std::fill(this->branchDependencyHeads.begin(),
+              this->branchDependencyHeads.end(), DependencyHead());
+    this->branchDependencyCount = 0;
+  }
+
   SoIRRenderActionP() = default;
+
+  ~SoIRRenderActionP()
+  {
+    this->clearLightingMatchInfo();
+  }
+
+  void clearLightingMatchInfo()
+  {
+    for (SoElement * element : this->lightingMatchInfo) delete element;
+    this->lightingMatchInfo.fill(nullptr);
+    this->lightingMatrices.clear();
+    this->lightingHandle = 0;
+  }
+
+  // Compact path records borrow their node pointers. Retain each distinct
+  // node once for the frame instead of once for every command-path entry.
+  void retainPathNode(SoNode * node)
+  {
+    if (!node) return;
+    if (this->ownedPathNodeTable.empty()) {
+      this->ownedPathNodeTable.resize(16, nullptr);
+    }
+    if ((this->ownedPathNodes.size() + 1) * 2 >
+        this->ownedPathNodeTable.size()) {
+      const std::vector<SoNode *> previous =
+        std::move(this->ownedPathNodeTable);
+      this->ownedPathNodeTable.assign(previous.size() * 2, nullptr);
+      for (SoNode * owned : previous) {
+        if (owned) this->insertPathNode(owned);
+      }
+    }
+    if (!this->insertPathNode(node)) return;
+    node->ref();
+    this->ownedPathNodes.push_back(node);
+  }
+
+  void resetPathNodeTable()
+  {
+    std::fill(this->ownedPathNodeTable.begin(),
+              this->ownedPathNodeTable.end(), nullptr);
+  }
 
   SoIRBuffer geometryPool;
   std::vector<TextureStorage> textureStorage;
   SbList<SoIRRenderAction::PrimitiveCollector *> collectorStack;
   std::unordered_multimap<uint64_t, SoGeometryHandle> geometrySources;
+  // Instanced geometry repeatedly probes a small working set. This bounded
+  // front cache handles that common case without allocating or changing the
+  // authoritative source table. Every hit is validated against the resource.
+  mutable std::array<GeometrySourceCacheEntry, 256> geometrySourceCache{};
+  std::array<SoElement *, 3> lightingMatchInfo{};
+  SbInlineVector<SbMatrix, 2> lightingMatrices;
+  SoLightingHandle lightingHandle = 0;
   bool constructionTimingEnabled = false;
   SoIRRenderAction::ConstructionStatistics constructionStatistics;
   std::vector<SoNode *> instancePathNodes;
   std::vector<int> instancePathIndices;
+  std::vector<PathRecord> commandPathRecords;
+  std::vector<SoNode *> pathNodes;
+  std::vector<int> pathIndices;
+  std::vector<SoNode *> ownedPathNodes;
+  std::vector<SoNode *> ownedPathNodeTable;
   std::vector<SbBool> commandAuthoredVisibility;
   // A changed state node affects commands below its parent branch. Indexing
   // that branch keeps incremental updates proportional to the affected
   // subtree instead of the size of the complete retained frame. Commands are
   // still checked against their full path because a node can be instanced in
   // more than one scene-graph location.
-  std::unordered_map<SoNode *, size_t> branchDependencyHeads;
+  std::vector<DependencyHead> branchDependencyHeads;
+  size_t branchDependencyCount = 0;
   std::vector<DependencyLink> branchDependencyLinks;
   bool recordBranchDependencies = true;
   SoInstanceId currentInstanceId = 0;
@@ -116,6 +231,36 @@ public:
   SoRenderStage renderStage = SoRenderStage::Main;
   SoIRRenderContext renderContextOverride;
   bool hasRenderContextOverride = false;
+
+  static uint64_t mixGeometryCacheKey(uint64_t first, uint64_t second)
+  {
+    uint64_t mixed = first + UINT64_C(0x9e3779b97f4a7c15);
+    mixed ^= second + UINT64_C(0x9e3779b97f4a7c15) +
+      (mixed << 6) + (mixed >> 2);
+    mixed = (mixed ^ (mixed >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    mixed = (mixed ^ (mixed >> 27)) * UINT64_C(0x94d049bb133111eb);
+    return mixed ^ (mixed >> 31);
+  }
+
+  size_t geometrySourceCacheSlot(uint64_t sourceKey,
+                                 uint64_t revision) const
+  {
+    return static_cast<size_t>(mixGeometryCacheKey(sourceKey, revision)) &
+      (this->geometrySourceCache.size() - 1);
+  }
+
+private:
+  bool insertPathNode(SoNode * node)
+  {
+    const size_t mask = this->ownedPathNodeTable.size() - 1;
+    size_t slot = (reinterpret_cast<uintptr_t>(node) >> 4) & mask;
+    while (this->ownedPathNodeTable[slot]) {
+      if (this->ownedPathNodeTable[slot] == node) return false;
+      slot = (slot + 1) & mask;
+    }
+    this->ownedPathNodeTable[slot] = node;
+    return true;
+  }
 };
 
 #define PRIVATE(obj) (obj->pimpl)
@@ -210,6 +355,7 @@ void
 SoIRRenderAction::beginFrame()
 {
   this->drawlist.clear();
+  PRIVATE(this)->clearLightingMatchInfo();
   this->clearCommandPaths();
   this->resetFrameResources();
   this->unsupportedRendering = false;
@@ -217,15 +363,97 @@ SoIRRenderAction::beginFrame()
   this->unsupportedReason = nullptr;
 }
 
+SoLightingHandle
+SoIRRenderAction::captureLightingHandle()
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoState * state = this->getState();
+  const int stackIndices[] = {
+    SoLightElement::getClassStackIndex(),
+    SoEnvironmentElement::getClassStackIndex(),
+    SoLightAttenuationElement::getClassStackIndex()
+  };
+  bool matches = pimpl->lightingHandle != 0;
+  for (size_t i = 0;
+       matches && i < pimpl->lightingMatchInfo.size(); ++i) {
+    const SoElement * current = state->getConstElement(stackIndices[i]);
+    matches = current->matches(pimpl->lightingMatchInfo[i]);
+  }
+  const SoNodeList & lights = SoLightElement::getLights(state);
+  matches = matches && lights.getLength() ==
+    static_cast<int>(pimpl->lightingMatrices.size());
+  for (int i = 0; matches && i < lights.getLength(); ++i) {
+    matches = SoLightElement::getMatrix(state, i) ==
+      pimpl->lightingMatrices[static_cast<size_t>(i)];
+  }
+  if (matches) return pimpl->lightingHandle;
+
+  pimpl->clearLightingMatchInfo();
+  for (size_t i = 0; i < pimpl->lightingMatchInfo.size(); ++i) {
+    pimpl->lightingMatchInfo[i] =
+      state->getConstElement(stackIndices[i])->copyMatchInfo();
+  }
+  pimpl->lightingMatrices.reserve(static_cast<size_t>(lights.getLength()));
+  for (int i = 0; i < lights.getLength(); ++i) {
+    pimpl->lightingMatrices.push_back(SoLightElement::getMatrix(state, i));
+  }
+  SoLightingData lighting;
+  SoRenderIR::captureLightingFromState(state, lighting);
+  pimpl->lightingHandle = this->drawlist.addLightingSetup(lighting);
+  return pimpl->lightingHandle;
+}
+
 void
 SoIRRenderAction::addCommand(const SoRenderCommand & command)
 {
-  SoRenderCommand retained = command;
-  if (retained.objectId == 0) {
-    const SoPath * currentPath = this->getCurPath();
-    SoNode * tail = currentPath ? currentPath->getTail() : nullptr;
-    if (tail) retained.objectId = tail->getNodeId();
+  SoRenderCommand copy = command;
+  this->addCommand(std::move(copy));
+}
+
+void
+SoIRRenderAction::addCommand(SoRenderCommand && command)
+{
+  using ConstructionClock = std::chrono::steady_clock;
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  const bool timing = pimpl->constructionTimingEnabled;
+  ConstructionClock::time_point phaseStart;
+  if (timing) phaseStart = ConstructionClock::now();
+  const auto finishPhase = [&](uint64_t & nanoseconds) {
+    if (!timing) return;
+    const ConstructionClock::time_point now = ConstructionClock::now();
+    nanoseconds += static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        now - phaseStart).count());
+    phaseStart = now;
+  };
+  SoRenderCommand & retained = command;
+  const SoPath * currentPath = this->getCurPath();
+  SoNode * tail = currentPath ? currentPath->getTail() : nullptr;
+  if (retained.nodeId == 0 && tail) {
+    retained.nodeId = static_cast<SoNodeId>(tail->getNodeId());
   }
+  if (retained.objectId == 0 && tail) {
+    retained.objectId = static_cast<SoObjectId>(tail->getNodeId());
+  }
+  if (retained.instanceId == 0 && currentPath) {
+    const int length = currentPath->getLength();
+    bool samePath = length == static_cast<int>(PRIVATE(this)->instancePathNodes.size());
+    for (int i = 0; samePath && i < length; ++i) {
+      samePath = currentPath->getNode(i) == PRIVATE(this)->instancePathNodes[i] &&
+        currentPath->getIndex(i) == PRIVATE(this)->instancePathIndices[i];
+    }
+    if (!samePath) {
+      PRIVATE(this)->instancePathNodes.resize(length);
+      PRIVATE(this)->instancePathIndices.resize(length);
+      for (int i = 0; i < length; ++i) {
+        PRIVATE(this)->instancePathNodes[i] = currentPath->getNode(i);
+        PRIVATE(this)->instancePathIndices[i] = currentPath->getIndex(i);
+      }
+      PRIVATE(this)->currentInstanceId = PRIVATE(this)->nextInstanceId++;
+    }
+    retained.instanceId = PRIVATE(this)->currentInstanceId;
+  }
+  finishPhase(pimpl->constructionStatistics.commandIdentityNanoseconds);
 
   if (!retained.geometry.hasBounds && retained.geometry.positions &&
       retained.geometry.vertexCount > 0) {
@@ -263,6 +491,7 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
     retained.lightingHandle = SoRenderIR::fillLightingFromState(
       state, this->drawlist);
   }
+  finishPhase(pimpl->constructionStatistics.commandStateNanoseconds);
 
   if (retained.geometry.cacheKey != 0) {
     retained.geometryHandle = this->findGeometrySource(
@@ -296,40 +525,50 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
         retained.pick.useResourceElementRanges = true;
       }
     }
+    const size_t cacheSlot = PRIVATE(this)->geometrySourceCacheSlot(
+      retained.geometry.cacheKey, retained.geometry.revision);
+    SoIRRenderActionP::GeometrySourceCacheEntry & cached =
+      PRIVATE(this)->geometrySourceCache[cacheSlot];
+    cached.sourceKey = retained.geometry.cacheKey;
+    cached.revision = retained.geometry.revision;
+    cached.handle = retained.geometryHandle;
   }
+  finishPhase(pimpl->constructionStatistics.geometryResourceNanoseconds);
 
   const int commandIndex = this->drawlist.getNumCommands();
   PRIVATE(this)->commandAuthoredVisibility.push_back(
     retained.state.raster.visible);
-  this->drawlist.addCommand(retained);
+  this->drawlist.addCommand(std::move(retained));
+  finishPhase(pimpl->constructionStatistics.drawListAppendNanoseconds);
 
-  const SoPath * currentPath = this->getCurPath();
-  // A retained frame owns a snapshot of each command path. Keep the nodes
-  // referenced, but do not audit later scene-graph edits: those edits belong
-  // to a subsequent frame and registering auditors is costly for dense scenes.
-  SoPath * retainedPath = currentPath
-    ? currentPath->copyWithAuditing(0, 0, FALSE) : NULL;
-  if (retainedPath) retainedPath->ref();
-  if (static_cast<size_t>(commandIndex) >= this->commandPaths.size()) {
-    this->commandPaths.resize(static_cast<size_t>(commandIndex) + 1, NULL);
-  }
-  this->commandPaths[static_cast<size_t>(commandIndex)] = retainedPath;
-
-  if (retainedPath && PRIVATE(this)->recordBranchDependencies) {
-    const size_t noDependency = std::numeric_limits<size_t>::max();
-    const int pathLength = retainedPath->getFullLength();
-    for (int i = 0; i + 1 < pathLength; ++i) {
-      SoNode * branchNode = static_cast<SoNode *>(retainedPath->nodes[i]);
-      const auto inserted = PRIVATE(this)->branchDependencyHeads.emplace(
-        branchNode, noDependency);
-      SoIRRenderActionP::DependencyLink link = {
-        static_cast<size_t>(commandIndex), inserted.first->second
-      };
-      PRIVATE(this)->branchDependencyLinks.push_back(link);
-      inserted.first->second =
-        PRIVATE(this)->branchDependencyLinks.size() - 1;
+  // Store path entries contiguously and retain each distinct node once. A
+  // complete SoPath is created lazily only when replay or picking requests it.
+  SoIRRenderActionP::PathRecord pathRecord;
+  if (currentPath) {
+    pathRecord.first = PRIVATE(this)->pathNodes.size();
+    pathRecord.length = static_cast<size_t>(currentPath->getFullLength());
+    for (size_t i = 0; i < pathRecord.length; ++i) {
+      SoNode * node = static_cast<SoNode *>(currentPath->nodes[i]);
+      PRIVATE(this)->pathNodes.push_back(node);
+      PRIVATE(this)->pathIndices.push_back(currentPath->indices[i]);
+      PRIVATE(this)->retainPathNode(node);
+      if (PRIVATE(this)->recordBranchDependencies &&
+          i + 1 < pathRecord.length) {
+        SoIRRenderActionP::DependencyHead * dependencyHead =
+          PRIVATE(this)->dependencyHead(node, true);
+        SoIRRenderActionP::DependencyLink link = {
+          static_cast<size_t>(commandIndex), dependencyHead->link
+        };
+        PRIVATE(this)->branchDependencyLinks.push_back(link);
+        dependencyHead->link =
+          PRIVATE(this)->branchDependencyLinks.size() - 1;
+      }
     }
   }
+  PRIVATE(this)->commandPathRecords.push_back(pathRecord);
+  assert(PRIVATE(this)->commandPathRecords.size() ==
+         static_cast<size_t>(commandIndex) + 1);
+  finishPhase(pimpl->constructionStatistics.pathDependencyNanoseconds);
 }
 
 void
@@ -345,10 +584,29 @@ const SoPath *
 SoIRRenderAction::getCommandPath(int commandIndex) const
 {
   if (commandIndex < 0 ||
-      static_cast<size_t>(commandIndex) >= this->commandPaths.size()) {
+      static_cast<size_t>(commandIndex) >=
+        PRIVATE(this)->commandPathRecords.size()) {
     return NULL;
   }
-  return this->commandPaths[static_cast<size_t>(commandIndex)];
+  const size_t index = static_cast<size_t>(commandIndex);
+  if (index >= this->commandPaths.size()) {
+    this->commandPaths.resize(index + 1, nullptr);
+  }
+  if (this->commandPaths[index]) return this->commandPaths[index];
+
+  const SoIRRenderActionP::PathRecord & record =
+    PRIVATE(this)->commandPathRecords[index];
+  if (record.length == 0) return NULL;
+  SoPath * path = new SoPath(static_cast<int>(record.length));
+  path->auditPath(FALSE);
+  for (size_t i = 0; i < record.length; ++i) {
+    const size_t entry = record.first + i;
+    path->append(PRIVATE(this)->pathNodes[entry],
+                 PRIVATE(this)->pathIndices[entry]);
+  }
+  path->ref();
+  this->commandPaths[index] = path;
+  return path;
 }
 
 void
@@ -494,16 +752,20 @@ SoIRRenderAction::updateCommandMatricesForStatePaths(
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   SoGetMatrixAction matrixAction(this->vpRegion);
-  int updated = 0;
+  std::vector<SbMatrix> replacements;
+  replacements.reserve(commandIndices.size());
   for (size_t commandIndex : commandIndices) {
-    const SoPath * commandPath = this->commandPaths[commandIndex];
-    if (!commandPath) continue;
+    const SoPath * commandPath =
+      this->getCommandPath(static_cast<int>(commandIndex));
+    if (!commandPath) return 0;
     matrixAction.apply(const_cast<SoPath *>(commandPath));
-    this->drawlist.getCommand(static_cast<int>(commandIndex)).modelMatrix =
-      matrixAction.getMatrix();
-    ++updated;
+    replacements.push_back(matrixAction.getMatrix());
   }
-  return updated;
+  for (size_t i = 0; i < commandIndices.size(); ++i) {
+    this->drawlist.getCommand(
+      static_cast<int>(commandIndices[i])).modelMatrix = replacements[i];
+  }
+  return static_cast<int>(commandIndices.size());
 }
 
 void
@@ -542,14 +804,16 @@ SoIRRenderAction::findCommandsAffectedByStatePath(
   const int changedSiblingIndex = statePath->indices[changedStateIndex];
   SoNode * branchNode = static_cast<SoNode *>(
     statePath->nodes[statePathOffset + prefixLength - 1]);
-  const auto branch = PRIVATE(this)->branchDependencyHeads.find(branchNode);
-  if (branch == PRIVATE(this)->branchDependencyHeads.end()) return;
+  const SoIRRenderActionP::DependencyHead * branch =
+    PRIVATE(this)->dependencyHead(branchNode, false);
+  if (!branch) return;
   const size_t noDependency = std::numeric_limits<size_t>::max();
-  for (size_t linkIndex = branch->second; linkIndex != noDependency;
+  for (size_t linkIndex = branch->link; linkIndex != noDependency;
        linkIndex = PRIVATE(this)->branchDependencyLinks[linkIndex].next) {
     const size_t commandIndex =
       PRIVATE(this)->branchDependencyLinks[linkIndex].commandIndex;
-    const SoPath * commandPath = this->commandPaths[commandIndex];
+    const SoPath * commandPath =
+      this->getCommandPath(static_cast<int>(commandIndex));
     if (!commandPath || commandPath->getFullLength() <= prefixLength ||
         commandPath->indices[prefixLength] <= changedSiblingIndex) continue;
     bool matches = true;
@@ -579,39 +843,56 @@ captureEffectiveMaterial(void * data, SoCallbackAction * action,
 }
 
 int
-SoIRRenderAction::updateCommandDiffuseColorsForStatePath(
-  const SoPath * statePath)
+SoIRRenderAction::updateCommandMaterialsForStatePath(
+  const SoPath * statePath, bool opacityMayChange)
 {
   std::vector<const SoPath *> statePaths(1, statePath);
-  return this->updateCommandDiffuseColorsForStatePaths(statePaths);
+  return this->updateCommandMaterialsForStatePaths(
+    statePaths, opacityMayChange);
 }
 
 int
-SoIRRenderAction::updateCommandDiffuseColorsForStatePaths(
-  const std::vector<const SoPath *> & statePaths)
+SoIRRenderAction::updateCommandMaterialsForStatePaths(
+  const std::vector<const SoPath *> & statePaths, bool opacityMayChange)
 {
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   std::vector<MaterialReplay> replacements;
   replacements.reserve(commandIndices.size());
   for (size_t commandIndex : commandIndices) {
-    const SoPath * commandPath = this->commandPaths[commandIndex];
+    const SoPath * commandPath =
+      this->getCommandPath(static_cast<int>(commandIndex));
     if (!commandPath) return 0;
     const SoRenderCommand & command =
-      this->drawlist.getCommand(static_cast<int>(commandIndex));
+      static_cast<const SoDrawList &>(this->drawlist).getCommand(
+        static_cast<int>(commandIndex));
+    // Geometry and texture alpha can already include material opacity. A full
+    // rebuild is required because that composed alpha cannot be undone here.
+    if (opacityMayChange &&
+        (command.geometry.colors != NULL ||
+         command.material.textureAlphaIncludesOpacity ||
+         command.material.vertexColorAlphaIncludesOpacity)) {
+      return 0;
+    }
     MaterialReplay replay = { command.materialIndex, SoMaterialData() };
     SoCallbackAction materialAction(this->vpRegion);
     materialAction.addPreTailCallback(captureEffectiveMaterial, &replay);
     materialAction.apply(const_cast<SoPath *>(commandPath));
+    replay.material.shadingModel = command.material.shadingModel;
+    replay.material.twoSidedLighting = command.material.twoSidedLighting;
+    replay.material.texture = command.material.texture;
+    replay.material.textureAlphaIncludesOpacity =
+      command.material.textureAlphaIncludesOpacity;
+    replay.material.vertexColorAlphaIncludesOpacity =
+      command.material.vertexColorAlphaIncludesOpacity;
     replacements.push_back(replay);
   }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
     SoRenderCommand & command = this->drawlist.getCommand(
       static_cast<int>(commandIndices[i]));
-    const MaterialReplay & replay = replacements[i];
-    command.material.diffuse[0] = replay.material.diffuse[0];
-    command.material.diffuse[1] = replay.material.diffuse[1];
-    command.material.diffuse[2] = replay.material.diffuse[2];
+    command.material = replacements[i].material;
+    if (command.finalizationEnabledBlend) command.state.blend = SoBlendState();
+    SoRenderIR::finalizeCommand(command);
   }
   return static_cast<int>(commandIndices.size());
 }
@@ -620,35 +901,95 @@ int
 SoIRRenderAction::updateCommandVisibilityForSwitchPath(
   const SoPath * switchPath, SbBool visible)
 {
-  if (!switchPath || switchPath->getFullLength() < 2) return 0;
-  const int pathOffset = 1;
-  const int prefixLength = switchPath->getFullLength() - pathOffset;
-  SoNode * switchNode = static_cast<SoNode *>(
-    switchPath->nodes[switchPath->getFullLength() - 1]);
-  const auto branch = PRIVATE(this)->branchDependencyHeads.find(switchNode);
-  if (branch == PRIVATE(this)->branchDependencyHeads.end()) return 0;
+  std::vector<const SoPath *> switchPaths(1, switchPath);
+  std::vector<SbBool> visibilities(1, visible);
+  return this->updateCommandVisibilitiesForSwitchPaths(
+    switchPaths, visibilities);
+}
 
-  int updated = 0;
-  const size_t noDependency = std::numeric_limits<size_t>::max();
-  for (size_t linkIndex = branch->second; linkIndex != noDependency;
-       linkIndex = PRIVATE(this)->branchDependencyLinks[linkIndex].next) {
-    const size_t commandIndex =
-      PRIVATE(this)->branchDependencyLinks[linkIndex].commandIndex;
-    const SoPath * commandPath = this->commandPaths[commandIndex];
-    if (!commandPath || commandPath->getFullLength() <= prefixLength) continue;
-    bool matches = true;
-    for (int i = 0; matches && i < prefixLength; ++i) {
-      matches = commandPath->nodes[i] == switchPath->nodes[pathOffset + i] &&
-        commandPath->indices[i] == switchPath->indices[pathOffset + i];
-    }
-    if (!matches) continue;
-    SoRenderCommand & command =
-      this->drawlist.getCommand(static_cast<int>(commandIndex));
-    command.state.raster.visible = visible &&
-      PRIVATE(this)->commandAuthoredVisibility[commandIndex];
-    ++updated;
+int
+SoIRRenderAction::updateCommandVisibilitiesForSwitchPaths(
+  const std::vector<const SoPath *> & switchPaths,
+  const std::vector<SbBool> & visibilities)
+{
+  if (switchPaths.empty() || switchPaths.size() != visibilities.size()) {
+    return 0;
   }
-  return updated;
+
+  struct VisibilityReplacement {
+    size_t commandIndex;
+    const SoPath * owner;
+    SbBool visible;
+  };
+  std::vector<VisibilityReplacement> replacements;
+  for (size_t switchIndex = 0; switchIndex < switchPaths.size();
+       ++switchIndex) {
+    const SoPath * switchPath = switchPaths[switchIndex];
+    if (!switchPath || switchPath->getFullLength() < 2) return 0;
+    const int pathOffset = 1;
+    const int prefixLength = switchPath->getFullLength() - pathOffset;
+    SoNode * switchNode = static_cast<SoNode *>(
+      switchPath->nodes[switchPath->getFullLength() - 1]);
+    const SoIRRenderActionP::DependencyHead * branch =
+      PRIVATE(this)->dependencyHead(switchNode, false);
+    if (!branch) return 0;
+
+    int switchUpdates = 0;
+    const size_t noDependency = std::numeric_limits<size_t>::max();
+    for (size_t linkIndex = branch->link; linkIndex != noDependency;
+         linkIndex = PRIVATE(this)->branchDependencyLinks[linkIndex].next) {
+      const size_t commandIndex =
+        PRIVATE(this)->branchDependencyLinks[linkIndex].commandIndex;
+      const SoPath * commandPath =
+        this->getCommandPath(static_cast<int>(commandIndex));
+      if (!commandPath) return 0;
+      if (commandPath->getFullLength() <= prefixLength) continue;
+      bool matches = true;
+      for (int i = 0; matches && i < prefixLength; ++i) {
+        matches =
+          commandPath->nodes[i] == switchPath->nodes[pathOffset + i] &&
+          commandPath->indices[i] == switchPath->indices[pathOffset + i];
+      }
+      if (!matches) continue;
+      replacements.push_back({
+        commandIndex,
+        switchPath,
+        visibilities[switchIndex] &&
+          PRIVATE(this)->commandAuthoredVisibility[commandIndex]
+      });
+      ++switchUpdates;
+    }
+    if (switchUpdates == 0) return 0;
+  }
+
+  std::sort(replacements.begin(), replacements.end(),
+    [](const VisibilityReplacement & lhs,
+       const VisibilityReplacement & rhs) {
+      return lhs.commandIndex < rhs.commandIndex;
+    });
+  size_t uniqueCount = 0;
+  for (const VisibilityReplacement & replacement : replacements) {
+    if (uniqueCount != 0 &&
+        replacements[uniqueCount - 1].commandIndex ==
+          replacement.commandIndex) {
+      if (*replacements[uniqueCount - 1].owner != *replacement.owner) {
+        // Nested switches need complete switch-state replay. Rebuild instead
+        // of allowing notification order to decide final visibility.
+        return 0;
+      }
+      replacements[uniqueCount - 1].visible = replacement.visible;
+      continue;
+    }
+    replacements[uniqueCount++] = replacement;
+  }
+  replacements.resize(uniqueCount);
+
+  for (const VisibilityReplacement & replacement : replacements) {
+    this->drawlist.getCommand(
+      static_cast<int>(replacement.commandIndex)).state.raster.visible =
+        replacement.visible;
+  }
+  return static_cast<int>(replacements.size());
 }
 
 int
@@ -683,7 +1024,9 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
     if (updateByHandle.find(handle) != updateByHandle.end()) continue;
     const SoGeometryResource * resource =
       this->drawlist.getGeometryResource(handle);
-    if (!resource || !this->commandPaths[commandIndex]) return 0;
+    if (!resource || !this->getCommandPath(static_cast<int>(commandIndex))) {
+      return 0;
+    }
     ResourceUpdate update = {
       handle, commandIndex, *resource, SoGeometryResource(), {}
     };
@@ -707,7 +1050,8 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
 
   const int commandCount = this->drawlist.getNumCommands();
   const int resourceCount = this->drawlist.getNumGeometryResources();
-  const size_t pathCount = this->commandPaths.size();
+  const size_t pathRecordCount = PRIVATE(this)->commandPathRecords.size();
+  const size_t pathNodeCount = PRIVATE(this)->pathNodes.size();
   const bool wasUnsupported = this->unsupportedRendering;
   const SoNode * unsupportedNode = this->unsupportedNode;
   const char * unsupportedReason = this->unsupportedReason;
@@ -721,7 +1065,8 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
   for (const ResourceUpdate & update : updates) {
     const int before = this->drawlist.getNumCommands();
     this->traverseAdditionalPath(const_cast<SoPath *>(
-      this->commandPaths[update.representativeCommand]));
+      this->getCommandPath(static_cast<int>(
+        update.representativeCommand))));
     if (this->drawlist.getNumCommands() != before + 1) {
       replayedOneCommandPerResource = false;
       break;
@@ -731,7 +1076,8 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
   bool valid = replayedOneCommandPerResource &&
     this->drawlist.getNumCommands() ==
       commandCount + static_cast<int>(updates.size()) &&
-    this->commandPaths.size() == pathCount + updates.size() &&
+    PRIVATE(this)->commandPathRecords.size() ==
+      pathRecordCount + updates.size() &&
     !this->unsupportedRendering;
   for (size_t i = 0; valid && i < updates.size(); ++i) {
     const SoRenderCommand & replayed =
@@ -771,12 +1117,10 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
   }
 
   this->drawlist.truncate(commandCount);
-  while (this->commandPaths.size() > pathCount) {
-    SoPath * appended = this->commandPaths.back();
-    if (appended) appended->unref();
-    this->commandPaths.pop_back();
-  }
-  PRIVATE(this)->commandAuthoredVisibility.resize(pathCount);
+  PRIVATE(this)->commandPathRecords.resize(pathRecordCount);
+  PRIVATE(this)->pathNodes.resize(pathNodeCount);
+  PRIVATE(this)->pathIndices.resize(pathNodeCount);
+  PRIVATE(this)->commandAuthoredVisibility.resize(pathRecordCount);
   this->drawlist.truncateGeometryResources(resourceCount);
   for (auto it = PRIVATE(this)->geometrySources.begin();
        it != PRIVATE(this)->geometrySources.end();) {
@@ -862,12 +1206,29 @@ SoGeometryHandle
 SoIRRenderAction::findGeometrySource(const uint64_t sourceKey,
                                      const uint64_t revision) const
 {
+  const size_t cacheSlot = PRIVATE(this)->geometrySourceCacheSlot(
+    sourceKey, revision);
+  SoIRRenderActionP::GeometrySourceCacheEntry & cached =
+    PRIVATE(this)->geometrySourceCache[cacheSlot];
+  if (cached.sourceKey == sourceKey && cached.revision == revision) {
+    const SoGeometryResource * resource =
+      this->drawlist.getGeometryResource(cached.handle);
+    if (resource && resource->sourceKey == sourceKey &&
+        resource->revision == revision) {
+      return cached.handle;
+    }
+  }
   const auto candidates = PRIVATE(this)->geometrySources.equal_range(sourceKey);
   for (auto candidate = candidates.first; candidate != candidates.second;
        ++candidate) {
     const SoGeometryResource * resource =
       this->drawlist.getGeometryResource(candidate->second);
-    if (resource && resource->revision == revision) return candidate->second;
+    if (resource && resource->revision == revision) {
+      cached.sourceKey = sourceKey;
+      cached.revision = revision;
+      cached.handle = candidate->second;
+      return candidate->second;
+    }
   }
   return SO_INVALID_GEOMETRY_HANDLE;
 }
@@ -1027,6 +1388,8 @@ SoIRRenderAction::resetFrameResources()
   PRIVATE(this)->textureStorage.clear();
   PRIVATE(this)->collectorStack.truncate(0);
   PRIVATE(this)->geometrySources.clear();
+  PRIVATE(this)->geometrySourceCache.fill(
+    SoIRRenderActionP::GeometrySourceCacheEntry());
   PRIVATE(this)->constructionStatistics = ConstructionStatistics();
   PRIVATE(this)->instancePathNodes.clear();
   PRIVATE(this)->instancePathIndices.clear();
@@ -1041,8 +1404,16 @@ SoIRRenderAction::clearCommandPaths()
     if (path && SoDB::isInitialized()) path->unref();
   }
   this->commandPaths.clear();
+  for (SoNode * node : PRIVATE(this)->ownedPathNodes) {
+    if (node && SoDB::isInitialized()) node->unref();
+  }
+  PRIVATE(this)->commandPathRecords.clear();
+  PRIVATE(this)->pathNodes.clear();
+  PRIVATE(this)->pathIndices.clear();
+  PRIVATE(this)->ownedPathNodes.clear();
+  PRIVATE(this)->resetPathNodeTable();
   PRIVATE(this)->commandAuthoredVisibility.clear();
-  PRIVATE(this)->branchDependencyHeads.clear();
+  PRIVATE(this)->resetDependencyHeads();
   PRIVATE(this)->branchDependencyLinks.clear();
   PRIVATE(this)->recordBranchDependencies = true;
   PRIVATE(this)->renderStage = SoRenderStage::Main;

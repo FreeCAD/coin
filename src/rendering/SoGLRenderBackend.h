@@ -298,6 +298,38 @@ private:
 
   PickPrograms selectionPrograms;
 
+  // Reused while discovering consecutive commands that can share one draw.
+  std::vector<uint32_t> instanceCommandScratch;
+
+  struct SelectionInstanceScratch {
+    size_t targetIndex = 0;
+    uint32_t commandIndex = 0;
+    SbColor4f color;
+    uint32_t primitiveId = 0;
+  };
+  struct SelectionBatchScratch {
+    std::vector<SelectionInstanceScratch> instances;
+    bool primitiveSelection = false;
+    uint32_t sourcePrimitiveCount = 0;
+  };
+  struct SelectionPassScratch {
+    std::vector<SelectionBatchScratch> batches;
+    std::unordered_map<size_t, std::vector<size_t> > batchesByGeometry;
+    size_t batchCount = 0;
+    const SoDrawList * drawlist = nullptr;
+    uint32_t drawlistGeneration = 0;
+    uint64_t contentRevision = 0;
+    uint64_t targetFingerprint = 0;
+    size_t targetCount = 0;
+    bool cacheValid = false;
+  } selectionPasses[2];
+  struct SelectionInstanceRecord {
+    float model[16];
+    float color[4];
+    uint32_t primitiveId = 0;
+  };
+  std::vector<SelectionInstanceRecord> selectionInstanceRecords;
+
   struct PickTarget {
     GLuint framebuffer = 0;
     GLuint colorTexture = 0;
@@ -321,6 +353,7 @@ private:
   };
 
   bool createShaders();
+  void clearSelectionScratch();
   bool ensurePickFramebuffer(const SbVec2s & size);
   void destroyPickFramebuffer();
   void drawPickEntry(const SoDrawList & drawlist,
@@ -342,9 +375,7 @@ private:
                           const SoRenderParams & params);
   void drawInstancedSelectionCommands(
     const SoDrawList & drawlist,
-    const std::vector<uint32_t> & commandIndices,
-    const std::vector<SbColor4f> & colors,
-    const std::vector<uint32_t> & primitiveIds,
+    const SelectionBatchScratch & batch,
     const SoRenderParams & params,
     bool primitiveSelection);
   void drawCoverageEntry(const SoDrawList & drawlist,
@@ -434,6 +465,8 @@ private:
   bool canInstanceTogether(const SoDrawList & drawlist,
                            const SoRenderCommand & first,
                            const SoRenderCommand & next) const;
+  bool canInstanceEligibleCommandsTogether(const SoRenderCommand & first,
+                                           const SoRenderCommand & next) const;
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
                              const SoRenderParams & params);

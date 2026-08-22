@@ -49,6 +49,11 @@ public:
     uint64_t primitiveGenerationNanoseconds = 0;
     uint64_t geometryPackingNanoseconds = 0;
     uint64_t commandEmissionNanoseconds = 0;
+    uint64_t commandIdentityNanoseconds = 0;
+    uint64_t commandStateNanoseconds = 0;
+    uint64_t geometryResourceNanoseconds = 0;
+    uint64_t drawListAppendNanoseconds = 0;
+    uint64_t pathDependencyNanoseconds = 0;
   };
 
   /*! Camera state policy used when starting a root traversal. */
@@ -137,6 +142,7 @@ public:
 
   //! Append a retained command produced during the current traversal.
   void addCommand(const SoRenderCommand & command);
+  void addCommand(SoRenderCommand && command);
 
   //! Mark the current frame as unsupported by the retained renderer.
   void markUnsupported(const SoNode * node, const char * reason);
@@ -172,19 +178,27 @@ public:
   SoRenderStage getRenderStage() const;
   void setRenderStage(SoRenderStage stage);
   void applyRenderStage(SoRenderCommand & command);
+  //! Capture or reuse the current frame-local lighting setup.
+  SoLightingHandle captureLightingHandle();
   //! Refresh matrices for commands affected by one state-node notification.
   int updateCommandMatricesForStatePath(const SoPath * statePath);
   //! Refresh unique commands affected by a batch of transform notifications.
   int updateCommandMatricesForStatePaths(
     const std::vector<const SoPath *> & statePaths);
-  //! Refresh effective diffuse colors after one material notification.
-  int updateCommandDiffuseColorsForStatePath(const SoPath * statePath);
-  //! Refresh unique commands affected by diffuse-color notifications.
-  int updateCommandDiffuseColorsForStatePaths(
-    const std::vector<const SoPath *> & statePaths);
+  //! Refresh effective material and material-derived render state.
+  int updateCommandMaterialsForStatePath(const SoPath * statePath,
+                                         bool opacityMayChange);
+  //! Refresh unique commands affected by material notifications.
+  int updateCommandMaterialsForStatePaths(
+    const std::vector<const SoPath *> & statePaths,
+    bool opacityMayChange = false);
   //! Toggle commands below a stable one-child switch.
   int updateCommandVisibilityForSwitchPath(const SoPath * switchPath,
                                            SbBool visible);
+  //! Transactionally update disjoint stable one-child switch branches.
+  int updateCommandVisibilitiesForSwitchPaths(
+    const std::vector<const SoPath *> & switchPaths,
+    const std::vector<SbBool> & visibilities);
   //! Regenerate a geometry resource affected by one state notification.
   int updateCommandGeometryForStatePath(const SoPath * statePath);
   //! Regenerate one completely-owned resource affected by changed paths.
@@ -254,7 +268,9 @@ private:
   CameraPolicy     cameraPolicy = CameraPolicy::USE_CONFIGURED_CAMERA;
   float            devicePixelRatio = 1.0f;
   SoDrawList       drawlist;
-  std::vector<SoPath *> commandPaths;
+  // Full SoPath objects are materialized only for consumers that need to
+  // replay a command. Most commands remain in compact frame storage.
+  mutable std::vector<SoPath *> commandPaths;
   SoIRRenderActionP * pimpl;
   bool unsupportedRendering = false;
   const SoNode * unsupportedNode = nullptr;

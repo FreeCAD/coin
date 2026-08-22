@@ -132,7 +132,11 @@ number of incrementally updated commands, with no DrawList reconstruction.
 Results include median and p95 frame time, the update count, and construction
 time so a silent fallback cannot appear to be a valid incremental result. The
 normal and smoke benchmark runs include the same curves at their standard
-scene sizes.
+scene sizes. The single-command material curve also measures opacity changes
+across the opaque/transparent boundary, where command finalization must update
+blend state and render-plan ordering without reconstructing the DrawList. At
+257 material notifications, the benchmark verifies the bounded replay policy
+and reports the intentional full-rebuild fallback separately.
 
 The mutation run also edits one geometry definition in each assembly ownership
 model. Expanded geometry updates one face/edge pair; shared-source and
@@ -140,6 +144,12 @@ shared-recipe geometry update every face/edge resource owned by the first
 definition. These samples exercise transactional multi-resource regeneration,
 assert the exact owner count, and compare the final pixels with a forced
 rebuild outside the measured interval.
+
+Incremental notification batches are classified before retained state changes.
+Transform, material, geometry, and disjoint stable-switch batches commit only
+after every replacement is available. Mixed, shared-node, structural, and
+overlapping-switch changes retain the full-rebuild path; parent-occurrence
+classification is cached only for the lifetime of the current DrawList.
 
 `shared_assembly_depth_stack` moves the shared occurrences onto one overlapping
 view ray and measures bounded front-to-back depth peeling. Its counters cover

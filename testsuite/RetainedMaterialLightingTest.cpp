@@ -187,6 +187,35 @@ runTest()
 
   root->unref();
 
+  SoSeparator * lightingReuseRoot = new SoSeparator;
+  lightingReuseRoot->ref();
+  lightingReuseRoot->addChild(new SoDirectionalLight);
+  lightingReuseRoot->addChild(new SoCube);
+  lightingReuseRoot->addChild(new SoCube);
+  lightingReuseRoot->addChild(new SoPointLight);
+  lightingReuseRoot->addChild(new SoCube);
+  SoIRRenderAction lightingReuseAction(SbViewportRegion(64, 64));
+  lightingReuseAction.apply(lightingReuseRoot);
+  if (lightingReuseAction.getDrawList().getNumCommands() != 3) {
+    std::cerr << "FAIL: lighting reuse scene did not emit three commands"
+              << std::endl;
+    result = 1;
+  }
+  else {
+    const SoDrawList & drawlist = lightingReuseAction.getDrawList();
+    const SoLightingHandle first = drawlist.getCommand(0).lightingHandle;
+    const SoLightingHandle repeated = drawlist.getCommand(1).lightingHandle;
+    const SoLightingHandle changed = drawlist.getCommand(2).lightingHandle;
+    const SoLightingData * changedLighting = drawlist.getLighting(changed);
+    if (first == 0 || repeated != first || changed == first ||
+        !changedLighting || changedLighting->lights.size() != 2) {
+      std::cerr << "FAIL: retained lighting reuse ignored a state change"
+                << std::endl;
+      result = 1;
+    }
+  }
+  lightingReuseRoot->unref();
+
   // SoVertexProperty packed alpha is an independent vertex contribution in
   // retained rendering. Verify both ways that Coin can introduce the
   // property: through the SoVertexShape field and as a traversal node.

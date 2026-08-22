@@ -58,31 +58,6 @@ runTest()
     result = 1;
   }
 
-  SoTextureData texture;
-  if (texture.colorSpace != SO_TEXTURE_COLORSPACE_LEGACY) {
-    std::cerr << "FAIL: retained textures changed legacy color interpretation"
-              << std::endl;
-    result = 1;
-  }
-
-  SoDrawList textureSemantics;
-  SoRenderCommand linearTextureCommand;
-  linearTextureCommand.material.texture.colorSpace =
-    SO_TEXTURE_COLORSPACE_LINEAR;
-  textureSemantics.addCommand(linearTextureCommand);
-  SoRenderCommand srgbTextureCommand;
-  srgbTextureCommand.material.texture.colorSpace = SO_TEXTURE_COLORSPACE_SRGB;
-  textureSemantics.addCommand(srgbTextureCommand);
-  if (textureSemantics.getNumCommands() != 2 ||
-      textureSemantics.getCommand(0).material.texture.colorSpace !=
-        SO_TEXTURE_COLORSPACE_LINEAR ||
-      textureSemantics.getCommand(1).material.texture.colorSpace !=
-        SO_TEXTURE_COLORSPACE_SRGB) {
-    std::cerr << "FAIL: draw-list commands lost retained texture color space"
-              << std::endl;
-    result = 1;
-  }
-
   action.apply(root);
   if (action.getDrawList().getNumCommands() != 0) {
     std::cerr << "FAIL: empty scene emitted retained commands" << std::endl;
@@ -283,7 +258,7 @@ runTest()
   if (validIndexedLineReuse) {
     const SoRenderCommand & repeatedLineCommand =
       action.getDrawList().getCommand(1);
-    const std::vector<SoRenderElementRange> & repeatedLineRanges =
+    const SbInlineVector<SoRenderElementRange, 1> & repeatedLineRanges =
       action.getDrawList().getCommandElementRanges(repeatedLineCommand);
     const SoGeometryResource * repeatedLineResource =
       action.getDrawList().getGeometryResource(

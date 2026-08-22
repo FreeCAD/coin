@@ -120,15 +120,41 @@
 
 namespace {
 
+// Material replay traverses once per notification. Large batches are cheaper
+// and simpler to handle through the normal full-frame rebuild path.
 const unsigned int MAX_INCREMENTAL_MATERIAL_NOTIFICATIONS = 256;
 
 enum class RetainedBatchKind {
   Unsupported,
   Switch,
   Translation,
-  DiffuseColor,
+  Material,
   Geometry
 };
+
+bool
+isNonOpacityMaterialChange(SoNode * node, SoField * field)
+{
+  if (!node || !node->isOfType(SoMaterial::getClassTypeId())) return false;
+  SoMaterial * material = static_cast<SoMaterial *>(node);
+  return field == &material->diffuseColor ||
+    field == &material->ambientColor ||
+    field == &material->emissiveColor ||
+    field == &material->specularColor ||
+    field == &material->shininess;
+}
+
+bool
+isStableSwitchChange(SoNode * node, SoField * field)
+{
+  if (!node || !node->isOfType(SoSwitch::getClassTypeId())) return false;
+  SoSwitch * switchNode = static_cast<SoSwitch *>(node);
+  const int whichChild = switchNode->whichChild.getValue();
+  return field == &switchNode->whichChild &&
+    switchNode->getNumChildren() == 1 &&
+    (whichChild == SO_SWITCH_ALL || whichChild == SO_SWITCH_NONE ||
+     whichChild == 0);
+}
 
 bool
 hasOneParentOccurrence(
@@ -178,24 +204,16 @@ classifyRetainedBatch(const SoRenderManagerRootSensor * sensor,
     }
 
     RetainedBatchKind changeKind = RetainedBatchKind::Unsupported;
-    if (node->isOfType(SoSwitch::getClassTypeId())) {
-      SoSwitch * switchNode = static_cast<SoSwitch *>(node);
-      const int whichChild = switchNode->whichChild.getValue();
-      if (field == &switchNode->whichChild &&
-          switchNode->getNumChildren() == 1 &&
-          (whichChild == SO_SWITCH_ALL || whichChild == SO_SWITCH_NONE ||
-           whichChild == 0)) {
-        changeKind = RetainedBatchKind::Switch;
-      }
+    if (isStableSwitchChange(node, field)) {
+      changeKind = RetainedBatchKind::Switch;
     }
     else if (node->isOfType(SoTranslation::getClassTypeId()) &&
         field == &static_cast<SoTranslation *>(node)->translation) {
       changeKind = RetainedBatchKind::Translation;
     }
     else if (retainedCount <= MAX_INCREMENTAL_MATERIAL_NOTIFICATIONS &&
-             node->isOfType(SoMaterial::getClassTypeId()) &&
-             field == &static_cast<SoMaterial *>(node)->diffuseColor) {
-      changeKind = RetainedBatchKind::DiffuseColor;
+             isNonOpacityMaterialChange(node, field)) {
+      changeKind = RetainedBatchKind::Material;
     }
     else if (node->isOfType(SoCoordinate3::getClassTypeId()) &&
              field == &static_cast<SoCoordinate3 *>(node)->point) {
@@ -209,6 +227,46 @@ classifyRetainedBatch(const SoRenderManagerRootSensor * sensor,
     batchKind = changeKind;
   }
   return batchKind;
+}
+
+int
+patchRetainedBatch(SoIRRenderAction * action,
+                   const SoRenderManagerRootSensor * sensor,
+                   unsigned int retainedCount,
+                   std::unordered_map<SoNode *, SbBool> & parentCache)
+{
+  const RetainedBatchKind batchKind = classifyRetainedBatch(
+    sensor, retainedCount, parentCache);
+  if (batchKind == RetainedBatchKind::Unsupported) return 0;
+
+  std::vector<const SoPath *> changedPaths;
+  changedPaths.reserve(retainedCount);
+  for (unsigned int i = 0; i < retainedCount; ++i) {
+    changedPaths.push_back(sensor->getChangedPath(i));
+  }
+  switch (batchKind) {
+  case RetainedBatchKind::Translation:
+    return action->updateCommandMatricesForStatePaths(changedPaths);
+  case RetainedBatchKind::Material:
+    return action->updateCommandMaterialsForStatePaths(changedPaths);
+  case RetainedBatchKind::Geometry:
+    return action->updateCommandGeometryForStatePaths(changedPaths);
+  case RetainedBatchKind::Switch: {
+    std::vector<SbBool> visibilities;
+    visibilities.reserve(retainedCount);
+    for (unsigned int i = 0; i < retainedCount; ++i) {
+      const SoSwitch * switchNode =
+        static_cast<const SoSwitch *>(sensor->getChangedNode(i));
+      visibilities.push_back(
+        switchNode->whichChild.getValue() != SO_SWITCH_NONE);
+    }
+    return action->updateCommandVisibilitiesForSwitchPaths(
+      changedPaths, visibilities);
+  }
+  case RetainedBatchKind::Unsupported:
+    break;
+  }
+  return 0;
 }
 
 SbBool
@@ -260,6 +318,37 @@ retainedRenderParams(const SoRenderManagerP * manager)
     params.flags |= SO_PARAM_REUSE_DRAW_LIST;
   }
   return params;
+}
+
+const SoRenderPlan &
+resolveRetainedRenderPlan(SoRenderManagerP * manager,
+                          const SoDrawList & drawlist,
+                          const SbMatrix & viewMatrix,
+                          uint64_t & constructionNanoseconds)
+{
+  constructionNanoseconds = 0;
+  const uint64_t contentRevision = drawlist.getContentRevision();
+  if (!manager->renderPlanValid ||
+      manager->renderPlanDrawList != &drawlist ||
+      manager->renderPlanContentRevision != contentRevision ||
+      manager->renderPlanViewMatrix != viewMatrix) {
+    const std::chrono::steady_clock::time_point start =
+      manager->renderPhaseTimingEnabled
+        ? std::chrono::steady_clock::now()
+        : std::chrono::steady_clock::time_point();
+    SoRenderPlanner planner;
+    planner.build(drawlist, manager->renderPlan);
+    manager->renderPlanDrawList = &drawlist;
+    manager->renderPlanContentRevision = contentRevision;
+    manager->renderPlanViewMatrix = viewMatrix;
+    manager->renderPlanValid = TRUE;
+    if (manager->renderPhaseTimingEnabled) {
+      constructionNanoseconds = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now() - start).count());
+    }
+  }
+  return manager->renderPlan;
 }
 
 SoDetail *
@@ -505,6 +594,9 @@ SoRenderManager::SoRenderManager(void)
   PRIVATE(this)->renderBackend = NULL;
   PRIVATE(this)->renderPhaseTimingEnabled = FALSE;
   PRIVATE(this)->renderPhaseStatistics = RenderPhaseStatistics();
+  PRIVATE(this)->renderPlanDrawList = NULL;
+  PRIVATE(this)->renderPlanContentRevision = 0;
+  PRIVATE(this)->renderPlanValid = FALSE;
   PRIVATE(this)->renderBackendContextId = 0;
   PRIVATE(this)->drawListCallbackScope = FALSE;
   PRIVATE(this)->drawListValid = FALSE;
@@ -1118,6 +1210,11 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   phaseStatistics.drawListPrimitiveGenerationNanoseconds = 0;
   phaseStatistics.drawListGeometryPackingNanoseconds = 0;
   phaseStatistics.drawListCommandEmissionNanoseconds = 0;
+  phaseStatistics.drawListCommandIdentityNanoseconds = 0;
+  phaseStatistics.drawListCommandStateNanoseconds = 0;
+  phaseStatistics.drawListGeometryResourceNanoseconds = 0;
+  phaseStatistics.drawListAppendNanoseconds = 0;
+  phaseStatistics.drawListPathDependencyNanoseconds = 0;
   phaseStatistics.planConstructionNanoseconds = 0;
   phaseStatistics.backendSubmissionNanoseconds = 0;
   phaseStatistics.backendFrameSetupNanoseconds = 0;
@@ -1305,38 +1402,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   if (canPatchStateChanges &&
       (rootSensor->getNotificationCount() > 1 ||
        retainedNotificationCount > 1)) {
-    const RetainedBatchKind batchKind = classifyRetainedBatch(
-      rootSensor, retainedNotificationCount, parentCache);
-    if (batchKind != RetainedBatchKind::Unsupported) {
-      std::vector<const SoPath *> changedPaths;
-      changedPaths.reserve(retainedNotificationCount);
-      for (unsigned int i = 0; i < retainedNotificationCount; ++i) {
-        changedPaths.push_back(rootSensor->getChangedPath(i));
-      }
-      if (batchKind == RetainedBatchKind::Translation) {
-        updated = action->updateCommandMatricesForStatePaths(changedPaths);
-      }
-      else if (batchKind == RetainedBatchKind::DiffuseColor) {
-        updated = action->updateCommandDiffuseColorsForStatePaths(changedPaths);
-      }
-      else if (batchKind == RetainedBatchKind::Geometry) {
-        updated = action->updateCommandGeometryForStatePaths(changedPaths);
-      }
-      else {
-        for (unsigned int i = 0; i < retainedNotificationCount; ++i) {
-          SoSwitch * switchNode = static_cast<SoSwitch *>(
-            rootSensor->getChangedNode(i));
-          const int patched = action->updateCommandVisibilityForSwitchPath(
-            rootSensor->getChangedPath(i),
-            switchNode->whichChild.getValue() != SO_SWITCH_NONE);
-          if (patched == 0) {
-            updated = 0;
-            break;
-          }
-          updated += patched;
-        }
-      }
-    }
+    updated = patchRetainedBatch(action, rootSensor,
+                                 retainedNotificationCount, parentCache);
   }
   else if (canPatchStateChanges &&
       hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
@@ -1348,12 +1415,16 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   }
   else if (canPatchStateChanges &&
            hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
-           rootSensor->getChangedNode()->isOfType(SoMaterial::getClassTypeId()) &&
-           rootSensor->getChangedField() ==
-             &static_cast<SoMaterial *>(
-               rootSensor->getChangedNode())->diffuseColor) {
-    updated = action->updateCommandDiffuseColorsForStatePath(
-      rootSensor->getChangedPath());
+           rootSensor->getChangedNode()->isOfType(SoMaterial::getClassTypeId())) {
+    SoMaterial * material =
+      static_cast<SoMaterial *>(rootSensor->getChangedNode());
+    SoField * field = rootSensor->getChangedField();
+    const bool supportedMaterialField = isNonOpacityMaterialChange(
+      material, field) || field == &material->transparency;
+    if (supportedMaterialField) {
+      updated = action->updateCommandMaterialsForStatePath(
+        rootSensor->getChangedPath(), field == &material->transparency);
+    }
   }
   else if (canPatchStateChanges &&
            hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
@@ -1367,17 +1438,13 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   }
   else if (canPatchStateChanges &&
            hasOneParentOccurrence(rootSensor->getChangedNode(), parentCache) &&
-           rootSensor->getChangedNode()->isOfType(SoSwitch::getClassTypeId())) {
+           isStableSwitchChange(rootSensor->getChangedNode(),
+                                rootSensor->getChangedField())) {
     SoSwitch * switchNode = static_cast<SoSwitch *>(
       rootSensor->getChangedNode());
-    const int whichChild = switchNode->whichChild.getValue();
-    if (rootSensor->getChangedField() == &switchNode->whichChild &&
-        switchNode->getNumChildren() == 1 &&
-        (whichChild == SO_SWITCH_ALL || whichChild == SO_SWITCH_NONE ||
-         whichChild == 0)) {
-      updated = action->updateCommandVisibilityForSwitchPath(
-        rootSensor->getChangedPath(), whichChild != SO_SWITCH_NONE);
-    }
+    updated = action->updateCommandVisibilityForSwitchPath(
+      rootSensor->getChangedPath(),
+      switchNode->whichChild.getValue() != SO_SWITCH_NONE);
   }
   if (updated > 0) {
     phaseStatistics.incrementalCommandUpdates = static_cast<uint64_t>(updated);
@@ -1544,6 +1611,16 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
       construction.geometryPackingNanoseconds;
     phaseStatistics.drawListCommandEmissionNanoseconds =
       construction.commandEmissionNanoseconds;
+    phaseStatistics.drawListCommandIdentityNanoseconds =
+      construction.commandIdentityNanoseconds;
+    phaseStatistics.drawListCommandStateNanoseconds =
+      construction.commandStateNanoseconds;
+    phaseStatistics.drawListGeometryResourceNanoseconds =
+      construction.geometryResourceNanoseconds;
+    phaseStatistics.drawListAppendNanoseconds =
+      construction.drawListAppendNanoseconds;
+    phaseStatistics.drawListPathDependencyNanoseconds =
+      construction.pathDependencyNanoseconds;
   }
 
   SoRenderParams params = {};
@@ -1570,16 +1647,9 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   params.flags = (clearwindow ? SO_PARAM_CLEAR_WINDOW : 0u) |
                  (clearzbuffer ? SO_PARAM_CLEAR_DEPTH : 0u) |
                  (!rebuildDrawList ? SO_PARAM_REUSE_DRAW_LIST : 0u);
-  SoRenderPlanner planner;
-  SoRenderPlan plan;
-  const RenderPhaseClock::time_point planStart = measurePhases
-    ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
-  planner.build(drawlist, plan);
-  if (measurePhases) {
-    phaseStatistics.planConstructionNanoseconds =
-      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-        RenderPhaseClock::now() - planStart).count());
-  }
+  const SoRenderPlan & plan = resolveRetainedRenderPlan(
+    PRIVATE(this), drawlist, params.viewMatrix,
+    phaseStatistics.planConstructionNanoseconds);
 
   const RenderPhaseClock::time_point submissionStart = measurePhases
     ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
@@ -2784,17 +2854,9 @@ SoRenderManager::pickClosest(const int x, const int y, const int radius,
   const SoRenderParams params = retainedRenderParams(PRIVATE(this));
   if (PRIVATE(this)->pickTargetDirty ||
       PRIVATE(this)->pickTargetGeneration != drawlist.getGeneration()) {
-    SoRenderPlanner planner;
-    SoRenderPlan plan;
-    const PickPhaseClock::time_point planStart = measurePhases
-      ? PickPhaseClock::now() : PickPhaseClock::time_point();
-    planner.build(drawlist, params.viewMatrix, plan);
-    if (measurePhases) {
-      phaseStatistics.pickPlanConstructionNanoseconds =
-        static_cast<uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-            PickPhaseClock::now() - planStart).count());
-    }
+    const SoRenderPlan & plan = resolveRetainedRenderPlan(
+      PRIVATE(this), drawlist, params.viewMatrix,
+      phaseStatistics.pickPlanConstructionNanoseconds);
     const PickPhaseClock::time_point updateStart = measurePhases
       ? PickPhaseClock::now() : PickPhaseClock::time_point();
     if (!PRIVATE(this)->renderBackend->updatePickBuffer(drawlist, plan,
@@ -2876,17 +2938,9 @@ SoRenderManager::pickDepthStack(const int x, const int y, const int radius,
   const SoRenderParams params = retainedRenderParams(PRIVATE(this));
   if (PRIVATE(this)->pickTargetDirty ||
       PRIVATE(this)->pickTargetGeneration != drawlist.getGeneration()) {
-    SoRenderPlanner planner;
-    SoRenderPlan plan;
-    const PickPhaseClock::time_point planStart = measurePhases
-      ? PickPhaseClock::now() : PickPhaseClock::time_point();
-    planner.build(drawlist, params.viewMatrix, plan);
-    if (measurePhases) {
-      phaseStatistics.pickPlanConstructionNanoseconds =
-        static_cast<uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-            PickPhaseClock::now() - planStart).count());
-    }
+    const SoRenderPlan & plan = resolveRetainedRenderPlan(
+      PRIVATE(this), drawlist, params.viewMatrix,
+      phaseStatistics.pickPlanConstructionNanoseconds);
     const PickPhaseClock::time_point updateStart = measurePhases
       ? PickPhaseClock::now() : PickPhaseClock::time_point();
     if (!PRIVATE(this)->renderBackend->updatePickBuffer(drawlist, plan,
@@ -2958,9 +3012,9 @@ SoRenderManager::pickVisibleRegion(const SbBox2s & region,
   const SoRenderParams params = retainedRenderParams(PRIVATE(this));
   if (PRIVATE(this)->pickTargetDirty ||
       PRIVATE(this)->pickTargetGeneration != drawlist.getGeneration()) {
-    SoRenderPlanner planner;
-    SoRenderPlan plan;
-    planner.build(drawlist, params.viewMatrix, plan);
+    uint64_t ignoredPlanNanoseconds = 0;
+    const SoRenderPlan & plan = resolveRetainedRenderPlan(
+      PRIVATE(this), drawlist, params.viewMatrix, ignoredPlanNanoseconds);
     if (!PRIVATE(this)->renderBackend->updatePickBuffer(drawlist, plan,
                                                         params)) return FALSE;
     PRIVATE(this)->pickTargetDirty = FALSE;
