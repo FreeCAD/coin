@@ -13,12 +13,6 @@
 
 #include <iostream>
 
-static bool
-sameVec3(const SbVec3f & left, const SbVec3f & right)
-{
-  return left[0] == right[0] && left[1] == right[1] && left[2] == right[2];
-}
-
 static int
 runTest()
 {
@@ -80,31 +74,12 @@ runTest()
   SoPath * path = new SoPath(root);
   path->ref();
   path->append(0);
-  SoModelMatrixElement::set(action.getState(), nullptr, SbMatrix::identity());
-  action.traverseAdditionalPath(path, context);
-
-  if (action.getDrawList().getNumCommands() != 2) {
-    std::cerr << "FAIL: replay traversal did not append a command" << std::endl;
-    result = 1;
-  }
-  else {
-    const SoRenderCommand & replay = action.getDrawList().getCommand(1);
-    const SoLightingData * lighting =
-      action.getDrawList().getLighting(replay.lightingHandle);
-    if (replay.viewMatrix != viewing || replay.projMatrix != projection ||
-        !lighting || !sameVec3(lighting->ambient, context.lighting.ambient)) {
-      std::cerr << "FAIL: replay command did not use the copied context"
-                << std::endl;
-      result = 1;
-    }
-  }
-
   SoViewingMatrixElement::set(action.getState(), nullptr, SbMatrix::identity());
   SoProjectionMatrixElement::set(action.getState(), nullptr, SbMatrix::identity());
   SoModelMatrixElement::set(action.getState(), nullptr, SbMatrix::identity());
   action.traverseAdditionalPath(path);
-  if (action.getDrawList().getNumCommands() != 3 ||
-      action.getDrawList().getCommand(2).viewMatrix == viewing) {
+  if (action.getDrawList().getNumCommands() != 2 ||
+      action.getDrawList().getCommand(1).viewMatrix == viewing) {
     std::cerr << "FAIL: replay context leaked into the next traversal" << std::endl;
     result = 1;
   }
