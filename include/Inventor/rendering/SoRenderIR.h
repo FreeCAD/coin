@@ -108,6 +108,24 @@ struct SoGeometryDesc {
 
 };
 
+//! Stable, draw-list-local reference to a geometry resource.
+using SoGeometryHandle = uint32_t;
+static constexpr SoGeometryHandle SO_INVALID_GEOMETRY_HANDLE = 0;
+
+/*!
+  \struct SoGeometryResource
+  \brief Draw-list-owned geometry descriptor with producer identity.
+
+  Handles are one-based and remain stable until SoDrawList::clear(). The
+  descriptor keeps the existing frame-lifetime pointer contract; the resource
+  table separates shared geometry identity from individual draw commands.
+*/
+struct SoGeometryResource {
+  SoGeometryDesc geometry;
+  uint64_t sourceKey = 0;
+  uint64_t revision = 0;
+};
+
 /*!
   \enum SoShadingModel
   \brief Effective shading contract carried by a render command.
@@ -635,6 +653,7 @@ struct SoRenderCommand {
   // Geometry, texture pixels, and other pointer-valued fields are borrowed;
   // see the lifetime contract on SoGeometryDesc and SoTextureData.
   SoGeometryDesc   geometry;
+  SoGeometryHandle geometryHandle = SO_INVALID_GEOMETRY_HANDLE;
   SoMaterialData   material;
   SoRenderState    state;
 
@@ -683,6 +702,17 @@ public:
   void addCommand(const SoRenderCommand & cmd);
   SoRenderCommand & emplaceCommand();
 
+  //! Append a geometry resource and return its stable one-based handle.
+  SoGeometryHandle addGeometryResource(const SoGeometryResource & resource);
+  //! Return NULL for an invalid handle or a handle outside this draw list.
+  SoGeometryResource * getGeometryResource(SoGeometryHandle handle);
+  const SoGeometryResource * getGeometryResource(
+    SoGeometryHandle handle) const;
+  int getNumGeometryResources() const;
+  //! Resolve a command resource, falling back to its embedded descriptor.
+  const SoGeometryDesc & getCommandGeometry(
+    const SoRenderCommand & command) const;
+
   int getNumCommands() const;
   //! Remove commands beyond index count without reordering remaining commands.
   void truncate(int count);
@@ -728,6 +758,7 @@ public:
 
 private:
   std::vector<SoRenderCommand> commands;
+  std::vector<SoGeometryResource> geometryResources;
   std::vector<SoLightingData> lightingSetups;
   std::vector<SoDepthClearEvent> depthClearEvents;
   SoSelectionState selection;
