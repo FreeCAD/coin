@@ -136,6 +136,12 @@ if(NOT COIN_BUILD_GL_TESTS STREQUAL "OFF")
 	endif()
 endif()
 
+if(WIN32 AND COIN_BUILD_SHARED_LIBS AND COIN_BUILD_GL_TESTS_EFFECTIVE)
+	message(STATUS
+		"Generic OpenGL tests are disabled for Windows shared builds because retained implementation symbols are not exported")
+	set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
+endif()
+
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	add_library(CoinGLTestSupport STATIC
 		support/GLTestContext.cpp
