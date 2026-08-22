@@ -527,6 +527,38 @@ private:
   GLint skipImages = 0;
 };
 
+// Readback only changes framebuffer and pixel-pack state. Avoid the complete
+// render-state snapshot used while drawing picking and selection passes.
+class ScopedPickReadbackState {
+public:
+  explicit ScopedPickReadbackState(const cc_glglue * glue)
+    : glue(glue)
+  {
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFramebuffer);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFramebuffer);
+    glGetIntegerv(GL_READ_BUFFER, &readBuffer);
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pixelPackBuffer);
+  }
+
+  ~ScopedPickReadbackState()
+  {
+    cc_glglue_glBindFramebuffer(this->glue, GL_DRAW_FRAMEBUFFER,
+                                static_cast<GLuint>(drawFramebuffer));
+    cc_glglue_glBindFramebuffer(this->glue, GL_READ_FRAMEBUFFER,
+                                static_cast<GLuint>(readFramebuffer));
+    glReadBuffer(static_cast<GLenum>(readBuffer));
+    cc_glglue_glBindBuffer(this->glue, GL_PIXEL_PACK_BUFFER,
+                           static_cast<GLuint>(pixelPackBuffer));
+  }
+
+private:
+  const cc_glglue * glue;
+  GLint drawFramebuffer = 0;
+  GLint readFramebuffer = 0;
+  GLint readBuffer = GL_BACK;
+  GLint pixelPackBuffer = 0;
+};
+
 // Picking and selection are explicit operations on a caller-owned GL
 // context. They must not leak the temporary state used to implement them.
 class ScopedGLState {
@@ -864,8 +896,8 @@ SoGLRenderBackend::clearSelectionScratch()
     pass.batchesByGeometry.rehash(0);
     pass = SelectionPassScratch();
   }
-  this->selectionInstanceRecords.clear();
-  this->selectionInstanceRecords.shrink_to_fit();
+  this->interactionInstanceRecords.clear();
+  this->interactionInstanceRecords.shrink_to_fit();
 }
 
 void
@@ -950,9 +982,17 @@ SoGLRenderBackend::shutdown()
   deleteProgram(this->selectionPrograms.point.handle);
   deleteProgram(this->selectionPrograms.trianglePoint.handle);
   deleteProgram(this->selectionPrograms.pixel.handle);
+  this->destroyAsyncPickResources(true);
   this->destroyPickFramebuffer();
   this->pickTarget.lookup.clear();
+  this->pickTarget.lookupByCommand.clear();
+  this->pickTarget.lookupRevision = 0;
+  this->pickTarget.submissionLookupRevision = 0;
+  this->pickTarget.submissions.clear();
+  this->pickTarget.plan = SoRenderPlan();
+  this->pickTarget.drawlist = nullptr;
   this->pickTarget.generation = 0;
+  this->pickTarget.updateSerial = 0;
   this->pickTarget.ready = false;
   this->instanceCommandScratch.clear();
   this->instanceCommandScratch.shrink_to_fit();
@@ -965,6 +1005,7 @@ SoGLRenderBackend::shutdown()
 void
 SoGLRenderBackend::discard()
 {
+  this->destroyAsyncPickResources(false);
   this->clearSelectionScratch();
   this->gpuCache.clear();
   this->commandToCache.clear();
@@ -984,6 +1025,22 @@ SoGLRenderBackend::discard()
   this->glue = nullptr;
   this->context = nullptr;
   this->setInitialized(FALSE);
+}
+
+void
+SoGLRenderBackend::destroyAsyncPickResources(const bool releaseGL)
+{
+  for (AsyncPickSlot & slot : this->asyncPickSlots) {
+    if (releaseGL && slot.fence) {
+      cc_glglue_glDeleteSync(this->glue, slot.fence);
+    }
+    if (releaseGL && slot.buffer) {
+      cc_glglue_glDeleteBuffers(this->glue, 1, &slot.buffer);
+    }
+    slot = AsyncPickSlot();
+  }
+  this->nextAsyncPickRequestId = 1;
+  this->nextAsyncPickSlot = 0;
 }
 SoGLRenderBackend::CachedCommand &
 SoGLRenderBackend::getOrCreateCache(const SoRenderCommand * command,
@@ -2142,6 +2199,10 @@ SoGLRenderBackend::canInstanceCommand(const SoDrawList & drawlist,
                                       const SoRenderCommand & command) const
 {
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(command);
+  const bool triangles = geometry.topology == SO_TOPOLOGY_TRIANGLES;
+  const bool nativeLines = geometry.topology == SO_TOPOLOGY_LINES &&
+    command.state.raster.lineWidth <= 1.0f &&
+    command.state.raster.linePattern == 0xFFFF;
   const SoTextureData & texture = command.material.texture;
   const bool hasTexture = texture.cacheKey != 0 || texture.pixels != nullptr;
   if (hasTexture &&
@@ -2153,7 +2214,7 @@ SoGLRenderBackend::canInstanceCommand(const SoDrawList & drawlist,
     !command.state.blend.enabled;
   const bool transparent = command.opacityClass == SO_OPACITY_TRANSPARENT &&
     command.state.blend.enabled;
-  return geometry.topology == SO_TOPOLOGY_TRIANGLES &&
+  return (triangles || nativeLines) &&
     (geometry.colors == nullptr || opaque) && (opaque || transparent) &&
     command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE &&
     command.state.raster.visible &&
@@ -2247,15 +2308,16 @@ SoGLRenderBackend::drawInstancedCommands(
   this->glue->glUniform1f(this->visualProgram.surface.transforms.instanced,
                          1.0f);
   this->glue->glBindVertexArray(entry.vertexArray);
+  const GLenum primitive = topologyToGL(geometry.topology);
   if (geometry.indices && geometry.indexCount) {
     cc_glglue_glDrawElementsInstanced(
-      this->glue, GL_TRIANGLES,
+      this->glue, primitive,
       static_cast<GLsizei>(geometry.indexCount), GL_UNSIGNED_INT, nullptr,
       static_cast<GLsizei>(commandIndices.size()));
   }
   else {
     cc_glglue_glDrawArraysInstanced(
-      this->glue, GL_TRIANGLES, 0,
+      this->glue, primitive, 0,
       static_cast<GLsizei>(geometry.vertexCount),
       static_cast<GLsizei>(commandIndices.size()));
   }
@@ -2938,17 +3000,19 @@ SoGLRenderBackend::drawInstancedPickCommands(
   if (!cache.vertexArray) return;
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(first);
 
-  std::vector<InstanceRecord> records;
-  records.reserve(commandIndices.size());
+  static_assert(sizeof(InteractionInstanceRecord) == sizeof(InstanceRecord),
+                "pick instance layout must match the shared VAO");
+  this->interactionInstanceRecords.clear();
+  this->interactionInstanceRecords.reserve(commandIndices.size());
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    InstanceRecord record = {};
+    InteractionInstanceRecord record = {};
     SbMat model;
     drawlist.getCommand(static_cast<int>(commandIndices[i])).modelMatrix
       .getValue(model);
     std::copy(&model[0][0], &model[0][0] + 16, record.model);
     record.color[0] = record.color[1] = record.color[2] = record.color[3] = 1.0f;
-    record.pickId = pickIds[i];
-    records.push_back(record);
+    record.primitiveId = pickIds[i];
+    this->interactionInstanceRecords.push_back(record);
   }
 
   const CommandFrame frame = this->effectiveCommandFrame(first, params, true);
@@ -2983,20 +3047,25 @@ SoGLRenderBackend::drawInstancedPickCommands(
   }
   else glDisable(GL_CULL_FACE);
   glFrontFace(first.state.raster.frontFaceCCW ? GL_CCW : GL_CW);
+  if (first.geometry.topology == SO_TOPOLOGY_LINES) glLineWidth(1.0f);
   cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, this->instanceBuffer);
   cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
-                         records.size() * sizeof(InstanceRecord),
-                         records.data(), GL_STREAM_DRAW);
+                         this->interactionInstanceRecords.size() *
+                           sizeof(InteractionInstanceRecord),
+                         this->interactionInstanceRecords.data(),
+                         GL_STREAM_DRAW);
   this->glue->glBindVertexArray(cache.vertexArray);
-  const GLsizei count = static_cast<GLsizei>(records.size());
+  const GLsizei count = static_cast<GLsizei>(
+    this->interactionInstanceRecords.size());
+  const GLenum primitive = topologyToGL(geometry.topology);
   if (geometry.indices && geometry.indexCount) {
     cc_glglue_glDrawElementsInstanced(
-      this->glue, GL_TRIANGLES, static_cast<GLsizei>(geometry.indexCount),
+      this->glue, primitive, static_cast<GLsizei>(geometry.indexCount),
       GL_UNSIGNED_INT, nullptr, count);
   }
   else {
     cc_glglue_glDrawArraysInstanced(
-      this->glue, GL_TRIANGLES, 0,
+      this->glue, primitive, 0,
       static_cast<GLsizei>(geometry.vertexCount), count);
   }
   this->glue->glUniform1f(uniforms.instanced, 0.0f);
@@ -3036,7 +3105,7 @@ SoGLRenderBackend::drawInstancedSelectionCommands(
   const bool primitiveSelection)
 {
   if (batch.instances.size() < 2) return;
-  static_assert(sizeof(SelectionInstanceRecord) == sizeof(InstanceRecord),
+  static_assert(sizeof(InteractionInstanceRecord) == sizeof(InstanceRecord),
                 "selection instance layout must match the shared VAO");
   const SoRenderCommand & first = drawlist.getCommand(
     static_cast<int>(batch.instances.front().commandIndex));
@@ -3046,10 +3115,10 @@ SoGLRenderBackend::drawInstancedSelectionCommands(
   if (!cache.vertexArray) return;
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(first);
 
-  this->selectionInstanceRecords.clear();
-  this->selectionInstanceRecords.reserve(batch.instances.size());
+  this->interactionInstanceRecords.clear();
+  this->interactionInstanceRecords.reserve(batch.instances.size());
   for (const SelectionInstanceScratch & instance : batch.instances) {
-    SelectionInstanceRecord record = {};
+    InteractionInstanceRecord record = {};
     SbMat model;
     drawlist.getCommand(static_cast<int>(instance.commandIndex)).modelMatrix
       .getValue(model);
@@ -3058,7 +3127,7 @@ SoGLRenderBackend::drawInstancedSelectionCommands(
       record.color[component] = instance.color[component];
     }
     record.primitiveId = instance.primitiveId;
-    this->selectionInstanceRecords.push_back(record);
+    this->interactionInstanceRecords.push_back(record);
   }
 
   const CommandFrame frame = this->effectiveCommandFrame(first, params, false);
@@ -3090,13 +3159,13 @@ SoGLRenderBackend::drawInstancedSelectionCommands(
 
   cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, this->instanceBuffer);
   cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
-                         this->selectionInstanceRecords.size() *
-                           sizeof(SelectionInstanceRecord),
-                         this->selectionInstanceRecords.data(),
+                         this->interactionInstanceRecords.size() *
+                           sizeof(InteractionInstanceRecord),
+                         this->interactionInstanceRecords.data(),
                          GL_STREAM_DRAW);
   this->glue->glBindVertexArray(cache.vertexArray);
   const GLsizei instanceCount = static_cast<GLsizei>(
-    this->selectionInstanceRecords.size());
+    this->interactionInstanceRecords.size());
   const GLenum primitive = topologyToGL(geometry.topology);
   if (geometry.indices && geometry.indexCount) {
     cc_glglue_glDrawElementsInstanced(
@@ -3461,15 +3530,31 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
     return FALSE;
   }
   const bool measurePhases = this->isPhaseTimingEnabled();
-  this->phaseStatistics.pickTargetPreparationNanoseconds = 0;
-  this->phaseStatistics.pickTargetRenderingNanoseconds = 0;
+  this->statistics.closestPick = SoRenderBackendPickStatistics();
   const BackendPhaseClock::time_point preparationStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   this->pickTarget.ready = false;
-  this->pickTarget.lookup.clear();
   ScopedGLState state(this->glue);
   drawlist.buildPickLUT();
-  this->pickTarget.lookup = drawlist.getPickLUT();
+  if (this->pickTarget.drawlist != &drawlist ||
+      this->pickTarget.lookupRevision != drawlist.getPickLUTRevision()) {
+    this->pickTarget.lookup = drawlist.getPickLUT();
+    const uint32_t commandCount = static_cast<uint32_t>(
+      drawlist.getNumCommands());
+    this->pickTarget.lookupByCommand.clear();
+    this->pickTarget.lookupByCommand.resize(commandCount);
+    for (size_t lookupIndex = 0;
+         lookupIndex < this->pickTarget.lookup.size(); ++lookupIndex) {
+      const int commandIndex = this->pickTarget.lookup[lookupIndex].commandIndex;
+      if (commandIndex >= 0 &&
+          static_cast<uint32_t>(commandIndex) < commandCount) {
+        this->pickTarget.lookupByCommand[
+          static_cast<size_t>(commandIndex)].push_back(lookupIndex);
+      }
+    }
+    this->pickTarget.lookupRevision = drawlist.getPickLUTRevision();
+    this->pickTarget.submissionLookupRevision = 0;
+  }
   const SbVec2s size = params.viewport.getViewportSizePixels();
   if (!this->ensurePickFramebuffer(size)) return FALSE;
 
@@ -3500,7 +3585,7 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
   params.viewMatrix.getValue(frameView);
   params.projMatrix.getValue(frameProjection);
   if (measurePhases) {
-    this->phaseStatistics.pickTargetPreparationNanoseconds =
+    this->statistics.closestPick.targetPreparationNanoseconds =
       elapsedNanoseconds(preparationStart);
   }
   const BackendPhaseClock::time_point renderingStart = measurePhases
@@ -3513,17 +3598,12 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
       this->drawPickEntry(drawlist, this->pickTarget.lookup[i],
                           static_cast<GLuint>(i + 1),
                           frameView, frameProjection, params);
+      ++this->statistics.closestPick.drawCalls;
     }
   };
   const uint32_t commandCount = static_cast<uint32_t>(drawlist.getNumCommands());
-  std::vector<std::vector<size_t> > lookupByCommand(commandCount);
-  for (size_t lookupIndex = 0;
-       lookupIndex < this->pickTarget.lookup.size(); ++lookupIndex) {
-    const int commandIndex = this->pickTarget.lookup[lookupIndex].commandIndex;
-    if (commandIndex >= 0 && static_cast<uint32_t>(commandIndex) < commandCount) {
-      lookupByCommand[static_cast<size_t>(commandIndex)].push_back(lookupIndex);
-    }
-  }
+  const std::vector<std::vector<size_t> > & lookupByCommand =
+    this->pickTarget.lookupByCommand;
   // A contiguous one-entry-per-primitive table can be addressed directly
   // from gl_PrimitiveID. Require full coverage so an irregular producer can
   // always fall back to the range-by-range path without changing identity.
@@ -3535,17 +3615,39 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
   };
   const uint32_t eventCount = static_cast<uint32_t>(
     drawlist.getDepthClearEvents().size());
-  for (int i = 0; i < plan.getNumOperations(); ++i) {
-    const SoRenderOperation & operation = plan.getOperation(i);
-    if (operation.type == SoRenderOperationType::DRAW) {
+  bool samePlan = this->pickTarget.plan.getNumOperations() ==
+    plan.getNumOperations();
+  for (int i = 0; samePlan && i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & previous = this->pickTarget.plan.getOperation(i);
+    const SoRenderOperation & current = plan.getOperation(i);
+    samePlan = previous.type == current.type &&
+      previous.commandIndex == current.commandIndex &&
+      previous.depthClearEventIndex == current.depthClearEventIndex;
+  }
+  if (!samePlan || this->pickTarget.submissionLookupRevision !=
+        this->pickTarget.lookupRevision) {
+    this->pickTarget.submissions.clear();
+    for (int i = 0; i < plan.getNumOperations(); ++i) {
+      const SoRenderOperation & operation = plan.getOperation(i);
+      PickTarget::Submission submission;
+      if (operation.type != SoRenderOperationType::DRAW) {
+        if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
+          if (operation.depthClearEventIndex >= eventCount) {
+            this->emitError("pick plan references a missing depth-clear event");
+            return FALSE;
+          }
+          submission.type = PickTarget::Submission::Type::CLEAR_DEPTH;
+          submission.index = operation.depthClearEventIndex;
+          this->pickTarget.submissions.push_back(std::move(submission));
+        }
+        continue;
+      }
       if (operation.commandIndex >= commandCount) {
         this->emitError("pick plan references a missing DrawList command");
         return FALSE;
       }
       const SoRenderCommand & first = drawlist.getCommand(
         static_cast<int>(operation.commandIndex));
-      std::vector<uint32_t> instanceCommands;
-      std::vector<GLuint> instanceIds;
       bool primitivePickIds = false;
       if (this->canInstanceCommand(drawlist, first) &&
           first.state.depth.enabled &&
@@ -3554,9 +3656,12 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
         const size_t lookupIndex =
           lookupByCommand[operation.commandIndex].front();
         const SoPickLUTEntry & entry = this->pickTarget.lookup[lookupIndex];
-        if (entry.type == SO_PICK_OBJECT && entry.elementIndex == -1) {
-          instanceCommands.push_back(operation.commandIndex);
-          instanceIds.push_back(static_cast<GLuint>(lookupIndex + 1));
+        primitivePickIds = entry.elementIndex >= 0 &&
+          primitiveMapped(operation.commandIndex);
+        if ((entry.type == SO_PICK_OBJECT && entry.elementIndex == -1) ||
+            primitivePickIds) {
+          submission.commandIndices.push_back(operation.commandIndex);
+          submission.pickIds.push_back(static_cast<GLuint>(lookupIndex + 1));
           for (int nextOperation = i + 1;
                nextOperation < plan.getNumOperations(); ++nextOperation) {
             const SoRenderOperation & next = plan.getOperation(nextOperation);
@@ -3572,44 +3677,61 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
             const SoPickLUTEntry & nextEntry =
               this->pickTarget.lookup[nextLookup];
             if (!nextCommand.state.depth.enabled ||
-                nextEntry.type != SO_PICK_OBJECT ||
-                nextEntry.elementIndex != -1 ||
+                (primitivePickIds
+                  ? nextEntry.elementIndex < 0
+                  : (nextEntry.type != SO_PICK_OBJECT ||
+                     nextEntry.elementIndex != -1)) ||
                 !this->canInstanceTogether(drawlist, first, nextCommand)) break;
-            instanceCommands.push_back(next.commandIndex);
-            instanceIds.push_back(static_cast<GLuint>(nextLookup + 1));
+            submission.commandIndices.push_back(next.commandIndex);
+            submission.pickIds.push_back(static_cast<GLuint>(nextLookup + 1));
           }
         }
-        else if (entry.elementIndex >= 0 &&
-                 primitiveMapped(operation.commandIndex)) {
-          primitivePickIds = true;
-          instanceCommands.push_back(operation.commandIndex);
-          instanceIds.push_back(static_cast<GLuint>(lookupIndex + 1));
-        }
       }
-      if (instanceCommands.size() > 1 || primitivePickIds) {
-        this->drawInstancedPickCommands(drawlist, instanceCommands,
-                                        instanceIds, params, primitivePickIds);
-        i += static_cast<int>(instanceCommands.size()) - 1;
+      if (submission.commandIndices.size() > 1 || primitivePickIds) {
+        submission.type = PickTarget::Submission::Type::DRAW_BATCH;
+        submission.primitivePickIds = primitivePickIds;
+        i += static_cast<int>(submission.commandIndices.size()) - 1;
       }
-      else drawPickCommand(operation.commandIndex);
+      else {
+        submission.type = PickTarget::Submission::Type::DRAW_ONE;
+        submission.index = operation.commandIndex;
+        submission.commandIndices.clear();
+        submission.pickIds.clear();
+      }
+      this->pickTarget.submissions.push_back(std::move(submission));
     }
-    else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
-      if (operation.depthClearEventIndex >= eventCount) {
-        this->emitError("pick plan references a missing depth-clear event");
-        return FALSE;
-      }
+    this->pickTarget.submissionLookupRevision =
+      this->pickTarget.lookupRevision;
+  }
+  for (const PickTarget::Submission & submission :
+       this->pickTarget.submissions) {
+    if (submission.type == PickTarget::Submission::Type::DRAW_BATCH) {
+      this->drawInstancedPickCommands(
+        drawlist, submission.commandIndices, submission.pickIds, params,
+        submission.primitivePickIds);
+      ++this->statistics.closestPick.drawCalls;
+      ++this->statistics.closestPick.instancedBatches;
+      this->statistics.closestPick.instancedCommands +=
+        submission.commandIndices.size();
+    }
+    else if (submission.type == PickTarget::Submission::Type::DRAW_ONE) {
+      drawPickCommand(submission.index);
+    }
+    else {
       this->clearDepthEvent(
-        drawlist.getDepthClearEvents()[operation.depthClearEventIndex],
+        drawlist.getDepthClearEvents()[submission.index],
         params, true);
     }
   }
   this->pickTarget.generation = drawlist.getPickLUTGeneration();
+  ++this->pickTarget.updateSerial;
+  if (this->pickTarget.updateSerial == 0) ++this->pickTarget.updateSerial;
   this->pickTarget.drawlist = &drawlist;
   this->pickTarget.plan = plan;
   this->pickTarget.params = params;
   this->pickTarget.ready = true;
   if (measurePhases) {
-    this->phaseStatistics.pickTargetRenderingNanoseconds =
+    this->statistics.closestPick.targetRenderingNanoseconds =
       elapsedNanoseconds(renderingStart);
   }
   return TRUE;
@@ -3624,11 +3746,8 @@ SoGLRenderBackend::pickClosest(const int x, const int y, const int radius,
       radius < 0) return FALSE;
 
   const bool measurePhases = this->isPhaseTimingEnabled();
-  this->phaseStatistics.pickDepthRenderingNanoseconds = 0;
-  this->phaseStatistics.pickDepthPeelingNanoseconds = 0;
-  this->phaseStatistics.pickReadbackNanoseconds = 0;
-  this->phaseStatistics.pickHitProcessingNanoseconds = 0;
-  this->phaseStatistics.pickTargetRestoreNanoseconds = 0;
+  this->statistics.closestPick.readbackNanoseconds = 0;
+  this->statistics.closestPick.hitProcessingNanoseconds = 0;
 
   const int width = this->pickTarget.size[0];
   const int height = this->pickTarget.size[1];
@@ -3639,7 +3758,7 @@ SoGLRenderBackend::pickClosest(const int x, const int y, const int radius,
   const int top = std::min(height - 1, y + radius);
   if (left > right || bottom > top) return FALSE;
 
-  ScopedGLState state(this->glue);
+  ScopedPickReadbackState state(this->glue);
   cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
                               this->pickTarget.framebuffer);
   glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -3657,7 +3776,7 @@ SoGLRenderBackend::pickClosest(const int x, const int y, const int radius,
   glReadPixels(left, bottom, readWidth, readHeight,
                GL_DEPTH_COMPONENT, GL_FLOAT, depths.data());
   if (measurePhases) {
-    this->phaseStatistics.pickReadbackNanoseconds =
+    this->statistics.closestPick.readbackNanoseconds =
       elapsedNanoseconds(readbackStart);
   }
 
@@ -3701,10 +3820,180 @@ SoGLRenderBackend::pickClosest(const int x, const int y, const int radius,
   result.pixelY = bestPixelY;
   result.depth = bestDepth;
   if (measurePhases) {
-    this->phaseStatistics.pickHitProcessingNanoseconds =
+    this->statistics.closestPick.hitProcessingNanoseconds =
       elapsedNanoseconds(processingStart);
   }
   return TRUE;
+}
+
+SbBool
+SoGLRenderBackend::requestPickClosestAsync(const int x, const int y,
+                                           const int radius,
+                                           SoAsyncPickRequest & request)
+{
+  request = SoAsyncPickRequest();
+  if (!this->isInitialized() || !this->pickTarget.ready || radius < 0) {
+    return FALSE;
+  }
+  const int targetWidth = this->pickTarget.size[0];
+  const int targetHeight = this->pickTarget.size[1];
+  const int left = std::max(0, x - radius);
+  const int bottom = std::max(0, y - radius);
+  const int right = std::min(targetWidth - 1, x + radius);
+  const int top = std::min(targetHeight - 1, y + radius);
+  if (left > right || bottom > top) return FALSE;
+
+  AsyncPickSlot & slot =
+    this->asyncPickSlots[this->nextAsyncPickSlot++ % 3];
+  const bool orphanStorage = slot.active;
+  if (slot.fence) {
+    cc_glglue_glDeleteSync(this->glue, slot.fence);
+    slot.fence = nullptr;
+  }
+  if (!slot.buffer) cc_glglue_glGenBuffers(this->glue, 1, &slot.buffer);
+  if (!slot.buffer) return FALSE;
+
+  slot.requestId = this->nextAsyncPickRequestId++;
+  if (slot.requestId == 0) slot.requestId = this->nextAsyncPickRequestId++;
+  slot.generation = this->pickTarget.generation;
+  slot.targetSerial = this->pickTarget.updateSerial;
+  slot.left = left;
+  slot.bottom = bottom;
+  slot.width = right - left + 1;
+  slot.height = top - bottom + 1;
+  slot.centerX = x;
+  slot.centerY = y;
+  slot.active = true;
+  const size_t pixelCount = static_cast<size_t>(slot.width) * slot.height;
+  const size_t planeBytes = pixelCount * sizeof(GLuint);
+  const size_t requiredBytes = planeBytes * 2;
+
+  ScopedPickReadbackState state(this->glue);
+  ScopedPixelPackState packState;
+  cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
+                              this->pickTarget.framebuffer);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  cc_glglue_glBindBuffer(this->glue, GL_PIXEL_PACK_BUFFER, slot.buffer);
+  if (orphanStorage || slot.capacityBytes < requiredBytes) {
+    cc_glglue_glBufferData(this->glue, GL_PIXEL_PACK_BUFFER,
+                           static_cast<intptr_t>(requiredBytes), nullptr,
+                           GL_STREAM_READ);
+    slot.capacityBytes = requiredBytes;
+  }
+  glReadPixels(left, bottom, slot.width, slot.height,
+               GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+  glReadPixels(left, bottom, slot.width, slot.height,
+               GL_DEPTH_COMPONENT, GL_FLOAT,
+               reinterpret_cast<void *>(planeBytes));
+  slot.fence = cc_glglue_glFenceSync(
+    this->glue, GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  if (!slot.fence) {
+    slot.active = false;
+    return FALSE;
+  }
+  glFlush();
+  request.requestId = slot.requestId;
+  request.targetSerial = slot.targetSerial;
+  request.generation = slot.generation;
+  return TRUE;
+}
+
+SoAsyncPickStatus
+SoGLRenderBackend::pollPickClosestAsync(const SoAsyncPickRequest & request,
+                                        SoPickResult & result)
+{
+  result = SoPickResult();
+  if (!this->isInitialized() || request.requestId == 0) {
+    return SoAsyncPickStatus::FAILED;
+  }
+  if (!this->pickTarget.ready ||
+      request.targetSerial != this->pickTarget.updateSerial ||
+      request.generation != this->pickTarget.generation) {
+    return SoAsyncPickStatus::STALE;
+  }
+  AsyncPickSlot * slot = nullptr;
+  for (AsyncPickSlot & candidate : this->asyncPickSlots) {
+    if (candidate.active && candidate.requestId == request.requestId) {
+      slot = &candidate;
+      break;
+    }
+  }
+  if (!slot || slot->targetSerial != request.targetSerial ||
+      slot->generation != request.generation) {
+    return SoAsyncPickStatus::STALE;
+  }
+  const GLenum wait = cc_glglue_glClientWaitSync(
+    this->glue, slot->fence, 0, 0);
+  if (wait == GL_TIMEOUT_EXPIRED) return SoAsyncPickStatus::PENDING;
+  if (wait == GL_WAIT_FAILED) {
+    cc_glglue_glDeleteSync(this->glue, slot->fence);
+    slot->fence = nullptr;
+    slot->active = false;
+    return SoAsyncPickStatus::FAILED;
+  }
+
+  const size_t pixelCount = static_cast<size_t>(slot->width) * slot->height;
+  const size_t planeBytes = pixelCount * sizeof(GLuint);
+  ScopedPickReadbackState state(this->glue);
+  cc_glglue_glBindBuffer(this->glue, GL_PIXEL_PACK_BUFFER, slot->buffer);
+  const unsigned char * mapped = static_cast<const unsigned char *>(
+    cc_glglue_glMapBuffer(this->glue, GL_PIXEL_PACK_BUFFER, GL_READ_ONLY));
+  if (!mapped) {
+    cc_glglue_glDeleteSync(this->glue, slot->fence);
+    slot->fence = nullptr;
+    slot->active = false;
+    return SoAsyncPickStatus::FAILED;
+  }
+  const GLuint * ids = reinterpret_cast<const GLuint *>(mapped);
+  const GLfloat * depths = reinterpret_cast<const GLfloat *>(
+    mapped + planeBytes);
+  GLuint bestId = 0;
+  int bestDistance = 0;
+  size_t bestOffset = 0;
+  int bestX = 0;
+  int bestY = 0;
+  for (int row = 0; row < slot->height; ++row) {
+    for (int column = 0; column < slot->width; ++column) {
+      const size_t offset = static_cast<size_t>(row) * slot->width + column;
+      if (!ids[offset]) continue;
+      const int px = slot->left + column;
+      const int py = slot->bottom + row;
+      const int dx = px - slot->centerX;
+      const int dy = py - slot->centerY;
+      const int distance = dx * dx + dy * dy;
+      if (!bestId || distance < bestDistance) {
+        bestId = ids[offset];
+        bestDistance = distance;
+        bestOffset = offset;
+        bestX = px;
+        bestY = py;
+      }
+    }
+  }
+  const float bestDepth = bestId ? depths[bestOffset] : 1.0f;
+  const GLboolean unmapped = cc_glglue_glUnmapBuffer(
+    this->glue, GL_PIXEL_PACK_BUFFER);
+  cc_glglue_glDeleteSync(this->glue, slot->fence);
+  slot->fence = nullptr;
+  slot->active = false;
+  if (!unmapped) return SoAsyncPickStatus::FAILED;
+  if (!bestId) return SoAsyncPickStatus::MISS;
+  if (bestId > this->pickTarget.lookup.size()) {
+    return SoAsyncPickStatus::FAILED;
+  }
+  const SoPickLUTEntry & entry = this->pickTarget.lookup[bestId - 1];
+  result.id = bestId;
+  result.generation = slot->generation;
+  result.commandIndex = entry.commandIndex;
+  result.nodeId = entry.nodeId;
+  result.instanceId = entry.instanceId;
+  result.objectId = entry.objectId;
+  result.type = entry.type;
+  result.elementIndex = entry.elementIndex;
+  result.pixelX = bestX;
+  result.pixelY = bestY;
+  result.depth = bestDepth;
+  return SoAsyncPickStatus::HIT;
 }
 
 SbBool
@@ -3726,7 +4015,7 @@ SoGLRenderBackend::pickVisibleRegion(const SbBox2s & region,
                            static_cast<int>(region.getMax()[1]));
   if (left > right || bottom > top) return FALSE;
 
-  ScopedGLState state(this->glue);
+  ScopedPickReadbackState state(this->glue);
   cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
                               this->pickTarget.framebuffer);
   glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -3789,11 +4078,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     return FALSE;
   }
   const bool measurePhases = this->isPhaseTimingEnabled();
-  this->phaseStatistics.pickDepthRenderingNanoseconds = 0;
-  this->phaseStatistics.pickDepthPeelingNanoseconds = 0;
-  this->phaseStatistics.pickReadbackNanoseconds = 0;
-  this->phaseStatistics.pickHitProcessingNanoseconds = 0;
-  this->phaseStatistics.pickTargetRestoreNanoseconds = 0;
+  this->statistics.depthPick = SoRenderBackendDepthPickStatistics();
 
   const int width = this->pickTarget.size[0];
   const int height = this->pickTarget.size[1];
@@ -3812,14 +4097,8 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
   const SoRenderParams & params = this->pickTarget.params;
   const uint32_t commandCount = static_cast<uint32_t>(
     drawlist.getNumCommands());
-  std::vector<std::vector<size_t> > lookupByCommand(commandCount);
-  for (size_t lookupIndex = 0;
-       lookupIndex < this->pickTarget.lookup.size(); ++lookupIndex) {
-    const int commandIndex = this->pickTarget.lookup[lookupIndex].commandIndex;
-    if (commandIndex >= 0 && static_cast<uint32_t>(commandIndex) < commandCount) {
-      lookupByCommand[static_cast<size_t>(commandIndex)].push_back(lookupIndex);
-    }
-  }
+  const std::vector<std::vector<size_t> > & lookupByCommand =
+    this->pickTarget.lookupByCommand;
 
   // A depth clear starts a new visual depth segment only where that clear
   // applies. At a local-viewport cursor, later segments supersede earlier
@@ -3871,7 +4150,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     glReadPixels(left, bottom, readWidth, readHeight,
                  GL_DEPTH_COMPONENT, GL_FLOAT, depths.data());
     if (measurePhases) {
-      this->phaseStatistics.pickReadbackNanoseconds +=
+      this->statistics.depthPick.readbackNanoseconds +=
         elapsedNanoseconds(readbackStart);
     }
 
@@ -3910,7 +4189,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
         return lhs.id < rhs.id;
       });
     if (measurePhases) {
-      this->phaseStatistics.pickHitProcessingNanoseconds +=
+      this->statistics.depthPick.hitProcessingNanoseconds +=
         elapsedNanoseconds(processingStart);
     }
     return ordered;
@@ -3957,6 +4236,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
         }
         this->drawPickEntry(drawlist, entry, static_cast<GLuint>(i + 1),
                             frameView, frameProjection, params);
+        ++this->statistics.depthPick.drawCalls;
       }
     };
     for (size_t commandOffset = 0; commandOffset < commands.size();) {
@@ -4000,6 +4280,10 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
         this->drawInstancedPickCommands(drawlist, instanceCommands,
                                         instanceIds, params,
                                         primitiveMapped);
+        ++this->statistics.depthPick.drawCalls;
+        ++this->statistics.depthPick.instancedBatches;
+        this->statistics.depthPick.instancedCommands +=
+          instanceCommands.size();
         commandOffset += instanceCommands.size();
       }
       else {
@@ -4009,8 +4293,8 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     }
     if (measurePhases) {
       uint64_t & destination = peel
-        ? this->phaseStatistics.pickDepthPeelingNanoseconds
-        : this->phaseStatistics.pickDepthRenderingNanoseconds;
+        ? this->statistics.depthPick.peelingNanoseconds
+        : this->statistics.depthPick.renderingNanoseconds;
       destination += elapsedNanoseconds(renderingStart);
     }
     return true;
@@ -4064,7 +4348,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   this->updatePickBuffer(drawlist, plan, params);
   if (measurePhases) {
-    this->phaseStatistics.pickTargetRestoreNanoseconds =
+    this->statistics.depthPick.targetRestoreNanoseconds =
       elapsedNanoseconds(restoreStart);
   }
   return !results.hits.empty();
@@ -4145,6 +4429,7 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
   const auto drawTargets = [&](const std::vector<SoSelectionTarget> & targets,
                                const bool highlighted) {
     if (targets.empty()) return;
+    this->statistics.selection.targets += targets.size();
     SelectionPassScratch & pass = this->selectionPasses[highlighted ? 1 : 0];
     uint64_t fingerprint = UINT64_C(1469598103934665603);
     for (const SoSelectionTarget & target : targets) {
@@ -4277,10 +4562,15 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
       if (batchAllowed) {
         this->drawInstancedSelectionCommands(drawlist, batch, params,
                                              batch.primitiveSelection);
+        ++this->statistics.selection.drawCalls;
+        ++this->statistics.selection.instancedBatches;
+        this->statistics.selection.instancedCommands +=
+          batch.instances.size();
       }
       else {
         for (const SelectionInstanceScratch & instance : batch.instances) {
           drawTarget(targets[instance.targetIndex]);
+          ++this->statistics.selection.drawCalls;
         }
       }
     }
@@ -4303,17 +4593,15 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   }
 
   const bool measurePhases = this->isPhaseTimingEnabled();
-  this->phaseStatistics.frameSetupNanoseconds = 0;
-  this->phaseStatistics.resourcePreparationNanoseconds = 0;
-  this->phaseStatistics.commandExecutionNanoseconds = 0;
-  this->phaseStatistics.selectionNanoseconds = 0;
+  this->statistics.submission = SoRenderBackendSubmissionStatistics();
+  this->statistics.selection = SoRenderBackendSelectionStatistics();
 
   this->debugValidateDrawList(drawlist);
   const BackendPhaseClock::time_point frameSetupStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   this->beginFrame(params);
   if (measurePhases) {
-    this->phaseStatistics.frameSetupNanoseconds =
+    this->statistics.submission.frameSetupNanoseconds =
       elapsedNanoseconds(frameSetupStart);
   }
   const BackendPhaseClock::time_point resourceStart = measurePhases
@@ -4321,7 +4609,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   this->prepareGeometryCache(
     drawlist, (params.flags & SO_PARAM_REUSE_DRAW_LIST) != 0);
   if (measurePhases) {
-    this->phaseStatistics.resourcePreparationNanoseconds =
+    this->statistics.submission.resourcePreparationNanoseconds =
       elapsedNanoseconds(resourceStart);
   }
 
@@ -4353,7 +4641,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
         ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
       this->renderSelection(drawlist, queuedSelection, params);
       if (measurePhases) {
-        this->phaseStatistics.selectionNanoseconds +=
+        this->statistics.selection.durationNanoseconds +=
           elapsedNanoseconds(selectionStart);
       }
       queuedSelection = SoSelectionState();
@@ -4389,6 +4677,19 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       if (instanceCommands.size() > 1) {
         this->drawInstancedCommands(drawlist, instanceCommands, params);
+        this->statistics.submission.semanticDrawCommands += instanceCommands.size();
+        ++this->statistics.submission.submittedDrawCalls;
+        if (drawlist.getCommandGeometry(first).topology ==
+            SO_TOPOLOGY_LINES) {
+          ++this->statistics.submission.instancedLineBatches;
+          this->statistics.submission.instancedLineCommands +=
+            instanceCommands.size();
+        }
+        else {
+          ++this->statistics.submission.instancedTriangleBatches;
+          this->statistics.submission.instancedTriangleCommands +=
+            instanceCommands.size();
+        }
         for (const uint32_t commandIndex : instanceCommands) {
           queueTargets(commandIndex);
         }
@@ -4396,6 +4697,8 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       else {
         this->drawCommand(drawlist, first, view, projection, params);
+        ++this->statistics.submission.semanticDrawCommands;
+        ++this->statistics.submission.submittedDrawCalls;
         queueTargets(operation.commandIndex);
       }
     }
@@ -4415,14 +4718,14 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   cc_glglue_glUseProgram(this->glue, 0);
   if (measurePhases) {
     const uint64_t executionWithSelection = elapsedNanoseconds(executionStart);
-    this->phaseStatistics.commandExecutionNanoseconds =
-      executionWithSelection - this->phaseStatistics.selectionNanoseconds;
+    this->statistics.submission.commandExecutionNanoseconds =
+      executionWithSelection - this->statistics.selection.durationNanoseconds;
   }
   return TRUE;
 }
 
-SoRenderBackendPhaseStatistics
-SoGLRenderBackend::getPhaseStatistics() const
+SoRenderBackendStatistics
+SoGLRenderBackend::getStatistics() const
 {
-  return this->phaseStatistics;
+  return this->statistics;
 }
