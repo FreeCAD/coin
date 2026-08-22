@@ -141,7 +141,11 @@ result resolution. The expensive 32- and 128-layer curves use a bounded sample
 count so focused interaction runs remain practical.
 
 `incremental_update_median_ms` isolates retained dependency lookup and command
-patching from plan construction and backend submission.
+patching from plan construction and backend submission. Matrix-only updates to
+opaque commands and non-opacity material updates preserve render-plan
+classification and order, so their plan-construction time must remain zero.
+Transparent matrix updates, opacity, visibility, geometry, and structural
+changes conservatively rebuild the plan.
 
 Timing remains disabled for normal `SoRenderManager` users, so clock reads do
 not affect ordinary rendering. A zero-valued phase means it did not run; for

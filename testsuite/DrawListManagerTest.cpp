@@ -323,9 +323,10 @@ runTest()
       manager.getRenderPhaseStatistics();
     if (transformPhases.drawListRebuilds != 0 ||
         transformPhases.incrementalCommandUpdates != 1 ||
-        transformPhases.incrementalUpdateNanoseconds == 0) {
+        transformPhases.incrementalUpdateNanoseconds == 0 ||
+        transformPhases.planConstructionNanoseconds != 0) {
       std::cerr << "FAIL: isolated translation did not patch its retained "
-                   "command" << std::endl;
+                   "command while preserving the render plan" << std::endl;
       result = 1;
     }
     cubeTranslation->translation.setValue(0.2f, 0.0f, -3.0f);
@@ -334,7 +335,8 @@ runTest()
     const SoRenderManager::RenderPhaseStatistics transformBatchPhases =
       manager.getRenderPhaseStatistics();
     if (transformBatchPhases.drawListRebuilds != 0 ||
-        transformBatchPhases.incrementalCommandUpdates != 1) {
+        transformBatchPhases.incrementalCommandUpdates != 1 ||
+        transformBatchPhases.planConstructionNanoseconds != 0) {
       std::cerr << "FAIL: transform batch did not patch its unique retained "
                    "command" << std::endl;
       result = 1;
@@ -344,9 +346,10 @@ runTest()
     const SoRenderManager::RenderPhaseStatistics materialPhases =
       manager.getRenderPhaseStatistics();
     if (materialPhases.drawListRebuilds != 0 ||
-        materialPhases.incrementalCommandUpdates != 1) {
+        materialPhases.incrementalCommandUpdates != 1 ||
+        materialPhases.planConstructionNanoseconds != 0) {
       std::cerr << "FAIL: isolated diffuse color did not patch its retained "
-                   "command" << std::endl;
+                   "command while preserving the render plan" << std::endl;
       result = 1;
     }
     cubeMaterial->diffuseColor.setValue(0.7f, 0.3f, 0.2f);
@@ -355,12 +358,14 @@ runTest()
     const SoRenderManager::RenderPhaseStatistics materialBatchPhases =
       manager.getRenderPhaseStatistics();
     if (materialBatchPhases.drawListRebuilds != 0 ||
-        materialBatchPhases.incrementalCommandUpdates != 1) {
+        materialBatchPhases.incrementalCommandUpdates != 1 ||
+        materialBatchPhases.planConstructionNanoseconds != 0) {
       std::cerr << "FAIL: repeated material notifications were not coalesced"
                 << std::endl;
       result = 1;
     }
-    const auto verifyIncrementalMaterial = [&](const char * description) {
+    const auto verifyIncrementalMaterial = [&](const char * description,
+                                                bool changesPlan = false) {
       manager.render(TRUE, TRUE);
       const SoRenderManager::RenderPhaseStatistics phases =
         manager.getRenderPhaseStatistics();
@@ -370,6 +375,9 @@ runTest()
       const std::vector<uint8_t> rebuiltPixels = context.readPixels();
       if (phases.drawListRebuilds != 0 ||
           phases.incrementalCommandUpdates != 1 ||
+          (changesPlan
+             ? phases.planConstructionNanoseconds == 0
+             : phases.planConstructionNanoseconds != 0) ||
           incrementalPixels != rebuiltPixels) {
         std::cerr << "FAIL: incremental " << description
                   << " differs from full rebuild" << std::endl;
@@ -388,9 +396,20 @@ runTest()
     cubeMaterial->shininess.setValue(0.7f);
     verifyIncrementalMaterial("batched material fields");
     cubeMaterial->transparency.setValue(0.35f);
-    verifyIncrementalMaterial("transparent transition");
+    verifyIncrementalMaterial("transparent transition", true);
+    cubeTranslation->translation.setValue(0.25f, 0.0f, -3.0f);
+    manager.render(TRUE, TRUE);
+    const SoRenderManager::RenderPhaseStatistics transparentTransformPhases =
+      manager.getRenderPhaseStatistics();
+    if (transparentTransformPhases.drawListRebuilds != 0 ||
+        transparentTransformPhases.incrementalCommandUpdates != 1 ||
+        transparentTransformPhases.planConstructionNanoseconds == 0) {
+      std::cerr << "FAIL: transparent translation preserved stale depth order"
+                << std::endl;
+      result = 1;
+    }
     cubeMaterial->transparency.setValue(0.0f);
-    verifyIncrementalMaterial("opaque transition");
+    verifyIncrementalMaterial("opaque transition", true);
     cubeNestedTranslation->translation.setValue(0.2f, 0.0f, 0.0f);
     cubeMaterial->diffuseColor.setValue(0.5f, 0.4f, 0.3f);
     manager.render(TRUE, TRUE);

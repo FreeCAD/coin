@@ -25,6 +25,36 @@ int drawOperationCount(const SoRenderPlan & plan)
 int
 main()
 {
+  bool result = true;
+#ifdef COIN_INTERNAL
+  SoDrawList revisions;
+  SoRenderCommand revisionCommand;
+  revisions.addCommand(revisionCommand);
+  uint64_t contentRevision = revisions.getContentRevision();
+  uint64_t planRevision = revisions.getRenderPlanRevision();
+  revisions.getCommandForStateUpdate(0).modelMatrix.makeIdentity();
+  result = check(revisions.getContentRevision() > contentRevision &&
+                 revisions.getRenderPlanRevision() == planRevision,
+                 "dynamic state update invalidated derived layout") && result;
+
+  contentRevision = revisions.getContentRevision();
+  planRevision = revisions.getRenderPlanRevision();
+  revisions.getCommandPreservingPickTopology(0).opacityClass =
+    SO_OPACITY_TRANSPARENT;
+  result = check(revisions.getContentRevision() > contentRevision &&
+                 revisions.getRenderPlanRevision() > planRevision,
+                 "ordering update did not isolate render-plan invalidation") &&
+    result;
+
+  contentRevision = revisions.getContentRevision();
+  planRevision = revisions.getRenderPlanRevision();
+  revisions.getCommand(0).geometry.revision++;
+  result = check(revisions.getContentRevision() > contentRevision &&
+                 revisions.getRenderPlanRevision() > planRevision,
+                 "generic mutation did not invalidate render planning") &&
+    result;
+#endif // COIN_INTERNAL
+
   SoDrawList drawlist;
   SoRenderCommand first;
   SoRenderCommand second;
@@ -45,9 +75,10 @@ main()
   SoRenderPlan plan;
   SoDrawList empty;
   planner.build(empty, plan);
-  bool result = check(drawOperationCount(plan) == 0 &&
-                      plan.getNumOperations() > 0,
-                      "empty DrawList did not produce a barrier-only plan");
+  result = check(drawOperationCount(plan) == 0 &&
+                 plan.getNumOperations() > 0,
+                 "empty DrawList did not produce a barrier-only plan") &&
+    result;
 
   planner.build(drawlist, plan);
   result = check(drawOperationCount(plan) == 3,

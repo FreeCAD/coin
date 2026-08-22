@@ -447,10 +447,10 @@ resolveRetainedRenderPlan(SoRenderManagerP * manager,
                           uint64_t & constructionNanoseconds)
 {
   constructionNanoseconds = 0;
-  const uint64_t contentRevision = drawlist.getContentRevision();
+  const uint64_t planRevision = drawlist.getRenderPlanRevision();
   if (!manager->renderPlanValid ||
       manager->renderPlanDrawList != &drawlist ||
-      manager->renderPlanContentRevision != contentRevision ||
+      manager->renderPlanRevision != planRevision ||
       manager->renderPlanViewMatrix != viewMatrix) {
     const std::chrono::steady_clock::time_point start =
       manager->renderPhaseTimingEnabled
@@ -459,7 +459,7 @@ resolveRetainedRenderPlan(SoRenderManagerP * manager,
     SoRenderPlanner planner;
     planner.build(drawlist, manager->renderPlan);
     manager->renderPlanDrawList = &drawlist;
-    manager->renderPlanContentRevision = contentRevision;
+    manager->renderPlanRevision = planRevision;
     manager->renderPlanViewMatrix = viewMatrix;
     manager->renderPlanValid = TRUE;
     if (manager->renderPhaseTimingEnabled) {
@@ -715,7 +715,7 @@ SoRenderManager::SoRenderManager(void)
   PRIVATE(this)->renderPhaseTimingEnabled = FALSE;
   PRIVATE(this)->renderPhaseStatistics = RenderPhaseStatistics();
   PRIVATE(this)->renderPlanDrawList = NULL;
-  PRIVATE(this)->renderPlanContentRevision = 0;
+  PRIVATE(this)->renderPlanRevision = 0;
   PRIVATE(this)->renderPlanValid = FALSE;
   PRIVATE(this)->renderBackendContextId = 0;
   PRIVATE(this)->drawListCallbackScope = FALSE;

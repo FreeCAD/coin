@@ -761,9 +761,25 @@ SoIRRenderAction::updateCommandMatricesForStatePaths(
     matrixAction.apply(const_cast<SoPath *>(commandPath));
     replacements.push_back(matrixAction.getMatrix());
   }
+  // Opaque ordering is independent of model-space depth. Transparent commands
+  // are sorted back-to-front, so moving even one of them invalidates the plan.
+  bool preservesRenderPlan = true;
+  for (size_t commandIndex : commandIndices) {
+    const SoRenderCommand & command =
+      static_cast<const SoDrawList &>(this->drawlist).getCommand(
+        static_cast<int>(commandIndex));
+    if (command.opacityClass != SO_OPACITY_OPAQUE) {
+      preservesRenderPlan = false;
+      break;
+    }
+  }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    this->drawlist.getCommandPreservingPickTopology(
-      static_cast<int>(commandIndices[i])).modelMatrix = replacements[i];
+    SoRenderCommand & command = preservesRenderPlan
+      ? this->drawlist.getCommandForStateUpdate(
+          static_cast<int>(commandIndices[i]))
+      : this->drawlist.getCommandPreservingPickTopology(
+          static_cast<int>(commandIndices[i]));
+    command.modelMatrix = replacements[i];
   }
   return static_cast<int>(commandIndices.size());
 }
@@ -888,8 +904,11 @@ SoIRRenderAction::updateCommandMaterialsForStatePaths(
     replacements.push_back(replay);
   }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    SoRenderCommand & command = this->drawlist.getCommandPreservingPickTopology(
-      static_cast<int>(commandIndices[i]));
+    SoRenderCommand & command = opacityMayChange
+      ? this->drawlist.getCommandPreservingPickTopology(
+          static_cast<int>(commandIndices[i]))
+      : this->drawlist.getCommandForStateUpdate(
+          static_cast<int>(commandIndices[i]));
     command.material = replacements[i].material;
     if (command.finalizationEnabledBlend) command.state.blend = SoBlendState();
     SoRenderIR::finalizeCommand(command);

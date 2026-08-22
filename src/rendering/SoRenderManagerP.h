@@ -134,7 +134,7 @@ public:
   SoRenderPlan renderPlan;
   const SoDrawList * renderPlanDrawList;
   SbMatrix renderPlanViewMatrix;
-  uint64_t renderPlanContentRevision;
+  uint64_t renderPlanRevision;
   SbBool renderPlanValid;
   uint32_t renderBackendContextId;
   SbBool drawListCallbackScope;

@@ -579,10 +579,15 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
 
   const auto measure = [&](const std::string & mutation, int changedCount,
                            const std::function<void(int)> & mutate) {
+    const bool preservesRenderPlan =
+      mutation == "translation" || mutation == "material";
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
     std::vector<double> incrementalUpdateTimes;
+    std::vector<double> backendSubmissionTimes;
+    std::vector<double> backendResourcePreparationTimes;
+    std::vector<double> backendCommandExecutionTimes;
     for (int sample = 0; sample < samples; ++sample) {
       mutate(sample);
       context.bindFramebuffer();
@@ -596,10 +601,18 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
       planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
       incrementalUpdateTimes.push_back(
         phases.incrementalUpdateNanoseconds / 1000000.0);
+      backendSubmissionTimes.push_back(
+        phases.backendSubmissionNanoseconds / 1000000.0);
+      backendResourcePreparationTimes.push_back(
+        phases.backendResourcePreparationNanoseconds / 1000000.0);
+      backendCommandExecutionTimes.push_back(
+        phases.backendCommandExecutionNanoseconds / 1000000.0);
       if (phases.drawListRebuilds != 0 ||
           phases.incrementalCommandUpdates !=
             static_cast<uint64_t>(changedCount) ||
-          phases.planConstructionNanoseconds == 0) {
+          (preservesRenderPlan
+             ? phases.planConstructionNanoseconds != 0
+             : phases.planConstructionNanoseconds == 0)) {
         std::ostringstream reason;
         reason << mutation << '_' << changedCount << " updated "
                << phases.incrementalCommandUpdates << " commands with "
@@ -631,6 +644,12 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     result.planConstructionMedianMs = percentile(planTimes, 0.5);
     result.incrementalUpdateMedianMs =
       percentile(incrementalUpdateTimes, 0.5);
+    result.backendSubmissionMedianMs =
+      percentile(backendSubmissionTimes, 0.5);
+    result.backendResourcePreparationMedianMs =
+      percentile(backendResourcePreparationTimes, 0.5);
+    result.backendCommandExecutionMedianMs =
+      percentile(backendCommandExecutionTimes, 0.5);
     result.incrementalCommandUpdates = static_cast<uint64_t>(changedCount);
     result.pixelChecksum = checksumPixels(context.readPixels());
     results.push_back(result);
@@ -684,6 +703,11 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
           0, positions[0] + SbVec3f(offset, 0.0f, 0.0f));
       });
       if (!valid) break;
+      // Do not let the opacity curve change whether the next translation
+      // batch can safely reuse its render plan.
+      mutations.materials[0]->transparency.set1Value(0, 0.0f);
+      context.bindFramebuffer();
+      manager.render(TRUE, TRUE);
     }
   }
 
@@ -1202,6 +1226,9 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
     std::vector<double> incrementalUpdateTimes;
+    std::vector<double> backendSubmissionTimes;
+    std::vector<double> backendResourcePreparationTimes;
+    std::vector<double> backendCommandExecutionTimes;
     const float magnitude = 0.002f * static_cast<float>(batchIndex + 1);
     for (int sample = 0; sample < samples; ++sample) {
       const float offset = (sample & 1) ? -magnitude : magnitude;
@@ -1221,10 +1248,17 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
       incrementalUpdateTimes.push_back(
         phases.incrementalUpdateNanoseconds / 1000000.0);
+      backendSubmissionTimes.push_back(
+        phases.backendSubmissionNanoseconds / 1000000.0);
+      backendResourcePreparationTimes.push_back(
+        phases.backendResourcePreparationNanoseconds / 1000000.0);
+      backendCommandExecutionTimes.push_back(
+        phases.backendCommandExecutionNanoseconds / 1000000.0);
       const uint64_t expectedUpdates =
         static_cast<uint64_t>(changedCount) * 2;
       if (phases.drawListRebuilds != 0 ||
-          phases.incrementalCommandUpdates != expectedUpdates) {
+          phases.incrementalCommandUpdates != expectedUpdates ||
+          phases.planConstructionNanoseconds != 0) {
         std::ostringstream reason;
         reason << "assembly transform batch " << changedCount << " updated "
                << phases.incrementalCommandUpdates << " commands with "
@@ -1276,6 +1310,12 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     transformResult.planConstructionMedianMs = percentile(planTimes, 0.5);
     transformResult.incrementalUpdateMedianMs =
       percentile(incrementalUpdateTimes, 0.5);
+    transformResult.backendSubmissionMedianMs =
+      percentile(backendSubmissionTimes, 0.5);
+    transformResult.backendResourcePreparationMedianMs =
+      percentile(backendResourcePreparationTimes, 0.5);
+    transformResult.backendCommandExecutionMedianMs =
+      percentile(backendCommandExecutionTimes, 0.5);
     transformResult.incrementalCommandUpdates =
       static_cast<uint64_t>(changedCount) * 2;
     transformResult.pixelChecksum = checksumPixels(incrementalPixels);
@@ -1290,9 +1330,13 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
   const auto measureOccurrenceMaterial =
     [&](const std::string & label, const int changedCount,
         const std::function<void(int)> & mutate) {
+      const bool preservesRenderPlan = label == "material";
       std::vector<double> materialFrameTimes;
       std::vector<double> materialPlanTimes;
       std::vector<double> materialUpdateTimes;
+      std::vector<double> backendSubmissionTimes;
+      std::vector<double> backendResourcePreparationTimes;
+      std::vector<double> backendCommandExecutionTimes;
       for (int sample = 0; sample < samples; ++sample) {
         mutate(sample);
         context.bindFramebuffer();
@@ -1305,10 +1349,18 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
           phases.planConstructionNanoseconds / 1000000.0);
         materialUpdateTimes.push_back(
           phases.incrementalUpdateNanoseconds / 1000000.0);
+        backendSubmissionTimes.push_back(
+          phases.backendSubmissionNanoseconds / 1000000.0);
+        backendResourcePreparationTimes.push_back(
+          phases.backendResourcePreparationNanoseconds / 1000000.0);
+        backendCommandExecutionTimes.push_back(
+          phases.backendCommandExecutionNanoseconds / 1000000.0);
         if (phases.drawListRebuilds != 0 ||
             phases.incrementalCommandUpdates !=
               static_cast<uint64_t>(changedCount) ||
-            phases.planConstructionNanoseconds == 0) {
+            (preservesRenderPlan
+               ? phases.planConstructionNanoseconds != 0
+               : phases.planConstructionNanoseconds == 0)) {
           std::ostringstream reason;
           reason << label << " updated " << phases.incrementalCommandUpdates
                  << " commands with " << phases.drawListRebuilds
@@ -1350,6 +1402,12 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
         percentile(materialPlanTimes, 0.5);
       materialResult.incrementalUpdateMedianMs =
         percentile(materialUpdateTimes, 0.5);
+      materialResult.backendSubmissionMedianMs =
+        percentile(backendSubmissionTimes, 0.5);
+      materialResult.backendResourcePreparationMedianMs =
+        percentile(backendResourcePreparationTimes, 0.5);
+      materialResult.backendCommandExecutionMedianMs =
+        percentile(backendCommandExecutionTimes, 0.5);
       materialResult.incrementalCommandUpdates = changedCount;
       materialResult.pixelChecksum = checksumPixels(materialPixels);
       results.push_back(materialResult);

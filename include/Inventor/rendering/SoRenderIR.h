@@ -702,8 +702,12 @@ public:
 
   //! Return the generation number incremented when clear() starts a new frame.
   uint32_t getGeneration() const { return generation; }
-  //! Monotonic serial for changes that may affect planning or submission.
+  //! Monotonic serial for any command or auxiliary-table content change.
   uint64_t getContentRevision() const { return contentRevision; }
+#ifdef COIN_INTERNAL
+  //! Internal serial for changes that may alter render-plan operation order.
+  uint64_t getRenderPlanRevision() const { return renderPlanRevision; }
+#endif
 
   void addCommand(const SoRenderCommand & cmd);
   void addCommand(SoRenderCommand && cmd);
@@ -725,6 +729,8 @@ public:
   //! Callers must not change pickability, visibility, geometry, element
   //! ranges, or retained identity through the returned reference.
   SoRenderCommand & getCommandPreservingPickTopology(int i);
+  //! Mutable access for matrix/material updates that preserve derived layout.
+  SoRenderCommand & getCommandForStateUpdate(int i);
 #endif
   //! Resolve a command resource, falling back to its embedded descriptor.
   const SoGeometryDesc & getCommandGeometry(
@@ -789,6 +795,7 @@ private:
   mutable std::vector<SoPickLUTEntry> pickLUT;
   uint32_t generation = 0;
   uint64_t contentRevision = 0;
+  uint64_t renderPlanRevision = 0;
   mutable uint32_t pickLUTGeneration = 0;
   mutable uint64_t pickLUTRevision = 0;
   mutable bool pickLUTValid = false;
