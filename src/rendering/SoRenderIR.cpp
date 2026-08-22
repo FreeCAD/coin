@@ -311,6 +311,7 @@ SoDrawList::clear()
   this->pickLUT.clear();
   this->generation++;
   this->contentRevision++;
+  this->renderPlanRevision++;
   this->pickLUTGeneration = 0;
 }
 
@@ -318,6 +319,8 @@ void
 SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
+    ++this->contentRevision;
+    ++this->renderPlanRevision;
     this->commands.resize(static_cast<size_t>(count));
     auto trimTargets = [count](std::vector<SoSelectionTarget> & targets) {
       targets.erase(
@@ -349,6 +352,8 @@ SoDrawList::reserve(int count)
 void
 SoDrawList::addCommand(const SoRenderCommand & cmd)
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->commands.push_back(cmd);
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
@@ -357,6 +362,8 @@ SoDrawList::addCommand(const SoRenderCommand & cmd)
 SoRenderCommand &
 SoDrawList::emplaceCommand()
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   this->commands.emplace_back();
@@ -400,6 +407,8 @@ void
 SoDrawList::truncateGeometryResources(int count)
 {
   if (count >= 0 && count < static_cast<int>(this->geometryResources.size())) {
+    ++this->contentRevision;
+    ++this->renderPlanRevision;
     this->geometryResources.resize(static_cast<size_t>(count));
   }
 }
@@ -408,8 +417,24 @@ void
 SoDrawList::markGeometryResourcesChanged()
 {
   ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
+}
+
+SoRenderCommand &
+SoDrawList::getCommandPreservingPickTopology(int i)
+{
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
+  return this->commands[static_cast<size_t>(i)];
+}
+
+SoRenderCommand &
+SoDrawList::getCommandForStateUpdate(int i)
+{
+  ++this->contentRevision;
+  return this->commands[static_cast<size_t>(i)];
 }
 
 const SoGeometryDesc &
@@ -434,6 +459,8 @@ SoDrawList::getCommandElementRanges(const SoRenderCommand & command) const
 void
 SoDrawList::addDepthClearEvent(const SoDepthClearEvent & event)
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   SoDepthClearEvent recorded = event;
   recorded.sequence = std::min(recorded.sequence,
                                static_cast<uint32_t>(this->commands.size()));
@@ -449,6 +476,8 @@ SoDrawList::getNumCommands() const
 SoRenderCommand &
 SoDrawList::getCommand(int i)
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands[static_cast<size_t>(i)];
@@ -543,6 +572,8 @@ SoDrawList::resolvePickId(uint32_t id) const
 SoRenderCommand *
 SoDrawList::begin()
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data();
@@ -551,6 +582,8 @@ SoDrawList::begin()
 SoRenderCommand *
 SoDrawList::end()
 {
+  ++this->contentRevision;
+  ++this->renderPlanRevision;
   this->pickLUT.clear();
   this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data() + this->commands.size();

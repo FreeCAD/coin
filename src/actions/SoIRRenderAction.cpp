@@ -556,16 +556,35 @@ SoIRRenderAction::updateCommandMatricesForStatePaths(
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   SoGetMatrixAction matrixAction(this->vpRegion);
-  int updated = 0;
+  std::vector<SbMatrix> replacements;
+  replacements.reserve(commandIndices.size());
   for (size_t commandIndex : commandIndices) {
     const SoPath * commandPath = this->commandPaths[commandIndex];
-    if (!commandPath) continue;
+    if (!commandPath) return 0;
     matrixAction.apply(const_cast<SoPath *>(commandPath));
-    this->drawlist.getCommand(static_cast<int>(commandIndex)).modelMatrix =
-      matrixAction.getMatrix();
-    ++updated;
+    replacements.push_back(matrixAction.getMatrix());
   }
-  return updated;
+  // Opaque ordering is independent of model-space depth. Transparent commands
+  // are sorted back-to-front, so moving even one of them invalidates the plan.
+  bool preservesRenderPlan = true;
+  for (size_t commandIndex : commandIndices) {
+    const SoRenderCommand & command =
+      static_cast<const SoDrawList &>(this->drawlist).getCommand(
+        static_cast<int>(commandIndex));
+    if (command.opacityClass != SO_OPACITY_OPAQUE) {
+      preservesRenderPlan = false;
+      break;
+    }
+  }
+  for (size_t i = 0; i < commandIndices.size(); ++i) {
+    SoRenderCommand & command = preservesRenderPlan
+      ? this->drawlist.getCommandForStateUpdate(
+          static_cast<int>(commandIndices[i]))
+      : this->drawlist.getCommandPreservingPickTopology(
+          static_cast<int>(commandIndices[i]));
+    command.modelMatrix = replacements[i];
+  }
+  return static_cast<int>(commandIndices.size());
 }
 
 void
@@ -660,7 +679,8 @@ SoIRRenderAction::updateCommandDiffuseColorsForStatePaths(
     const SoPath * commandPath = this->commandPaths[commandIndex];
     if (!commandPath) return 0;
     const SoRenderCommand & command =
-      this->drawlist.getCommand(static_cast<int>(commandIndex));
+      static_cast<const SoDrawList &>(this->drawlist).getCommand(
+        static_cast<int>(commandIndex));
     MaterialReplay replay = { command.materialIndex, SoMaterialData() };
     SoCallbackAction materialAction(this->vpRegion);
     materialAction.addPreTailCallback(captureEffectiveMaterial, &replay);
@@ -668,7 +688,7 @@ SoIRRenderAction::updateCommandDiffuseColorsForStatePaths(
     replacements.push_back(replay);
   }
   for (size_t i = 0; i < commandIndices.size(); ++i) {
-    SoRenderCommand & command = this->drawlist.getCommand(
+    SoRenderCommand & command = this->drawlist.getCommandForStateUpdate(
       static_cast<int>(commandIndices[i]));
     const MaterialReplay & replay = replacements[i];
     command.material.diffuse[0] = replay.material.diffuse[0];
