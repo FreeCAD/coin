@@ -272,9 +272,29 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
       resource.geometry = retained.geometry;
       resource.sourceKey = retained.geometry.cacheKey;
       resource.revision = retained.geometry.revision;
+      resource.elementRanges = retained.pick.elementRanges;
       retained.geometryHandle = this->drawlist.addGeometryResource(resource);
+      retained.pick.elementRanges.clear();
+      retained.pick.useResourceElementRanges = true;
       PRIVATE(this)->geometrySources.emplace(
         retained.geometry.cacheKey, retained.geometryHandle);
+    }
+    else {
+      const SoGeometryResource * resource =
+        this->drawlist.getGeometryResource(retained.geometryHandle);
+      const auto rangesEqual = [](const SoRenderElementRange & lhs,
+                                  const SoRenderElementRange & rhs) {
+        return lhs.type == rhs.type && lhs.elementIndex == rhs.elementIndex &&
+          lhs.drawStart == rhs.drawStart && lhs.drawCount == rhs.drawCount;
+      };
+      if (resource && resource->elementRanges.size() ==
+                        retained.pick.elementRanges.size() &&
+          std::equal(resource->elementRanges.begin(),
+                     resource->elementRanges.end(),
+                     retained.pick.elementRanges.begin(), rangesEqual)) {
+        retained.pick.elementRanges.clear();
+        retained.pick.useResourceElementRanges = true;
+      }
     }
   }
 

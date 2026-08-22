@@ -249,14 +249,14 @@ public:
     this->geometryCacheKey = sourceKey;
     this->geometryRevision = revision;
     return this->reuseGeometry(sourceKey, revision, faceCount,
-                               SO_TOPOLOGY_TRIANGLES, SO_PICK_FACE, 3);
+                               SO_TOPOLOGY_TRIANGLES, 3);
   }
 
   SbBool reuseRetainedTriangles(uint64_t sourceKey,
                                 uint64_t revision) override
   {
     return this->reuseGeometry(sourceKey, revision, 0,
-                               SO_TOPOLOGY_TRIANGLES, SO_PICK_FACE, 3);
+                               SO_TOPOLOGY_TRIANGLES, 3);
   }
 
   SbBool beginRetainedLines(uint64_t sourceKey, uint64_t revision,
@@ -265,13 +265,13 @@ public:
     this->geometryCacheKey = sourceKey;
     this->geometryRevision = revision;
     return this->reuseGeometry(sourceKey, revision, segmentCount,
-                               SO_TOPOLOGY_LINES, SO_PICK_EDGE, 2);
+                               SO_TOPOLOGY_LINES, 2);
   }
 
   SbBool reuseRetainedLines(uint64_t sourceKey, uint64_t revision) override
   {
     return this->reuseGeometry(sourceKey, revision, 0,
-                               SO_TOPOLOGY_LINES, SO_PICK_EDGE, 2);
+                               SO_TOPOLOGY_LINES, 2);
   }
 
   void finalize()
@@ -299,7 +299,6 @@ private:
   SbBool reuseGeometry(uint64_t sourceKey, uint64_t revision,
                        int expectedPrimitiveCount,
                        SoPrimitiveTopology topology,
-                       SoPickElementType pickType,
                        int verticesPerPrimitive)
   {
     const SoGeometryHandle handle =
@@ -314,16 +313,11 @@ private:
           static_cast<uint32_t>(expectedPrimitiveCount * verticesPerPrimitive))) {
       return FALSE;
     }
-    const int primitiveCount = static_cast<int>(
-      resource->geometry.vertexCount / verticesPerPrimitive);
     this->geometryCacheKey = sourceKey;
     this->geometryRevision = revision;
     this->topology = topology;
-    for (int primitive = 0; primitive < primitiveCount; ++primitive) {
-      this->appendRange(
-        static_cast<size_t>(primitive) * verticesPerPrimitive,
-        verticesPerPrimitive, pickType, primitive);
-    }
+    // Reused commands resolve the canonical ranges owned by the resource.
+    this->reusedPrimitiveWidth = verticesPerPrimitive;
     this->reusedGeometry = resource->geometry;
     this->reusedVertexCount = resource->geometry.vertexCount;
     return TRUE;
@@ -495,25 +489,31 @@ private:
       const size_t batchEnd = batch.first + batch.count;
       const size_t primitiveWidth = this->topology == SO_TOPOLOGY_TRIANGLES
         ? 3 : (this->topology == SO_TOPOLOGY_LINES ? 2 : 1);
-      std::vector<SoRenderElementRange> pickRanges;
-      bool completePickRanges = true;
-      for (const SoIRPrimitiveRange & range : this->primitiveRanges) {
-        if (range.first < batch.first || range.first >= batchEnd) continue;
-        if (!range.valid || range.first + range.count > batchEnd) {
-          completePickRanges = false;
-          break;
-        }
-        SoRenderElementRange pickRange;
-        pickRange.type = range.type;
-        pickRange.elementIndex = range.elementIndex;
-        pickRange.drawStart = static_cast<uint32_t>(range.first - batch.first);
-        pickRange.drawCount = static_cast<uint32_t>(range.count);
-        pickRanges.push_back(pickRange);
-      }
       const size_t expectedRanges = primitiveWidth == 0 ? 0
         : batch.count / primitiveWidth;
-      if (completePickRanges && pickRanges.size() == expectedRanges) {
-        command.pick.elementRanges = pickRanges;
+      if (this->reusedPrimitiveWidth != 0) {
+        command.pick.useResourceElementRanges = true;
+      }
+      else {
+        command.pick.elementRanges.reserve(expectedRanges);
+        bool completePickRanges = true;
+        for (const SoIRPrimitiveRange & range : this->primitiveRanges) {
+          if (range.first < batch.first || range.first >= batchEnd) continue;
+          if (!range.valid || range.first + range.count > batchEnd) {
+            completePickRanges = false;
+            break;
+          }
+          SoRenderElementRange pickRange;
+          pickRange.type = range.type;
+          pickRange.elementIndex = range.elementIndex;
+          pickRange.drawStart = static_cast<uint32_t>(range.first - batch.first);
+          pickRange.drawCount = static_cast<uint32_t>(range.count);
+          command.pick.elementRanges.push_back(pickRange);
+        }
+        if (!completePickRanges ||
+            command.pick.elementRanges.size() != expectedRanges) {
+          command.pick.elementRanges.clear();
+        }
       }
       this->action->applyRenderStage(command);
       this->action->addCommand(command);
@@ -608,6 +608,7 @@ private:
   uint64_t geometryRevision = 0;
   SoGeometryDesc reusedGeometry;
   size_t reusedVertexCount = 0;
+  int reusedPrimitiveWidth = 0;
   std::vector<SoIRVertex> vertices;
   std::vector<SoIRPrimitiveRange> primitiveRanges;
 };

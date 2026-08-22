@@ -381,6 +381,17 @@ SoDrawList::getCommandGeometry(const SoRenderCommand & command) const
   return resource ? resource->geometry : command.geometry;
 }
 
+const std::vector<SoRenderElementRange> &
+SoDrawList::getCommandElementRanges(const SoRenderCommand & command) const
+{
+  if (command.pick.useResourceElementRanges) {
+    const SoGeometryResource * resource =
+      this->getGeometryResource(command.geometryHandle);
+    if (resource) return resource->elementRanges;
+  }
+  return command.pick.elementRanges;
+}
+
 void
 SoDrawList::addDepthClearEvent(const SoDepthClearEvent & event)
 {
@@ -451,7 +462,9 @@ SoDrawList::buildPickLUT() const
                                        : command.geometry.vertexCount;
     if (drawLimit == 0) continue;
 
-    if (command.pick.elementRanges.empty()) {
+    const std::vector<SoRenderElementRange> & elementRanges =
+      this->getCommandElementRanges(command);
+    if (elementRanges.empty()) {
       SoPickLUTEntry entry;
       entry.commandIndex = commandIndex;
       entry.nodeId = command.nodeId;
@@ -465,7 +478,7 @@ SoDrawList::buildPickLUT() const
       continue;
     }
 
-    for (const SoRenderElementRange & range : command.pick.elementRanges) {
+    for (const SoRenderElementRange & range : elementRanges) {
       SoPickLUTEntry entry;
       entry.commandIndex = commandIndex;
       entry.nodeId = command.nodeId;
