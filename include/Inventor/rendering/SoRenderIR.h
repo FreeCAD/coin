@@ -18,14 +18,6 @@
 class SoState;
 class SoNode;
 
-namespace SoRenderIR {
-
-//! Select command-local view/projection matrices during retained traversal.
-COIN_DLL_API void setCommandMatricesOverride(SoState * state,
-                                             SbBool enabled);
-
-} // namespace SoRenderIR
-
 /*!
   \file SoRenderIR.h
   \brief Backend-neutral intermediate representation for retained rendering.
