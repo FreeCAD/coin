@@ -379,6 +379,7 @@ private:
                        bool framebufferLocal);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
+                   size_t cacheIndex,
                    const SbMat & viewMat,
                    const SbMat & projMat,
                    const SoRenderParams & params);
@@ -440,6 +441,7 @@ private:
                                            size_t nextCacheIndex) const;
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
+                             size_t cacheIndex,
                              const SoRenderParams & params);
   void destroyCacheEntry(CachedCommand & entry);
   bool textureDescriptionMatches(const CachedCommand & entry,
