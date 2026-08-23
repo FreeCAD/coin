@@ -148,9 +148,11 @@ static int runTest()
                           coin_test::workloadName(kinds[3])) && valid;
     const SoRenderManager::RenderPhaseStatistics & staged = rendered[3].phases;
     const uint64_t semanticCommands = occurrenceCount * 2;
+    const uint64_t definitionBatches =
+      coin_test::assemblyDefinitionCount(occurrenceCount) * 2;
     if (staged.orderedSubmissionCandidateBatches != 2 ||
         staged.orderedSubmissionCandidateCommands != semanticCommands ||
-        staged.submittedDrawCalls >= semanticCommands) {
+        staged.submittedDrawCalls != definitionBatches) {
       std::cerr << "FAIL: staged assembly did not expose two compact "
                    "submission runs" << std::endl;
       valid = false;
