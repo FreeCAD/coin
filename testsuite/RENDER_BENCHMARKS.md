@@ -137,9 +137,11 @@ target refresh and scene-result resolution; the backend curve isolates PBO
 submission and completion. UI ownership and request coalescing remain with the
 caller, while the manager rejects results made stale by a target update.
 Pick draw-call and instance counters verify that primitive-mapped occurrences
-remain batched instead of silently falling back to one draw per occurrence.
+remain on the primitive-ID submission path and do not exceed its unbatched
+draw ceiling. Non-adjacent face and edge commands retain scene insertion order;
+the benchmark does not treat unsafe regrouping as a performance requirement.
 When pick topology and render-plan order remain stable, the backend reuses the
-classified submission batches while refreshing their per-instance matrices.
+classified submissions while refreshing their per-instance matrices.
 Selection curves render deterministic 1% and 10% selected sets, replace 10% of
 the selected occurrences between samples, select deterministic face and edge
 ranges, and exercise one preselection. They report logical targets, physical
@@ -151,7 +153,10 @@ target.
 The shared-assembly depth-stack curves place every occurrence on one view ray
 and request 1, 8, 32, and 128 primitive depth layers. They verify resolved
 front-to-back ordering, distinct occurrence identities, zero retained rebuilds,
-and instanced peel-pass coverage. Results separate initial depth rendering,
+primitive-ID submission coverage, and that draw calls do not exceed the
+unbatched peel-pass ceiling. Face and edge commands remain in scene insertion
+order, so this workload does not require unsafe non-adjacent regrouping merely
+to satisfy a batching assertion. Results separate initial depth rendering,
 peeling, synchronous readback, hit processing, target restoration, and scene
 result resolution. The expensive 32- and 128-layer curves use a bounded sample
 count so focused interaction runs remain practical.
@@ -166,6 +171,8 @@ frame without selected objects performs no selection-overlay work.
 
 Opaque matrix updates and diffuse-color updates preserve render-plan
 classification and order, so their plan-construction time remains zero.
+Legacy transparency changes are not an incremental updater specialization and
+the opacity-transition curve records their transactional full-rebuild fallback.
 Geometry, visibility, and transparent-depth changes conservatively advance the
 plan revision and rebuild the derived operation sequence.
 

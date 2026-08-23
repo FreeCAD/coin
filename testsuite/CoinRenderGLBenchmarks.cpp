@@ -1042,8 +1042,16 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       if (pickPhases.pickBufferRefreshes != 1 ||
           hover.pickInstancedBatches == 0 ||
           hover.pickInstancedCommands != semanticPickCommands ||
-          hover.pickDrawCalls >= semanticPickCommands) {
-        unavailable = "assembly hover refresh invariant failed";
+          hover.pickInstancedBatches > hover.pickDrawCalls ||
+          hover.pickInstancedCommands < hover.pickInstancedBatches ||
+          hover.pickDrawCalls > semanticPickCommands) {
+        std::ostringstream reason;
+        reason << "assembly hover refresh submission invariant failed"
+               << " (refreshes=" << pickPhases.pickBufferRefreshes
+               << ", draws=" << hover.pickDrawCalls
+               << ", batches=" << hover.pickInstancedBatches
+               << ", commands=" << hover.pickInstancedCommands << ')';
+        unavailable = reason.str();
         glDeleteQueries(1, &refreshQuery);
         manager.releaseRenderBackendResources();
         manager.setCamera(NULL);
@@ -1181,7 +1189,9 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
   const auto measureOccurrenceMaterial =
     [&](const std::string & label, const int changedCount,
         const std::function<void(int)> & mutate) {
+      const bool preservesRenderPlan = label == "material";
       std::vector<double> materialFrameTimes;
+      std::vector<double> materialConstructionTimes;
       std::vector<double> materialPlanTimes;
       for (int sample = 0; sample < samples; ++sample) {
         mutate(sample);
@@ -1191,18 +1201,31 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
         materialFrameTimes.push_back(elapsedMs(start));
         const SoRenderManager::RenderPhaseStatistics phases =
           manager.getRenderPhaseStatistics();
+        materialConstructionTimes.push_back(
+          phases.drawListConstructionNanoseconds / 1000000.0);
         materialPlanTimes.push_back(
           phases.planConstructionNanoseconds / 1000000.0);
-        if (phases.drawListRebuilds != 0 ||
-            phases.incrementalCommandUpdates !=
-              static_cast<uint64_t>(changedCount) ||
-            phases.planConstructionNanoseconds == 0) {
+        const bool expectedMutationPath = preservesRenderPlan
+          ? phases.drawListRebuilds == 0 &&
+            phases.incrementalCommandUpdates ==
+              static_cast<uint64_t>(changedCount) &&
+            phases.drawListConstructionNanoseconds == 0 &&
+            phases.planConstructionNanoseconds == 0
+          : phases.drawListRebuilds == 1 &&
+            phases.incrementalCommandUpdates == 0 &&
+            phases.drawListConstructionNanoseconds != 0 &&
+            phases.planConstructionNanoseconds != 0;
+        if (!expectedMutationPath) {
           std::ostringstream reason;
           reason << label << " updated " << phases.incrementalCommandUpdates
                  << " commands with " << phases.drawListRebuilds
-                 << " rebuilds and " << phases.planConstructionNanoseconds
-                 << " ns of plan construction; expected " << changedCount
-                 << " incremental updates";
+                 << " rebuilds, " << phases.drawListConstructionNanoseconds
+                 << " ns of DrawList construction, and "
+                 << phases.planConstructionNanoseconds
+                 << " ns of plan construction; expected "
+                 << (preservesRenderPlan
+                       ? "incremental diffuse update with plan reuse"
+                       : "full rebuild fallback");
           unavailable = reason.str();
           return false;
         }
@@ -1225,7 +1248,8 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       materialResult.renderer = "DrawList";
       materialResult.profile = profile == GLTestProfile::Core
         ? "core" : "compatibility";
-      materialResult.executionMode = "incremental_update";
+      materialResult.executionMode = preservesRenderPlan
+        ? "incremental_update" : "full_rebuild_fallback";
       materialResult.semanticDraws = occurrenceCount * 2;
       materialResult.samples = samples;
       materialResult.cpuMedianMs = percentile(materialFrameTimes, 0.5);
@@ -1234,9 +1258,14 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       materialResult.completionP95Ms = materialResult.cpuP95Ms;
       materialResult.mutationMedianMs = materialResult.cpuMedianMs;
       materialResult.mutationP95Ms = materialResult.cpuP95Ms;
+      materialResult.drawListConstructionMedianMs =
+        percentile(materialConstructionTimes, 0.5);
       materialResult.planConstructionMedianMs =
         percentile(materialPlanTimes, 0.5);
-      materialResult.incrementalCommandUpdates = changedCount;
+      materialResult.incrementalCommandUpdates = preservesRenderPlan
+        ? static_cast<uint64_t>(changedCount) : 0;
+      materialResult.drawListRebuilds = preservesRenderPlan
+        ? 0 : static_cast<uint64_t>(samples);
       materialResult.pixelChecksum = checksumPixels(materialPixels);
       results.push_back(materialResult);
       return true;
@@ -1817,16 +1846,19 @@ bool runAssemblyDepthStack(GLTestProfile profile, int occurrenceCount,
       if (!valid) break;
       const size_t expectedIdentities = static_cast<size_t>(
         std::min(maxLayers, std::min(2, occurrenceCount)));
+      const uint64_t naiveDrawCalls =
+        static_cast<uint64_t>(occurrenceCount * 2) *
+        static_cast<uint64_t>(maxLayers + 1);
       if (identities.size() < expectedIdentities ||
           phases.drawListRebuilds != 0 ||
           phases.pickBufferRefreshes != 0 ||
           phases.pickInstancedBatches == 0 ||
           phases.pickInstancedCommands == 0 ||
-          phases.pickDrawCalls >=
-            static_cast<uint64_t>(occurrenceCount * 2) *
-              static_cast<uint64_t>(maxLayers + 1)) {
+          phases.pickInstancedBatches > phases.pickDrawCalls ||
+          phases.pickInstancedCommands < phases.pickInstancedBatches ||
+          phases.pickDrawCalls > naiveDrawCalls) {
         std::ostringstream reason;
-        reason << "assembly depth-stack batching invariant failed at "
+        reason << "assembly depth-stack submission invariant failed at "
                << maxLayers << " layers (identities=" << identities.size()
                << ", rebuilds=" << phases.drawListRebuilds
                << ", refreshes=" << phases.pickBufferRefreshes
