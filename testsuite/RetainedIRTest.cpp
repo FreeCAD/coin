@@ -21,6 +21,7 @@ runTest()
   }
 
   SoRenderCommand command;
+  command.objectId = 42;
   command.geometry.topology = SO_TOPOLOGY_TRIANGLES;
   command.geometry.vertexCount = 3;
   command.geometry.vertexStride = sizeof(float) * 3;
