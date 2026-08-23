@@ -102,6 +102,30 @@ SoRenderCommandTraits::classifyOpaqueGroup(
   return OpaqueGroup::NONE;
 }
 
+bool
+SoRenderCommandTraits::sameOrderedSubmissionState(
+  const SoRenderCommand & lhs, const SoGeometryDesc & lhsGeometry,
+  const SoRenderCommand & rhs, const SoGeometryDesc & rhsGeometry)
+{
+  const OpaqueGroup group = classifyOpaqueGroup(lhs, lhsGeometry);
+  if (group == OpaqueGroup::NONE ||
+      group != classifyOpaqueGroup(rhs, rhsGeometry)) return false;
+
+  // An indirect call fixes its program, primitive mode, and ordinary GL
+  // state. Per-draw buffers may vary geometry, transform, and diffuse color,
+  // but cannot make these state changes between commands.
+  return lhs.stage == rhs.stage &&
+    lhs.lightingHandle == rhs.lightingHandle &&
+    sameBlendState(lhs.state.blend, rhs.state.blend) &&
+    lhs.state.depth.enabled == rhs.state.depth.enabled &&
+    lhs.state.depth.writeEnabled == rhs.state.depth.writeEnabled &&
+    lhs.state.depth.func == rhs.state.depth.func &&
+    lhs.state.depth.range == rhs.state.depth.range &&
+    lhs.state.raster.cullBackFaces == rhs.state.raster.cullBackFaces &&
+    lhs.state.raster.frontFaceCCW == rhs.state.raster.frontFaceCCW &&
+    lhs.state.raster.lineWidth == rhs.state.raster.lineWidth;
+}
+
 SoRenderCommandTraits::PlanningClass
 SoRenderCommandTraits::classifyPlanning(const SoRenderCommand & command)
 {

@@ -117,6 +117,9 @@ public:
     uint64_t instancedTriangleCommands = 0;
     uint64_t instancedLineBatches = 0;
     uint64_t instancedLineCommands = 0;
+    //! Consecutive commands a heterogeneous indirect path could preserve.
+    uint64_t orderedSubmissionCandidateBatches = 0;
+    uint64_t orderedSubmissionCandidateCommands = 0;
     uint64_t selectionTargets = 0;
     uint64_t selectionDrawCalls = 0;
     uint64_t selectionInstancedBatches = 0;

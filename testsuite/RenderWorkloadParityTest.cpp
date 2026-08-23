@@ -19,6 +19,7 @@ constexpr int occurrenceCount = 64;
 
 struct RenderedWorkload {
   std::vector<uint8_t> pixels;
+  SoRenderManager::RenderPhaseStatistics phases;
 };
 
 int skip(const char * reason)
@@ -60,9 +61,11 @@ bool renderWorkload(GLRenderTestSession & session, coin_test::WorkloadKind kind,
 
   session.setScene(scene, camera);
   session.manager().setLightingMode(SoRenderManager::UNLIT);
+  session.manager().setRenderPhaseTimingEnabled(TRUE);
   session.render();
   session.render();
   result.pixels = session.readPixels();
+  result.phases = session.manager().getRenderPhaseStatistics();
 
   const bool structureValid =
     session.manager().getLastRenderResult().rendered &&
@@ -129,17 +132,31 @@ static int runTest()
   const coin_test::WorkloadKind kinds[] = {
     coin_test::WorkloadKind::SharedAssemblyExpanded,
     coin_test::WorkloadKind::SharedAssemblySources,
-    coin_test::WorkloadKind::SharedAssemblyRecipe
+    coin_test::WorkloadKind::SharedAssemblyRecipe,
+    coin_test::WorkloadKind::SharedAssemblyStaged
   };
-  RenderedWorkload rendered[3];
+  RenderedWorkload rendered[4];
   bool valid = true;
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < 4; ++i)
     valid = renderWorkload(session, kinds[i], rendered[i]) && valid;
   if (valid) {
     valid = comparePixels(rendered[0], rendered[1],
                           coin_test::workloadName(kinds[1])) && valid;
     valid = comparePixels(rendered[0], rendered[2],
                           coin_test::workloadName(kinds[2])) && valid;
+    valid = comparePixels(rendered[0], rendered[3],
+                          coin_test::workloadName(kinds[3])) && valid;
+    const SoRenderManager::RenderPhaseStatistics & staged = rendered[3].phases;
+    const uint64_t semanticCommands = occurrenceCount * 2;
+    const uint64_t definitionBatches =
+      coin_test::assemblyDefinitionCount(occurrenceCount) * 2;
+    if (staged.orderedSubmissionCandidateBatches != 2 ||
+        staged.orderedSubmissionCandidateCommands != semanticCommands ||
+        staged.submittedDrawCalls != definitionBatches) {
+      std::cerr << "FAIL: staged assembly did not expose two compact "
+                   "submission runs" << std::endl;
+      valid = false;
+    }
   }
 
   return valid ? 0 : 1;

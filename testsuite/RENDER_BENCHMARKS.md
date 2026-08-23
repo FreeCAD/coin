@@ -25,6 +25,22 @@ build-bench/bin/CoinRenderGLBenchmarks --interaction-only 50000 \
   --samples 50 --output interactions-50000.json
 ```
 
+For comparable CPU timings, use otherwise idle, controlled hardware and keep
+the benchmark on one CPU of a consistent class. This matters on hybrid
+processors: migration between performance, efficiency, and low-power cores
+can move every CPU phase without changing GPU time. On Linux, inspect the CPU
+classes and pin a suitable core, for example:
+
+```sh
+lscpu -e=CPU,CORE,MAXMHZ
+taskset -c 2 build-bench/bin/CoinRenderGLBenchmarks \
+  --mutation-only 50000 --samples 20 --output mutations-50000.json
+```
+
+Record the selected CPU and OpenGL renderer with the result, and use the same
+CPU for both sides of a comparison. CPU numbering and core classes are
+machine-specific; `2` above is only an example.
+
 ## Viewing generated workloads
 
 `CoinRenderWorkloadViewer` displays the same deterministic scene graphs used
@@ -50,8 +66,10 @@ press Escape to exit. Use the mouse wheel to zoom, right- or middle-drag to
 pan. `M` toggles mutation playback, Space pauses rendering, and `R` forces a
 retained rebuild. The viewer prints frame rate once per second. LegacyGL requires a
 compatibility-profile build and `--gl-profile compat`; DrawList supports
-compatibility and core profiles. The DrawList path also performs a synchronous
-hover pick at the cursor so the interaction path is exercised.
+compatibility and core profiles. On stable scenes, the DrawList path queues a
+nonblocking hover pick and polls it on later frames. Mutation playback suspends
+hover sampling because each animation update would make an outstanding result
+stale.
 
 CTest also registers `CoinRenderWorkloadViewerSmoke`. It uses a hidden core
 context to render a small shared-recipe scene, resize its framebuffer, animate
@@ -97,7 +115,7 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-13 identifies each result as `per_frame_traversal`, `steady_state`,
+14 identifies each result as `per_frame_traversal`, `steady_state`,
 `forced_rebuild`, or `incremental_update`. It separates draw-list construction
 into primitive generation, geometry packing, and command emission, and also
 reports incremental command updates, render-plan construction, and backend
@@ -107,23 +125,49 @@ total draw-list construction. Backend submission is divided into frame setup,
 resource preparation, command execution, and selection overlays. Picking
 reports target preparation and rendering, depth rendering and peeling,
 readback, hit processing, target restoration, and final scene-result resolution.
+The `ordered_submission_candidate_*` counters report consecutive opaque runs
+that preserve command order and share one indirect-call state, but cannot use
+the existing same-geometry instancing path. They measure opportunity only;
+submitted draw-call counters continue to describe work actually executed.
+The backend caches this diagnostic analysis across frames whose draw-list
+generation, plan revision, and resource revision remain stable, so the scan
+does not inflate steady-state or incremental submission timings.
 
 The shared-assembly interaction curves distinguish cold hover-target creation,
 warm hover queries, and target refresh after an incremental occurrence update.
 Refresh results report median and p95 wall, GPU timer-query, and synchronous
 readback time; each sample performs a distinct transform update and verifies
 one target rebuild.
-The asynchronous hover curve reports nonblocking PBO request and immediate-poll
-cost separately from eventual GPU completion. It is a backend mechanism; UI
-ownership, coalescing, and stale-result policy remain with the caller.
+The asynchronous hover curves report nonblocking request and immediate-poll
+cost separately from eventual GPU completion. The manager curve includes dirty
+target refresh and scene-result resolution; the backend curve isolates PBO
+submission and completion. UI ownership and request coalescing remain with the
+caller, while the manager rejects results made stale by a target update.
 Pick draw-call and instance counters verify that primitive-mapped occurrences
-remain batched instead of silently falling back to one draw per occurrence.
+remain on the primitive-ID submission path and do not exceed its unbatched
+draw ceiling. The recipe control retains non-adjacent face and edge insertion
+order; the staged variant exercises the same picking and selection invariants
+after explicitly placing edges in the foreground stage. The benchmark never
+treats implicit, unsafe regrouping as a performance requirement.
 When pick topology and render-plan order remain stable, the backend reuses the
-classified submission batches while refreshing their per-instance matrices.
+classified submissions while refreshing their per-instance matrices.
 Selection curves render deterministic 1% and 10% selected sets, replace 10% of
-the selected occurrences between samples, and exercise one preselection. They
-report logical targets, physical draw calls, and instanced coverage without
-moving producer-owned selection policy into `SoRenderManager`.
+the selected occurrences between samples, select deterministic face and edge
+ranges, and exercise one preselection. They report logical targets, physical
+draw calls, and instanced coverage without moving producer-owned selection
+policy into `SoRenderManager`. The subelement curve requires instanced coverage
+for nontrivial sets so range selection cannot silently regress to one draw per
+target.
+
+The recipe and staged shared-assembly depth-stack curves place every
+occurrence on one view ray and request 1, 8, 32, and 128 primitive depth
+layers. They verify resolved
+front-to-back ordering, distinct occurrence identities, zero retained rebuilds,
+primitive-ID submission coverage, and that draw calls do not exceed the
+unbatched peel-pass ceiling. Results separate initial depth rendering,
+peeling, synchronous readback, hit processing, target restoration, and scene
+result resolution. The expensive 32- and 128-layer curves use a bounded sample
+count so focused interaction runs remain practical.
 
 `incremental_update_median_ms` isolates retained dependency lookup and command
 patching from plan construction and backend submission.
@@ -135,6 +179,8 @@ frame without selected objects performs no selection-overlay work.
 
 Opaque matrix updates and diffuse-color updates preserve render-plan
 classification and order, so their plan-construction time remains zero.
+Legacy transparency changes are not an incremental updater specialization and
+the opacity-transition curve records their transactional full-rebuild fallback.
 Geometry, visibility, and transparent-depth changes conservatively advance the
 plan revision and rebuild the derived operation sequence.
 
@@ -161,10 +207,55 @@ scene. The benchmark applies deterministic batches of 1, 10, and 100
 translation and diffuse-material edits, plus one geometry edit, through both
 DrawList compatibility and core contexts. Every sample must report the exact
 number of incrementally updated commands, with no DrawList reconstruction.
+
+Add `--mutation-workload NAME` to restrict that run to one family:
+`incremental`, `shared_assembly_expanded`, `shared_assembly_sources`,
+`shared_assembly_recipe`, `shared_assembly_staged`, `selection`, or
+`depth_stack`. The staged workload explicitly places edges in the foreground
+render stage; the recipe workload preserves face/edge insertion order as its
+control. A focused run keeps unrelated interaction workloads out of CPU
+profiles.
+
+For the `incremental` family, add `--mutation-case NAME` to run only
+`translation`, `material`, `geometry`, or `visibility`. Add
+`--mutation-count N` to select one mutation batch size. For example, this
+isolates a single-command transform update in a 50,000-command scene:
+
+```sh
+build-bench/bin/CoinRenderGLBenchmarks --mutation-only 50000 \
+  --mutation-workload incremental --mutation-case translation \
+  --mutation-count 1 --samples 20 --output translation-1-of-50000.json
+```
+
+Assembly families accept `--mutation-case translation`; combine it with
+`--mutation-count 1`, `10`, or `100` to isolate one transform-update curve.
+This is useful for profiling submission of a stable retained assembly without
+also sampling its material, geometry, and forced-rebuild cases.
+
+Focused and full mutation results include backend frame-setup, resource-
+preparation, command-execution, and total-submission medians. These phases
+show whether a change affects retained update processing or the subsequent
+frame submission.
+
+Use `--mutation-updates-only` with an assembly family to omit its hover-pick
+measurements and profile only retained render updates.
 Results include median and p95 frame time, the update count, and construction
 time so a silent fallback cannot appear to be a valid incremental result. The
 normal and smoke benchmark runs include the same curves at their standard
 scene sizes.
+
+Assembly transform curves also report semantic commands, submitted draw
+calls, and instanced triangle/line batches. This keeps geometry ownership and
+submission behavior visible together. In particular, shared resources do not
+imply visual instancing when face and edge commands alternate and opaque
+insertion order must be preserved.
+
+The same mutation run toggles visibility for batches of 1, 10, 100, and 1,000
+occurrences. These curves verify exact incremental command counts and expose
+the difference between inexpensive dependency updates and the subsequent
+whole-scene plan/submission work. A separate child insertion/removal curve must
+perform one full retained rebuild per sample and restore the original pixels
+after the edit is removed.
 
 The mutation run also edits one geometry definition in each assembly ownership
 model. Expanded geometry updates one face/edge pair; shared-source and
@@ -181,6 +272,26 @@ and irregular mappings remain ordering barriers. The benchmark requires
 multiple resolved hits, zero DrawList rebuilds, bounded draw calls per layer,
 and nonzero instanced coverage.
 
+The assembly scenes also measure batches of 1, 10, and 100 occurrence
+translations. Each occurrence must patch exactly its face and edge command
+without rebuilding the DrawList, and every final image is compared with an
+explicit rebuild. A forced-rebuild curve for each ownership model provides a
+direct baseline for deciding whether further matrix-replay optimization is
+worthwhile.
+
+Occurrence-local assembly materials use the same 1, 10, and 100 batch sizes
+across expanded, shared-source, shared-recipe, and staged geometry ownership.
+Each material must patch exactly its face command, preserve edge state and the
+render plan without rebuilding the DrawList, and match a forced-rebuild image.
+A single-occurrence opacity curve crosses the opaque/transparent boundary to
+include blend classification and transparent ordering in the same invariants.
+
+Incremental notification batches are classified before retained state changes.
+Transform, material, geometry, and disjoint stable-switch batches commit only
+after every replacement is available. Mixed, shared-node, structural, and
+overlapping-switch changes retain the full-rebuild path; parent-occurrence
+classification is cached only for the lifetime of the current DrawList.
+
 The deterministic workloads currently cover traversal/IR construction, render
 plan construction (including transparent sorting and depth segments), retained
 pick-table construction and resolution, selection churn, and repeated frame
@@ -189,3 +300,7 @@ belong in an optional GL-backed extension so controlled runners can select the
 required compatibility or core context explicitly. `CoinRenderGLBenchmarks`
 provides that controlled A/B layer; the dependency-free executable remains the
 preferred benchmark smoke test on machines without suitable GL contexts.
+
+Longer-term pick-result layering and instrumentation constraints are recorded
+in `docs/retained-renderer-roadmap.txt`. Those are evidence-gated API follow-ups,
+not requirements for the benchmark suite or the current renderer stack.

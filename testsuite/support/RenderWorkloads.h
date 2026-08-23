@@ -7,6 +7,7 @@ class SoCoordinate3;
 class SoMaterial;
 class SoOrthographicCamera;
 class SoSeparator;
+class SoSwitch;
 class SoTranslation;
 
 namespace coin_test {
@@ -19,7 +20,8 @@ enum class WorkloadKind {
   FeatureRich,
   SharedAssemblyExpanded,
   SharedAssemblySources,
-  SharedAssemblyRecipe
+  SharedAssemblyRecipe,
+  SharedAssemblyStaged
 };
 
 struct SceneMutationHandles {
@@ -27,6 +29,8 @@ struct SceneMutationHandles {
   std::vector<SoMaterial *> materials;
   std::vector<SoCoordinate3 *> coordinates;
   std::vector<SoCoordinate3 *> definitionCoordinates;
+  std::vector<SoSwitch *> visibilitySwitches;
+  std::vector<SoSeparator *> structuralBranches;
 };
 
 const char * workloadName(WorkloadKind kind);

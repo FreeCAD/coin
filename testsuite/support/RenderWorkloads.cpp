@@ -11,7 +11,9 @@
 #include <Inventor/nodes/SoNormal.h>
 #include <Inventor/nodes/SoNormalBinding.h>
 #include <Inventor/nodes/SoOrthographicCamera.h>
+#include <Inventor/nodes/SoRenderLayerGroup.h>
 #include <Inventor/nodes/SoSeparator.h>
+#include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoTexture2.h>
 #include <Inventor/nodes/SoTextureCoordinate2.h>
 #include <Inventor/nodes/SoTranslation.h>
@@ -68,7 +70,15 @@ SoCoordinate3 * addAssemblyGeometry(SoSeparator * parent, WorkloadKind kind,
   edgeBranch->renderCaching = SoSeparator::OFF;
   edgeBranch->addChild(edgeMaterial);
   edgeBranch->addChild(edges);
-  parent->addChild(edgeBranch);
+  if (kind == WorkloadKind::SharedAssemblyStaged) {
+    SoRenderLayerGroup * edgeStage = new SoRenderLayerGroup;
+    edgeStage->layer = SoRenderLayerGroup::FOREGROUND;
+    edgeStage->addChild(edgeBranch);
+    parent->addChild(edgeStage);
+  }
+  else {
+    parent->addChild(edgeBranch);
+  }
   return coordinates;
 }
 
@@ -88,6 +98,8 @@ const char * workloadName(WorkloadKind kind)
     return "shared_assembly_sources";
   case WorkloadKind::SharedAssemblyRecipe:
     return "shared_assembly_recipe";
+  case WorkloadKind::SharedAssemblyStaged:
+    return "shared_assembly_staged";
   }
   return "unknown";
 }
@@ -103,7 +115,8 @@ bool parseWorkloadKind(const char * name, WorkloadKind & kind)
     WorkloadKind::FeatureRich,
     WorkloadKind::SharedAssemblyExpanded,
     WorkloadKind::SharedAssemblySources,
-    WorkloadKind::SharedAssemblyRecipe
+    WorkloadKind::SharedAssemblyRecipe,
+    WorkloadKind::SharedAssemblyStaged
   };
   for (WorkloadKind candidate : workloads) {
     if (std::strcmp(name, workloadName(candidate)) == 0) {
@@ -118,7 +131,8 @@ bool isAssemblyWorkload(WorkloadKind kind)
 {
   return kind == WorkloadKind::SharedAssemblyExpanded ||
     kind == WorkloadKind::SharedAssemblySources ||
-    kind == WorkloadKind::SharedAssemblyRecipe;
+    kind == WorkloadKind::SharedAssemblyRecipe ||
+    kind == WorkloadKind::SharedAssemblyStaged;
 }
 
 int assemblyDefinitionCount(int occurrenceCount)
@@ -218,6 +232,7 @@ void populateAssemblyScene(SoSeparator * root, WorkloadKind kind,
   for (int occurrence = 0; occurrence < occurrenceCount; ++occurrence) {
     SoSeparator * instance = new SoSeparator;
     instance->renderCaching = SoSeparator::OFF;
+    if (mutations) mutations->structuralBranches.push_back(instance);
     const int definition = std::min(definitionCount - 1,
       occurrence / occurrencesPerDefinition);
     const int definitionOccurrence = occurrence % occurrencesPerDefinition;
@@ -346,6 +361,16 @@ SoSeparator * makeScene(WorkloadKind kind, int drawCount,
   for (int i = 0; i < drawCount; ++i) {
     SoSeparator * draw = new SoSeparator;
     draw->renderCaching = SoSeparator::OFF;
+    SoSwitch * visibility = nullptr;
+    // Mutation workloads retain handles for edits that affect traversal
+    // structure. Render-only scenes avoid the otherwise unnecessary wrapper.
+    if (mutations) {
+      visibility = new SoSwitch;
+      visibility->whichChild = SO_SWITCH_ALL;
+      visibility->addChild(draw);
+      mutations->visibilitySwitches.push_back(visibility);
+      mutations->structuralBranches.push_back(draw);
+    }
     SoTranslation * translation = new SoTranslation;
     const float x = kind == WorkloadKind::DensePicking ? 0.0f :
       (static_cast<float>(i % columns) -
@@ -400,7 +425,7 @@ SoSeparator * makeScene(WorkloadKind kind, int drawCount,
       draw->addChild(coordinates);
       draw->addChild(face);
     }
-    root->addChild(draw);
+    root->addChild(visibility ? static_cast<SoNode *>(visibility) : draw);
   }
   return root;
 }

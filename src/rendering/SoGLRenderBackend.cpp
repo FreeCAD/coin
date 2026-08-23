@@ -928,6 +928,7 @@ SoGLRenderBackend::shutdown()
   this->pickTarget.generation = 0;
   this->pickTarget.updateSerial = 0;
   this->pickTarget.ready = false;
+  this->orderedSubmissionCandidates = OrderedSubmissionCandidates();
   this->glue = nullptr;
   this->context = nullptr;
   this->setInitialized(FALSE);
@@ -947,6 +948,7 @@ SoGLRenderBackend::discard()
   this->haveCacheGeneration = false;
   this->cacheGeneration = 0;
   this->cacheResourceRevision = 0;
+  this->orderedSubmissionCandidates = OrderedSubmissionCandidates();
   this->visualProgram = VisualProgram();
   this->rasterPrograms = RasterPrograms();
   this->pickPrograms = PickPrograms();
@@ -2239,6 +2241,94 @@ SoGLRenderBackend::canInstanceEligibleCommandsTogether(
     first.state.depth.range == next.state.depth.range &&
     first.state.raster.cullBackFaces == next.state.raster.cullBackFaces &&
     first.state.raster.frontFaceCCW == next.state.raster.frontFaceCCW;
+}
+
+void
+SoGLRenderBackend::measureOrderedSubmissionCandidates(
+  const SoDrawList & drawlist, const SoRenderPlan & plan)
+{
+  OrderedSubmissionCandidates & cached = this->orderedSubmissionCandidates;
+  if (cached.valid && cached.drawlist == &drawlist && cached.plan == &plan &&
+      cached.generation == drawlist.getGeneration() &&
+      cached.planRevision == drawlist.getRenderPlanRevision() &&
+      cached.resourceRevision == drawlist.getResourceRevision()) {
+    this->statistics.submission.orderedSubmissionCandidateBatches =
+      cached.batches;
+    this->statistics.submission.orderedSubmissionCandidateCommands =
+      cached.commands;
+    return;
+  }
+
+  uint64_t candidateBatches = 0;
+  uint64_t candidateCommands = 0;
+  uint64_t runLength = 0;
+  uint32_t firstCommandIndex = 0;
+  bool needsHeterogeneousSubmission = false;
+  const size_t noCache = std::numeric_limits<size_t>::max();
+  const uint32_t commandCount = static_cast<uint32_t>(
+    drawlist.getNumCommands());
+  const auto flushRun = [&]() {
+    if (runLength > 1 && needsHeterogeneousSubmission) {
+      ++candidateBatches;
+      candidateCommands += runLength;
+    }
+    runLength = 0;
+    needsHeterogeneousSubmission = false;
+  };
+
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type != SoRenderOperationType::DRAW ||
+        operation.commandIndex >= commandCount) {
+      flushRun();
+      continue;
+    }
+    const SoRenderCommand & command = drawlist.getCommand(
+      static_cast<int>(operation.commandIndex));
+    if (runLength == 0) {
+      firstCommandIndex = operation.commandIndex;
+      runLength = 1;
+      continue;
+    }
+    const SoRenderCommand & first = drawlist.getCommand(
+      static_cast<int>(firstCommandIndex));
+    if (!SoRenderCommandTraits::sameOrderedSubmissionState(
+          first, drawlist.getCommandGeometry(first), command,
+          drawlist.getCommandGeometry(command))) {
+      flushRun();
+      firstCommandIndex = operation.commandIndex;
+      runLength = 1;
+      continue;
+    }
+
+    ++runLength;
+    const size_t firstCacheIndex = firstCommandIndex <
+        this->commandCacheIndices.size()
+      ? this->commandCacheIndices[firstCommandIndex] : noCache;
+    const size_t commandCacheIndex = operation.commandIndex <
+        this->commandCacheIndices.size()
+      ? this->commandCacheIndices[operation.commandIndex] : noCache;
+    if (!this->canInstanceCommand(drawlist, first) ||
+        !this->canInstanceCommand(drawlist, command) ||
+        !this->canInstanceEligibleCommandsTogether(
+          first, command, firstCacheIndex, commandCacheIndex)) {
+      needsHeterogeneousSubmission = true;
+    }
+  }
+  flushRun();
+
+  cached.drawlist = &drawlist;
+  cached.plan = &plan;
+  cached.generation = drawlist.getGeneration();
+  cached.planRevision = drawlist.getRenderPlanRevision();
+  cached.resourceRevision = drawlist.getResourceRevision();
+  cached.batches = candidateBatches;
+  cached.commands = candidateCommands;
+  cached.valid = true;
+  this->statistics.submission.orderedSubmissionCandidateBatches =
+    candidateBatches;
+  this->statistics.submission.orderedSubmissionCandidateCommands =
+    candidateCommands;
 }
 
 void
@@ -4704,6 +4794,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       queuedSelection = SoSelectionState();
     }
   };
+  if (measurePhases) this->measureOrderedSubmissionCandidates(drawlist, plan);
   const BackendPhaseClock::time_point executionStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   SubmissionState submissionState;
