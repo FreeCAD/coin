@@ -225,18 +225,6 @@ target_include_directories(RetainedMixedTopologyTest PRIVATE
 add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
 
 if(HAVE_EGL)
-	add_executable(DrawListGLTest DrawListGLTest.cpp)
-	target_link_libraries(DrawListGLTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-	target_compile_definitions(DrawListGLTest PRIVATE COIN_INTERNAL)
-	target_include_directories(DrawListGLTest PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include
-		${PROJECT_BINARY_DIR}/include
-		${COIN_TARGET_INCLUDE_DIRECTORIES}
-	)
-	add_test(NAME DrawListGLTest COMMAND DrawListGLTest)
-	set_tests_properties(DrawListGLTest PROPERTIES SKIP_RETURN_CODE 77)
-
 	add_executable(EGLBindingTest EGLBindingTest.cpp)
 	target_link_libraries(EGLBindingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 	target_compile_definitions(EGLBindingTest PRIVATE COIN_INTERNAL)
@@ -251,6 +239,7 @@ if(HAVE_EGL)
 endif()
 
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)
