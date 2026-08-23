@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include <Inventor/system/gl.h>
+#include <Inventor/C/glue/gl.h>
 
 namespace {
 
@@ -57,7 +58,7 @@ GLTestContext::initialize(const GLTestContextConfig & config)
   ++glfwUsers;
   glfwUser_ = true;
 
-  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+  glfwWindowHint(GLFW_VISIBLE, config.visible ? GLFW_TRUE : GLFW_FALSE);
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, config.major);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, config.minor);
@@ -83,12 +84,14 @@ GLTestContext::initialize(const GLTestContextConfig & config)
 
   profile_ = config.profile;
   glfwMakeContextCurrent(window_);
-  glfwSwapInterval(0);
+  glfwSwapInterval(config.vsync ? 1 : 0);
 
-  GLint major = 0;
-  GLint minor = 0;
-  glGetIntegerv(GL_MAJOR_VERSION, &major);
-  glGetIntegerv(GL_MINOR_VERSION, &minor);
+  contextId_ = nextContextId++;
+  const cc_glglue * glue = cc_glglue_instance(contextId_);
+  unsigned int major = 0;
+  unsigned int minor = 0;
+  unsigned int release = 0;
+  cc_glglue_glversion(glue, &major, &minor, &release);
   majorVersion_ = static_cast<int>(major);
   minorVersion_ = static_cast<int>(minor);
   if (!versionAtLeast(majorVersion_, minorVersion_, config.major, config.minor)) {
@@ -111,11 +114,10 @@ GLTestContext::initialize(const GLTestContextConfig & config)
   }
 #endif
 
-  if (!framebuffer_.initialize(config.width, config.height)) {
+  if (!framebuffer_.initialize(glue, config.width, config.height)) {
     this->shutdown();
     return false;
   }
-  contextId_ = nextContextId++;
   this->bindFramebuffer();
   glDisable(GL_SCISSOR_TEST);
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -155,11 +157,44 @@ GLTestContext::makeCurrent()
   return glfwGetCurrentContext() == window_;
 }
 
+bool
+GLTestContext::resizeFramebuffer(const int width, const int height)
+{
+  if (window_ == NULL || width <= 0 || height <= 0) return false;
+  glfwMakeContextCurrent(window_);
+  if (!framebuffer_.initialize(cc_glglue_instance(contextId_), width, height)) {
+    return false;
+  }
+  this->bindFramebuffer();
+  return true;
+}
+
 void
 GLTestContext::bindFramebuffer()
 {
   if (!this->makeCurrent()) return;
   framebuffer_.bind();
+}
+
+void
+GLTestContext::present()
+{
+  if (window_ == NULL) return;
+  glfwMakeContextCurrent(window_);
+  framebuffer_.blitToDefault();
+  glfwSwapBuffers(window_);
+}
+
+void GLTestContext::pollEvents()
+{
+  glfwPollEvents();
+  if (window_ && glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    glfwSetWindowShouldClose(window_, GLFW_TRUE);
+}
+
+bool GLTestContext::shouldClose() const
+{
+  return window_ == NULL || glfwWindowShouldClose(window_) != 0;
 }
 
 std::vector<uint8_t>

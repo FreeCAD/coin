@@ -1,3 +1,5 @@
+set(COIN_TEST_SKIP_RETURN_CODE 77)
+
 macro(create_testsuite input)
 	get_filename_component(FLNAME "${input}" NAME_WE)
 	get_filename_component(FLPATH "${input}" PATH)
@@ -142,6 +144,7 @@ endif()
 
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	add_library(CoinGLTestSupport STATIC
+		support/GLRenderTestSession.cpp
 		support/GLTestContext.cpp
 		support/GLTestFramebuffer.cpp)
 	target_include_directories(CoinGLTestSupport PUBLIC
@@ -152,7 +155,8 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 		${COIN_TARGET_INCLUDE_DIRECTORIES})
 	target_link_libraries(CoinGLTestSupport PUBLIC
 		${_coin_glfw_target}
-		${COIN_TARGET_LINK_LIBRARIES})
+		${COIN_TARGET_LINK_LIBRARIES}
+		PRIVATE Coin)
 
 	function(coin_add_gl_test)
 		cmake_parse_arguments(ARG "PRIVATE_COIN_API" "NAME;PROFILE"
@@ -187,7 +191,7 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			list(APPEND test_labels ${ARG_LABELS})
 		endif()
 		set_tests_properties(${ARG_NAME} PROPERTIES
-			SKIP_RETURN_CODE 77 LABELS "${test_labels}")
+			SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE} LABELS "${test_labels}")
 	endfunction()
 endif()
 
@@ -210,7 +214,7 @@ function(coin_add_egl_test)
 		set(test_labels ${ARG_LABELS})
 	endif()
 	set_tests_properties(${ARG_NAME} PROPERTIES
-		SKIP_RETURN_CODE 77 LABELS "${test_labels}")
+		SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE} LABELS "${test_labels}")
 endfunction()
 
 add_test(
@@ -252,7 +256,8 @@ target_include_directories(LegacyBlendingTest PRIVATE
 add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
 
 add_executable(RetainedIRTest RetainedIRTest.cpp)
-target_link_libraries(RetainedIRTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_link_libraries(RetainedIRTest Coin
+	${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RetainedIRTest PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_BINARY_DIR}/include
@@ -348,14 +353,17 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(
 		NAME RetainedMaterialLightingGLTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES RetainedMaterialLightingGLTest.cpp)
 	coin_add_gl_test(
 		NAME RetainedRasterGLTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES RetainedRasterGLTest.cpp)
 	coin_add_gl_test(
 		NAME DrawListGLTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES DrawListGLTest.cpp)
 	coin_add_gl_test(
 		NAME DrawListPickingTest
@@ -365,10 +373,12 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(
 		NAME DrawListManagerTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES DrawListManagerTest.cpp)
 	coin_add_gl_test(
 		NAME RenderLayerLifecycleTest
 		PROFILE core
+		PRIVATE_COIN_API
 		SOURCES RenderLayerLifecycleTest.cpp)
 	coin_add_gl_test(
 		NAME GLSLRuntimeTest
@@ -402,6 +412,66 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			SOURCES LegacyShapeGatingOrderTest.cpp
 			LABELS legacygl)
 	endif()
+	if(COIN_BUILD_BENCHMARKS)
+		add_library(CoinRenderWorkloadSupport STATIC
+			support/RenderWorkloads.cpp)
+		target_link_libraries(CoinRenderWorkloadSupport PRIVATE Coin)
+		target_include_directories(CoinRenderWorkloadSupport PUBLIC
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		if(NOT WIN32 OR NOT COIN_BUILD_SHARED_LIBS)
+			add_executable(CoinRenderGLBenchmarks CoinRenderGLBenchmarks.cpp)
+			target_link_libraries(CoinRenderGLBenchmarks PRIVATE
+				CoinRenderWorkloadSupport CoinGLTestSupport
+				Coin
+				${COIN_TARGET_LINK_LIBRARIES})
+			target_compile_definitions(CoinRenderGLBenchmarks PRIVATE COIN_INTERNAL)
+			target_include_directories(CoinRenderGLBenchmarks PRIVATE
+				${CMAKE_CURRENT_SOURCE_DIR}/support
+				${PROJECT_SOURCE_DIR}/src
+				${PROJECT_SOURCE_DIR}/include
+				${PROJECT_BINARY_DIR}/include
+				${COIN_TARGET_INCLUDE_DIRECTORIES})
+			add_test(NAME CoinRenderGLBenchmarksSmoke
+				COMMAND CoinRenderGLBenchmarks --smoke)
+			set_tests_properties(CoinRenderGLBenchmarksSmoke PROPERTIES
+				SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
+				LABELS "benchmark;benchmark-gl;benchmark-render")
+		endif()
+		add_executable(RenderWorkloadParityTest RenderWorkloadParityTest.cpp)
+		target_link_libraries(RenderWorkloadParityTest PRIVATE
+			CoinRenderWorkloadSupport CoinGLTestSupport
+			Coin ${COIN_TARGET_LINK_LIBRARIES})
+		target_include_directories(RenderWorkloadParityTest PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME RenderWorkloadParityTest COMMAND RenderWorkloadParityTest)
+		set_tests_properties(RenderWorkloadParityTest PROPERTIES
+			SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
+			LABELS "gl-core;benchmark;benchmark-render;workload-parity")
+		add_executable(CoinRenderWorkloadViewer CoinRenderWorkloadViewer.cpp)
+		target_sources(CoinRenderWorkloadViewer PRIVATE
+			support/RenderWorkloadViewerController.cpp)
+		target_link_libraries(CoinRenderWorkloadViewer PRIVATE
+			CoinRenderWorkloadSupport CoinGLTestSupport
+			Coin ${COIN_TARGET_LINK_LIBRARIES})
+		target_include_directories(CoinRenderWorkloadViewer PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/support
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME CoinRenderWorkloadViewerSmoke
+			COMMAND CoinRenderWorkloadViewer --smoke)
+		set_tests_properties(CoinRenderWorkloadViewerSmoke PROPERTIES
+			SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
+			LABELS "benchmark;benchmark-gl;benchmark-render;viewer-smoke")
+	endif()
 endif()
 
 if(HAVE_EGL)
@@ -413,6 +483,27 @@ if(HAVE_EGL)
 		NAME OffscreenContextTest
 		SOURCES OffscreenContextTest.cpp
 		LABELS offscreen requires-egl)
+endif()
+
+if(COIN_BUILD_BENCHMARKS)
+	add_executable(CoinRenderBenchmarks CoinRenderBenchmarks.cpp)
+	target_link_libraries(CoinRenderBenchmarks PRIVATE
+		Coin ${COIN_TARGET_LINK_LIBRARIES})
+	target_include_directories(CoinRenderBenchmarks PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+
+	add_test(NAME CoinRenderBenchmarksSmoke
+		COMMAND CoinRenderBenchmarks --smoke)
+	set_tests_properties(CoinRenderBenchmarksSmoke PROPERTIES
+		LABELS "benchmark;benchmark-render;benchmark-picking;benchmark-selection")
+
+	add_test(NAME CoinRenderLifecycleStress
+		COMMAND CoinRenderBenchmarks --stress --frames 10000)
+	set_tests_properties(CoinRenderLifecycleStress PROPERTIES
+		LABELS "stress;stress-render;stress-picking;stress-lifecycle")
 endif()
 
 # Keep the ordinary non-GL tests in the unit capability without maintaining a
