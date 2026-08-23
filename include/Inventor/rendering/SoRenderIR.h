@@ -711,6 +711,9 @@ public:
     uint32_t pickLUTGeneration = 0;
     uint64_t pickLUTRevision = 0;
     bool pickLUTValid = false;
+    std::vector<uint32_t> pendingRetainedCommandUpdates;
+    std::vector<uint32_t> retainedCommandUpdates;
+    uint64_t retainedCommandUpdatesFromRevision = 0;
   };
 
   //! Internal serial for changes that may alter render-plan operation order.
@@ -742,6 +745,14 @@ public:
   //! Apply one successful retained invalidation result to derived revisions.
   void applyRetainedInvalidation(bool plan, bool resources,
                                  bool pickTopology);
+  //! Most recent committed command patch, valid only from the named revision.
+  //!
+  //! Consumers that have not observed that exact prior revision must refresh
+  //! conservatively; the draw list intentionally retains no unbounded journal.
+  const std::vector<uint32_t> & getRetainedCommandUpdates() const
+  { return this->retainedCommandUpdates; }
+  uint64_t getRetainedCommandUpdatesFromRevision() const
+  { return this->retainedCommandUpdatesFromRevision; }
 #endif
   //! Resolve a command resource, falling back to its embedded descriptor.
   const SoGeometryDesc & getCommandGeometry(
@@ -811,6 +822,9 @@ private:
   mutable uint32_t pickLUTGeneration = 0;
   mutable uint64_t pickLUTRevision = 0;
   mutable bool pickLUTValid = false;
+  std::vector<uint32_t> pendingRetainedCommandUpdates;
+  std::vector<uint32_t> retainedCommandUpdates;
+  uint64_t retainedCommandUpdatesFromRevision = 0;
 };
 
 #endif // COIN_SORENDERIR_H

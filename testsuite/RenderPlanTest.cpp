@@ -39,6 +39,11 @@ main()
                  revisions.getRenderPlanRevision() == planRevision &&
                  revisions.getResourceRevision() == resourceRevision,
                  "dynamic state update invalidated derived layout") && result;
+  result = check(
+    revisions.getRetainedCommandUpdatesFromRevision() == contentRevision &&
+    revisions.getRetainedCommandUpdates().size() == 1 &&
+    revisions.getRetainedCommandUpdates()[0] == 0,
+    "dynamic state update did not publish its command patch") && result;
 
   contentRevision = revisions.getContentRevision();
   planRevision = revisions.getRenderPlanRevision();

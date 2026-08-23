@@ -99,6 +99,12 @@ ctest --test-dir build-bench -L benchmark
 ctest --test-dir build-bench -L stress
 ```
 
+The GL stress run uses staged assemblies across compatibility and core
+contexts. It alternates transform and material patches, periodically changes
+visibility and refreshes picking, verifies prepared-batch counts and partial
+instance uploads, compares incremental pixels with forced rebuilds, and
+recreates the context four times during 10,000 frames.
+
 When GLFW and OpenGL 3.3 are available, `CoinRenderGLBenchmarks` runs the same
 semantic scenes through DrawList compatibility and core contexts. Builds with
 `COIN_BUILD_LEGACY_GL_RENDERER=ON` additionally run LegacyGL in a compatibility
@@ -115,7 +121,7 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-14 identifies each result as `per_frame_traversal`, `steady_state`,
+15 identifies each result as `per_frame_traversal`, `steady_state`,
 `forced_rebuild`, or `incremental_update`. It separates draw-list construction
 into primitive generation, geometry packing, and command emission, and also
 reports incremental command updates, render-plan construction, and backend
@@ -132,6 +138,10 @@ submitted draw-call counters continue to describe work actually executed.
 The backend caches this diagnostic analysis across frames whose draw-list
 generation, plan revision, and resource revision remain stable, so the scan
 does not inflate steady-state or incremental submission timings.
+The `instance_records_rebuilt`, `instance_records_patched`, and
+`instance_records_uploaded` counters distinguish batch membership changes from
+dynamic matrix/color patches and the records transferred to the GPU. Stable
+staged-assembly updates must patch and upload only the affected records.
 
 The shared-assembly interaction curves distinguish cold hover-target creation,
 warm hover queries, and target refresh after an incremental occurrence update.

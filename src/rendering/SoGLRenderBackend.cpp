@@ -66,6 +66,25 @@ struct InstanceRecord {
   uint32_t pickId;
 };
 
+bool
+sameInstanceRecord(const InstanceRecord & lhs, const InstanceRecord & rhs)
+{
+  return std::memcmp(&lhs, &rhs, sizeof(InstanceRecord)) == 0;
+}
+
+InstanceRecord
+makeVisualInstanceRecord(const SoRenderCommand & command)
+{
+  InstanceRecord record = {};
+  SbMat model;
+  command.modelMatrix.getValue(model);
+  const float * values = &model[0][0];
+  std::copy(values, values + 16, record.model);
+  std::copy(&command.material.diffuse[0],
+            &command.material.diffuse[0] + 4, record.color);
+  return record;
+}
+
 using BackendPhaseClock = std::chrono::steady_clock;
 
 bool
@@ -669,6 +688,16 @@ private:
 };
 } // namespace
 
+struct SoGLRenderBackend::PreparedInstanceBatch {
+  // Visual instance data has a different lifetime from the transient buffer
+  // shared by picking and selection. Command membership follows the render
+  // plan; matrices and colors may be patched while that membership is stable.
+  GLuint buffer = 0;
+  std::vector<uint32_t> commandIndices;
+  std::vector<InstanceRecord> records;
+  std::unordered_map<uint32_t, size_t> recordByCommand;
+};
+
 SoGLRenderBackend::SoGLRenderBackend()
 {
 }
@@ -808,6 +837,7 @@ SoGLRenderBackend::destroyLineRasterStream(CachedCommand & entry)
 void
 SoGLRenderBackend::invalidateCache()
 {
+  this->clearPreparedInstanceBatches(this->glue != nullptr);
   if (this->glue) {
     for (CachedCommand & entry : this->gpuCache) {
       this->destroyCacheEntry(entry);
@@ -819,6 +849,29 @@ SoGLRenderBackend::invalidateCache()
   this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
+}
+
+void
+SoGLRenderBackend::clearPreparedInstanceBatches(const bool releaseGL)
+{
+  if (releaseGL && this->glue) {
+    for (const std::unique_ptr<PreparedInstanceBatch> & batch :
+         this->preparedInstanceBatches) {
+      if (batch->buffer) {
+        cc_glglue_glDeleteBuffers(this->glue, 1, &batch->buffer);
+      }
+    }
+  }
+  this->preparedInstanceBatches.clear();
+  this->preparedInstanceDrawList = nullptr;
+  this->preparedInstancePlan = nullptr;
+  this->preparedInstanceGeneration = 0;
+  this->preparedInstancePlanRevision = 0;
+  this->preparedInstanceResourceRevision = 0;
+  this->preparedInstanceContentRevision = 0;
+  this->preparedInstanceDirtyCommands = nullptr;
+  this->refreshAllPreparedInstanceRecords = false;
+  this->preparedInstanceBatchCursor = 0;
 }
 
 void
@@ -940,6 +993,7 @@ SoGLRenderBackend::discard()
 {
   this->destroyAsyncPickResources(false);
   this->clearSelectionScratch();
+  this->clearPreparedInstanceBatches(false);
   this->gpuCache.clear();
   this->commandToCache.clear();
   this->commandCacheIndices.clear();
@@ -1340,34 +1394,41 @@ SoGLRenderBackend::setupVisualVAO(CachedCommand & entry)
     cc_glglue_glBindBuffer(this->glue, GL_ELEMENT_ARRAY_BUFFER,
                            entry.indexBuffer);
   }
-  cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER,
-                         this->instanceBuffer);
+  this->bindInstanceAttributes(this->instanceBuffer, 0);
+  this->glue->glBindVertexArray(0);
+  cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, 0);
+  cc_glglue_glBindBuffer(this->glue, GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void
+SoGLRenderBackend::bindInstanceAttributes(const GLuint buffer,
+                                          const size_t firstRecord)
+{
+  const uintptr_t base = firstRecord * sizeof(InstanceRecord);
+  cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, buffer);
   for (GLuint column = 0; column < 4; ++column) {
     const GLuint attribute = INSTANCE_MODEL_ATTRIBUTE + column;
     cc_glglue_glEnableVertexAttribArray(this->glue, attribute);
     cc_glglue_glVertexAttribPointer(
       this->glue, attribute, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceRecord),
       reinterpret_cast<const void *>(
-        static_cast<uintptr_t>(column * sizeof(float) * 4)));
+        base + static_cast<uintptr_t>(column * sizeof(float) * 4)));
     cc_glglue_glVertexAttribDivisor(this->glue, attribute, 1);
   }
   const GLuint colorAttribute = INSTANCE_MODEL_ATTRIBUTE + 4;
   cc_glglue_glEnableVertexAttribArray(this->glue, colorAttribute);
   cc_glglue_glVertexAttribPointer(
     this->glue, colorAttribute, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceRecord),
-    reinterpret_cast<const void *>(sizeof(float) * 16));
+    reinterpret_cast<const void *>(base + sizeof(float) * 16));
   cc_glglue_glVertexAttribDivisor(this->glue, colorAttribute, 1);
   cc_glglue_glEnableVertexAttribArray(this->glue,
                                       INSTANCE_PICK_ID_ATTRIBUTE);
   cc_glglue_glVertexAttribIPointer(
     this->glue, INSTANCE_PICK_ID_ATTRIBUTE, 1, GL_UNSIGNED_INT,
     sizeof(InstanceRecord),
-    reinterpret_cast<const void *>(offsetof(InstanceRecord, pickId)));
+    reinterpret_cast<const void *>(base + offsetof(InstanceRecord, pickId)));
   cc_glglue_glVertexAttribDivisor(this->glue,
                                   INSTANCE_PICK_ID_ATTRIBUTE, 1);
-  this->glue->glBindVertexArray(0);
-  cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, 0);
-  cc_glglue_glBindBuffer(this->glue, GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void
@@ -2348,18 +2409,89 @@ SoGLRenderBackend::drawInstancedCommands(
   const RasterPath path = this->selectRasterPath(entry, first, params);
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(first);
 
-  std::vector<InstanceRecord> instanceData;
-  instanceData.reserve(commandIndices.size());
-  for (const uint32_t index : commandIndices) {
-    InstanceRecord record = {};
-    SbMat model;
-    drawlist.getCommand(static_cast<int>(index)).modelMatrix.getValue(model);
-    const float * values = &model[0][0];
-    std::copy(values, values + 16, record.model);
-    const SbVec4f & color = drawlist.getCommand(
-      static_cast<int>(index)).material.diffuse;
-    std::copy(&color[0], &color[0] + 4, record.color);
-    instanceData.push_back(record);
+  if (this->preparedInstanceBatchCursor >=
+      this->preparedInstanceBatches.size()) {
+    this->preparedInstanceBatches.push_back(
+      std::unique_ptr<PreparedInstanceBatch>(new PreparedInstanceBatch));
+  }
+  PreparedInstanceBatch & batch =
+    *this->preparedInstanceBatches[this->preparedInstanceBatchCursor++];
+  const bool membershipChanged = &batch.commandIndices != &commandIndices &&
+    batch.commandIndices != commandIndices;
+  const bool rebuild = membershipChanged ||
+    batch.records.size() != commandIndices.size() || batch.buffer == 0;
+  if (rebuild) {
+    batch.commandIndices = commandIndices;
+    batch.records.clear();
+    batch.recordByCommand.clear();
+    batch.records.reserve(commandIndices.size());
+    batch.recordByCommand.reserve(commandIndices.size());
+    for (size_t recordIndex = 0; recordIndex < commandIndices.size();
+         ++recordIndex) {
+      const uint32_t index = commandIndices[recordIndex];
+      batch.records.push_back(makeVisualInstanceRecord(
+        drawlist.getCommand(static_cast<int>(index))));
+      batch.recordByCommand[index] = recordIndex;
+    }
+    if (!batch.buffer) {
+      cc_glglue_glGenBuffers(this->glue, 1, &batch.buffer);
+    }
+    cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, batch.buffer);
+    cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
+                           batch.records.size() * sizeof(InstanceRecord),
+                           batch.records.data(), GL_DYNAMIC_DRAW);
+    this->statistics.submission.instanceRecordsRebuilt +=
+      batch.records.size();
+    this->statistics.submission.instanceRecordsUploaded +=
+      batch.records.size();
+  }
+  else if (this->refreshAllPreparedInstanceRecords ||
+           this->preparedInstanceDirtyCommands) {
+    std::vector<size_t> dirtyRecords;
+    if (this->refreshAllPreparedInstanceRecords) {
+      dirtyRecords.reserve(batch.records.size());
+      for (size_t index = 0; index < batch.records.size(); ++index) {
+        const InstanceRecord next = makeVisualInstanceRecord(
+          drawlist.getCommand(static_cast<int>(commandIndices[index])));
+        if (!sameInstanceRecord(batch.records[index], next)) {
+          batch.records[index] = next;
+          dirtyRecords.push_back(index);
+        }
+      }
+    }
+    else {
+      dirtyRecords.reserve(this->preparedInstanceDirtyCommands->size());
+      for (const uint32_t commandIndex :
+           *this->preparedInstanceDirtyCommands) {
+        const auto found = batch.recordByCommand.find(commandIndex);
+        if (found == batch.recordByCommand.end()) continue;
+        const size_t recordIndex = found->second;
+        const InstanceRecord next = makeVisualInstanceRecord(
+          drawlist.getCommand(static_cast<int>(commandIndex)));
+        if (!sameInstanceRecord(batch.records[recordIndex], next)) {
+          batch.records[recordIndex] = next;
+          dirtyRecords.push_back(recordIndex);
+        }
+      }
+    }
+    std::sort(dirtyRecords.begin(), dirtyRecords.end());
+    this->statistics.submission.instanceRecordsPatched +=
+      dirtyRecords.size();
+    for (size_t first = 0; first < dirtyRecords.size();) {
+      size_t last = first + 1;
+      while (last < dirtyRecords.size() &&
+             dirtyRecords[last] == dirtyRecords[last - 1] + 1) ++last;
+      const size_t recordStart = dirtyRecords[first];
+      const size_t recordCount = dirtyRecords[last - 1] - recordStart + 1;
+      cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, batch.buffer);
+      cc_glglue_glBufferSubData(
+        this->glue, GL_ARRAY_BUFFER,
+        static_cast<GLintptr>(recordStart * sizeof(InstanceRecord)),
+        static_cast<GLsizeiptr>(recordCount * sizeof(InstanceRecord)),
+        batch.records.data() + recordStart);
+      this->statistics.submission.instanceRecordsUploaded += recordCount;
+      first = last;
+    }
   }
 
   this->applySubmissionViewport(frame, submissionState);
@@ -2369,14 +2501,10 @@ SoGLRenderBackend::drawInstancedCommands(
   this->bindCommandProgram(drawlist, first, path, frame.view, frame.projection,
                            frame.viewportOrigin, frame.viewportSize, entry,
                            submissionState);
-  cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, this->instanceBuffer);
-  cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
-                         instanceData.size() * sizeof(InstanceRecord),
-                         instanceData.data(),
-                         GL_STREAM_DRAW);
   this->glue->glUniform1f(this->visualProgram.surface.transforms.instanced,
                          1.0f);
   this->glue->glBindVertexArray(entry.vertexArray);
+  this->bindInstanceAttributes(batch.buffer, 0);
   const GLenum primitive = topologyToGL(geometry.topology);
   if (geometry.indices && geometry.indexCount) {
     cc_glglue_glDrawElementsInstanced(
@@ -3205,6 +3333,7 @@ SoGLRenderBackend::drawInstancedPickCommands(
                          this->interactionInstanceRecords.data(),
                          GL_STREAM_DRAW);
   this->glue->glBindVertexArray(cache.vertexArray);
+  this->bindInstanceAttributes(this->instanceBuffer, 0);
   const GLsizei count = static_cast<GLsizei>(
     this->interactionInstanceRecords.size());
   const GLenum primitive = topologyToGL(geometry.topology);
@@ -3314,6 +3443,7 @@ SoGLRenderBackend::drawInstancedSelectionCommands(
                          this->interactionInstanceRecords.data(),
                          GL_STREAM_DRAW);
   this->glue->glBindVertexArray(cache.vertexArray);
+  this->bindInstanceAttributes(this->instanceBuffer, 0);
   const GLsizei instanceCount = static_cast<GLsizei>(
     this->interactionInstanceRecords.size());
   const GLenum primitive = topologyToGL(geometry.topology);
@@ -4755,6 +4885,35 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   this->prepareGeometryCache(
     drawlist, (params.flags & SO_PARAM_REUSE_DRAW_LIST) != 0);
+  const bool reusePreparedInstances =
+    this->preparedInstanceDrawList == &drawlist &&
+    this->preparedInstancePlan == &plan &&
+    this->preparedInstanceGeneration == drawlist.getGeneration() &&
+    this->preparedInstancePlanRevision == drawlist.getRenderPlanRevision() &&
+    this->preparedInstanceResourceRevision == drawlist.getResourceRevision();
+  if (!reusePreparedInstances) {
+    this->clearPreparedInstanceBatches(true);
+    this->preparedInstanceDrawList = &drawlist;
+    this->preparedInstancePlan = &plan;
+    this->preparedInstanceGeneration = drawlist.getGeneration();
+    this->preparedInstancePlanRevision = drawlist.getRenderPlanRevision();
+    this->preparedInstanceResourceRevision = drawlist.getResourceRevision();
+    this->preparedInstanceContentRevision = drawlist.getContentRevision();
+  }
+  else if (this->preparedInstanceContentRevision !=
+           drawlist.getContentRevision()) {
+    // A single committed patch is enough for the normal update-then-render
+    // sequence. Missed revisions deliberately take the full comparison path.
+    if (drawlist.getRetainedCommandUpdatesFromRevision() ==
+        this->preparedInstanceContentRevision) {
+      this->preparedInstanceDirtyCommands =
+        &drawlist.getRetainedCommandUpdates();
+    }
+    else {
+      this->refreshAllPreparedInstanceRecords = true;
+    }
+  }
+  this->preparedInstanceBatchCursor = 0;
   if (measurePhases) {
     this->statistics.submission.resourcePreparationNanoseconds =
       elapsedNanoseconds(resourceStart);
@@ -4814,15 +4973,24 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       const SoRenderCommand & first = drawlist.getCommand(
         static_cast<int>(operation.commandIndex));
-      std::vector<uint32_t> & instanceCommands =
-        this->instanceCommandScratch;
+      const std::vector<uint32_t> * instanceCommands = nullptr;
+      if (this->preparedInstanceBatchCursor <
+          this->preparedInstanceBatches.size()) {
+        const PreparedInstanceBatch & prepared =
+          *this->preparedInstanceBatches[this->preparedInstanceBatchCursor];
+        if (!prepared.commandIndices.empty() &&
+            prepared.commandIndices.front() == operation.commandIndex) {
+          instanceCommands = &prepared.commandIndices;
+        }
+      }
       const size_t noCache = std::numeric_limits<size_t>::max();
       const size_t firstCacheIndex = operation.commandIndex <
           this->commandCacheIndices.size()
         ? this->commandCacheIndices[operation.commandIndex] : noCache;
-      instanceCommands.clear();
-      if (this->canInstanceCommand(drawlist, first)) {
-        instanceCommands.push_back(operation.commandIndex);
+      std::vector<uint32_t> & instanceScratch = this->instanceCommandScratch;
+      instanceScratch.clear();
+      if (!instanceCommands && this->canInstanceCommand(drawlist, first)) {
+        instanceScratch.push_back(operation.commandIndex);
         for (int next = i + 1; next < plan.getNumOperations(); ++next) {
           const SoRenderOperation & candidate = plan.getOperation(next);
           if (candidate.type != SoRenderOperationType::DRAW ||
@@ -4836,30 +5004,34 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
               !this->canInstanceEligibleCommandsTogether(
                 first, nextCommand, firstCacheIndex,
                 nextCacheIndex)) break;
-          instanceCommands.push_back(candidate.commandIndex);
+          instanceScratch.push_back(candidate.commandIndex);
         }
+        instanceCommands = &instanceScratch;
       }
-      if (instanceCommands.size() > 1) {
+      if (instanceCommands && instanceCommands->size() > 1) {
         this->drawInstancedCommands(
-          drawlist, instanceCommands, firstCacheIndex, submissionState,
+          drawlist, *instanceCommands, firstCacheIndex, submissionState,
           params);
-        this->statistics.submission.semanticDrawCommands += instanceCommands.size();
+        this->statistics.submission.semanticDrawCommands +=
+          instanceCommands->size();
         ++this->statistics.submission.submittedDrawCalls;
         if (drawlist.getCommandGeometry(first).topology ==
             SO_TOPOLOGY_LINES) {
           ++this->statistics.submission.instancedLineBatches;
           this->statistics.submission.instancedLineCommands +=
-            instanceCommands.size();
+            instanceCommands->size();
         }
         else {
           ++this->statistics.submission.instancedTriangleBatches;
           this->statistics.submission.instancedTriangleCommands +=
-            instanceCommands.size();
+            instanceCommands->size();
         }
-        for (const uint32_t commandIndex : instanceCommands) {
-          queueTargets(commandIndex);
+        if (selection) {
+          for (const uint32_t commandIndex : *instanceCommands) {
+            queueTargets(commandIndex);
+          }
         }
-        i += static_cast<int>(instanceCommands.size()) - 1;
+        i += static_cast<int>(instanceCommands->size()) - 1;
       }
       else {
         this->drawCommand(
@@ -4897,6 +5069,11 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     this->statistics.submission.commandExecutionNanoseconds =
       executionWithSelection - this->statistics.selection.durationNanoseconds;
   }
+  this->preparedInstanceContentRevision = drawlist.getContentRevision();
+  this->preparedInstanceDirtyCommands = nullptr;
+  this->refreshAllPreparedInstanceRecords = false;
+  this->statistics.submission.preparedInstanceBatches =
+    this->preparedInstanceBatches.size();
   return TRUE;
 }
 
