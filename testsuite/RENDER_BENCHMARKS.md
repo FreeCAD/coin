@@ -205,6 +205,22 @@ Add `--mutation-workload NAME` to restrict that run to one family:
 `shared_assembly_recipe`, `selection`, or `depth_stack`. A focused run keeps
 unrelated interaction workloads out of CPU profiles.
 
+For the `incremental` family, add `--mutation-case NAME` to run only
+`translation`, `material`, `geometry`, or `visibility`. Add
+`--mutation-count N` to select one mutation batch size. For example, this
+isolates a single-command transform update in a 50,000-command scene:
+
+```sh
+build-bench/bin/CoinRenderGLBenchmarks --mutation-only 50000 \
+  --mutation-workload incremental --mutation-case translation \
+  --mutation-count 1 --samples 20 --output translation-1-of-50000.json
+```
+
+Focused and full mutation results include backend frame-setup, resource-
+preparation, command-execution, and total-submission medians. These phases
+show whether a change affects retained update processing or the subsequent
+frame submission.
+
 Use `--mutation-updates-only` with an assembly family to omit its hover-pick
 measurements and profile only retained render updates.
 Results include median and p95 frame time, the update count, and construction
