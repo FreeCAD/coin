@@ -37,6 +37,12 @@ public:
                              const SoBlendState & rhs);
   static OpaqueGroup classifyOpaqueGroup(const SoRenderCommand & command,
                                          const SoGeometryDesc & geometry);
+  //! Whether adjacent commands can share one ordered heterogeneous packet.
+  //! Device support and geometry packing remain backend concerns.
+  static bool sameOrderedSubmissionState(const SoRenderCommand & lhs,
+                                         const SoGeometryDesc & lhsGeometry,
+                                         const SoRenderCommand & rhs,
+                                         const SoGeometryDesc & rhsGeometry);
   static PlanningClass classifyPlanning(const SoRenderCommand & command);
   static bool transformAffectsPlanning(const SoRenderCommand & command);
 };

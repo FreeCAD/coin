@@ -68,6 +68,8 @@ struct Measurement {
   uint64_t instancedTriangleCommands = 0;
   uint64_t instancedLineBatches = 0;
   uint64_t instancedLineCommands = 0;
+  uint64_t orderedSubmissionCandidateBatches = 0;
+  uint64_t orderedSubmissionCandidateCommands = 0;
   uint64_t selectionTargets = 0;
   uint64_t selectionDrawCalls = 0;
   uint64_t selectionInstancedBatches = 0;
@@ -142,6 +144,10 @@ void copySubmissionStatistics(
   measurement.instancedTriangleCommands = phases.instancedTriangleCommands;
   measurement.instancedLineBatches = phases.instancedLineBatches;
   measurement.instancedLineCommands = phases.instancedLineCommands;
+  measurement.orderedSubmissionCandidateBatches =
+    phases.orderedSubmissionCandidateBatches;
+  measurement.orderedSubmissionCandidateCommands =
+    phases.orderedSubmissionCandidateCommands;
 }
 
 double elapsedMs(const Clock::time_point & start)
@@ -2110,6 +2116,10 @@ std::string toJson(const std::vector<Measurement> & results,
         << r.instancedTriangleCommands
         << ", \"instanced_line_batches\": " << r.instancedLineBatches
         << ", \"instanced_line_commands\": " << r.instancedLineCommands
+        << ", \"ordered_submission_candidate_batches\": "
+        << r.orderedSubmissionCandidateBatches
+        << ", \"ordered_submission_candidate_commands\": "
+        << r.orderedSubmissionCandidateCommands
         << ", \"selection_targets\": " << r.selectionTargets
         << ", \"selection_draw_calls\": " << r.selectionDrawCalls
         << ", \"selection_instanced_batches\": "

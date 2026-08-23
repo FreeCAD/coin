@@ -123,6 +123,8 @@ resetRenderStatistics(SoRenderManager::RenderPhaseStatistics & phaseStatistics)
   phaseStatistics.instancedTriangleCommands = 0;
   phaseStatistics.instancedLineBatches = 0;
   phaseStatistics.instancedLineCommands = 0;
+  phaseStatistics.orderedSubmissionCandidateBatches = 0;
+  phaseStatistics.orderedSubmissionCandidateCommands = 0;
   phaseStatistics.selectionTargets = 0;
   phaseStatistics.selectionDrawCalls = 0;
   phaseStatistics.selectionInstancedBatches = 0;
@@ -174,6 +176,10 @@ copyBackendFrameStatistics(
   destination.instancedTriangleCommands = source.submission.instancedTriangleCommands;
   destination.instancedLineBatches = source.submission.instancedLineBatches;
   destination.instancedLineCommands = source.submission.instancedLineCommands;
+  destination.orderedSubmissionCandidateBatches =
+    source.submission.orderedSubmissionCandidateBatches;
+  destination.orderedSubmissionCandidateCommands =
+    source.submission.orderedSubmissionCandidateCommands;
   destination.resourceValidations = source.submission.resourceValidations;
   destination.selectionTargets = source.selection.targets;
   destination.selectionDrawCalls = source.selection.drawCalls;

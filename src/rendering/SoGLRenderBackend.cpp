@@ -2242,6 +2242,68 @@ SoGLRenderBackend::canInstanceEligibleCommandsTogether(
 }
 
 void
+SoGLRenderBackend::measureOrderedSubmissionCandidates(
+  const SoDrawList & drawlist, const SoRenderPlan & plan)
+{
+  uint64_t runLength = 0;
+  uint32_t firstCommandIndex = 0;
+  bool needsHeterogeneousSubmission = false;
+  const size_t noCache = std::numeric_limits<size_t>::max();
+  const uint32_t commandCount = static_cast<uint32_t>(
+    drawlist.getNumCommands());
+  const auto flushRun = [&]() {
+    if (runLength > 1 && needsHeterogeneousSubmission) {
+      ++this->statistics.submission.orderedSubmissionCandidateBatches;
+      this->statistics.submission.orderedSubmissionCandidateCommands +=
+        runLength;
+    }
+    runLength = 0;
+    needsHeterogeneousSubmission = false;
+  };
+
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type != SoRenderOperationType::DRAW ||
+        operation.commandIndex >= commandCount) {
+      flushRun();
+      continue;
+    }
+    const SoRenderCommand & command = drawlist.getCommand(
+      static_cast<int>(operation.commandIndex));
+    if (runLength == 0) {
+      firstCommandIndex = operation.commandIndex;
+      runLength = 1;
+      continue;
+    }
+    const SoRenderCommand & first = drawlist.getCommand(
+      static_cast<int>(firstCommandIndex));
+    if (!SoRenderCommandTraits::sameOrderedSubmissionState(
+          first, drawlist.getCommandGeometry(first), command,
+          drawlist.getCommandGeometry(command))) {
+      flushRun();
+      firstCommandIndex = operation.commandIndex;
+      runLength = 1;
+      continue;
+    }
+
+    ++runLength;
+    const size_t firstCacheIndex = firstCommandIndex <
+        this->commandCacheIndices.size()
+      ? this->commandCacheIndices[firstCommandIndex] : noCache;
+    const size_t commandCacheIndex = operation.commandIndex <
+        this->commandCacheIndices.size()
+      ? this->commandCacheIndices[operation.commandIndex] : noCache;
+    if (!this->canInstanceCommand(drawlist, first) ||
+        !this->canInstanceCommand(drawlist, command) ||
+        !this->canInstanceEligibleCommandsTogether(
+          first, command, firstCacheIndex, commandCacheIndex)) {
+      needsHeterogeneousSubmission = true;
+    }
+  }
+  flushRun();
+}
+
+void
 SoGLRenderBackend::drawInstancedCommands(
   const SoDrawList & drawlist,
   const std::vector<uint32_t> & commandIndices,
@@ -4704,6 +4766,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       queuedSelection = SoSelectionState();
     }
   };
+  if (measurePhases) this->measureOrderedSubmissionCandidates(drawlist, plan);
   const BackendPhaseClock::time_point executionStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   SubmissionState submissionState;

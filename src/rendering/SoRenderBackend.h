@@ -54,6 +54,8 @@ struct SoRenderBackendSubmissionStatistics {
   uint64_t instancedTriangleCommands = 0;
   uint64_t instancedLineBatches = 0;
   uint64_t instancedLineCommands = 0;
+  uint64_t orderedSubmissionCandidateBatches = 0;
+  uint64_t orderedSubmissionCandidateCommands = 0;
   uint64_t resourceValidations = 0;
   uint64_t frameSetupNanoseconds = 0;
   uint64_t resourcePreparationNanoseconds = 0;
