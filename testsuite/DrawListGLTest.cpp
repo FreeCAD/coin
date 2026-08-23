@@ -251,6 +251,36 @@ runTest()
     }
   }
 
+  // A keyed geometry resource remains usable after the producer replaces its
+  // frame storage. The second frame intentionally provides no CPU positions;
+  // the backend must use the resource retained from the first frame.
+  SoDrawList persistentDrawlist;
+  SoRenderCommand persistentCommand = unindexed;
+  persistentCommand.geometry.cacheKey = 0x42u;
+  persistentCommand.geometry.revision = 1;
+  persistentDrawlist.addCommand(persistentCommand);
+  if (!renderWithPlan(backend, persistentDrawlist, params)) {
+    std::cerr << "FAIL: keyed geometry first-frame execution failed" << std::endl;
+    result = 1;
+  }
+  persistentDrawlist.clear();
+  persistentCommand.geometry.positions = nullptr;
+  persistentDrawlist.addCommand(persistentCommand);
+  if (!renderWithPlan(backend, persistentDrawlist, params)) {
+    std::cerr << "FAIL: keyed geometry was not retained across frames"
+              << std::endl;
+    result = 1;
+  }
+  else {
+    glFinish();
+    const std::vector<uint8_t> pixels = readPixels(context);
+    if (!nearColor(pixelAt(pixels, 16, 16), 0, 255, 0)) {
+      std::cerr << "FAIL: retained keyed geometry did not render from GPU data"
+                << std::endl;
+      result = 1;
+    }
+  }
+
   // clear() changes the generation. Replacing the command must not reuse the
   // previous frame's GPU data.
   const float replacement[] = {
