@@ -331,6 +331,8 @@ private:
     SoLightingHandle lightingHandle = 0;
     SoMaterialData material;
     SoAlphaTestState alphaTest;
+    SoDepthState depth;
+    SoBlendState blend;
     bool useVertexColor = false;
     bool textured = false;
     bool viewportValid = false;
@@ -338,6 +340,8 @@ private:
     bool frameUniformsValid = false;
     bool lightingValid = false;
     bool nonColorUniformsValid = false;
+    bool depthValid = false;
+    bool blendValid = false;
   };
 
   bool createShaders();
@@ -415,10 +419,12 @@ private:
   RasterPath selectRasterPath(const CachedCommand & entry,
                               const SoRenderCommand & command,
                               const SoRenderParams & params) const;
-  void applyDepthState(const SoRenderCommand & command);
+  void applyDepthState(const SoRenderCommand & command,
+                       SubmissionState & submissionState);
   void applyRasterState(const SoRenderCommand & command,
                         const RasterPath & path);
-  void applyBlendState(const SoRenderCommand & command);
+  void applyBlendState(const SoRenderCommand & command,
+                       SubmissionState & submissionState);
   bool applyPolygonOffset(const SoRenderCommand & command,
                           const RasterPath & path,
                           GLenum & target);
