@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.0...3.31)
+# CMake 3.21 is required by the GLSL root-shader dependency/depfile
+# generation pipeline. DrawList rendering itself does not require this
+# minimum; the requirement is for the build-time shader integration.
+cmake_minimum_required(VERSION 3.21...3.31)
 
 set(COIN_MAJOR_VERSION 4)
 set(COIN_MINOR_VERSION 0)
@@ -164,11 +167,6 @@ option(COIN_BUILD_LEGACY_GL_RENDERER
   "Build Coin's legacy fixed-function OpenGL renderer."
   ON)
 set(COIN_HAVE_LEGACY_GL_RENDERER ${COIN_BUILD_LEGACY_GL_RENDERER})
-
-if(COIN_BUILD_VISUAL_TESTS AND NOT COIN_BUILD_LEGACY_GL_RENDERER)
-  message(FATAL_ERROR
-    "COIN_BUILD_VISUAL_TESTS requires COIN_BUILD_LEGACY_GL_RENDERER=ON")
-endif()
 
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
@@ -963,14 +961,51 @@ if(COIN_BUILD_VISUAL_TESTS)
   endif()
   add_subdirectory(thirdparty)
   add_subdirectory(tools)
+  set(COIN_DRAWLIST_BASE_VISUAL_SPECS
+    "unlit_cube_basic,unlit_transformed_cubes,unlit_vertex_colors,unlit_orthographic_basic,unlit_depth_overlap")
   add_test(NAME visual_smoke COMMAND CoinVisualTests snapshot --help)
   set_tests_properties(visual_smoke PROPERTIES LABELS "visual-smoke")
+  if(COIN_BUILD_LEGACY_GL_RENDERER)
+    add_test(
+      NAME visual_gl
+      COMMAND CoinVisualTests run
+        --artifacts-dir ${CMAKE_BINARY_DIR}/render_artifacts
+    )
+    set_tests_properties(visual_gl PROPERTIES LABELS "visual-legacy")
+  endif()
   add_test(
-    NAME visual_gl
+    NAME visual_gl_drawlist_compat
     COMMAND CoinVisualTests run
+      --renderer drawlist
+      --gl-profile compat
+      --only ${COIN_DRAWLIST_BASE_VISUAL_SPECS}
       --artifacts-dir ${CMAKE_BINARY_DIR}/render_artifacts
   )
-  set_tests_properties(visual_gl PROPERTIES LABELS "visual-legacy")
+  set_tests_properties(visual_gl_drawlist_compat PROPERTIES LABELS "visual-drawlist")
+  add_test(
+    NAME visual_gl_drawlist_core
+    COMMAND CoinVisualTests run
+      --renderer drawlist
+      --gl-profile core
+      --only ${COIN_DRAWLIST_BASE_VISUAL_SPECS}
+      --artifacts-dir ${CMAKE_BINARY_DIR}/render_artifacts
+  )
+  set_tests_properties(visual_gl_drawlist_core PROPERTIES LABELS "visual-drawlist")
+  add_test(
+    NAME visual_gl_invalid_legacy_profile
+    COMMAND CoinVisualTests run
+      --renderer legacy
+      --gl-profile core
+  )
+  set_tests_properties(visual_gl_invalid_legacy_profile
+    PROPERTIES WILL_FAIL TRUE LABELS "visual-drawlist")
+  add_test(
+    NAME visual_baseline_renderer_missing
+    COMMAND CoinVisualTests update
+      --renderer drawlist
+  )
+  set_tests_properties(visual_baseline_renderer_missing
+    PROPERTIES WILL_FAIL TRUE LABELS "visual-drawlist")
   add_test(
     NAME visual_compare_contract
     COMMAND ${CMAKE_COMMAND}
@@ -982,15 +1017,26 @@ if(COIN_BUILD_VISUAL_TESTS)
       -P ${PROJECT_SOURCE_DIR}/tools/CoinVisualTests/tests/compare_contract.cmake
   )
   set_tests_properties(visual_compare_contract PROPERTIES LABELS "visual-contract")
-  add_test(
-    NAME visual_baseline_update_failure
-    COMMAND ${CMAKE_COMMAND}
-      -DCOIN_VISUAL_TESTS_EXECUTABLE=$<TARGET_FILE:CoinVisualTests>
-      -DCOIN_VISUAL_TEST_SCENE=${PROJECT_SOURCE_DIR}/testsuite/render/scenes/cube.iv
-      -DCOIN_VISUAL_TEST_WORK_DIR=${CMAKE_BINARY_DIR}/render_contract/baseline
-      -P ${PROJECT_SOURCE_DIR}/tools/CoinVisualTests/tests/baseline_update_failure.cmake
-  )
-  set_tests_properties(visual_baseline_update_failure PROPERTIES LABELS "visual-contract")
+  if(COIN_BUILD_LEGACY_GL_RENDERER)
+    add_test(
+      NAME visual_baseline_update_failure
+      COMMAND ${CMAKE_COMMAND}
+        -DCOIN_VISUAL_TESTS_EXECUTABLE=$<TARGET_FILE:CoinVisualTests>
+        -DCOIN_VISUAL_TEST_SCENE=${PROJECT_SOURCE_DIR}/testsuite/render/scenes/cube.iv
+        -DCOIN_VISUAL_TEST_WORK_DIR=${CMAKE_BINARY_DIR}/render_contract/baseline
+        -P ${PROJECT_SOURCE_DIR}/tools/CoinVisualTests/tests/baseline_update_failure.cmake
+    )
+    set_tests_properties(visual_baseline_update_failure
+      PROPERTIES LABELS "visual-contract")
+  else()
+    add_test(
+      NAME visual_baseline_update_unavailable
+      COMMAND CoinVisualTests update
+        --only unlit_cube_basic
+    )
+    set_tests_properties(visual_baseline_update_unavailable
+      PROPERTIES WILL_FAIL TRUE LABELS "visual-contract")
+  endif()
   add_test(
     NAME visual_only_contract
     COMMAND ${CMAKE_COMMAND}

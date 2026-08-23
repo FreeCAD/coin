@@ -138,6 +138,15 @@ if(_coin_glfw_target)
 	endfunction()
 endif()
 
+add_test(
+	NAME ShaderGeneratorTest
+	COMMAND "${CMAKE_COMMAND}"
+		-DCOIN_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+		-DCOIN_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+		"-DCOIN_GENERATOR=${CMAKE_GENERATOR}"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/shader-generator-test.cmake"
+)
+
 add_executable(CoreTraversalTest CoreTraversalTest.cpp)
 target_link_libraries(CoreTraversalTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(CoreTraversalTest PRIVATE
@@ -185,6 +194,18 @@ target_include_directories(RetainedIRTest PRIVATE
 )
 add_test(NAME RetainedIRTest COMMAND RetainedIRTest)
 
+add_executable(RenderPlanTest
+	RenderPlanTest.cpp
+	${PROJECT_SOURCE_DIR}/src/rendering/SoRenderPlan.cpp)
+target_link_libraries(RenderPlanTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RenderPlanTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RenderPlanTest COMMAND RenderPlanTest)
+
 add_executable(RetainedNodeTest RetainedNodeTest.cpp)
 target_link_libraries(RetainedNodeTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RetainedNodeTest PRIVATE
@@ -218,6 +239,7 @@ if(HAVE_EGL)
 endif()
 
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(DrawListGLTest DrawListGLTest.cpp)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)

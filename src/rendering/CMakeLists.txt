@@ -7,6 +7,9 @@ set(COIN_RENDERING_FILES
 	SoRenderManager.cpp
 	SoRenderManagerP.cpp
 	SoRenderIR.cpp
+	SoRenderPlan.cpp
+	SoRenderBackend.cpp
+	SoGLRenderBackend.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -49,6 +52,9 @@ set(COIN_RENDERING_INTERNAL_FILES
 	CoinOffscreenGLCanvas.cpp
 	CoinGLReadback.h
 	SoRenderIRP.h
+	SoRenderPlan.h
+	SoRenderBackend.h
+	SoGLRenderBackend.h
 )
 
 # build library
@@ -58,6 +64,7 @@ if(COIN_BUILD_SINGLE_LIB)
 	endforeach(SRCFILE)
 else()
 	add_library(rendering OBJECT ${COIN_RENDERING_FILES})
+	add_dependencies(rendering coin_generated_gl_shaders)
 endif()
 
 # define documentation
