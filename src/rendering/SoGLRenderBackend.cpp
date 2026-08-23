@@ -1745,14 +1745,26 @@ SoGLRenderBackend::bindRasterCommon(const SoDrawList & drawlist,
                                     const SbVec4f & color,
                                     const bool useVertexColor,
                                     const bool textured,
-                                    const SurfaceUniforms & uniforms)
+                                    const SurfaceUniforms & uniforms,
+                                    SubmissionState & submissionState)
 {
   SbMat model;
   command.modelMatrix.getValue(model);
-  this->glue->glUniformMatrix4fv(uniforms.transforms.view, 1, GL_FALSE,
-                                 &viewMat[0][0]);
-  this->glue->glUniformMatrix4fv(uniforms.transforms.projection, 1, GL_FALSE,
-                                 &projMat[0][0]);
+  if (!submissionState.frameUniformsValid ||
+      std::memcmp(submissionState.view, &viewMat[0][0],
+                  sizeof(submissionState.view)) != 0 ||
+      std::memcmp(submissionState.projection, &projMat[0][0],
+                  sizeof(submissionState.projection)) != 0) {
+    this->glue->glUniformMatrix4fv(uniforms.transforms.view, 1, GL_FALSE,
+                                   &viewMat[0][0]);
+    this->glue->glUniformMatrix4fv(uniforms.transforms.projection, 1, GL_FALSE,
+                                   &projMat[0][0]);
+    std::memcpy(submissionState.view, &viewMat[0][0],
+                sizeof(submissionState.view));
+    std::memcpy(submissionState.projection, &projMat[0][0],
+                sizeof(submissionState.projection));
+    submissionState.frameUniformsValid = true;
+  }
   this->glue->glUniformMatrix4fv(uniforms.transforms.model, 1, GL_FALSE,
                                  &model[0][0]);
   this->glue->glUniform4f(uniforms.material.color,
@@ -1801,7 +1813,12 @@ SoGLRenderBackend::bindRasterCommon(const SoDrawList & drawlist,
       ? 0 : static_cast<GLint>(command.state.alphaTest.function));
   this->glue->glUniform1f(uniforms.alphaTest.reference,
                           command.state.alphaTest.reference);
-  this->uploadLighting(drawlist, command, uniforms);
+  if (!submissionState.lightingValid ||
+      submissionState.lightingHandle != command.lightingHandle) {
+    this->uploadLighting(drawlist, command, uniforms);
+    submissionState.lightingHandle = command.lightingHandle;
+    submissionState.lightingValid = true;
+  }
 }
 
 void
@@ -1814,7 +1831,8 @@ SoGLRenderBackend::bindPointShader(const SoRenderCommand & command,
                                    const SbVec2s & viewportSize,
                                    const bool triangleInput,
                                    const SoDrawList & drawlist,
-                                   const bool textured)
+                                   const bool textured,
+                                   SubmissionState & submissionState)
 {
   const GLuint program = triangleInput
     ? this->rasterPrograms.trianglePoint.handle
@@ -1822,9 +1840,10 @@ SoGLRenderBackend::bindPointShader(const SoRenderCommand & command,
   const PointProgram & pointProgram = triangleInput
     ? this->rasterPrograms.trianglePoint
     : this->rasterPrograms.point;
-  cc_glglue_glUseProgram(this->glue, program);
+  this->useSubmissionProgram(program, submissionState);
   this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
-                         useVertexColor, textured, pointProgram.surface);
+                         useVertexColor, textured, pointProgram.surface,
+                         submissionState);
   this->glue->glUniform1f(pointProgram.raster.pointSize, pointSize);
   this->glue->glUniform2f(pointProgram.raster.viewportSize,
                           static_cast<float>(viewportSize[0]),
@@ -1843,13 +1862,14 @@ void
 SoGLRenderBackend::bindLineShader(const SoRenderCommand & command,
                                   const SbMat & viewMat,
                                   const SbMat & projMat,
-                                   const SbVec4f & color,
-                                   const bool useVertexColor,
-                                   const float lineWidth,
-                                   const SbVec2s & viewportSize,
-                                   const bool triangleInput,
-                                   const SoDrawList & drawlist,
-                                   const bool textured)
+                                  const SbVec4f & color,
+                                  const bool useVertexColor,
+                                  const float lineWidth,
+                                  const SbVec2s & viewportSize,
+                                  const bool triangleInput,
+                                  const SoDrawList & drawlist,
+                                  const bool textured,
+                                  SubmissionState & submissionState)
 {
   const GLuint program = triangleInput
     ? this->rasterPrograms.triangleLine.handle
@@ -1857,9 +1877,10 @@ SoGLRenderBackend::bindLineShader(const SoRenderCommand & command,
   const LineProgram & lineProgram = triangleInput
     ? this->rasterPrograms.triangleLine
     : this->rasterPrograms.line;
-  cc_glglue_glUseProgram(this->glue, program);
+  this->useSubmissionProgram(program, submissionState);
   this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
-                         useVertexColor, textured, lineProgram.surface);
+                         useVertexColor, textured, lineProgram.surface,
+                         submissionState);
   this->glue->glUniform1f(lineProgram.raster.lineWidth, lineWidth);
   this->glue->glUniform2f(lineProgram.raster.viewportSize,
                           static_cast<float>(viewportSize[0]),
@@ -1886,10 +1907,11 @@ SoGLRenderBackend::bindPixelShader(const SoRenderCommand & command,
                                    const SbMat & viewMat,
                                    const SbMat & projMat,
                                    const SbVec2s & viewportOrigin,
-                                   const SbVec2s & viewportSize)
+                                   const SbVec2s & viewportSize,
+                                   SubmissionState & submissionState)
 {
   const PixelProgram & pixel = this->rasterPrograms.pixel;
-  cc_glglue_glUseProgram(this->glue, pixel.handle);
+  this->useSubmissionProgram(pixel.handle, submissionState);
   SbMat model;
   command.modelMatrix.getValue(model);
   this->glue->glUniformMatrix4fv(pixel.uniforms.view, 1, GL_FALSE,
@@ -2053,7 +2075,8 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
   const bool polygonOffset = this->applyPolygonOffset(
     command, path, polygonOffsetTarget);
   this->bindCommandProgram(drawlist, command, path, frame.view, frame.projection,
-                           frame.viewportOrigin, viewportSize, entry);
+                           frame.viewportOrigin, viewportSize, entry,
+                           submissionState);
   this->drawGeometry(command, path, entry);
   this->restoreRasterState(path, polygonOffsetTarget, polygonOffset);
 }
@@ -2167,7 +2190,8 @@ SoGLRenderBackend::drawInstancedCommands(
   this->applyRasterState(first, path);
   this->applyBlendState(first);
   this->bindCommandProgram(drawlist, first, path, frame.view, frame.projection,
-                           frame.viewportOrigin, frame.viewportSize, entry);
+                           frame.viewportOrigin, frame.viewportSize, entry,
+                           submissionState);
   cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, this->instanceBuffer);
   cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
                          instanceData.size() * sizeof(InstanceRecord),
@@ -2252,6 +2276,20 @@ SoGLRenderBackend::applySubmissionViewport(
   submissionState.viewportOrigin = frame.viewportOrigin;
   submissionState.viewportSize = frame.viewportSize;
   submissionState.viewportValid = true;
+}
+
+void
+SoGLRenderBackend::useSubmissionProgram(
+  const GLuint program, SubmissionState & submissionState)
+{
+  if (submissionState.programValid &&
+      submissionState.program == program) return;
+
+  cc_glglue_glUseProgram(this->glue, program);
+  submissionState.program = program;
+  submissionState.programValid = true;
+  submissionState.frameUniformsValid = false;
+  submissionState.lightingValid = false;
 }
 
 void
@@ -2360,7 +2398,8 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
                                       const SbMat & projMat,
                                       const SbVec2s & viewportOrigin,
                                       const SbVec2s & viewportSize,
-                                      const CachedCommand & entry)
+                                      const CachedCommand & entry,
+                                      SubmissionState & submissionState)
 {
   if (path.textured) {
     cc_glglue_glActiveTexture(this->glue, GL_TEXTURE0);
@@ -2370,25 +2409,27 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
   if (path.pixelRaster) {
     this->bindPixelShader(command, viewMat, projMat,
                           viewportOrigin,
-                          viewportSize);
+                          viewportSize, submissionState);
   }
   else if (path.usePointShader) {
     this->bindPointShader(command, viewMat, projMat, color,
                           entry.colorBuffer != 0, path.pointSize,
                           viewportSize,
-                          path.pointTriangleInput, drawlist, path.textured);
+                          path.pointTriangleInput, drawlist, path.textured,
+                          submissionState);
   }
   else if (path.useLineShader) {
     this->bindLineShader(command, viewMat, projMat, color,
                          entry.colorBuffer != 0, path.lineWidth,
                          viewportSize,
-                         path.lineTriangleInput, drawlist, path.textured);
+                         path.lineTriangleInput, drawlist, path.textured,
+                         submissionState);
   }
   else {
-    cc_glglue_glUseProgram(this->glue, this->visualProgram.handle);
+    this->useSubmissionProgram(this->visualProgram.handle, submissionState);
     this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
                            entry.colorBuffer != 0, path.textured,
-                           this->visualProgram.surface);
+                           this->visualProgram.surface, submissionState);
   }
 }
 
@@ -2421,9 +2462,6 @@ SoGLRenderBackend::restoreRasterState(const RasterPath & path,
                                       const GLenum polygonOffsetTarget,
                                       const bool polygonOffsetEnabled)
 {
-  if (path.pixelRaster || path.usePointShader || path.useLineShader) {
-    cc_glglue_glUseProgram(this->glue, this->visualProgram.handle);
-  }
   if (path.textured) cc_glglue_glBindTexture(this->glue, GL_TEXTURE_2D, 0);
   if (polygonOffsetEnabled) glDisable(polygonOffsetTarget);
   if (!path.filledPrimitive) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

@@ -321,9 +321,18 @@ private:
   };
 
   struct SubmissionState {
+    // State cached only while executing one visual render plan. Program
+    // changes invalidate uniforms whose locations belong to that program.
     SbVec2s viewportOrigin;
     SbVec2s viewportSize;
+    GLfloat view[16] = {};
+    GLfloat projection[16] = {};
+    GLuint program = 0;
+    SoLightingHandle lightingHandle = 0;
     bool viewportValid = false;
+    bool programValid = false;
+    bool frameUniformsValid = false;
+    bool lightingValid = false;
   };
 
   bool createShaders();
@@ -382,6 +391,8 @@ private:
                                       bool framebufferLocal) const;
   void applySubmissionViewport(const CommandFrame & frame,
                                SubmissionState & submissionState);
+  void useSubmissionProgram(GLuint program,
+                            SubmissionState & submissionState);
   void clearDepthEvent(const SoDepthClearEvent & event,
                        const SoRenderParams & params,
                        bool framebufferLocal);
@@ -409,7 +420,8 @@ private:
                           const SbMat & projMat,
                           const SbVec2s & viewportOrigin,
                           const SbVec2s & viewportSize,
-                          const CachedCommand & entry);
+                          const CachedCommand & entry,
+                          SubmissionState & submissionState);
   void drawGeometry(const SoRenderCommand & command,
                     const RasterPath & path,
                     const CachedCommand & entry);
@@ -463,7 +475,8 @@ private:
                         const SbVec4f & color,
                         bool useVertexColor,
                         bool textured,
-                        const SurfaceUniforms & uniforms);
+                        const SurfaceUniforms & uniforms,
+                        SubmissionState & submissionState);
   void bindLineShader(const SoRenderCommand & command,
                       const SbMat & viewMat,
                       const SbMat & projMat,
@@ -473,7 +486,8 @@ private:
                       const SbVec2s & viewportSize,
                       bool triangleInput,
                       const SoDrawList & drawlist,
-                      bool textured);
+                      bool textured,
+                      SubmissionState & submissionState);
   void bindPointShader(const SoRenderCommand & command,
                        const SbMat & viewMat,
                        const SbMat & projMat,
@@ -483,12 +497,14 @@ private:
                        const SbVec2s & viewportSize,
                        bool triangleInput,
                        const SoDrawList & drawlist,
-                       bool textured);
+                       bool textured,
+                       SubmissionState & submissionState);
   void bindPixelShader(const SoRenderCommand & command,
                        const SbMat & viewMat,
                        const SbMat & projMat,
                        const SbVec2s & viewportOrigin,
-                       const SbVec2s & viewportSize);
+                       const SbVec2s & viewportSize,
+                       SubmissionState & submissionState);
 
   const cc_glglue * glue = nullptr;
   void * context = nullptr;
