@@ -310,6 +310,9 @@ SoDrawList::clear()
   this->depthClearEvents.clear();
   this->selection = SoSelectionState();
   this->pickLUT.clear();
+  this->pendingRetainedCommandUpdates.clear();
+  this->retainedCommandUpdates.clear();
+  this->retainedCommandUpdatesFromRevision = 0;
   this->generation++;
   this->contentRevision++;
   this->renderPlanRevision++;
@@ -446,6 +449,7 @@ SoDrawList::markGeometryResourcesChanged()
 SoRenderCommand &
 SoDrawList::getCommandForRetainedUpdate(int i)
 {
+  this->pendingRetainedCommandUpdates.push_back(static_cast<uint32_t>(i));
   return this->commands[static_cast<size_t>(i)];
 }
 
@@ -467,6 +471,11 @@ SoDrawList::createMutationCheckpoint() const
   checkpoint.pickLUTGeneration = this->pickLUTGeneration;
   checkpoint.pickLUTRevision = this->pickLUTRevision;
   checkpoint.pickLUTValid = this->pickLUTValid;
+  checkpoint.pendingRetainedCommandUpdates =
+    this->pendingRetainedCommandUpdates;
+  checkpoint.retainedCommandUpdates = this->retainedCommandUpdates;
+  checkpoint.retainedCommandUpdatesFromRevision =
+    this->retainedCommandUpdatesFromRevision;
   return checkpoint;
 }
 
@@ -488,13 +497,29 @@ SoDrawList::restoreMutationCheckpoint(const MutationCheckpoint & checkpoint)
   this->pickLUTGeneration = checkpoint.pickLUTGeneration;
   this->pickLUTRevision = checkpoint.pickLUTRevision;
   this->pickLUTValid = checkpoint.pickLUTValid;
+  this->pendingRetainedCommandUpdates =
+    checkpoint.pendingRetainedCommandUpdates;
+  this->retainedCommandUpdates = checkpoint.retainedCommandUpdates;
+  this->retainedCommandUpdatesFromRevision =
+    checkpoint.retainedCommandUpdatesFromRevision;
 }
 
 void
 SoDrawList::applyRetainedInvalidation(const bool plan, const bool resources,
                                       const bool pickTopology)
 {
+  const uint64_t previousContentRevision = this->contentRevision;
   ++this->contentRevision;
+  std::sort(this->pendingRetainedCommandUpdates.begin(),
+            this->pendingRetainedCommandUpdates.end());
+  this->pendingRetainedCommandUpdates.erase(
+    std::unique(this->pendingRetainedCommandUpdates.begin(),
+                this->pendingRetainedCommandUpdates.end()),
+    this->pendingRetainedCommandUpdates.end());
+  this->retainedCommandUpdates.swap(this->pendingRetainedCommandUpdates);
+  this->pendingRetainedCommandUpdates.clear();
+  this->retainedCommandUpdatesFromRevision =
+    this->retainedCommandUpdates.empty() ? 0 : previousContentRevision;
   if (plan) ++this->renderPlanRevision;
   if (resources) ++this->resourceRevision;
   if (pickTopology) {
