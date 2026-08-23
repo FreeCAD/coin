@@ -329,10 +329,15 @@ private:
     GLfloat projection[16] = {};
     GLuint program = 0;
     SoLightingHandle lightingHandle = 0;
+    SoMaterialData material;
+    SoAlphaTestState alphaTest;
+    bool useVertexColor = false;
+    bool textured = false;
     bool viewportValid = false;
     bool programValid = false;
     bool frameUniformsValid = false;
     bool lightingValid = false;
+    bool nonColorUniformsValid = false;
   };
 
   bool createShaders();
@@ -393,6 +398,10 @@ private:
                                SubmissionState & submissionState);
   void useSubmissionProgram(GLuint program,
                             SubmissionState & submissionState);
+  bool nonColorUniformsMatch(const SubmissionState & submissionState,
+                             const SoRenderCommand & command,
+                             bool useVertexColor,
+                             bool textured) const;
   void clearDepthEvent(const SoDepthClearEvent & event,
                        const SoRenderParams & params,
                        bool framebufferLocal);
