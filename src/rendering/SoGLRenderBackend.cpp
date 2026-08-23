@@ -1769,50 +1769,61 @@ SoGLRenderBackend::bindRasterCommon(const SoDrawList & drawlist,
                                  &model[0][0]);
   this->glue->glUniform4f(uniforms.material.color,
                           color[0], color[1], color[2], color[3]);
-  this->glue->glUniform1f(uniforms.material.useVertexColor,
-                          useVertexColor ? 1.0f : 0.0f);
+  if (!this->nonColorUniformsMatch(submissionState, command,
+                                   useVertexColor, textured)) {
+    this->glue->glUniform1f(uniforms.material.useVertexColor,
+                            useVertexColor ? 1.0f : 0.0f);
 
-  const SoShadingModel shadingModel = command.material.shadingModel;
-  this->glue->glUniform1i(uniforms.material.shadingModel,
-                          static_cast<GLint>(shadingModel));
-  const SbVec4f & emissive = command.material.emissive;
-  const SbVec4f & ambient = command.material.ambient;
-  const SbVec4f & specular = command.material.specular;
-  this->glue->glUniform3f(uniforms.material.emissiveColor,
-                          emissive[0], emissive[1], emissive[2]);
-  this->glue->glUniform3f(uniforms.material.ambient,
-                          ambient[0], ambient[1], ambient[2]);
-  this->glue->glUniform3f(uniforms.material.specular,
-                          specular[0], specular[1], specular[2]);
-  this->glue->glUniform1f(uniforms.material.shininess,
-                          command.material.shininess);
-  this->glue->glUniform1f(uniforms.material.twoSidedLighting,
-                          command.material.twoSidedLighting ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.material.vertexColorAlphaIncludesOpacity,
-                          command.material.vertexColorAlphaIncludesOpacity
-                            ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.texture.alphaIncludesOpacity,
-                          command.material.textureAlphaIncludesOpacity
-                            ? 1.0f : 0.0f);
-  const bool textureHasAlpha = command.material.texture.numComponents == 2 ||
-    command.material.texture.numComponents == 4;
-  this->glue->glUniform1f(uniforms.texture.hasAlpha,
-                          textureHasAlpha ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.texture.enabled,
-                          textured ? 1.0f : 0.0f);
-  this->glue->glUniform1i(uniforms.texture.sampler, 0);
-  this->glue->glUniform1i(uniforms.texture.model,
-                          static_cast<GLint>(command.material.texture.model));
-  const SbVec4f & textureBlend = command.material.texture.blendColor;
-  this->glue->glUniform4f(uniforms.texture.blendColor,
-                          textureBlend[0], textureBlend[1],
-                          textureBlend[2], textureBlend[3]);
-  this->glue->glUniform1i(
-    uniforms.alphaTest.function,
-    command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE
-      ? 0 : static_cast<GLint>(command.state.alphaTest.function));
-  this->glue->glUniform1f(uniforms.alphaTest.reference,
-                          command.state.alphaTest.reference);
+    const SoShadingModel shadingModel = command.material.shadingModel;
+    this->glue->glUniform1i(uniforms.material.shadingModel,
+                            static_cast<GLint>(shadingModel));
+    const SbVec4f & emissive = command.material.emissive;
+    const SbVec4f & ambient = command.material.ambient;
+    const SbVec4f & specular = command.material.specular;
+    this->glue->glUniform3f(uniforms.material.emissiveColor,
+                            emissive[0], emissive[1], emissive[2]);
+    this->glue->glUniform3f(uniforms.material.ambient,
+                            ambient[0], ambient[1], ambient[2]);
+    this->glue->glUniform3f(uniforms.material.specular,
+                            specular[0], specular[1], specular[2]);
+    this->glue->glUniform1f(uniforms.material.shininess,
+                            command.material.shininess);
+    this->glue->glUniform1f(uniforms.material.twoSidedLighting,
+                            command.material.twoSidedLighting ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.material.vertexColorAlphaIncludesOpacity,
+                            command.material.vertexColorAlphaIncludesOpacity
+                              ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.texture.alphaIncludesOpacity,
+                            command.material.textureAlphaIncludesOpacity
+                              ? 1.0f : 0.0f);
+    const bool textureHasAlpha =
+      command.material.texture.numComponents == 2 ||
+      command.material.texture.numComponents == 4;
+    this->glue->glUniform1f(uniforms.texture.hasAlpha,
+                            textureHasAlpha ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.texture.enabled,
+                            textured ? 1.0f : 0.0f);
+    this->glue->glUniform1i(uniforms.texture.sampler, 0);
+    this->glue->glUniform1i(
+      uniforms.texture.model,
+      static_cast<GLint>(command.material.texture.model));
+    const SbVec4f & textureBlend = command.material.texture.blendColor;
+    this->glue->glUniform4f(uniforms.texture.blendColor,
+                            textureBlend[0], textureBlend[1],
+                            textureBlend[2], textureBlend[3]);
+    this->glue->glUniform1i(
+      uniforms.alphaTest.function,
+      command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE
+        ? 0 : static_cast<GLint>(command.state.alphaTest.function));
+    this->glue->glUniform1f(uniforms.alphaTest.reference,
+                            command.state.alphaTest.reference);
+
+    submissionState.material = command.material;
+    submissionState.alphaTest = command.state.alphaTest;
+    submissionState.useVertexColor = useVertexColor;
+    submissionState.textured = textured;
+    submissionState.nonColorUniformsValid = true;
+  }
   if (!submissionState.lightingValid ||
       submissionState.lightingHandle != command.lightingHandle) {
     this->uploadLighting(drawlist, command, uniforms);
@@ -2290,6 +2301,40 @@ SoGLRenderBackend::useSubmissionProgram(
   submissionState.programValid = true;
   submissionState.frameUniformsValid = false;
   submissionState.lightingValid = false;
+  submissionState.nonColorUniformsValid = false;
+}
+
+bool
+SoGLRenderBackend::nonColorUniformsMatch(
+  const SubmissionState & submissionState,
+  const SoRenderCommand & command,
+  const bool useVertexColor,
+  const bool textured) const
+{
+  if (!submissionState.nonColorUniformsValid ||
+      submissionState.useVertexColor != useVertexColor ||
+      submissionState.textured != textured) return false;
+
+  const SoMaterialData & cached = submissionState.material;
+  const SoMaterialData & material = command.material;
+  const SoAlphaTestState & cachedAlpha = submissionState.alphaTest;
+  const SoAlphaTestState & alpha = command.state.alphaTest;
+  return cached.ambient == material.ambient &&
+    cached.specular == material.specular &&
+    cached.emissive == material.emissive &&
+    cached.shadingModel == material.shadingModel &&
+    cached.shininess == material.shininess &&
+    cached.twoSidedLighting == material.twoSidedLighting &&
+    cached.vertexColorAlphaIncludesOpacity ==
+      material.vertexColorAlphaIncludesOpacity &&
+    cached.textureAlphaIncludesOpacity ==
+      material.textureAlphaIncludesOpacity &&
+    cached.texture.numComponents == material.texture.numComponents &&
+    cached.texture.model == material.texture.model &&
+    cached.texture.blendColor == material.texture.blendColor &&
+    cachedAlpha.policy == alpha.policy &&
+    cachedAlpha.function == alpha.function &&
+    cachedAlpha.reference == alpha.reference;
 }
 
 void
