@@ -1185,6 +1185,10 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
+    std::vector<double> submissionTimes;
+    std::vector<double> frameSetupTimes;
+    std::vector<double> resourcePreparationTimes;
+    std::vector<double> commandExecutionTimes;
     SoRenderManager::RenderPhaseStatistics submissionPhases;
     const float magnitude = 0.002f * static_cast<float>(batchIndex + 1);
     for (int sample = 0; sample < samples; ++sample) {
@@ -1204,6 +1208,14 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       constructionTimes.push_back(
         phases.drawListConstructionNanoseconds / 1000000.0);
       planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
+      submissionTimes.push_back(
+        phases.backendSubmissionNanoseconds / 1000000.0);
+      frameSetupTimes.push_back(
+        phases.backendFrameSetupNanoseconds / 1000000.0);
+      resourcePreparationTimes.push_back(
+        phases.backendResourcePreparationNanoseconds / 1000000.0);
+      commandExecutionTimes.push_back(
+        phases.backendCommandExecutionNanoseconds / 1000000.0);
       const uint64_t expectedUpdates =
         static_cast<uint64_t>(changedCount) * 2;
       if (phases.drawListRebuilds != 0 ||
@@ -1257,6 +1269,14 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     transformResult.drawListConstructionMedianMs =
       percentile(constructionTimes, 0.5);
     transformResult.planConstructionMedianMs = percentile(planTimes, 0.5);
+    transformResult.backendSubmissionMedianMs =
+      percentile(submissionTimes, 0.5);
+    transformResult.backendFrameSetupMedianMs =
+      percentile(frameSetupTimes, 0.5);
+    transformResult.backendResourcePreparationMedianMs =
+      percentile(resourcePreparationTimes, 0.5);
+    transformResult.backendCommandExecutionMedianMs =
+      percentile(commandExecutionTimes, 0.5);
     transformResult.incrementalCommandUpdates =
       static_cast<uint64_t>(changedCount) * 2;
     copySubmissionStatistics(transformResult, submissionPhases);
