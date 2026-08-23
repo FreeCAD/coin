@@ -2017,6 +2017,7 @@ void
 SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                                const SoRenderCommand & command,
                                const size_t cacheIndex,
+                               SubmissionState & submissionState,
                                const SbMat & viewMat,
                                const SbMat & projMat,
                                const SoRenderParams & params)
@@ -2036,8 +2037,7 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
   if (frame.viewportSize[0] <= 0 || frame.viewportSize[1] <= 0) return;
   RasterPath path = this->selectRasterPath(entry, command, params);
   const SbVec2s & viewportSize = frame.viewportSize;
-  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
-             viewportSize[0], viewportSize[1]);
+  this->applySubmissionViewport(frame, submissionState);
   if (path.useLineShader &&
       (path.primitive == GL_LINES || path.primitive == GL_LINE_STRIP)) {
     this->updateLineDistances(entry, command, frame.view, frame.projection,
@@ -2136,6 +2136,7 @@ SoGLRenderBackend::drawInstancedCommands(
   const SoDrawList & drawlist,
   const std::vector<uint32_t> & commandIndices,
   const size_t cacheIndex,
+  SubmissionState & submissionState,
   const SoRenderParams & params)
 {
   if (commandIndices.empty()) return;
@@ -2161,8 +2162,7 @@ SoGLRenderBackend::drawInstancedCommands(
     instanceData.push_back(record);
   }
 
-  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
-             frame.viewportSize[0], frame.viewportSize[1]);
+  this->applySubmissionViewport(frame, submissionState);
   this->applyDepthState(first);
   this->applyRasterState(first, path);
   this->applyBlendState(first);
@@ -2237,6 +2237,21 @@ SoGLRenderBackend::selectRasterPath(const CachedCommand & entry,
     command.geometry.indices && command.geometry.indexCount &&
     entry.lineRasterVertexArray != 0;
   return path;
+}
+
+void
+SoGLRenderBackend::applySubmissionViewport(
+  const CommandFrame & frame, SubmissionState & submissionState)
+{
+  if (submissionState.viewportValid &&
+      submissionState.viewportOrigin == frame.viewportOrigin &&
+      submissionState.viewportSize == frame.viewportSize) return;
+
+  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
+             frame.viewportSize[0], frame.viewportSize[1]);
+  submissionState.viewportOrigin = frame.viewportOrigin;
+  submissionState.viewportSize = frame.viewportSize;
+  submissionState.viewportValid = true;
 }
 
 void
@@ -2412,10 +2427,6 @@ SoGLRenderBackend::restoreRasterState(const RasterPath & path,
   if (path.textured) cc_glglue_glBindTexture(this->glue, GL_TEXTURE_2D, 0);
   if (polygonOffsetEnabled) glDisable(polygonOffsetTarget);
   if (!path.filledPrimitive) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glDepthRange(0.0, 1.0);
-  glFrontFace(GL_CCW);
-  if (!path.usePointShader) glPointSize(1.0f);
-  if (!path.useLineShader) glLineWidth(1.0f);
 }
 
 void
@@ -4201,10 +4212,18 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   };
   const BackendPhaseClock::time_point executionStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
+  SubmissionState submissionState;
+  const auto restoreSubmissionBaseline = []() {
+    glDepthRange(0.0, 1.0);
+    glFrontFace(GL_CCW);
+    glPointSize(1.0f);
+    glLineWidth(1.0f);
+  };
   for (int i = 0; i < plan.getNumOperations(); ++i) {
     const SoRenderOperation & operation = plan.getOperation(i);
     if (operation.type == SoRenderOperationType::DRAW) {
       if (operation.commandIndex >= commandCount) {
+        restoreSubmissionBaseline();
         this->emitError("render plan references a missing DrawList command");
         return FALSE;
       }
@@ -4237,7 +4256,8 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       if (instanceCommands.size() > 1) {
         this->drawInstancedCommands(
-          drawlist, instanceCommands, firstCacheIndex, params);
+          drawlist, instanceCommands, firstCacheIndex, submissionState,
+          params);
         for (const uint32_t commandIndex : instanceCommands) {
           queueTargets(commandIndex);
         }
@@ -4245,7 +4265,8 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       else {
         this->drawCommand(
-          drawlist, first, firstCacheIndex, view, projection, params);
+          drawlist, first, firstCacheIndex, submissionState,
+          view, projection, params);
         queueTargets(operation.commandIndex);
       }
     }
@@ -4254,6 +4275,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     }
     else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
       if (operation.depthClearEventIndex >= eventCount) {
+        restoreSubmissionBaseline();
         this->emitError("render plan references a missing depth-clear event");
         return FALSE;
       }
@@ -4263,6 +4285,9 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     }
   }
   cc_glglue_glUseProgram(this->glue, 0);
+  // Leave the same executor baseline as the per-command cleanup historically
+  // provided, while avoiding redundant state changes after every draw.
+  restoreSubmissionBaseline();
   if (measurePhases) {
     const uint64_t executionWithSelection = elapsedNanoseconds(executionStart);
     this->phaseStatistics.commandExecutionNanoseconds =
