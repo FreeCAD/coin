@@ -137,6 +137,7 @@ public:
 
   //! Append a retained command produced during the current traversal.
   void addCommand(const SoRenderCommand & command);
+  void addCommand(SoRenderCommand && command);
 
   //! Mark the current frame as unsupported by the retained renderer.
   void markUnsupported(const SoNode * node, const char * reason);
@@ -258,7 +259,9 @@ private:
   CameraPolicy     cameraPolicy = CameraPolicy::USE_CONFIGURED_CAMERA;
   float            devicePixelRatio = 1.0f;
   SoDrawList       drawlist;
-  std::vector<SoPath *> commandPaths;
+  // Full SoPath objects are materialized only for consumers that need to
+  // replay a command. Most commands remain in compact frame storage.
+  mutable std::vector<SoPath *> commandPaths;
   SoIRRenderActionP * pimpl;
   bool unsupportedRendering = false;
   const SoNode * unsupportedNode = nullptr;

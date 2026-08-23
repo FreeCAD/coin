@@ -355,6 +355,64 @@ bool testEmissiveIsIndependent(RenderFixture & fixture)
                "emissive material was folded into diffuse twice");
 }
 
+bool testPerCommandLightingSetup(RenderFixture & fixture)
+{
+  SoRenderCommand left = baseCommand(halfLeftPositions);
+  left.material.shadingModel = SO_SHADING_LEGACY_GOURAUD;
+  left.material.diffuse = SbVec4f(0, 0, 0, 1);
+  left.material.ambient = SbVec4f(1, 1, 1, 1);
+  left.material.specular = SbVec4f(0, 0, 0, 1);
+  left.material.emissive = SbVec4f(0, 0, 0, 1);
+  SoRenderCommand right = left;
+  right.geometry.positions = halfRightPositions;
+
+  SoLightingData redAmbient;
+  redAmbient.ambient.setValue(1, 0, 0);
+  SoLightingData greenAmbient;
+  greenAmbient.ambient.setValue(0, 1, 0);
+  SoDrawList drawlist;
+  left.lightingHandle = drawlist.addLightingSetup(redAmbient);
+  right.lightingHandle = drawlist.addLightingSetup(greenAmbient);
+  drawlist.addCommand(left);
+  drawlist.addCommand(right);
+
+  const std::vector<uint8_t> rendered = fixture.render(
+    drawlist, SbVec4f(0, 0, 0, 1));
+  const uint8_t * leftPixel = pixelAt(rendered, 16, 32);
+  const uint8_t * rightPixel = pixelAt(rendered, 48, 32);
+  return check(leftPixel[0] > 220 && leftPixel[1] < 30 &&
+               rightPixel[0] < 30 && rightPixel[1] > 220,
+               "per-command retained lighting setup was not uploaded");
+}
+
+bool testPerCommandMaterialUniforms(RenderFixture & fixture)
+{
+  SoRenderCommand left = baseCommand(halfLeftPositions);
+  left.material.shadingModel = SO_SHADING_LEGACY_GOURAUD;
+  left.material.diffuse = SbVec4f(0, 0, 0, 1);
+  left.material.ambient = SbVec4f(0, 0, 0, 1);
+  left.material.specular = SbVec4f(0, 0, 0, 1);
+  left.material.emissive = SbVec4f(1, 0, 0, 1);
+  SoRenderCommand right = left;
+  right.geometry.positions = halfRightPositions;
+  right.material.emissive = SbVec4f(0, 1, 0, 1);
+
+  SoLightingData lighting;
+  lighting.ambient.setValue(0, 0, 0);
+  SoDrawList drawlist;
+  left.lightingHandle = drawlist.addLightingSetup(lighting);
+  right.lightingHandle = left.lightingHandle;
+  drawlist.addCommand(left);
+  drawlist.addCommand(right);
+  const std::vector<uint8_t> rendered = fixture.render(
+    drawlist, SbVec4f(0, 0, 0, 1));
+  const uint8_t * leftPixel = pixelAt(rendered, 16, 32);
+  const uint8_t * rightPixel = pixelAt(rendered, 48, 32);
+  return check(leftPixel[0] > 220 && leftPixel[1] < 30 &&
+               rightPixel[0] < 30 && rightPixel[1] > 220,
+               "per-command retained material uniforms were not uploaded");
+}
+
 bool testTwoSidedLightingUsesFacing(RenderFixture & fixture)
 {
   const float normals[] = {
@@ -547,6 +605,8 @@ static int runTest()
   if (!testTextureModels(fixture)) result = 1;
   if (!testTexturedLightingComposition(fixture)) result = 1;
   if (!testEmissiveIsIndependent(fixture)) result = 1;
+  if (!testPerCommandLightingSetup(fixture)) result = 1;
+  if (!testPerCommandMaterialUniforms(fixture)) result = 1;
   if (!testTwoSidedLightingUsesFacing(fixture)) result = 1;
   if (!testExecutorLightLimit(fixture)) result = 1;
   if (!testTransparentDepthWriteFaithful(fixture)) result = 1;

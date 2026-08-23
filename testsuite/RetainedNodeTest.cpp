@@ -83,6 +83,20 @@ runTest()
         action.getCommandPath(0)->getTail() == firstCube,
         "scene mutation changed a retained frame's path snapshot", result);
   root->insertChild(firstCube, 0);
+
+  // Compact path storage owns its nodes before any consumer materializes a
+  // complete SoPath for replay or legacy APIs.
+  SoSeparator * compactRoot = new SoSeparator;
+  compactRoot->ref();
+  SoCube * compactCube = new SoCube;
+  compactRoot->addChild(compactCube);
+  SoIRRenderAction compactAction(SbViewportRegion(64, 64));
+  compactAction.apply(compactRoot);
+  compactRoot->unref();
+  check(compactAction.getCommandPath(0) != NULL &&
+        compactAction.getCommandPath(0)->getTail() == compactCube,
+        "compact retained path did not preserve its nodes", result);
+
   action.getMutableDrawList().buildPickLUT();
   check(action.getDrawList().getPickLUT().size() >= 2,
         "pick lookup table did not assign object IDs to retained commands", result);

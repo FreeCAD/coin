@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -782,6 +783,7 @@ SoGLRenderBackend::invalidateCache()
   }
   this->gpuCache.clear();
   this->commandToCache.clear();
+  this->commandCacheIndices.clear();
   this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
@@ -883,6 +885,7 @@ SoGLRenderBackend::discard()
 {
   this->gpuCache.clear();
   this->commandToCache.clear();
+  this->commandCacheIndices.clear();
   this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
@@ -1617,6 +1620,8 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
   this->cacheResourceRevision = drawlist.getResourceRevision();
   this->haveCacheGeneration = true;
   this->cachedCommandCount = commandCount;
+  this->commandCacheIndices.assign(commandCount,
+                                   std::numeric_limits<size_t>::max());
 
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
@@ -1626,6 +1631,8 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
         geometry.vertexCount > MAX_VERTEX_COUNT) continue;
 
     CachedCommand & entry = this->getOrCreateCache(&command, geometry);
+    this->commandCacheIndices[static_cast<size_t>(i)] =
+      static_cast<size_t>(&entry - this->gpuCache.data());
     const uint32_t vertexStride = geometry.vertexStride
       ? geometry.vertexStride : sizeof(float) * 3;
     const bool lineGeometry = geometry.topology == SO_TOPOLOGY_LINES ||
@@ -1738,63 +1745,91 @@ SoGLRenderBackend::bindRasterCommon(const SoDrawList & drawlist,
                                     const SbVec4f & color,
                                     const bool useVertexColor,
                                     const bool textured,
-                                    const SurfaceUniforms & uniforms)
+                                    const SurfaceUniforms & uniforms,
+                                    SubmissionState & submissionState)
 {
   SbMat model;
   command.modelMatrix.getValue(model);
-  this->glue->glUniformMatrix4fv(uniforms.transforms.view, 1, GL_FALSE,
-                                 &viewMat[0][0]);
-  this->glue->glUniformMatrix4fv(uniforms.transforms.projection, 1, GL_FALSE,
-                                 &projMat[0][0]);
+  if (!submissionState.frameUniformsValid ||
+      std::memcmp(submissionState.view, &viewMat[0][0],
+                  sizeof(submissionState.view)) != 0 ||
+      std::memcmp(submissionState.projection, &projMat[0][0],
+                  sizeof(submissionState.projection)) != 0) {
+    this->glue->glUniformMatrix4fv(uniforms.transforms.view, 1, GL_FALSE,
+                                   &viewMat[0][0]);
+    this->glue->glUniformMatrix4fv(uniforms.transforms.projection, 1, GL_FALSE,
+                                   &projMat[0][0]);
+    std::memcpy(submissionState.view, &viewMat[0][0],
+                sizeof(submissionState.view));
+    std::memcpy(submissionState.projection, &projMat[0][0],
+                sizeof(submissionState.projection));
+    submissionState.frameUniformsValid = true;
+  }
   this->glue->glUniformMatrix4fv(uniforms.transforms.model, 1, GL_FALSE,
                                  &model[0][0]);
   this->glue->glUniform4f(uniforms.material.color,
                           color[0], color[1], color[2], color[3]);
-  this->glue->glUniform1f(uniforms.material.useVertexColor,
-                          useVertexColor ? 1.0f : 0.0f);
+  if (!this->nonColorUniformsMatch(submissionState, command,
+                                   useVertexColor, textured)) {
+    this->glue->glUniform1f(uniforms.material.useVertexColor,
+                            useVertexColor ? 1.0f : 0.0f);
 
-  const SoShadingModel shadingModel = command.material.shadingModel;
-  this->glue->glUniform1i(uniforms.material.shadingModel,
-                          static_cast<GLint>(shadingModel));
-  const SbVec4f & emissive = command.material.emissive;
-  const SbVec4f & ambient = command.material.ambient;
-  const SbVec4f & specular = command.material.specular;
-  this->glue->glUniform3f(uniforms.material.emissiveColor,
-                          emissive[0], emissive[1], emissive[2]);
-  this->glue->glUniform3f(uniforms.material.ambient,
-                          ambient[0], ambient[1], ambient[2]);
-  this->glue->glUniform3f(uniforms.material.specular,
-                          specular[0], specular[1], specular[2]);
-  this->glue->glUniform1f(uniforms.material.shininess,
-                          command.material.shininess);
-  this->glue->glUniform1f(uniforms.material.twoSidedLighting,
-                          command.material.twoSidedLighting ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.material.vertexColorAlphaIncludesOpacity,
-                          command.material.vertexColorAlphaIncludesOpacity
-                            ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.texture.alphaIncludesOpacity,
-                          command.material.textureAlphaIncludesOpacity
-                            ? 1.0f : 0.0f);
-  const bool textureHasAlpha = command.material.texture.numComponents == 2 ||
-    command.material.texture.numComponents == 4;
-  this->glue->glUniform1f(uniforms.texture.hasAlpha,
-                          textureHasAlpha ? 1.0f : 0.0f);
-  this->glue->glUniform1f(uniforms.texture.enabled,
-                          textured ? 1.0f : 0.0f);
-  this->glue->glUniform1i(uniforms.texture.sampler, 0);
-  this->glue->glUniform1i(uniforms.texture.model,
-                          static_cast<GLint>(command.material.texture.model));
-  const SbVec4f & textureBlend = command.material.texture.blendColor;
-  this->glue->glUniform4f(uniforms.texture.blendColor,
-                          textureBlend[0], textureBlend[1],
-                          textureBlend[2], textureBlend[3]);
-  this->glue->glUniform1i(
-    uniforms.alphaTest.function,
-    command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE
-      ? 0 : static_cast<GLint>(command.state.alphaTest.function));
-  this->glue->glUniform1f(uniforms.alphaTest.reference,
-                          command.state.alphaTest.reference);
-  this->uploadLighting(drawlist, command, uniforms);
+    const SoShadingModel shadingModel = command.material.shadingModel;
+    this->glue->glUniform1i(uniforms.material.shadingModel,
+                            static_cast<GLint>(shadingModel));
+    const SbVec4f & emissive = command.material.emissive;
+    const SbVec4f & ambient = command.material.ambient;
+    const SbVec4f & specular = command.material.specular;
+    this->glue->glUniform3f(uniforms.material.emissiveColor,
+                            emissive[0], emissive[1], emissive[2]);
+    this->glue->glUniform3f(uniforms.material.ambient,
+                            ambient[0], ambient[1], ambient[2]);
+    this->glue->glUniform3f(uniforms.material.specular,
+                            specular[0], specular[1], specular[2]);
+    this->glue->glUniform1f(uniforms.material.shininess,
+                            command.material.shininess);
+    this->glue->glUniform1f(uniforms.material.twoSidedLighting,
+                            command.material.twoSidedLighting ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.material.vertexColorAlphaIncludesOpacity,
+                            command.material.vertexColorAlphaIncludesOpacity
+                              ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.texture.alphaIncludesOpacity,
+                            command.material.textureAlphaIncludesOpacity
+                              ? 1.0f : 0.0f);
+    const bool textureHasAlpha =
+      command.material.texture.numComponents == 2 ||
+      command.material.texture.numComponents == 4;
+    this->glue->glUniform1f(uniforms.texture.hasAlpha,
+                            textureHasAlpha ? 1.0f : 0.0f);
+    this->glue->glUniform1f(uniforms.texture.enabled,
+                            textured ? 1.0f : 0.0f);
+    this->glue->glUniform1i(uniforms.texture.sampler, 0);
+    this->glue->glUniform1i(
+      uniforms.texture.model,
+      static_cast<GLint>(command.material.texture.model));
+    const SbVec4f & textureBlend = command.material.texture.blendColor;
+    this->glue->glUniform4f(uniforms.texture.blendColor,
+                            textureBlend[0], textureBlend[1],
+                            textureBlend[2], textureBlend[3]);
+    this->glue->glUniform1i(
+      uniforms.alphaTest.function,
+      command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE
+        ? 0 : static_cast<GLint>(command.state.alphaTest.function));
+    this->glue->glUniform1f(uniforms.alphaTest.reference,
+                            command.state.alphaTest.reference);
+
+    submissionState.material = command.material;
+    submissionState.alphaTest = command.state.alphaTest;
+    submissionState.useVertexColor = useVertexColor;
+    submissionState.textured = textured;
+    submissionState.nonColorUniformsValid = true;
+  }
+  if (!submissionState.lightingValid ||
+      submissionState.lightingHandle != command.lightingHandle) {
+    this->uploadLighting(drawlist, command, uniforms);
+    submissionState.lightingHandle = command.lightingHandle;
+    submissionState.lightingValid = true;
+  }
 }
 
 void
@@ -1807,7 +1842,8 @@ SoGLRenderBackend::bindPointShader(const SoRenderCommand & command,
                                    const SbVec2s & viewportSize,
                                    const bool triangleInput,
                                    const SoDrawList & drawlist,
-                                   const bool textured)
+                                   const bool textured,
+                                   SubmissionState & submissionState)
 {
   const GLuint program = triangleInput
     ? this->rasterPrograms.trianglePoint.handle
@@ -1815,9 +1851,10 @@ SoGLRenderBackend::bindPointShader(const SoRenderCommand & command,
   const PointProgram & pointProgram = triangleInput
     ? this->rasterPrograms.trianglePoint
     : this->rasterPrograms.point;
-  cc_glglue_glUseProgram(this->glue, program);
+  this->useSubmissionProgram(program, submissionState);
   this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
-                         useVertexColor, textured, pointProgram.surface);
+                         useVertexColor, textured, pointProgram.surface,
+                         submissionState);
   this->glue->glUniform1f(pointProgram.raster.pointSize, pointSize);
   this->glue->glUniform2f(pointProgram.raster.viewportSize,
                           static_cast<float>(viewportSize[0]),
@@ -1836,13 +1873,14 @@ void
 SoGLRenderBackend::bindLineShader(const SoRenderCommand & command,
                                   const SbMat & viewMat,
                                   const SbMat & projMat,
-                                   const SbVec4f & color,
-                                   const bool useVertexColor,
-                                   const float lineWidth,
-                                   const SbVec2s & viewportSize,
-                                   const bool triangleInput,
-                                   const SoDrawList & drawlist,
-                                   const bool textured)
+                                  const SbVec4f & color,
+                                  const bool useVertexColor,
+                                  const float lineWidth,
+                                  const SbVec2s & viewportSize,
+                                  const bool triangleInput,
+                                  const SoDrawList & drawlist,
+                                  const bool textured,
+                                  SubmissionState & submissionState)
 {
   const GLuint program = triangleInput
     ? this->rasterPrograms.triangleLine.handle
@@ -1850,9 +1888,10 @@ SoGLRenderBackend::bindLineShader(const SoRenderCommand & command,
   const LineProgram & lineProgram = triangleInput
     ? this->rasterPrograms.triangleLine
     : this->rasterPrograms.line;
-  cc_glglue_glUseProgram(this->glue, program);
+  this->useSubmissionProgram(program, submissionState);
   this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
-                         useVertexColor, textured, lineProgram.surface);
+                         useVertexColor, textured, lineProgram.surface,
+                         submissionState);
   this->glue->glUniform1f(lineProgram.raster.lineWidth, lineWidth);
   this->glue->glUniform2f(lineProgram.raster.viewportSize,
                           static_cast<float>(viewportSize[0]),
@@ -1879,10 +1918,11 @@ SoGLRenderBackend::bindPixelShader(const SoRenderCommand & command,
                                    const SbMat & viewMat,
                                    const SbMat & projMat,
                                    const SbVec2s & viewportOrigin,
-                                   const SbVec2s & viewportSize)
+                                   const SbVec2s & viewportSize,
+                                   SubmissionState & submissionState)
 {
   const PixelProgram & pixel = this->rasterPrograms.pixel;
-  cc_glglue_glUseProgram(this->glue, pixel.handle);
+  this->useSubmissionProgram(pixel.handle, submissionState);
   SbMat model;
   command.modelMatrix.getValue(model);
   this->glue->glUniformMatrix4fv(pixel.uniforms.view, 1, GL_FALSE,
@@ -2009,6 +2049,8 @@ SoGLRenderBackend::clearDepthEvent(const SoDepthClearEvent & event,
 void
 SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                                const SoRenderCommand & command,
+                               const size_t cacheIndex,
+                               SubmissionState & submissionState,
                                const SbMat & viewMat,
                                const SbMat & projMat,
                                const SoRenderParams & params)
@@ -2020,17 +2062,15 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
       command.geometry.vertexCount == 0) return;
   if (command.state.raster.viewportOverride &&
       !command.state.raster.viewportEnabled) return;
-  const auto found = this->commandToCache.find(&command);
-  if (found == this->commandToCache.end()) return;
-  CachedCommand & entry = this->gpuCache[found->second];
+  if (cacheIndex >= this->gpuCache.size()) return;
+  CachedCommand & entry = this->gpuCache[cacheIndex];
   if (!entry.vertexArray) return;
 
   const CommandFrame frame = this->effectiveCommandFrame(command, params, false);
   if (frame.viewportSize[0] <= 0 || frame.viewportSize[1] <= 0) return;
   RasterPath path = this->selectRasterPath(entry, command, params);
   const SbVec2s & viewportSize = frame.viewportSize;
-  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
-             viewportSize[0], viewportSize[1]);
+  this->applySubmissionViewport(frame, submissionState);
   if (path.useLineShader &&
       (path.primitive == GL_LINES || path.primitive == GL_LINE_STRIP)) {
     this->updateLineDistances(entry, command, frame.view, frame.projection,
@@ -2039,14 +2079,15 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
       command.geometry.indexCount && entry.lineRasterVertexArray != 0;
   }
 
-  this->applyDepthState(command);
+  this->applyDepthState(command, submissionState);
   this->applyRasterState(command, path);
-  this->applyBlendState(command);
+  this->applyBlendState(command, submissionState);
   GLenum polygonOffsetTarget = GL_POLYGON_OFFSET_FILL;
   const bool polygonOffset = this->applyPolygonOffset(
     command, path, polygonOffsetTarget);
   this->bindCommandProgram(drawlist, command, path, frame.view, frame.projection,
-                           frame.viewportOrigin, viewportSize, entry);
+                           frame.viewportOrigin, viewportSize, entry,
+                           submissionState);
   this->drawGeometry(command, path, entry);
   this->restoreRasterState(path, polygonOffsetTarget, polygonOffset);
 }
@@ -2091,6 +2132,17 @@ SoGLRenderBackend::canInstanceTogether(const SoDrawList & drawlist,
   if (firstCache == this->commandToCache.end() ||
       nextCache == this->commandToCache.end() ||
       firstCache->second != nextCache->second) return false;
+  return this->canInstanceEligibleCommandsTogether(
+    first, next, firstCache->second, nextCache->second);
+}
+
+bool
+SoGLRenderBackend::canInstanceEligibleCommandsTogether(
+  const SoRenderCommand & first, const SoRenderCommand & next,
+  const size_t firstCacheIndex, const size_t nextCacheIndex) const
+{
+  if (firstCacheIndex != nextCacheIndex ||
+      firstCacheIndex >= this->gpuCache.size()) return false;
   const bool materialMatches =
     SoRenderCommandTraits::sameMaterialUniformState(first.material,
                                                     next.material) ||
@@ -2117,14 +2169,15 @@ void
 SoGLRenderBackend::drawInstancedCommands(
   const SoDrawList & drawlist,
   const std::vector<uint32_t> & commandIndices,
+  const size_t cacheIndex,
+  SubmissionState & submissionState,
   const SoRenderParams & params)
 {
   if (commandIndices.empty()) return;
   const SoRenderCommand & first = drawlist.getCommand(
     static_cast<int>(commandIndices.front()));
-  const auto found = this->commandToCache.find(&first);
-  if (found == this->commandToCache.end()) return;
-  CachedCommand & entry = this->gpuCache[found->second];
+  if (cacheIndex >= this->gpuCache.size()) return;
+  CachedCommand & entry = this->gpuCache[cacheIndex];
   const CommandFrame frame = this->effectiveCommandFrame(first, params, false);
   const RasterPath path = this->selectRasterPath(entry, first, params);
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(first);
@@ -2143,13 +2196,13 @@ SoGLRenderBackend::drawInstancedCommands(
     instanceData.push_back(record);
   }
 
-  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
-             frame.viewportSize[0], frame.viewportSize[1]);
-  this->applyDepthState(first);
+  this->applySubmissionViewport(frame, submissionState);
+  this->applyDepthState(first, submissionState);
   this->applyRasterState(first, path);
-  this->applyBlendState(first);
+  this->applyBlendState(first, submissionState);
   this->bindCommandProgram(drawlist, first, path, frame.view, frame.projection,
-                           frame.viewportOrigin, frame.viewportSize, entry);
+                           frame.viewportOrigin, frame.viewportSize, entry,
+                           submissionState);
   cc_glglue_glBindBuffer(this->glue, GL_ARRAY_BUFFER, this->instanceBuffer);
   cc_glglue_glBufferData(this->glue, GL_ARRAY_BUFFER,
                          instanceData.size() * sizeof(InstanceRecord),
@@ -2222,17 +2275,90 @@ SoGLRenderBackend::selectRasterPath(const CachedCommand & entry,
 }
 
 void
-SoGLRenderBackend::applyDepthState(const SoRenderCommand & command)
+SoGLRenderBackend::applySubmissionViewport(
+  const CommandFrame & frame, SubmissionState & submissionState)
 {
-  if (command.state.depth.enabled) {
+  if (submissionState.viewportValid &&
+      submissionState.viewportOrigin == frame.viewportOrigin &&
+      submissionState.viewportSize == frame.viewportSize) return;
+
+  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
+             frame.viewportSize[0], frame.viewportSize[1]);
+  submissionState.viewportOrigin = frame.viewportOrigin;
+  submissionState.viewportSize = frame.viewportSize;
+  submissionState.viewportValid = true;
+}
+
+void
+SoGLRenderBackend::useSubmissionProgram(
+  const GLuint program, SubmissionState & submissionState)
+{
+  if (submissionState.programValid &&
+      submissionState.program == program) return;
+
+  cc_glglue_glUseProgram(this->glue, program);
+  submissionState.program = program;
+  submissionState.programValid = true;
+  submissionState.frameUniformsValid = false;
+  submissionState.lightingValid = false;
+  submissionState.nonColorUniformsValid = false;
+}
+
+bool
+SoGLRenderBackend::nonColorUniformsMatch(
+  const SubmissionState & submissionState,
+  const SoRenderCommand & command,
+  const bool useVertexColor,
+  const bool textured) const
+{
+  if (!submissionState.nonColorUniformsValid ||
+      submissionState.useVertexColor != useVertexColor ||
+      submissionState.textured != textured) return false;
+
+  const SoMaterialData & cached = submissionState.material;
+  const SoMaterialData & material = command.material;
+  const SoAlphaTestState & cachedAlpha = submissionState.alphaTest;
+  const SoAlphaTestState & alpha = command.state.alphaTest;
+  return cached.ambient == material.ambient &&
+    cached.specular == material.specular &&
+    cached.emissive == material.emissive &&
+    cached.shadingModel == material.shadingModel &&
+    cached.shininess == material.shininess &&
+    cached.twoSidedLighting == material.twoSidedLighting &&
+    cached.vertexColorAlphaIncludesOpacity ==
+      material.vertexColorAlphaIncludesOpacity &&
+    cached.textureAlphaIncludesOpacity ==
+      material.textureAlphaIncludesOpacity &&
+    cached.texture.numComponents == material.texture.numComponents &&
+    cached.texture.model == material.texture.model &&
+    cached.texture.blendColor == material.texture.blendColor &&
+    cachedAlpha.policy == alpha.policy &&
+    cachedAlpha.function == alpha.function &&
+    cachedAlpha.reference == alpha.reference;
+}
+
+void
+SoGLRenderBackend::applyDepthState(const SoRenderCommand & command,
+                                   SubmissionState & submissionState)
+{
+  const SoDepthState & depth = command.state.depth;
+  if (submissionState.depthValid &&
+      submissionState.depth.enabled == depth.enabled &&
+      submissionState.depth.writeEnabled == depth.writeEnabled &&
+      submissionState.depth.func == depth.func &&
+      submissionState.depth.range[0] == depth.range[0] &&
+      submissionState.depth.range[1] == depth.range[1]) return;
+  if (depth.enabled) {
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(depthFunctionToGL(command.state.depth.func));
+    glDepthFunc(depthFunctionToGL(depth.func));
   }
   else {
     glDisable(GL_DEPTH_TEST);
   }
-  glDepthMask(command.state.depth.writeEnabled ? GL_TRUE : GL_FALSE);
-  glDepthRange(command.state.depth.range[0], command.state.depth.range[1]);
+  glDepthMask(depth.writeEnabled ? GL_TRUE : GL_FALSE);
+  glDepthRange(depth.range[0], depth.range[1]);
+  submissionState.depth = depth;
+  submissionState.depthValid = true;
 }
 
 void
@@ -2265,18 +2391,30 @@ SoGLRenderBackend::applyRasterState(const SoRenderCommand & command,
 }
 
 void
-SoGLRenderBackend::applyBlendState(const SoRenderCommand & command)
+SoGLRenderBackend::applyBlendState(const SoRenderCommand & command,
+                                   SubmissionState & submissionState)
 {
-  const bool blending = command.state.blend.enabled;
+  const SoBlendState & blend = command.state.blend;
+  if (submissionState.blendValid &&
+      submissionState.blend.enabled == blend.enabled &&
+      submissionState.blend.srcRGBFactor == blend.srcRGBFactor &&
+      submissionState.blend.dstRGBFactor == blend.dstRGBFactor &&
+      submissionState.blend.srcAlphaFactor == blend.srcAlphaFactor &&
+      submissionState.blend.dstAlphaFactor == blend.dstAlphaFactor &&
+      submissionState.blend.rgbEquation == blend.rgbEquation &&
+      submissionState.blend.alphaEquation == blend.alphaEquation) return;
+  submissionState.blend = blend;
+  submissionState.blendValid = true;
+  const bool blending = blend.enabled;
   if (!blending) {
     glDisable(GL_BLEND);
     return;
   }
   glEnable(GL_BLEND);
-  if (isDualSourceBlendFactor(command.state.blend.srcRGBFactor) ||
-      isDualSourceBlendFactor(command.state.blend.dstRGBFactor) ||
-      isDualSourceBlendFactor(command.state.blend.srcAlphaFactor) ||
-      isDualSourceBlendFactor(command.state.blend.dstAlphaFactor)) {
+  if (isDualSourceBlendFactor(blend.srcRGBFactor) ||
+      isDualSourceBlendFactor(blend.dstRGBFactor) ||
+      isDualSourceBlendFactor(blend.srcAlphaFactor) ||
+      isDualSourceBlendFactor(blend.dstAlphaFactor)) {
     static std::once_flag dualSourceWarning;
     std::call_once(dualSourceWarning, []() {
       SoDebugError::postWarning(
@@ -2286,14 +2424,14 @@ SoGLRenderBackend::applyBlendState(const SoRenderCommand & command)
     });
   }
   cc_glglue_glBlendFuncSeparate(
-    this->glue, blendFactorToGL(command.state.blend.srcRGBFactor),
-    blendFactorToGL(command.state.blend.dstRGBFactor),
-    blendFactorToGL(command.state.blend.srcAlphaFactor),
-    blendFactorToGL(command.state.blend.dstAlphaFactor));
+    this->glue, blendFactorToGL(blend.srcRGBFactor),
+    blendFactorToGL(blend.dstRGBFactor),
+    blendFactorToGL(blend.srcAlphaFactor),
+    blendFactorToGL(blend.dstAlphaFactor));
   if (cc_glglue_has_blendequation(this->glue) &&
-      command.state.blend.rgbEquation == command.state.blend.alphaEquation) {
+      blend.rgbEquation == blend.alphaEquation) {
     cc_glglue_glBlendEquation(
-      this->glue, blendEquationToGL(command.state.blend.rgbEquation));
+      this->glue, blendEquationToGL(blend.rgbEquation));
   }
 }
 
@@ -2327,7 +2465,8 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
                                       const SbMat & projMat,
                                       const SbVec2s & viewportOrigin,
                                       const SbVec2s & viewportSize,
-                                      const CachedCommand & entry)
+                                      const CachedCommand & entry,
+                                      SubmissionState & submissionState)
 {
   if (path.textured) {
     cc_glglue_glActiveTexture(this->glue, GL_TEXTURE0);
@@ -2337,25 +2476,27 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
   if (path.pixelRaster) {
     this->bindPixelShader(command, viewMat, projMat,
                           viewportOrigin,
-                          viewportSize);
+                          viewportSize, submissionState);
   }
   else if (path.usePointShader) {
     this->bindPointShader(command, viewMat, projMat, color,
                           entry.colorBuffer != 0, path.pointSize,
                           viewportSize,
-                          path.pointTriangleInput, drawlist, path.textured);
+                          path.pointTriangleInput, drawlist, path.textured,
+                          submissionState);
   }
   else if (path.useLineShader) {
     this->bindLineShader(command, viewMat, projMat, color,
                          entry.colorBuffer != 0, path.lineWidth,
                          viewportSize,
-                         path.lineTriangleInput, drawlist, path.textured);
+                         path.lineTriangleInput, drawlist, path.textured,
+                         submissionState);
   }
   else {
-    cc_glglue_glUseProgram(this->glue, this->visualProgram.handle);
+    this->useSubmissionProgram(this->visualProgram.handle, submissionState);
     this->bindRasterCommon(drawlist, command, viewMat, projMat, color,
                            entry.colorBuffer != 0, path.textured,
-                           this->visualProgram.surface);
+                           this->visualProgram.surface, submissionState);
   }
 }
 
@@ -2388,16 +2529,9 @@ SoGLRenderBackend::restoreRasterState(const RasterPath & path,
                                       const GLenum polygonOffsetTarget,
                                       const bool polygonOffsetEnabled)
 {
-  if (path.pixelRaster || path.usePointShader || path.useLineShader) {
-    cc_glglue_glUseProgram(this->glue, this->visualProgram.handle);
-  }
   if (path.textured) cc_glglue_glBindTexture(this->glue, GL_TEXTURE_2D, 0);
   if (polygonOffsetEnabled) glDisable(polygonOffsetTarget);
   if (!path.filledPrimitive) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glDepthRange(0.0, 1.0);
-  glFrontFace(GL_CCW);
-  if (!path.usePointShader) glPointSize(1.0f);
-  if (!path.useLineShader) glLineWidth(1.0f);
 }
 
 void
@@ -4183,16 +4317,30 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   };
   const BackendPhaseClock::time_point executionStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
+  SubmissionState submissionState;
+  const auto restoreSubmissionBaseline = []() {
+    glDepthRange(0.0, 1.0);
+    glFrontFace(GL_CCW);
+    glPointSize(1.0f);
+    glLineWidth(1.0f);
+  };
   for (int i = 0; i < plan.getNumOperations(); ++i) {
     const SoRenderOperation & operation = plan.getOperation(i);
     if (operation.type == SoRenderOperationType::DRAW) {
       if (operation.commandIndex >= commandCount) {
+        restoreSubmissionBaseline();
         this->emitError("render plan references a missing DrawList command");
         return FALSE;
       }
       const SoRenderCommand & first = drawlist.getCommand(
         static_cast<int>(operation.commandIndex));
-      std::vector<uint32_t> instanceCommands;
+      std::vector<uint32_t> & instanceCommands =
+        this->instanceCommandScratch;
+      const size_t noCache = std::numeric_limits<size_t>::max();
+      const size_t firstCacheIndex = operation.commandIndex <
+          this->commandCacheIndices.size()
+        ? this->commandCacheIndices[operation.commandIndex] : noCache;
+      instanceCommands.clear();
       if (this->canInstanceCommand(drawlist, first)) {
         instanceCommands.push_back(operation.commandIndex);
         for (int next = i + 1; next < plan.getNumOperations(); ++next) {
@@ -4201,27 +4349,42 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
               candidate.commandIndex >= commandCount) break;
           const SoRenderCommand & nextCommand = drawlist.getCommand(
             static_cast<int>(candidate.commandIndex));
-          if (!this->canInstanceTogether(drawlist, first, nextCommand)) break;
+          const size_t nextCacheIndex = candidate.commandIndex <
+              this->commandCacheIndices.size()
+            ? this->commandCacheIndices[candidate.commandIndex] : noCache;
+          if (!this->canInstanceCommand(drawlist, nextCommand) ||
+              !this->canInstanceEligibleCommandsTogether(
+                first, nextCommand, firstCacheIndex,
+                nextCacheIndex)) break;
           instanceCommands.push_back(candidate.commandIndex);
         }
       }
       if (instanceCommands.size() > 1) {
-        this->drawInstancedCommands(drawlist, instanceCommands, params);
+        this->drawInstancedCommands(
+          drawlist, instanceCommands, firstCacheIndex, submissionState,
+          params);
         for (const uint32_t commandIndex : instanceCommands) {
           queueTargets(commandIndex);
         }
         i += static_cast<int>(instanceCommands.size()) - 1;
       }
       else {
-        this->drawCommand(drawlist, first, view, projection, params);
+        this->drawCommand(
+          drawlist, first, firstCacheIndex, submissionState,
+          view, projection, params);
         queueTargets(operation.commandIndex);
       }
     }
     else if (operation.type == SoRenderOperationType::END_DEPTH_SEGMENT) {
       flushSelection();
+      // Selection rendering owns its own GL setup and may leave either state
+      // changed. Re-establish retained visual state at the next draw.
+      submissionState.depthValid = false;
+      submissionState.blendValid = false;
     }
     else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
       if (operation.depthClearEventIndex >= eventCount) {
+        restoreSubmissionBaseline();
         this->emitError("render plan references a missing depth-clear event");
         return FALSE;
       }
@@ -4231,6 +4394,9 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     }
   }
   cc_glglue_glUseProgram(this->glue, 0);
+  // Leave the same executor baseline as the per-command cleanup historically
+  // provided, while avoiding redundant state changes after every draw.
+  restoreSubmissionBaseline();
   if (measurePhases) {
     const uint64_t executionWithSelection = elapsedNanoseconds(executionStart);
     this->phaseStatistics.commandExecutionNanoseconds =

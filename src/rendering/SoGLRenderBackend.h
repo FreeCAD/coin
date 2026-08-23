@@ -320,6 +320,30 @@ private:
     SbVec2s viewportSize;
   };
 
+  struct SubmissionState {
+    // State cached only while executing one visual render plan. Program
+    // changes invalidate uniforms whose locations belong to that program.
+    SbVec2s viewportOrigin;
+    SbVec2s viewportSize;
+    GLfloat view[16] = {};
+    GLfloat projection[16] = {};
+    GLuint program = 0;
+    SoLightingHandle lightingHandle = 0;
+    SoMaterialData material;
+    SoAlphaTestState alphaTest;
+    SoDepthState depth;
+    SoBlendState blend;
+    bool useVertexColor = false;
+    bool textured = false;
+    bool viewportValid = false;
+    bool programValid = false;
+    bool frameUniformsValid = false;
+    bool lightingValid = false;
+    bool nonColorUniformsValid = false;
+    bool depthValid = false;
+    bool blendValid = false;
+  };
+
   bool createShaders();
   bool ensurePickFramebuffer(const SbVec2s & size);
   void destroyPickFramebuffer();
@@ -374,21 +398,33 @@ private:
   CommandFrame effectiveCommandFrame(const SoRenderCommand & command,
                                       const SoRenderParams & params,
                                       bool framebufferLocal) const;
+  void applySubmissionViewport(const CommandFrame & frame,
+                               SubmissionState & submissionState);
+  void useSubmissionProgram(GLuint program,
+                            SubmissionState & submissionState);
+  bool nonColorUniformsMatch(const SubmissionState & submissionState,
+                             const SoRenderCommand & command,
+                             bool useVertexColor,
+                             bool textured) const;
   void clearDepthEvent(const SoDepthClearEvent & event,
                        const SoRenderParams & params,
                        bool framebufferLocal);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
+                   size_t cacheIndex,
+                   SubmissionState & submissionState,
                    const SbMat & viewMat,
                    const SbMat & projMat,
                    const SoRenderParams & params);
   RasterPath selectRasterPath(const CachedCommand & entry,
                               const SoRenderCommand & command,
                               const SoRenderParams & params) const;
-  void applyDepthState(const SoRenderCommand & command);
+  void applyDepthState(const SoRenderCommand & command,
+                       SubmissionState & submissionState);
   void applyRasterState(const SoRenderCommand & command,
                         const RasterPath & path);
-  void applyBlendState(const SoRenderCommand & command);
+  void applyBlendState(const SoRenderCommand & command,
+                       SubmissionState & submissionState);
   bool applyPolygonOffset(const SoRenderCommand & command,
                           const RasterPath & path,
                           GLenum & target);
@@ -399,7 +435,8 @@ private:
                           const SbMat & projMat,
                           const SbVec2s & viewportOrigin,
                           const SbVec2s & viewportSize,
-                          const CachedCommand & entry);
+                          const CachedCommand & entry,
+                          SubmissionState & submissionState);
   void drawGeometry(const SoRenderCommand & command,
                     const RasterPath & path,
                     const CachedCommand & entry);
@@ -434,8 +471,14 @@ private:
   bool canInstanceTogether(const SoDrawList & drawlist,
                            const SoRenderCommand & first,
                            const SoRenderCommand & next) const;
+  bool canInstanceEligibleCommandsTogether(const SoRenderCommand & first,
+                                           const SoRenderCommand & next,
+                                           size_t firstCacheIndex,
+                                           size_t nextCacheIndex) const;
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
+                             size_t cacheIndex,
+                             SubmissionState & submissionState,
                              const SoRenderParams & params);
   void destroyCacheEntry(CachedCommand & entry);
   bool textureDescriptionMatches(const CachedCommand & entry,
@@ -447,7 +490,8 @@ private:
                         const SbVec4f & color,
                         bool useVertexColor,
                         bool textured,
-                        const SurfaceUniforms & uniforms);
+                        const SurfaceUniforms & uniforms,
+                        SubmissionState & submissionState);
   void bindLineShader(const SoRenderCommand & command,
                       const SbMat & viewMat,
                       const SbMat & projMat,
@@ -457,7 +501,8 @@ private:
                       const SbVec2s & viewportSize,
                       bool triangleInput,
                       const SoDrawList & drawlist,
-                      bool textured);
+                      bool textured,
+                      SubmissionState & submissionState);
   void bindPointShader(const SoRenderCommand & command,
                        const SbMat & viewMat,
                        const SbMat & projMat,
@@ -467,17 +512,22 @@ private:
                        const SbVec2s & viewportSize,
                        bool triangleInput,
                        const SoDrawList & drawlist,
-                       bool textured);
+                       bool textured,
+                       SubmissionState & submissionState);
   void bindPixelShader(const SoRenderCommand & command,
                        const SbMat & viewMat,
                        const SbMat & projMat,
                        const SbVec2s & viewportOrigin,
-                       const SbVec2s & viewportSize);
+                       const SbVec2s & viewportSize,
+                       SubmissionState & submissionState);
 
   const cc_glglue * glue = nullptr;
   void * context = nullptr;
   std::vector<CachedCommand> gpuCache;
   std::unordered_map<const SoRenderCommand *, size_t> commandToCache;
+  // Stable command-order lookup used after resource preparation has completed.
+  std::vector<size_t> commandCacheIndices;
+  std::vector<uint32_t> instanceCommandScratch;
   std::unordered_map<ResourceCacheKey, size_t, ResourceCacheKeyHash> resourceToCache;
   uint32_t cacheGeneration = 0;
   uint64_t cacheResourceRevision = 0;
