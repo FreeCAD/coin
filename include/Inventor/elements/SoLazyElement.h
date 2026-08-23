@@ -279,7 +279,8 @@ protected:
   virtual void setAlphaTestElt(int func, float value);
 
 private:
-  SoLazyElementP * pimpl; // for future use
+  friend class SoLazyElementP;
+  SoLazyElementP * pimpl = nullptr;
 
 };
 

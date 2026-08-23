@@ -69,6 +69,7 @@
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/system/gl.h>
 
+#include "elements/SoLazyElementP.h"
 #include "nodes/SoSubNodeP.h"
 
 /*!
@@ -171,6 +172,16 @@ SoAlphaTest::SoAlphaTest(void)
 */
 SoAlphaTest::~SoAlphaTest()
 {
+}
+
+void
+SoAlphaTest::doAction(SoAction * action)
+{
+  // Generic traversal retains the semantic Inventor function. The LegacyGL
+  // override below is the only path that translates it to a GL enum.
+  SoLazyElementP::setAlphaTestSemantic(action->getState(),
+                                       this->function.getValue(),
+                                       this->value.getValue());
 }
 
 // Doc from parent

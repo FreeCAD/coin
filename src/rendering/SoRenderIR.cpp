@@ -1,6 +1,8 @@
 // src/rendering/SoRenderIR.cpp
 
 #include "rendering/SoRenderIRP.h"
+#include "rendering/SoTextureQualityPolicy.h"
+#include "elements/SoLazyElementP.h"
 
 #include <Inventor/C/tidbits.h>
 #include <Inventor/elements/SoDepthBufferElement.h>
@@ -11,9 +13,12 @@
 #include <Inventor/elements/SoLightElement.h>
 #include <Inventor/elements/SoLightModelElement.h>
 #include <Inventor/elements/SoLineWidthElement.h>
+#include <Inventor/elements/SoMultiTextureEnabledElement.h>
+#include <Inventor/elements/SoMultiTextureImageElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoProjectionMatrixElement.h>
+#include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoShapeHintsElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
@@ -29,6 +34,7 @@
 #include <cmath>
 #include <cstring>
 #include <climits>
+#include <cstdlib>
 #include <inttypes.h>
 
 namespace {
@@ -138,6 +144,49 @@ alphaTestFunctionFromLegacyGL(const int value)
   case LEGACY_GL_NOTEQUAL: return SO_ALPHA_TEST_NOTEQUAL;
   default:     return SO_ALPHA_TEST_NONE;
   }
+}
+
+SoTextureModel
+textureModelFromLegacy(SoMultiTextureImageElement::Model model)
+{
+  switch (model) {
+  case SoMultiTextureImageElement::DECAL:
+    return SO_TEXTURE_MODEL_DECAL;
+  case SoMultiTextureImageElement::BLEND:
+    return SO_TEXTURE_MODEL_BLEND;
+  case SoMultiTextureImageElement::REPLACE:
+    return SO_TEXTURE_MODEL_REPLACE;
+  case SoMultiTextureImageElement::MODULATE:
+  default:
+    return SO_TEXTURE_MODEL_MODULATE;
+  }
+}
+
+void
+textureFiltersFromQuality(const float quality, SoTextureData & texture)
+{
+  const CoinTextureQualityPolicy policy =
+    coin_get_texture_quality_policy(quality);
+  if (!policy.linear) {
+    texture.minFilter = SO_TEXTURE_FILTER_NEAREST;
+    texture.magFilter = SO_TEXTURE_FILTER_NEAREST;
+  }
+  else if (!policy.mipmap) {
+    texture.minFilter = SO_TEXTURE_FILTER_LINEAR;
+    texture.magFilter = SO_TEXTURE_FILTER_LINEAR;
+  }
+  else if (!policy.linearMipmap) {
+    texture.minFilter = SO_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR;
+    texture.magFilter = SO_TEXTURE_FILTER_LINEAR;
+  }
+  else {
+    texture.minFilter = SO_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
+    texture.magFilter = SO_TEXTURE_FILTER_LINEAR;
+  }
+
+  // Preserve the LegacyGL quality policy in the neutral IR. The GL
+  // executor selects the active driver's supported anisotropy level.
+  texture.anisotropic = policy.anisotropic;
 }
 
 } // namespace
@@ -387,29 +436,76 @@ SoIRDumpFirstN(const SoDrawList & drawlist, int count)
 
 namespace SoRenderIR {
 
-void
-fillCommandStateFromState(SoState * state, SoDrawList & drawlist,
-                          SoRenderCommand & command)
+static void fillTextureFromState(SoState * state, SoIRRenderAction * action,
+                                 SoMaterialData & material);
+
+static SoTextureWrap
+textureWrapFromLegacy(SoMultiTextureImageElement::Wrap wrap)
 {
+  switch (wrap) {
+  case SoMultiTextureImageElement::REPEAT:
+    return SO_TEXTURE_WRAP_REPEAT;
+  case SoMultiTextureImageElement::CLAMP_TO_BORDER:
+    return SO_TEXTURE_WRAP_CLAMP_TO_BORDER;
+  case SoMultiTextureImageElement::CLAMP:
+  default:
+    // GL_CLAMP is the historical Coin spelling for edge clamping here.
+    return SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
+  }
+}
+
+static bool
+textureHasTransparency(const SoTextureData & texture)
+{
+  // DECAL uses texture alpha as a color interpolation factor; it does not
+  // change the fragment alpha that controls coverage or blending.
+  if (texture.model == SO_TEXTURE_MODEL_DECAL) return false;
+  if (texture.hasTransparency) return true;
+  if (!texture.pixels || texture.width <= 0 || texture.height <= 0 ||
+      (texture.numComponents != 2 && texture.numComponents != 4)) {
+    return false;
+  }
+  const size_t pixelCount = static_cast<size_t>(texture.width) *
+                            static_cast<size_t>(texture.height);
+  for (size_t pixel = 0; pixel < pixelCount; ++pixel) {
+    if (texture.pixels[pixel * static_cast<size_t>(texture.numComponents) +
+                       static_cast<size_t>(texture.numComponents - 1)] != 0xffu) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void
+fillCommandStateFromAction(SoIRRenderAction * action,
+                           SoRenderCommand & command,
+                           const int materialIndex)
+{
+  SoState * state = action->getState();
+  SoDrawList & drawlist = action->getMutableDrawList();
   command.modelMatrix = SoModelMatrixElement::get(state);
   command.viewMatrix = SoViewingMatrixElement::get(state);
   command.projMatrix = SoProjectionMatrixElement::get(state);
-  fillMaterialFromState(state, command.material);
+  fillMaterialFromState(state, command.material, materialIndex);
+  fillTextureFromState(state, action, command.material);
   fillRenderStateFromState(state, command.state);
-  ensureMaterialBlendState(command.state, command.material);
   command.lightingHandle = fillLightingFromState(state, drawlist);
 }
 
 void
-fillMaterialFromState(SoState * state, SoMaterialData & material)
+fillMaterialFromState(SoState * state, SoMaterialData & material,
+                      int materialIndex)
 {
   SoState * mutableState = state;
-  const SbColor & diffuse = SoLazyElement::getDiffuse(mutableState, 0);
+  const SbColor & diffuse = SoLazyElement::getDiffuse(mutableState, materialIndex);
   const SbColor & ambient = SoLazyElement::getAmbient(mutableState);
   const SbColor & specular = SoLazyElement::getSpecular(mutableState);
   const SbColor & emissive = SoLazyElement::getEmissive(mutableState);
-  const float transparency = SoLazyElement::getTransparency(mutableState, 0);
+  const float transparency = SoLazyElement::getTransparency(mutableState, materialIndex);
 
+  // Keep diffuse and emissive independent. The explicit lighting shader owns
+  // emissive contribution, so inferring diffuse from a default-looking
+  // material would double-count emissive-only materials.
   material.diffuse.setValue(diffuse[0], diffuse[1], diffuse[2],
                             1.0f - transparency);
 
@@ -429,8 +525,51 @@ fillMaterialFromState(SoState * state, SoMaterialData & material)
   material.shininess = SoLazyElement::getShininess(mutableState);
   material.opacity = 1.0f - transparency;
 
+  material.texture = SoTextureData();
   material.textureAlphaIncludesOpacity = false;
   material.vertexColorAlphaIncludesOpacity = false;
+}
+
+static void
+fillTextureFromState(SoState * state, SoIRRenderAction * action,
+                     SoMaterialData & material)
+{
+  if (!state || !action || !SoMultiTextureEnabledElement::get(state, 0)) {
+    return;
+  }
+
+  SbVec2s size;
+  int numComponents = 0;
+  SoMultiTextureImageElement::Wrap wrapS;
+  SoMultiTextureImageElement::Wrap wrapT;
+  SoMultiTextureImageElement::Model model;
+  SbColor blendColor;
+  const unsigned char * bytes = SoMultiTextureImageElement::get(
+    state, 0, size, numComponents, wrapS, wrapT, model, blendColor);
+  if (!bytes || size[0] <= 0 || size[1] <= 0 ||
+      numComponents < 1 || numComponents > 4) {
+    return;
+  }
+
+  const size_t pixelCount = static_cast<size_t>(size[0]) *
+                            static_cast<size_t>(size[1]);
+  const size_t byteCount = pixelCount * static_cast<size_t>(numComponents);
+  bool hasTransparency = false;
+  const unsigned char * copy = action->allocateTextureStorage(
+    bytes, byteCount, size[0], size[1], numComponents, hasTransparency);
+
+  material.texture.pixels = copy;
+  material.texture.width = size[0];
+  material.texture.height = size[1];
+  material.texture.numComponents = numComponents;
+  material.texture.hasTransparency = hasTransparency;
+  material.texture.wrapS = textureWrapFromLegacy(wrapS);
+  material.texture.wrapT = textureWrapFromLegacy(wrapT);
+  material.texture.model = textureModelFromLegacy(model);
+  material.texture.blendColor.setValue(blendColor[0], blendColor[1],
+                                       blendColor[2], 1.0f);
+  textureFiltersFromQuality(SoTextureQualityElement::get(state),
+                            material.texture);
 }
 
 void
@@ -468,6 +607,7 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
     rs.blend.dstAlphaFactor = rs.blend.dstRGBFactor;
   }
 
+
   // LegacyGL does not expose a Coin state element for blend equations. ADD
   // is its effective equation and is the only value that can be captured
   // deterministically from traversal.
@@ -475,9 +615,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   rs.blend.alphaEquation = SO_BLEND_EQUATION_ADD;
 
   float alphaTestValue = 0.5f;
-  const int alphaTestFunction = SoLazyElement::getAlphaTest(mutableState,
-                                                              alphaTestValue);
-  rs.alphaTest.function = alphaTestFunctionFromLegacyGL(alphaTestFunction);
+  const int alphaTestFunction = SoLazyElementP::getAlphaTestSemantic(
+    mutableState, alphaTestValue);
+  rs.alphaTest.function = static_cast<SoAlphaTestFunction>(alphaTestFunction);
   rs.alphaTest.reference = alphaTestValue;
   rs.alphaTest.policy = rs.alphaTest.function == SO_ALPHA_TEST_NONE
     ? SO_ALPHA_TEST_POLICY_NONE
@@ -613,7 +753,7 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
 bool
 isMaterialTransparent(const SoMaterialData & material)
 {
-  return material.opacity < 0.999f;
+  return material.opacity < 0.999f || textureHasTransparency(material.texture);
 }
 
 void
@@ -624,8 +764,7 @@ ensureMaterialBlendState(SoRenderState & renderState,
   // legacy GL action enables the conventional blend function as part of its
   // transparency setup. Make that implicit IR contract explicit without
   // replacing an actual non-standard blend state.
-  if (renderState.blend.enabled ||
-      !isMaterialTransparent(material)) {
+  if (renderState.blend.enabled || !isMaterialTransparent(material)) {
     return;
   }
 
@@ -636,6 +775,30 @@ ensureMaterialBlendState(SoRenderState & renderState,
   renderState.blend.dstAlphaFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   renderState.blend.rgbEquation = SO_BLEND_EQUATION_ADD;
   renderState.blend.alphaEquation = SO_BLEND_EQUATION_ADD;
+}
+
+void
+finalizeCommand(SoRenderCommand & command)
+{
+  ensureMaterialBlendState(command.state, command.material);
+  bool transparent = isMaterialTransparent(command.material);
+  if (!transparent && command.geometry.colors) {
+    for (uint32_t i = 0; i < command.geometry.vertexCount; ++i) {
+      if (command.geometry.colors[i * 4 + 3] < 0.999f) {
+        transparent = true;
+        break;
+      }
+    }
+  }
+  command.opacityClass = transparent
+    ? SO_OPACITY_TRANSPARENT : SO_OPACITY_OPAQUE;
+  if (transparent && !command.state.blend.enabled) {
+    command.state.blend.enabled = TRUE;
+    command.state.blend.srcRGBFactor = SO_BLEND_FACTOR_SRC_ALPHA;
+    command.state.blend.dstRGBFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    command.state.blend.srcAlphaFactor = SO_BLEND_FACTOR_SRC_ALPHA;
+    command.state.blend.dstAlphaFactor = SO_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  }
 }
 
 } // namespace SoRenderIR
