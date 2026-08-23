@@ -54,6 +54,7 @@ struct Options {
   int mutationCount = 0;
   bool mutationUpdatesOnly = false;
   int interactionOnly = 0;
+  int instanceStressFrames = 0;
   std::string output;
 };
 
@@ -73,6 +74,7 @@ struct Measurement {
   uint64_t instanceRecordsRebuilt = 0;
   uint64_t instanceRecordsPatched = 0;
   uint64_t instanceRecordsUploaded = 0;
+  uint64_t preparedInstanceBatches = 0;
   uint64_t selectionTargets = 0;
   uint64_t selectionDrawCalls = 0;
   uint64_t selectionInstancedBatches = 0;
@@ -154,6 +156,7 @@ void copySubmissionStatistics(
   measurement.instanceRecordsRebuilt = phases.instanceRecordsRebuilt;
   measurement.instanceRecordsPatched = phases.instanceRecordsPatched;
   measurement.instanceRecordsUploaded = phases.instanceRecordsUploaded;
+  measurement.preparedInstanceBatches = phases.preparedInstanceBatches;
 }
 
 double elapsedMs(const Clock::time_point & start)
@@ -2063,6 +2066,190 @@ bool runAssemblyDepthStack(GLTestProfile profile, WorkloadKind workload,
   return valid;
 }
 
+bool runPreparedInstanceStress(GLTestProfile profile, int frames,
+                               std::vector<Measurement> & results,
+                               std::string & unavailable)
+{
+  const int occurrenceCount = 1000;
+  const uint64_t expectedBatches = static_cast<uint64_t>(
+    assemblyDefinitionCount(occurrenceCount) * 2);
+  GLTestContextConfig config;
+  config.profile = profile;
+  config.major = 3;
+  config.minor = 3;
+  config.width = 256;
+  config.height = 256;
+  GLTestContext context;
+
+  SceneMutationHandles mutations;
+  SoOrthographicCamera * camera = NULL;
+  SoSeparator * scene = makeScene(
+    WorkloadKind::SharedAssemblyStaged, occurrenceCount, camera, &mutations);
+  SbViewportRegion viewport(SbVec2s(256, 256));
+  viewport.setViewportPixels(SbVec2s(0, 0), SbVec2s(256, 256));
+  SoRenderManager manager;
+  manager.setViewportRegion(viewport);
+  manager.setSceneGraph(scene);
+  manager.setCamera(camera);
+  manager.setLightingMode(SoRenderManager::UNLIT);
+  manager.setRenderPipeline(SoRenderManager::RenderPipeline::DRAW_LIST);
+  manager.setRenderPhaseTimingEnabled(TRUE);
+
+  std::vector<SbVec3f> originalTranslations;
+  originalTranslations.reserve(mutations.transforms.size());
+  for (SoTranslation * transform : mutations.transforms) {
+    originalTranslations.push_back(transform->translation.getValue());
+  }
+  std::vector<SbColor> originalColors;
+  originalColors.reserve(mutations.materials.size());
+  for (SoMaterial * material : mutations.materials) {
+    originalColors.push_back(material->diffuseColor[0]);
+  }
+
+  std::vector<double> frameTimes;
+  frameTimes.reserve(static_cast<size_t>(frames));
+  uint64_t checksum = 0;
+  uint64_t rebuiltRecords = 0;
+  uint64_t patchedRecords = 0;
+  uint64_t uploadedRecords = 0;
+  bool valid = true;
+  const int cycles = std::min(4, std::max(1, frames));
+  int completedFrames = 0;
+  for (int cycle = 0; valid && cycle < cycles; ++cycle) {
+    if (!context.initialize(config)) {
+      unavailable = "requested OpenGL context is unavailable";
+      valid = false;
+      break;
+    }
+    context.bindFramebuffer();
+    manager.render(TRUE, TRUE);
+    SoRenderManager::RenderPhaseStatistics phases =
+      manager.getRenderPhaseStatistics();
+    if (phases.preparedInstanceBatches != expectedBatches ||
+        phases.instanceRecordsRebuilt !=
+          static_cast<uint64_t>(occurrenceCount * 2)) {
+      unavailable = "context initialization did not rebuild all instance batches";
+      valid = false;
+      break;
+    }
+    rebuiltRecords += phases.instanceRecordsRebuilt;
+
+    const int cycleEnd = frames * (cycle + 1) / cycles;
+    while (valid && completedFrames < cycleEnd) {
+      const int frame = completedFrames++;
+      uint64_t expectedPatches = 0;
+      const bool visibilityFrame = !mutations.visibilitySwitches.empty() &&
+        frame != 0 && frame % 251 == 0;
+      if (visibilityFrame) {
+        SoSwitch * visibility = mutations.visibilitySwitches[0];
+        visibility->whichChild = visibility->whichChild.getValue() ==
+            SO_SWITCH_NONE ? SO_SWITCH_ALL : SO_SWITCH_NONE;
+      }
+      else if (frame % 17 == 0) {
+        const size_t index = static_cast<size_t>(frame) %
+          mutations.materials.size();
+        const SbColor & color = originalColors[index];
+        const float current = mutations.materials[index]->diffuseColor[0][0];
+        const float delta = current == color[0] ? 0.02f : 0.0f;
+        mutations.materials[index]->diffuseColor.setValue(
+          std::max(0.0f, std::min(1.0f, color[0] + delta)),
+          color[1], color[2]);
+        expectedPatches = 1;
+      }
+      else {
+        const size_t index = static_cast<size_t>(frame) %
+          mutations.transforms.size();
+        const SbVec3f current =
+          mutations.transforms[index]->translation.getValue();
+        const float delta = current == originalTranslations[index]
+          ? 0.002f : 0.0f;
+        mutations.transforms[index]->translation =
+          originalTranslations[index] + SbVec3f(delta, 0.0f, 0.0f);
+        expectedPatches = 2;
+      }
+
+      context.bindFramebuffer();
+      const Clock::time_point start = Clock::now();
+      manager.render(TRUE, TRUE);
+      frameTimes.push_back(elapsedMs(start));
+      phases = manager.getRenderPhaseStatistics();
+      rebuiltRecords += phases.instanceRecordsRebuilt;
+      patchedRecords += phases.instanceRecordsPatched;
+      uploadedRecords += phases.instanceRecordsUploaded;
+      const bool stableResources = phases.preparedInstanceBatches ==
+        expectedBatches;
+      const bool correctUpdate = visibilityFrame
+        ? phases.instanceRecordsRebuilt > 0 &&
+          phases.instanceRecordsPatched == 0
+        : phases.instanceRecordsRebuilt == 0 &&
+          phases.instanceRecordsPatched == expectedPatches &&
+          phases.instanceRecordsUploaded == expectedPatches;
+      if (!stableResources || !correctUpdate ||
+          phases.drawListRebuilds != 0) {
+        std::ostringstream reason;
+        reason << "instance stress frame " << frame << " reported batches="
+               << phases.preparedInstanceBatches << ", rebuilt="
+               << phases.instanceRecordsRebuilt << ", patched="
+               << phases.instanceRecordsPatched << ", uploaded="
+               << phases.instanceRecordsUploaded << ", draw-list rebuilds="
+               << phases.drawListRebuilds;
+        unavailable = reason.str();
+        valid = false;
+        break;
+      }
+      if (frame % 503 == 0) {
+        SoPickedPointList visible;
+        if (!manager.pickVisibleRegion(SbBox2s(0, 0, 255, 255), visible) ||
+            visible.getLength() == 0) {
+          unavailable = "instance stress produced an empty visible pick";
+          valid = false;
+          break;
+        }
+        checksum += static_cast<uint64_t>(visible.getLength());
+      }
+    }
+
+    if (valid) {
+      const std::vector<uint8_t> incrementalPixels = context.readPixels();
+      manager.invalidateDrawList();
+      context.bindFramebuffer();
+      manager.render(TRUE, TRUE);
+      if (incrementalPixels != context.readPixels()) {
+        unavailable = "instance stress differs from a forced rebuild";
+        valid = false;
+      }
+      checksum += checksumPixels(incrementalPixels);
+    }
+    manager.releaseRenderBackendResources();
+    context.shutdown();
+  }
+
+  manager.setCamera(NULL);
+  manager.setSceneGraph(NULL);
+  camera->unref();
+  scene->unref();
+  if (!valid) return false;
+
+  Measurement result;
+  result.workload = "shared_assembly_staged_instance_lifecycle_" +
+    std::to_string(frames);
+  result.renderer = "DrawList";
+  result.profile = profile == GLTestProfile::Core
+    ? "core" : "compatibility";
+  result.executionMode = "stress";
+  result.semanticDraws = occurrenceCount * 2;
+  result.samples = frames;
+  result.cpuMedianMs = percentile(frameTimes, 0.5);
+  result.cpuP95Ms = percentile(frameTimes, 0.95);
+  result.instanceRecordsRebuilt = rebuiltRecords;
+  result.instanceRecordsPatched = patchedRecords;
+  result.instanceRecordsUploaded = uploadedRecords;
+  result.preparedInstanceBatches = expectedBatches;
+  result.pixelChecksum = checksum;
+  results.push_back(result);
+  return true;
+}
+
 void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
                            const std::string & workloadFilter,
                            const std::string & caseFilter,
@@ -2144,6 +2331,8 @@ Options parseOptions(int argc, char ** argv)
       options.mutationUpdatesOnly = true;
     else if (arg == "--interaction-only" && i + 1 < argc)
       options.interactionOnly = std::atoi(argv[++i]);
+    else if (arg == "--instance-stress" && i + 1 < argc)
+      options.instanceStressFrames = std::atoi(argv[++i]);
     else if (arg == "--output" && i + 1 < argc) options.output = argv[++i];
     else {
       std::cerr << "Usage: CoinRenderGLBenchmarks [--smoke] [--samples N] "
@@ -2151,7 +2340,8 @@ Options parseOptions(int argc, char ** argv)
                    "[--mutation-workload NAME] "
                    "[--mutation-case NAME] [--mutation-count N] "
                    "[--mutation-updates-only] "
-                   "[--interaction-only N] [--output FILE]\n";
+                   "[--interaction-only N] [--instance-stress FRAMES] "
+                   "[--output FILE]\n";
       std::exit(2);
     }
   }
@@ -2164,9 +2354,10 @@ std::string toJson(const std::vector<Measurement> & results,
 {
   std::ostringstream out;
   out << std::fixed << std::setprecision(6);
-  const char * mode = options.interactionOnly > 0 ? "interaction" :
+  const char * mode = options.instanceStressFrames > 0 ? "stress" :
+    (options.interactionOnly > 0 ? "interaction" :
     (options.mutationOnly > 0 ? "mutation" :
-      (options.smoke ? "smoke" : "benchmark"));
+      (options.smoke ? "smoke" : "benchmark")));
   out << "{\n  \"schema_version\": 15,\n  \"mode\": \""
       << mode
       << "\",\n  \"time_unit\": \"ms\",\n  \"benchmarks\": [\n";
@@ -2223,6 +2414,8 @@ std::string toJson(const std::vector<Measurement> & results,
         << r.instanceRecordsPatched
         << ", \"instance_records_uploaded\": "
         << r.instanceRecordsUploaded
+        << ", \"prepared_instance_batches\": "
+        << r.preparedInstanceBatches
         << ", \"selection_targets\": " << r.selectionTargets
         << ", \"selection_draw_calls\": " << r.selectionDrawCalls
         << ", \"selection_instanced_batches\": "
@@ -2321,6 +2514,27 @@ int main(int argc, char ** argv)
   };
   std::vector<Measurement> results;
   std::vector<std::string> unavailable;
+  if (options.instanceStressFrames > 0) {
+    for (GLTestProfile profile : {
+           GLTestProfile::Compatibility, GLTestProfile::Core }) {
+      std::string reason;
+      if (!runPreparedInstanceStress(
+            profile, options.instanceStressFrames, results, reason)) {
+        unavailable.push_back(std::string("prepared instances ") +
+          (profile == GLTestProfile::Core ? "core: " : "compatibility: ") +
+          reason);
+      }
+    }
+    const std::string document = toJson(results, unavailable, options);
+    if (options.output.empty()) std::cout << document;
+    else {
+      std::ofstream output(options.output.c_str());
+      if (!output) return 1;
+      output << document;
+    }
+    SoDB::finish();
+    return results.empty() ? 77 : 0;
+  }
   if (options.interactionOnly > 0) {
     const GLTestProfile profiles[] = {
       GLTestProfile::Compatibility, GLTestProfile::Core

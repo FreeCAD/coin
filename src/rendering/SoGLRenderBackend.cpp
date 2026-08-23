@@ -5072,6 +5072,8 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   this->preparedInstanceContentRevision = drawlist.getContentRevision();
   this->preparedInstanceDirtyCommands = nullptr;
   this->refreshAllPreparedInstanceRecords = false;
+  this->statistics.submission.preparedInstanceBatches =
+    this->preparedInstanceBatches.size();
   return TRUE;
 }
 
