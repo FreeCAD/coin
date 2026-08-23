@@ -206,8 +206,11 @@ number of incrementally updated commands, with no DrawList reconstruction.
 
 Add `--mutation-workload NAME` to restrict that run to one family:
 `incremental`, `shared_assembly_expanded`, `shared_assembly_sources`,
-`shared_assembly_recipe`, `selection`, or `depth_stack`. A focused run keeps
-unrelated interaction workloads out of CPU profiles.
+`shared_assembly_recipe`, `shared_assembly_staged`, `selection`, or
+`depth_stack`. The staged workload explicitly places edges in the foreground
+render stage; the recipe workload preserves face/edge insertion order as its
+control. A focused run keeps unrelated interaction workloads out of CPU
+profiles.
 
 For the `incremental` family, add `--mutation-case NAME` to run only
 `translation`, `material`, `geometry`, or `visibility`. Add
