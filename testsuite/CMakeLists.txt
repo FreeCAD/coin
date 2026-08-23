@@ -116,8 +116,50 @@ endfunction()
 if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	coin_add_egl_test(NAME EGLBindingTest SOURCES EGLBindingTest.cpp
 		LABELS requires-egl)
-	coin_add_egl_test(NAME GLSLRuntimeTest SOURCES GLSLRuntimeTest.cpp
-		LABELS requires-egl)
+endif()
+
+# GLFW owns the native window/context plumbing used by profile-neutral OpenGL
+# integration tests. Keep it optional for ordinary developer builds.
+find_package(glfw3 3.3 QUIET)
+set(_coin_glfw_target "")
+if(TARGET glfw)
+	set(_coin_glfw_target glfw)
+elseif(TARGET glfw3::glfw)
+	set(_coin_glfw_target glfw3::glfw)
+endif()
+
+set(COIN_BUILD_GL_TESTS_EFFECTIVE OFF)
+if(_coin_glfw_target)
+	set(COIN_BUILD_GL_TESTS_EFFECTIVE ON)
+	add_library(CoinGLTestSupport STATIC
+		support/GLTestContext.cpp
+		support/GLTestFramebuffer.cpp)
+	target_include_directories(CoinGLTestSupport PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/support
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	target_link_libraries(CoinGLTestSupport PUBLIC
+		${_coin_glfw_target}
+		${COIN_TARGET_LINK_LIBRARIES})
+
+	function(coin_add_gl_test name)
+		add_executable(${name} ${ARGN})
+		target_link_libraries(${name} CoinGLTestSupport Coin
+			${COIN_TARGET_LINK_LIBRARIES})
+		target_compile_definitions(${name} PRIVATE COIN_INTERNAL)
+		target_include_directories(${name} PRIVATE
+			${PROJECT_SOURCE_DIR}/src
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}/include
+			${COIN_TARGET_INCLUDE_DIRECTORIES})
+		add_test(NAME ${name} COMMAND ${name})
+		set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77)
+	endfunction()
+endif()
+
+if(COIN_BUILD_GL_TESTS_EFFECTIVE)
+	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
