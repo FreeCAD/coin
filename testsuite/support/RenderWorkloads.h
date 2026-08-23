@@ -20,7 +20,8 @@ enum class WorkloadKind {
   FeatureRich,
   SharedAssemblyExpanded,
   SharedAssemblySources,
-  SharedAssemblyRecipe
+  SharedAssemblyRecipe,
+  SharedAssemblyStaged
 };
 
 struct SceneMutationHandles {

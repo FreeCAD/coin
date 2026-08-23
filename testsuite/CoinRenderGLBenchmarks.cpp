@@ -2039,7 +2039,8 @@ void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
   const WorkloadKind assemblies[] = {
     WorkloadKind::SharedAssemblyExpanded,
     WorkloadKind::SharedAssemblySources,
-    WorkloadKind::SharedAssemblyRecipe
+    WorkloadKind::SharedAssemblyRecipe,
+    WorkloadKind::SharedAssemblyStaged
   };
   for (WorkloadKind workload : assemblies) {
     if (!workloadFilter.empty() &&
@@ -2257,7 +2258,8 @@ int main(int argc, char ** argv)
     WorkloadKind::DensePicking,
     WorkloadKind::SharedAssemblyExpanded,
     WorkloadKind::SharedAssemblySources,
-    WorkloadKind::SharedAssemblyRecipe
+    WorkloadKind::SharedAssemblyRecipe,
+    WorkloadKind::SharedAssemblyStaged
   };
   std::vector<Measurement> results;
   std::vector<std::string> unavailable;

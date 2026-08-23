@@ -11,6 +11,7 @@
 #include <Inventor/nodes/SoNormal.h>
 #include <Inventor/nodes/SoNormalBinding.h>
 #include <Inventor/nodes/SoOrthographicCamera.h>
+#include <Inventor/nodes/SoRenderLayerGroup.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoTexture2.h>
@@ -69,7 +70,15 @@ SoCoordinate3 * addAssemblyGeometry(SoSeparator * parent, WorkloadKind kind,
   edgeBranch->renderCaching = SoSeparator::OFF;
   edgeBranch->addChild(edgeMaterial);
   edgeBranch->addChild(edges);
-  parent->addChild(edgeBranch);
+  if (kind == WorkloadKind::SharedAssemblyStaged) {
+    SoRenderLayerGroup * edgeStage = new SoRenderLayerGroup;
+    edgeStage->layer = SoRenderLayerGroup::FOREGROUND;
+    edgeStage->addChild(edgeBranch);
+    parent->addChild(edgeStage);
+  }
+  else {
+    parent->addChild(edgeBranch);
+  }
   return coordinates;
 }
 
@@ -89,6 +98,8 @@ const char * workloadName(WorkloadKind kind)
     return "shared_assembly_sources";
   case WorkloadKind::SharedAssemblyRecipe:
     return "shared_assembly_recipe";
+  case WorkloadKind::SharedAssemblyStaged:
+    return "shared_assembly_staged";
   }
   return "unknown";
 }
@@ -104,7 +115,8 @@ bool parseWorkloadKind(const char * name, WorkloadKind & kind)
     WorkloadKind::FeatureRich,
     WorkloadKind::SharedAssemblyExpanded,
     WorkloadKind::SharedAssemblySources,
-    WorkloadKind::SharedAssemblyRecipe
+    WorkloadKind::SharedAssemblyRecipe,
+    WorkloadKind::SharedAssemblyStaged
   };
   for (WorkloadKind candidate : workloads) {
     if (std::strcmp(name, workloadName(candidate)) == 0) {
@@ -119,7 +131,8 @@ bool isAssemblyWorkload(WorkloadKind kind)
 {
   return kind == WorkloadKind::SharedAssemblyExpanded ||
     kind == WorkloadKind::SharedAssemblySources ||
-    kind == WorkloadKind::SharedAssemblyRecipe;
+    kind == WorkloadKind::SharedAssemblyRecipe ||
+    kind == WorkloadKind::SharedAssemblyStaged;
 }
 
 int assemblyDefinitionCount(int occurrenceCount)
