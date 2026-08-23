@@ -320,6 +320,12 @@ private:
     SbVec2s viewportSize;
   };
 
+  struct SubmissionState {
+    SbVec2s viewportOrigin;
+    SbVec2s viewportSize;
+    bool viewportValid = false;
+  };
+
   bool createShaders();
   bool ensurePickFramebuffer(const SbVec2s & size);
   void destroyPickFramebuffer();
@@ -374,12 +380,15 @@ private:
   CommandFrame effectiveCommandFrame(const SoRenderCommand & command,
                                       const SoRenderParams & params,
                                       bool framebufferLocal) const;
+  void applySubmissionViewport(const CommandFrame & frame,
+                               SubmissionState & submissionState);
   void clearDepthEvent(const SoDepthClearEvent & event,
                        const SoRenderParams & params,
                        bool framebufferLocal);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
                    size_t cacheIndex,
+                   SubmissionState & submissionState,
                    const SbMat & viewMat,
                    const SbMat & projMat,
                    const SoRenderParams & params);
@@ -442,6 +451,7 @@ private:
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
                              size_t cacheIndex,
+                             SubmissionState & submissionState,
                              const SoRenderParams & params);
   void destroyCacheEntry(CachedCommand & entry);
   bool textureDescriptionMatches(const CachedCommand & entry,
