@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -66,6 +67,7 @@ public:
                          const SoRenderParams & params) override;
 
 private:
+  struct PreparedInstanceBatch;
   struct ResourceCacheKey {
     uint64_t geometry = 0;
     uint64_t texture = 0;
@@ -559,6 +561,8 @@ private:
                              size_t cacheIndex,
                              SubmissionState & submissionState,
                              const SoRenderParams & params);
+  void bindInstanceAttributes(GLuint buffer, size_t firstRecord);
+  void clearPreparedInstanceBatches(bool releaseGL);
   void destroyCacheEntry(CachedCommand & entry);
   bool textureDescriptionMatches(const CachedCommand & entry,
                                  const SoRenderCommand & command) const;
@@ -607,6 +611,16 @@ private:
   // Stable command-order lookup used after resource preparation has completed.
   std::vector<size_t> commandCacheIndices;
   std::vector<uint32_t> instanceCommandScratch;
+  std::vector<std::unique_ptr<PreparedInstanceBatch>> preparedInstanceBatches;
+  const SoDrawList * preparedInstanceDrawList = nullptr;
+  const SoRenderPlan * preparedInstancePlan = nullptr;
+  uint32_t preparedInstanceGeneration = 0;
+  uint64_t preparedInstancePlanRevision = 0;
+  uint64_t preparedInstanceResourceRevision = 0;
+  uint64_t preparedInstanceContentRevision = 0;
+  const std::vector<uint32_t> * preparedInstanceDirtyCommands = nullptr;
+  bool refreshAllPreparedInstanceRecords = false;
+  size_t preparedInstanceBatchCursor = 0;
   std::unordered_map<ResourceCacheKey, size_t, ResourceCacheKeyHash> resourceToCache;
   uint32_t cacheGeneration = 0;
   uint64_t cacheResourceRevision = 0;

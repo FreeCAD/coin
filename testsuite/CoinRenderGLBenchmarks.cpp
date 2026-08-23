@@ -70,6 +70,9 @@ struct Measurement {
   uint64_t instancedLineCommands = 0;
   uint64_t orderedSubmissionCandidateBatches = 0;
   uint64_t orderedSubmissionCandidateCommands = 0;
+  uint64_t instanceRecordsRebuilt = 0;
+  uint64_t instanceRecordsPatched = 0;
+  uint64_t instanceRecordsUploaded = 0;
   uint64_t selectionTargets = 0;
   uint64_t selectionDrawCalls = 0;
   uint64_t selectionInstancedBatches = 0;
@@ -148,6 +151,9 @@ void copySubmissionStatistics(
     phases.orderedSubmissionCandidateBatches;
   measurement.orderedSubmissionCandidateCommands =
     phases.orderedSubmissionCandidateCommands;
+  measurement.instanceRecordsRebuilt = phases.instanceRecordsRebuilt;
+  measurement.instanceRecordsPatched = phases.instanceRecordsPatched;
+  measurement.instanceRecordsUploaded = phases.instanceRecordsUploaded;
 }
 
 double elapsedMs(const Clock::time_point & start)
@@ -1233,6 +1239,25 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
         scene->unref();
         return false;
       }
+      if (workload == WorkloadKind::SharedAssemblyStaged &&
+          (phases.instanceRecordsRebuilt != 0 ||
+           phases.instanceRecordsPatched != expectedUpdates ||
+           phases.instanceRecordsUploaded != expectedUpdates)) {
+        std::ostringstream reason;
+        reason << "staged assembly transform rebuilt "
+               << phases.instanceRecordsRebuilt << ", patched "
+               << phases.instanceRecordsPatched << ", and uploaded "
+               << phases.instanceRecordsUploaded << " instance records; "
+               << "expected 0/" << expectedUpdates << "/"
+               << expectedUpdates;
+        unavailable = reason.str();
+        manager.releaseRenderBackendResources();
+        manager.setCamera(NULL);
+        manager.setSceneGraph(NULL);
+        camera->unref();
+        scene->unref();
+        return false;
+      }
     }
 
     const std::vector<uint8_t> incrementalPixels = context.readPixels();
@@ -1306,6 +1331,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       std::vector<double> materialFrameTimes;
       std::vector<double> materialConstructionTimes;
       std::vector<double> materialPlanTimes;
+      SoRenderManager::RenderPhaseStatistics materialSubmissionPhases;
       for (int sample = 0; sample < samples; ++sample) {
         mutate(sample);
         context.bindFramebuffer();
@@ -1314,6 +1340,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
         materialFrameTimes.push_back(elapsedMs(start));
         const SoRenderManager::RenderPhaseStatistics phases =
           manager.getRenderPhaseStatistics();
+        materialSubmissionPhases = phases;
         materialConstructionTimes.push_back(
           phases.drawListConstructionNanoseconds / 1000000.0);
         materialPlanTimes.push_back(
@@ -1339,6 +1366,22 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
                  << (preservesRenderPlan
                        ? "incremental diffuse update with plan reuse"
                        : "full rebuild fallback");
+          unavailable = reason.str();
+          return false;
+        }
+        if (preservesRenderPlan &&
+            workload == WorkloadKind::SharedAssemblyStaged &&
+            (phases.instanceRecordsRebuilt != 0 ||
+             phases.instanceRecordsPatched !=
+               static_cast<uint64_t>(changedCount) ||
+             phases.instanceRecordsUploaded !=
+               static_cast<uint64_t>(changedCount))) {
+          std::ostringstream reason;
+          reason << "staged assembly material rebuilt "
+                 << phases.instanceRecordsRebuilt << ", patched "
+                 << phases.instanceRecordsPatched << ", and uploaded "
+                 << phases.instanceRecordsUploaded << " instance records; "
+                 << "expected 0/" << changedCount << "/" << changedCount;
           unavailable = reason.str();
           return false;
         }
@@ -1379,6 +1422,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
         ? static_cast<uint64_t>(changedCount) : 0;
       materialResult.drawListRebuilds = preservesRenderPlan
         ? 0 : static_cast<uint64_t>(samples);
+      copySubmissionStatistics(materialResult, materialSubmissionPhases);
       materialResult.pixelChecksum = checksumPixels(materialPixels);
       results.push_back(materialResult);
       return true;
@@ -2123,7 +2167,7 @@ std::string toJson(const std::vector<Measurement> & results,
   const char * mode = options.interactionOnly > 0 ? "interaction" :
     (options.mutationOnly > 0 ? "mutation" :
       (options.smoke ? "smoke" : "benchmark"));
-  out << "{\n  \"schema_version\": 14,\n  \"mode\": \""
+  out << "{\n  \"schema_version\": 15,\n  \"mode\": \""
       << mode
       << "\",\n  \"time_unit\": \"ms\",\n  \"benchmarks\": [\n";
   for (size_t i = 0; i < results.size(); ++i) {
@@ -2173,6 +2217,12 @@ std::string toJson(const std::vector<Measurement> & results,
         << r.orderedSubmissionCandidateBatches
         << ", \"ordered_submission_candidate_commands\": "
         << r.orderedSubmissionCandidateCommands
+        << ", \"instance_records_rebuilt\": "
+        << r.instanceRecordsRebuilt
+        << ", \"instance_records_patched\": "
+        << r.instanceRecordsPatched
+        << ", \"instance_records_uploaded\": "
+        << r.instanceRecordsUploaded
         << ", \"selection_targets\": " << r.selectionTargets
         << ", \"selection_draw_calls\": " << r.selectionDrawCalls
         << ", \"selection_instanced_batches\": "

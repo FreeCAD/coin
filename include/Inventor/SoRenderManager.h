@@ -120,6 +120,9 @@ public:
     //! Consecutive commands a heterogeneous indirect path could preserve.
     uint64_t orderedSubmissionCandidateBatches = 0;
     uint64_t orderedSubmissionCandidateCommands = 0;
+    uint64_t instanceRecordsRebuilt = 0;
+    uint64_t instanceRecordsPatched = 0;
+    uint64_t instanceRecordsUploaded = 0;
     uint64_t selectionTargets = 0;
     uint64_t selectionDrawCalls = 0;
     uint64_t selectionInstancedBatches = 0;
