@@ -65,6 +65,43 @@ SoRenderCommandTraits::sameBlendState(const SoBlendState & lhs,
     lhs.alphaEquation == rhs.alphaEquation;
 }
 
+SoRenderCommandTraits::OpaqueGroup
+SoRenderCommandTraits::classifyOpaqueGroup(
+  const SoRenderCommand & command, const SoGeometryDesc & geometry)
+{
+  const SoTextureData & texture = command.material.texture;
+  const bool textured = texture.cacheKey != 0 || texture.pixels != nullptr;
+
+  // Only ordinary opaque, depth-writing geometry is safe to reorder. Equal
+  // depth results and viewport-local effects can make specialized raster
+  // state depend on insertion order.
+  const bool groupable = command.opacityClass == SO_OPACITY_OPAQUE &&
+    geometry.cacheKey != 0 &&
+    command.material.shadingModel == SO_SHADING_UNLIT && !textured &&
+    command.material.opacity == 1.0f &&
+    command.material.diffuse[3] == 1.0f &&
+    !command.state.blend.enabled && command.state.depth.enabled &&
+    command.state.depth.writeEnabled &&
+    command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE &&
+    command.state.raster.visible &&
+    command.state.raster.fillMode == SO_RASTER_FILL &&
+    !command.state.raster.viewportOverride &&
+    !command.state.raster.polygonOffsetFilled &&
+    !command.state.raster.polygonOffsetLines &&
+    !command.state.raster.polygonOffsetPoints &&
+    !command.state.useCommandMatrices && !command.pixelRaster.enabled;
+  if (!groupable) return OpaqueGroup::NONE;
+  if (geometry.topology == SO_TOPOLOGY_TRIANGLES) {
+    return OpaqueGroup::TRIANGLES;
+  }
+  if (geometry.topology == SO_TOPOLOGY_LINES &&
+      command.state.raster.lineWidth <= 1.0f &&
+      command.state.raster.linePattern == 0xFFFF) {
+    return OpaqueGroup::NATIVE_LINES;
+  }
+  return OpaqueGroup::NONE;
+}
+
 void
 SoRenderPlanner::build(const SoDrawList & drawlist,
                        SoRenderPlan & plan) const
@@ -78,6 +115,10 @@ SoRenderPlanner::build(const SoDrawList & drawlist,
     uint32_t commandIndex = 0;
     SoOpacityClass opacity = SO_OPACITY_OPAQUE;
     float depth = 0.0f;
+    SoRenderCommandTraits::OpaqueGroup opaqueGroup =
+      SoRenderCommandTraits::OpaqueGroup::NONE;
+    uint64_t geometryKey = 0;
+    SoLightingHandle lightingHandle = 0;
   };
 
   const auto depthOf = [&drawlist](const uint32_t commandIndex) {
@@ -104,6 +145,11 @@ SoRenderPlanner::build(const SoDrawList & drawlist,
       planned.commandIndex = commandIndex;
       planned.opacity = command.opacityClass;
       planned.depth = depthOf(commandIndex);
+      const SoGeometryDesc & geometry = drawlist.getCommandGeometry(command);
+      planned.geometryKey = geometry.cacheKey;
+      planned.lightingHandle = command.lightingHandle;
+      planned.opaqueGroup =
+        SoRenderCommandTraits::classifyOpaqueGroup(command, geometry);
       commands.push_back(planned);
     }
     std::stable_sort(commands.begin(), commands.end(),
@@ -113,6 +159,19 @@ SoRenderPlanner::build(const SoDrawList & drawlist,
         }
         if (lhs.opacity == SO_OPACITY_OPAQUE) return false;
         return lhs.depth > rhs.depth;
+      });
+    std::stable_sort(commands.begin(), commands.end(),
+      [](const PlannedCommand & lhs, const PlannedCommand & rhs) {
+        if (lhs.opaqueGroup != rhs.opaqueGroup) {
+          return lhs.opaqueGroup < rhs.opaqueGroup;
+        }
+        if (lhs.opaqueGroup == SoRenderCommandTraits::OpaqueGroup::NONE) {
+          return false;
+        }
+        if (lhs.geometryKey != rhs.geometryKey) {
+          return lhs.geometryKey < rhs.geometryKey;
+        }
+        return lhs.lightingHandle < rhs.lightingHandle;
       });
     for (const PlannedCommand & command : commands) {
       SoRenderOperation draw;
