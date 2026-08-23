@@ -1213,6 +1213,49 @@ glglue_resolve_symbols(cc_glglue * w)
     }
   }
 
+  /* Instancing and integer attributes were promoted under different names.
+     Normalize them here so renderers do not depend on platform header
+     spellings or exported symbols. */
+  w->glVertexAttribDivisor = (COIN_PFNGLVERTEXATTRIBDIVISORPROC)
+    cc_glglue_getprocaddress(w, "glVertexAttribDivisor");
+  if (!w->glVertexAttribDivisor) {
+    w->glVertexAttribDivisor = (COIN_PFNGLVERTEXATTRIBDIVISORPROC)
+      cc_glglue_getprocaddress(w, "glVertexAttribDivisorARB");
+  }
+  w->glVertexAttribIPointer = (COIN_PFNGLVERTEXATTRIBIPOINTERPROC)
+    cc_glglue_getprocaddress(w, "glVertexAttribIPointer");
+  if (!w->glVertexAttribIPointer) {
+    w->glVertexAttribIPointer = (COIN_PFNGLVERTEXATTRIBIPOINTERPROC)
+      cc_glglue_getprocaddress(w, "glVertexAttribIPointerEXT");
+  }
+  w->glDrawArraysInstanced = (COIN_PFNGLDRAWARRAYSINSTANCEDPROC)
+    cc_glglue_getprocaddress(w, "glDrawArraysInstanced");
+  if (!w->glDrawArraysInstanced) {
+    w->glDrawArraysInstanced = (COIN_PFNGLDRAWARRAYSINSTANCEDPROC)
+      cc_glglue_getprocaddress(w, "glDrawArraysInstancedARB");
+  }
+  if (!w->glDrawArraysInstanced) {
+    w->glDrawArraysInstanced = (COIN_PFNGLDRAWARRAYSINSTANCEDPROC)
+      cc_glglue_getprocaddress(w, "glDrawArraysInstancedEXT");
+  }
+  w->glDrawElementsInstanced = (COIN_PFNGLDRAWELEMENTSINSTANCEDPROC)
+    cc_glglue_getprocaddress(w, "glDrawElementsInstanced");
+  if (!w->glDrawElementsInstanced) {
+    w->glDrawElementsInstanced = (COIN_PFNGLDRAWELEMENTSINSTANCEDPROC)
+      cc_glglue_getprocaddress(w, "glDrawElementsInstancedARB");
+  }
+  if (!w->glDrawElementsInstanced) {
+    w->glDrawElementsInstanced = (COIN_PFNGLDRAWELEMENTSINSTANCEDPROC)
+      cc_glglue_getprocaddress(w, "glDrawElementsInstancedEXT");
+  }
+  w->glBindBufferBase = (COIN_PFNGLBINDBUFFERBASEPROC)
+    cc_glglue_getprocaddress(w, "glBindBufferBase");
+  w->glMultiDrawArraysIndirect = (COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC)
+    cc_glglue_getprocaddress(w, "glMultiDrawArraysIndirect");
+  w->glMultiDrawElementsIndirect =
+    (COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC)
+      cc_glglue_getprocaddress(w, "glMultiDrawElementsIndirect");
+
   /* These core framebuffer entry points are not exported by the Windows
      OpenGL 1.1 import library.  Resolve them through the active context just
      like the vertex-array entry points above. */
@@ -3749,6 +3792,25 @@ cc_glglue_glDrawElements(const cc_glglue * glue,
 }
 
 void
+cc_glglue_glDrawArraysInstanced(const cc_glglue * glue,
+                                GLenum mode, GLint first, GLsizei count,
+                                GLsizei instancecount)
+{
+  assert(glue->glDrawArraysInstanced);
+  glue->glDrawArraysInstanced(mode, first, count, instancecount);
+}
+
+void
+cc_glglue_glDrawElementsInstanced(const cc_glglue * glue,
+                                  GLenum mode, GLsizei count, GLenum type,
+                                  const GLvoid * indices,
+                                  GLsizei instancecount)
+{
+  assert(glue->glDrawElementsInstanced);
+  glue->glDrawElementsInstanced(mode, count, type, indices, instancecount);
+}
+
+void
 cc_glglue_glDrawRangeElements(const cc_glglue * glue,
                               GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type,
                               const GLvoid * indices)
@@ -3769,6 +3831,61 @@ cc_glglue_has_multidraw_vertex_arrays(const cc_glglue * glue)
 {
   if (!glglue_allow_newer_opengl(glue)) return FALSE;
   return glue->glMultiDrawArrays && glue->glMultiDrawElements;
+}
+
+SbBool
+cc_glglue_has_multi_draw_indirect(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  const SbBool advertised =
+    cc_glglue_glversion_matches_at_least(glue, 4, 3, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_multi_draw_indirect");
+  return advertised && glue->glMultiDrawArraysIndirect &&
+    glue->glMultiDrawElementsIndirect;
+}
+
+SbBool
+cc_glglue_has_shader_storage_buffer_object(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  const SbBool advertised =
+    cc_glglue_glversion_matches_at_least(glue, 4, 3, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_shader_storage_buffer_object");
+  return advertised && glue->glBindBufferBase;
+}
+
+SbBool
+cc_glglue_has_shader_draw_parameters(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  return cc_glglue_glversion_matches_at_least(glue, 4, 6, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_shader_draw_parameters");
+}
+
+void
+cc_glglue_glBindBufferBase(const cc_glglue * glue, GLenum target,
+                           GLuint index, GLuint buffer)
+{
+  assert(glue->glBindBufferBase);
+  glue->glBindBufferBase(target, index, buffer);
+}
+
+void
+cc_glglue_glMultiDrawArraysIndirect(const cc_glglue * glue, GLenum mode,
+                                    const GLvoid * indirect,
+                                    GLsizei drawcount, GLsizei stride)
+{
+  assert(glue->glMultiDrawArraysIndirect);
+  glue->glMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
+}
+
+void
+cc_glglue_glMultiDrawElementsIndirect(const cc_glglue * glue, GLenum mode,
+                                      GLenum type, const GLvoid * indirect,
+                                      GLsizei drawcount, GLsizei stride)
+{
+  assert(glue->glMultiDrawElementsIndirect);
+  glue->glMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
 }
 
 void
@@ -4583,6 +4700,23 @@ cc_glglue_glVertexAttribPointer(const cc_glglue * glue,
                                 const GLvoid *pointer)
 {
   glue->glVertexAttribPointer(index, size, type, normalized, stride, pointer);
+}
+
+void
+cc_glglue_glVertexAttribIPointer(const cc_glglue * glue,
+                                 GLuint index, GLint size, GLenum type,
+                                 GLsizei stride, const GLvoid * pointer)
+{
+  assert(glue->glVertexAttribIPointer);
+  glue->glVertexAttribIPointer(index, size, type, stride, pointer);
+}
+
+void
+cc_glglue_glVertexAttribDivisor(const cc_glglue * glue,
+                                GLuint index, GLuint divisor)
+{
+  assert(glue->glVertexAttribDivisor);
+  glue->glVertexAttribDivisor(index, divisor);
 }
 
 void

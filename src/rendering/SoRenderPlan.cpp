@@ -3,6 +3,120 @@
 
 #include <algorithm>
 
+bool
+SoRenderCommandTraits::sameMaterialUniformState(const SoMaterialData & lhs,
+                                                const SoMaterialData & rhs)
+{
+  return lhs.diffuse == rhs.diffuse && lhs.ambient == rhs.ambient &&
+    lhs.specular == rhs.specular && lhs.emissive == rhs.emissive &&
+    lhs.shadingModel == rhs.shadingModel && lhs.shininess == rhs.shininess &&
+    lhs.texture.cacheKey == rhs.texture.cacheKey &&
+    lhs.texture.revision == rhs.texture.revision &&
+    lhs.texture.model == rhs.texture.model &&
+    lhs.texture.blendColor == rhs.texture.blendColor &&
+    lhs.textureAlphaIncludesOpacity == rhs.textureAlphaIncludesOpacity &&
+    lhs.vertexColorAlphaIncludesOpacity ==
+      rhs.vertexColorAlphaIncludesOpacity &&
+    lhs.twoSidedLighting == rhs.twoSidedLighting;
+}
+
+bool
+SoRenderCommandTraits::sameInstancedMaterialState(
+  const SoMaterialData & lhs, const SoMaterialData & rhs)
+{
+  return lhs.shadingModel == SO_SHADING_UNLIT &&
+    rhs.shadingModel == SO_SHADING_UNLIT &&
+    lhs.ambient == rhs.ambient && lhs.specular == rhs.specular &&
+    lhs.emissive == rhs.emissive && lhs.shininess == rhs.shininess &&
+    lhs.texture.cacheKey == rhs.texture.cacheKey &&
+    lhs.texture.revision == rhs.texture.revision &&
+    lhs.texture.model == rhs.texture.model &&
+    lhs.texture.blendColor == rhs.texture.blendColor &&
+    lhs.textureAlphaIncludesOpacity == rhs.textureAlphaIncludesOpacity &&
+    lhs.vertexColorAlphaIncludesOpacity ==
+      rhs.vertexColorAlphaIncludesOpacity &&
+    lhs.twoSidedLighting == rhs.twoSidedLighting;
+}
+
+bool
+SoRenderCommandTraits::sameTextureBinding(const SoTextureData & lhs,
+                                          const SoTextureData & rhs)
+{
+  return lhs.cacheKey == rhs.cacheKey && lhs.revision == rhs.revision &&
+    lhs.width == rhs.width && lhs.height == rhs.height &&
+    lhs.numComponents == rhs.numComponents &&
+    lhs.hasTransparency == rhs.hasTransparency &&
+    lhs.minFilter == rhs.minFilter && lhs.magFilter == rhs.magFilter &&
+    lhs.wrapS == rhs.wrapS && lhs.wrapT == rhs.wrapT &&
+    lhs.anisotropic == rhs.anisotropic &&
+    lhs.model == rhs.model && lhs.blendColor == rhs.blendColor;
+}
+
+bool
+SoRenderCommandTraits::sameBlendState(const SoBlendState & lhs,
+                                      const SoBlendState & rhs)
+{
+  return lhs.enabled == rhs.enabled &&
+    lhs.srcRGBFactor == rhs.srcRGBFactor &&
+    lhs.dstRGBFactor == rhs.dstRGBFactor &&
+    lhs.srcAlphaFactor == rhs.srcAlphaFactor &&
+    lhs.dstAlphaFactor == rhs.dstAlphaFactor &&
+    lhs.rgbEquation == rhs.rgbEquation &&
+    lhs.alphaEquation == rhs.alphaEquation;
+}
+
+SoRenderCommandTraits::OpaqueGroup
+SoRenderCommandTraits::classifyOpaqueGroup(
+  const SoRenderCommand & command, const SoGeometryDesc & geometry)
+{
+  const SoTextureData & texture = command.material.texture;
+  const bool textured = texture.cacheKey != 0 || texture.pixels != nullptr;
+
+  // Only ordinary opaque, depth-writing geometry is safe to reorder. Equal
+  // depth results and viewport-local effects can make specialized raster
+  // state depend on insertion order.
+  const bool groupable = command.opacityClass == SO_OPACITY_OPAQUE &&
+    geometry.cacheKey != 0 &&
+    command.material.shadingModel == SO_SHADING_UNLIT && !textured &&
+    command.material.opacity == 1.0f &&
+    command.material.diffuse[3] == 1.0f &&
+    !command.state.blend.enabled && command.state.depth.enabled &&
+    command.state.depth.writeEnabled &&
+    command.state.alphaTest.policy == SO_ALPHA_TEST_POLICY_NONE &&
+    command.state.raster.visible &&
+    command.state.raster.fillMode == SO_RASTER_FILL &&
+    !command.state.raster.viewportOverride &&
+    !command.state.raster.polygonOffsetFilled &&
+    !command.state.raster.polygonOffsetLines &&
+    !command.state.raster.polygonOffsetPoints &&
+    !command.state.useCommandMatrices && !command.pixelRaster.enabled;
+  if (!groupable) return OpaqueGroup::NONE;
+  if (geometry.topology == SO_TOPOLOGY_TRIANGLES) {
+    return OpaqueGroup::TRIANGLES;
+  }
+  if (geometry.topology == SO_TOPOLOGY_LINES &&
+      command.state.raster.lineWidth <= 1.0f &&
+      command.state.raster.linePattern == 0xFFFF) {
+    return OpaqueGroup::NATIVE_LINES;
+  }
+  return OpaqueGroup::NONE;
+}
+
+SoRenderCommandTraits::PlanningClass
+SoRenderCommandTraits::classifyPlanning(const SoRenderCommand & command)
+{
+  return command.opacityClass == SO_OPACITY_OPAQUE
+    ? PlanningClass::OPAQUE_INSERTION_ORDER
+    : PlanningClass::TRANSPARENT_DEPTH_SORTED;
+}
+
+bool
+SoRenderCommandTraits::transformAffectsPlanning(
+  const SoRenderCommand & command)
+{
+  return classifyPlanning(command) == PlanningClass::TRANSPARENT_DEPTH_SORTED;
+}
+
 void
 SoRenderPlanner::build(const SoDrawList & drawlist,
                        SoRenderPlan & plan) const

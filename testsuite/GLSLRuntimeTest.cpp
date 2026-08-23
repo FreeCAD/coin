@@ -91,6 +91,22 @@ int main()
 
   const cc_glglue * glue = cc_glglue_instance(context.contextId());
   if (glue == NULL) return skip("GL glue instance is unavailable");
+
+  const bool indirect = cc_glglue_has_multi_draw_indirect(glue);
+  const bool storage = cc_glglue_has_shader_storage_buffer_object(glue);
+  const bool drawParameters = cc_glglue_has_shader_draw_parameters(glue);
+  std::cout << "ordered heterogeneous multi-draw: "
+            << (indirect && storage && drawParameters ? "available" :
+                                                        "scalar fallback")
+            << " (indirect=" << indirect << ", storage=" << storage
+            << ", draw-parameters=" << drawParameters << ')' << std::endl;
+  if (!check(!indirect || (glue->glMultiDrawArraysIndirect != NULL &&
+                           glue->glMultiDrawElementsIndirect != NULL),
+             "indirect-draw capability lacks dispatch") ||
+      !check(!storage || glue->glBindBufferBase != NULL,
+             "shader-storage capability lacks dispatch")) {
+    return 1;
+  }
   GLuint vertexShader = 0;
   GLuint fragmentShader = 0;
   GLuint program = 0;
