@@ -2016,6 +2016,7 @@ SoGLRenderBackend::clearDepthEvent(const SoDepthClearEvent & event,
 void
 SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                                const SoRenderCommand & command,
+                               const size_t cacheIndex,
                                const SbMat & viewMat,
                                const SbMat & projMat,
                                const SoRenderParams & params)
@@ -2027,9 +2028,8 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
       command.geometry.vertexCount == 0) return;
   if (command.state.raster.viewportOverride &&
       !command.state.raster.viewportEnabled) return;
-  const auto found = this->commandToCache.find(&command);
-  if (found == this->commandToCache.end()) return;
-  CachedCommand & entry = this->gpuCache[found->second];
+  if (cacheIndex >= this->gpuCache.size()) return;
+  CachedCommand & entry = this->gpuCache[cacheIndex];
   if (!entry.vertexArray) return;
 
   const CommandFrame frame = this->effectiveCommandFrame(command, params, false);
@@ -2135,14 +2135,14 @@ void
 SoGLRenderBackend::drawInstancedCommands(
   const SoDrawList & drawlist,
   const std::vector<uint32_t> & commandIndices,
+  const size_t cacheIndex,
   const SoRenderParams & params)
 {
   if (commandIndices.empty()) return;
   const SoRenderCommand & first = drawlist.getCommand(
     static_cast<int>(commandIndices.front()));
-  const auto found = this->commandToCache.find(&first);
-  if (found == this->commandToCache.end()) return;
-  CachedCommand & entry = this->gpuCache[found->second];
+  if (cacheIndex >= this->gpuCache.size()) return;
+  CachedCommand & entry = this->gpuCache[cacheIndex];
   const CommandFrame frame = this->effectiveCommandFrame(first, params, false);
   const RasterPath path = this->selectRasterPath(entry, first, params);
   const SoGeometryDesc & geometry = drawlist.getCommandGeometry(first);
@@ -4236,14 +4236,16 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
         }
       }
       if (instanceCommands.size() > 1) {
-        this->drawInstancedCommands(drawlist, instanceCommands, params);
+        this->drawInstancedCommands(
+          drawlist, instanceCommands, firstCacheIndex, params);
         for (const uint32_t commandIndex : instanceCommands) {
           queueTargets(commandIndex);
         }
         i += static_cast<int>(instanceCommands.size()) - 1;
       }
       else {
-        this->drawCommand(drawlist, first, view, projection, params);
+        this->drawCommand(
+          drawlist, first, firstCacheIndex, view, projection, params);
         queueTargets(operation.commandIndex);
       }
     }
