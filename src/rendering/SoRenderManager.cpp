@@ -60,6 +60,8 @@
 #include <Inventor/elements/SoComplexityTypeElement.h>
 #include <Inventor/elements/SoDevicePixelRatioElement.h>
 #include <Inventor/elements/SoLazyElement.h>
+#include <Inventor/elements/SoProjectionMatrixElement.h>
+#include <Inventor/elements/SoViewingMatrixElement.h>
 
 #include <algorithm>
 //FIXME:Need this include early, since including it via SoRenderManagerP.h will cause problems for cygwin. Don't understand the root cause BFG 20090629
@@ -68,6 +70,13 @@
 #include <Inventor/system/gl.h>
 #include <Inventor/nodes/SoInfo.h>
 #include <Inventor/nodes/SoCamera.h>
+#include <Inventor/SoPath.h>
+#include <Inventor/SoPickedPoint.h>
+#include <Inventor/lists/SoPickedPointList.h>
+#include <Inventor/details/SoDetail.h>
+#include <Inventor/details/SoFaceDetail.h>
+#include <Inventor/details/SoLineDetail.h>
+#include <Inventor/details/SoPointDetail.h>
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/elements/SoComplexityTypeElement.h>
 #include <Inventor/elements/SoPolygonOffsetElement.h>
@@ -80,6 +89,7 @@
 #if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
 #endif
+#include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoAudioRenderAction.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/sensors/SoOneShotSensor.h>
@@ -90,6 +100,10 @@
 #include "coindefs.h"
 #include "tidbitsp.h"
 #include "misc/AudioTools.h"
+#include "rendering/SoGLRenderBackend.h"
+#include "rendering/SoRenderBackend.h"
+#include "rendering/SoRenderPlan.h"
+#include "glue/glp.h"
 #include "coindefs.h"
 
 #if COIN_WORKAROUND(COIN_MSVC, <= COIN_MSVC_6_0_VERSION)
@@ -98,6 +112,118 @@
 #endif // VC6.0
 
 #include "SoRenderManagerP.h"
+
+namespace {
+
+SbBool
+backendContextIsCurrent(const SoRenderManagerP * manager)
+{
+  if (!manager->renderBackend || manager->renderBackendContextId == 0) {
+    return FALSE;
+  }
+
+  void * context = coin_gl_current_context();
+  const cc_glglue * glue = context
+    ? cc_glglue_instance_from_context_ptr(context) : NULL;
+  return glue && glue->contextid == manager->renderBackendContextId;
+}
+
+SbBool
+currentContextSupportsLegacyRendering()
+{
+#if COIN_BUILD_LEGACY_GL_RENDERER
+  void * context = coin_gl_current_context();
+  const cc_glglue * glue = context
+    ? cc_glglue_instance_from_context_ptr(context) : NULL;
+  return glue && glue->context_supports_legacy_rendering;
+#else
+  return FALSE;
+#endif
+}
+
+SoRenderParams
+retainedRenderParams(const SoRenderManagerP * manager)
+{
+  SoRenderParams params = {};
+  params.viewport = manager->viewport;
+  if (manager->camera) {
+    SbViewportRegion cameraViewport = manager->viewport;
+    const SbViewVolume viewVolume = manager->camera->getViewVolume(
+      manager->viewport, cameraViewport);
+    params.viewport = cameraViewport;
+    viewVolume.getMatrices(params.viewMatrix, params.projMatrix);
+  }
+  else {
+    params.viewMatrix = SbMatrix::identity();
+    params.projMatrix = SbMatrix::identity();
+  }
+  params.devicePixelRatio = manager->devicePixelRatio;
+  params.clearColor = manager->backgroundcolor;
+  params.clearDepth = 1.0f;
+  return params;
+}
+
+SoDetail *
+detailFromPickResult(const SoPickResult & hit)
+{
+  if (hit.elementIndex < 0) return NULL;
+  switch (hit.type) {
+  case SO_PICK_FACE: {
+    SoFaceDetail * detail = new SoFaceDetail;
+    detail->setFaceIndex(hit.elementIndex);
+    detail->setPartIndex(hit.elementIndex);
+    return detail;
+  }
+  case SO_PICK_EDGE: {
+    SoLineDetail * detail = new SoLineDetail;
+    detail->setLineIndex(hit.elementIndex);
+    detail->setPartIndex(hit.elementIndex);
+    return detail;
+  }
+  case SO_PICK_VERTEX: {
+    SoPointDetail * detail = new SoPointDetail;
+    detail->setCoordinateIndex(hit.elementIndex);
+    return detail;
+  }
+  case SO_PICK_OBJECT:
+  default:
+    return NULL;
+  }
+}
+
+SoPickedPoint *
+resolvePickResult(const SoRenderManagerP * manager,
+                  const SoPickResult & hit,
+                  const SoRenderParams & params)
+{
+  if (!manager->irAction || hit.generation == 0 ||
+      hit.generation != manager->irAction->getDrawList().getGeneration()) {
+    return NULL;
+  }
+  const SoPath * path = manager->irAction->getCommandPath(hit.commandIndex);
+  if (!path) return NULL;
+
+  const SbVec2s size = params.viewport.getViewportSizePixels();
+  if (size[0] <= 0 || size[1] <= 0) return NULL;
+  const float ndcX = (2.0f * (static_cast<float>(hit.pixelX) + 0.5f) /
+                      static_cast<float>(size[0])) - 1.0f;
+  const float ndcY = (2.0f * (static_cast<float>(hit.pixelY) + 0.5f) /
+                      static_cast<float>(size[1])) - 1.0f;
+  const float ndcZ = 2.0f * hit.depth - 1.0f;
+  SbMatrix worldToClip = params.viewMatrix;
+  worldToClip.multRight(params.projMatrix);
+  const SbMatrix clipToWorld = worldToClip.inverse();
+  SbVec3f worldPoint;
+  clipToWorld.multVecMatrix(SbVec3f(ndcX, ndcY, ndcZ), worldPoint);
+
+  SoPickedPoint * picked = new SoPickedPoint(path, worldPoint,
+                                             params.viewport);
+  SoDetail * detail = detailFromPickResult(hit);
+  if (detail) picked->setDetail(detail, path->getTail());
+  return picked;
+}
+
+} // namespace
 
 /*!
   \enum SoRenderManager::RenderMode
@@ -264,6 +390,18 @@ SoRenderManager::SoRenderManager(void)
 
   PRIVATE(this)->stereostencilmask = NULL;
   PRIVATE(this)->superimpositions = NULL;
+  PRIVATE(this)->renderPipeline =
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    SoRenderManager::RenderPipeline::LEGACY_GL;
+#else
+    SoRenderManager::RenderPipeline::DRAW_LIST;
+#endif
+  PRIVATE(this)->irAction = NULL;
+  PRIVATE(this)->renderBackend = NULL;
+  PRIVATE(this)->renderBackendContextId = 0;
+  PRIVATE(this)->drawListCallbackScope = FALSE;
+  PRIVATE(this)->pickTargetDirty = TRUE;
+  PRIVATE(this)->pickTargetGeneration = 0;
   PRIVATE(this)->viewport = SbViewportRegion(SbVec2s(400, 400));
   PRIVATE(this)->devicePixelRatio = 1.0f;
 
@@ -308,6 +446,17 @@ SoRenderManager::SoRenderManager(void)
  */
 SoRenderManager::~SoRenderManager()
 {
+  if (PRIVATE(this)->renderBackend) {
+    // A backend may outlive the context that created its GL objects.  The
+    // final orchestration layer handles that lost-context case; this layer
+    // only releases GL resources while the owning context is current.
+    if (backendContextIsCurrent(PRIVATE(this))) {
+      PRIVATE(this)->renderBackend->shutdown();
+    }
+    delete PRIVATE(this)->renderBackend;
+  }
+  delete PRIVATE(this)->irAction;
+
   PRIVATE(this)->dummynode->unref();
 
 #if COIN_BUILD_LEGACY_GL_RENDERER
@@ -603,6 +752,10 @@ SoRenderManager::removeSuperimposition(Superimposition * s)
 void
 SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 {
+  if (PRIVATE(this)->renderPipeline == RenderPipeline::DRAW_LIST) {
+    this->renderDrawListPipeline(clearwindow, clearzbuffer);
+    return;
+  }
 #if !COIN_BUILD_LEGACY_GL_RENDERER
   (void) clearwindow;
   (void) clearzbuffer;
@@ -693,8 +846,16 @@ SoRenderManager::render(SoGLRenderAction * action,
                         const SbBool clearwindow,
                         const SbBool clearzbuffer)
 {
+  if (PRIVATE(this)->renderPipeline == RenderPipeline::DRAW_LIST) {
+    (void) action;
+    (void) initmatrices;
+    this->renderDrawListPipeline(clearwindow, clearzbuffer);
+    return;
+  }
   SbBool clearwindow_tmp = clearwindow; // make sure we only clear the color buffer once
-  PRIVATE(this)->invokePreRenderCallbacks();
+  if (!PRIVATE(this)->drawListCallbackScope) {
+    PRIVATE(this)->invokePreRenderCallbacks();
+  }
 
   if (PRIVATE(this)->superimpositions) {
     for (int i = 0; i < PRIVATE(this)->superimpositions->getLength(); i++) {
@@ -731,9 +892,204 @@ SoRenderManager::render(SoGLRenderAction * action,
     }
   }
 
-  PRIVATE(this)->invokePostRenderCallbacks();
+  if (!PRIVATE(this)->drawListCallbackScope) {
+    PRIVATE(this)->invokePostRenderCallbacks();
+  }
 }
 #endif
+
+void
+SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
+                                        const SbBool clearzbuffer)
+{
+  const SoRenderManager::RenderMode renderMode = PRIVATE(this)->rendermode;
+  const SoRenderManager::StereoMode stereoMode = PRIVATE(this)->stereomode;
+  const SbBool hasSuperimpositions =
+    PRIVATE(this)->superimpositions &&
+    PRIVATE(this)->superimpositions->getLength() > 0;
+  const SbBool needsLegacyPipeline =
+    renderMode != SoRenderManager::AS_IS &&
+    renderMode != SoRenderManager::WIREFRAME &&
+    renderMode != SoRenderManager::POINTS;
+
+  // These manager features require multi-pass or legacy-only orchestration
+  // that the retained pipeline does not implement yet. Keep their existing
+  // behavior when LegacyGL is available instead of silently dropping them.
+  if (needsLegacyPipeline || stereoMode != SoRenderManager::MONO ||
+      hasSuperimpositions) {
+    if (currentContextSupportsLegacyRendering()) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+      const SoRenderManager::RenderPipeline savedPipeline =
+        PRIVATE(this)->renderPipeline;
+      PRIVATE(this)->renderPipeline = SoRenderManager::RenderPipeline::LEGACY_GL;
+      this->render(clearwindow, clearzbuffer);
+      PRIVATE(this)->renderPipeline = savedPipeline;
+#endif
+    }
+    else {
+      SoDebugError::postWarning(
+        "SoRenderManager::renderDrawListPipeline",
+        "the selected manager feature is unavailable in the current GL context");
+    }
+    return;
+  }
+
+  void * currentContext = coin_gl_current_context();
+  if (!currentContext) {
+    // Do not shut down or replace a backend after its context disappeared.
+    // Lost-context handling discards those resources when that lifecycle path
+    // is explicitly requested.
+    return;
+  }
+
+  PRIVATE(this)->lock();
+  if (PRIVATE(this)->rootsensor && PRIVATE(this)->rootsensor->isScheduled()) {
+    PRIVATE(this)->rootsensor->unschedule();
+  }
+  PRIVATE(this)->unlock();
+
+  if (PRIVATE(this)->autoclipping != SoRenderManager::NO_AUTO_CLIPPING) {
+    PRIVATE(this)->setClippingPlanes();
+  }
+
+  if (!PRIVATE(this)->scene) {
+    PRIVATE(this)->drawListCallbackScope = TRUE;
+    PRIVATE(this)->invokePreRenderCallbacks();
+    PRIVATE(this)->invokePostRenderCallbacks();
+    PRIVATE(this)->drawListCallbackScope = FALSE;
+    return;
+  }
+
+  const cc_glglue * currentGlue =
+    cc_glglue_instance_from_context_ptr(currentContext);
+  const uint32_t contextId = currentGlue ? currentGlue->contextid : 0;
+
+  if (PRIVATE(this)->renderBackend &&
+      PRIVATE(this)->renderBackendContextId != contextId) {
+    // Never delete GL objects through a different current context. The old
+    // context owns those names; explicit lost-context discard handles them.
+    if (backendContextIsCurrent(PRIVATE(this))) {
+      PRIVATE(this)->renderBackend->shutdown();
+    }
+    delete PRIVATE(this)->renderBackend;
+    PRIVATE(this)->renderBackend = NULL;
+    PRIVATE(this)->renderBackendContextId = 0;
+  }
+
+  if (!PRIVATE(this)->renderBackend) {
+    PRIVATE(this)->renderBackend = new SoGLRenderBackend;
+  }
+  if (!PRIVATE(this)->renderBackend->isInitialized()) {
+    SoRenderBackendInitParams initparams = {};
+    if (!PRIVATE(this)->renderBackend->initialize(initparams)) {
+      delete PRIVATE(this)->renderBackend;
+      PRIVATE(this)->renderBackend = NULL;
+      if (currentContextSupportsLegacyRendering()) {
+#if COIN_BUILD_LEGACY_GL_RENDERER
+        SoDebugError::postWarning(
+          "SoRenderManager::renderDrawListPipeline",
+          "DrawList backend initialization failed; falling back to LegacyGL");
+        const SoRenderManager::RenderPipeline savedPipeline =
+          PRIVATE(this)->renderPipeline;
+        PRIVATE(this)->renderPipeline = SoRenderManager::RenderPipeline::LEGACY_GL;
+        this->render(clearwindow, clearzbuffer);
+        PRIVATE(this)->renderPipeline = savedPipeline;
+#endif
+      }
+      else {
+        SoDebugError::post(
+          "SoRenderManager::renderDrawListPipeline",
+          "DrawList backend initialization failed in the current GL context");
+      }
+      return;
+    }
+    PRIVATE(this)->renderBackendContextId = contextId;
+  }
+
+  if (coin_sound_should_traverse() &&
+      SoAudioDevice::instance()->haveSound() &&
+      SoAudioDevice::instance()->isEnabled()) {
+    PRIVATE(this)->audiorenderaction->apply(PRIVATE(this)->scene);
+  }
+
+  PRIVATE(this)->drawListCallbackScope = TRUE;
+  PRIVATE(this)->invokePreRenderCallbacks();
+
+  const SbViewportRegion viewport = PRIVATE(this)->viewport;
+  if (!PRIVATE(this)->irAction) {
+    PRIVATE(this)->irAction = new SoIRRenderAction(viewport);
+  }
+  PRIVATE(this)->irAction->setViewportRegion(viewport);
+  PRIVATE(this)->irAction->setCamera(PRIVATE(this)->camera);
+  PRIVATE(this)->irAction->setDevicePixelRatio(PRIVATE(this)->devicePixelRatio);
+
+  SoState * state = PRIVATE(this)->irAction->getState();
+  state->push();
+  SoNode * stateNode = PRIVATE(this)->dummynode;
+  if (!this->isTexturesEnabled()) {
+    SoTextureQualityElement::set(state, stateNode, 0.0f);
+    SoTextureOverrideElement::setQualityOverride(state, TRUE);
+  }
+  switch (renderMode) {
+  case SoRenderManager::WIREFRAME:
+    SoDrawStyleElement::set(state, stateNode, SoDrawStyleElement::LINES);
+    SoLightModelElement::set(state, stateNode, SoLightModelElement::BASE_COLOR);
+    SoOverrideElement::setDrawStyleOverride(state, stateNode, TRUE);
+    SoOverrideElement::setLightModelOverride(state, stateNode, TRUE);
+    break;
+  case SoRenderManager::POINTS:
+    SoDrawStyleElement::set(state, stateNode, SoDrawStyleElement::POINTS);
+    SoLightModelElement::set(state, stateNode, SoLightModelElement::BASE_COLOR);
+    SoOverrideElement::setDrawStyleOverride(state, stateNode, TRUE);
+    SoOverrideElement::setLightModelOverride(state, stateNode, TRUE);
+    break;
+  case SoRenderManager::AS_IS:
+    break;
+  default:
+    assert(false && "unsupported DrawList render mode");
+    break;
+  }
+  PRIVATE(this)->irAction->apply(PRIVATE(this)->scene);
+  state->pop();
+
+  SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
+
+  SoRenderParams params = {};
+  params.viewport = viewport;
+  if (PRIVATE(this)->camera) {
+    SbViewportRegion cameraViewport = viewport;
+    const SbViewVolume viewVolume = PRIVATE(this)->camera->getViewVolume(
+      viewport, cameraViewport);
+    params.viewport = cameraViewport;
+    viewVolume.getMatrices(params.viewMatrix, params.projMatrix);
+  }
+  else {
+    params.viewMatrix = SbMatrix::identity();
+    params.projMatrix = SbMatrix::identity();
+  }
+  params.devicePixelRatio = PRIVATE(this)->devicePixelRatio;
+  params.clearColor = PRIVATE(this)->backgroundcolor;
+  params.clearDepth = 1.0f;
+  params.flags = (clearwindow ? SO_PARAM_CLEAR_WINDOW : 0u) |
+                 (clearzbuffer ? SO_PARAM_CLEAR_DEPTH : 0u);
+  SoRenderPlanner planner;
+  SoRenderPlan plan;
+  planner.build(drawlist, plan);
+
+  PRIVATE(this)->renderBackend->render(drawlist, plan, params);
+  PRIVATE(this)->pickTargetDirty = TRUE;
+  PRIVATE(this)->pickTargetGeneration = 0;
+
+  if (SoRenderManager::isRealTimeUpdateEnabled()) {
+    SoField * realtime = SoDB::getGlobalField("realTime");
+    if (realtime && realtime->getTypeId() == SoSFTime::getClassTypeId()) {
+      static_cast<SoSFTime *>(realtime)->setValue(SbTime::getTimeOfDay());
+    }
+  }
+
+  PRIVATE(this)->invokePostRenderCallbacks();
+  PRIVATE(this)->drawListCallbackScope = FALSE;
+}
 
 /*!
   Convenience function for \ref SoRenderManager::renderScene
@@ -1222,6 +1578,14 @@ SoRenderManager::reinitialize(void)
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->invalidateState();
 #endif
+  if (PRIVATE(this)->renderBackend) {
+    if (backendContextIsCurrent(PRIVATE(this))) {
+      PRIVATE(this)->renderBackend->shutdown();
+    }
+    delete PRIVATE(this)->renderBackend;
+    PRIVATE(this)->renderBackend = NULL;
+    PRIVATE(this)->renderBackendContextId = 0;
+  }
 }
 
 /*!
@@ -1233,6 +1597,7 @@ SoRenderManager::reinitialize(void)
 void
 SoRenderManager::scheduleRedraw(void)
 {
+  PRIVATE(this)->pickTargetDirty = TRUE;
   PRIVATE(this)->lock();
   if (this->isActive() && PRIVATE(this)->rendercb) {
 #if COIN_DEBUG && 0 // debug
@@ -1691,6 +2056,109 @@ SoRenderManager::getGLRenderAction(void) const
 }
 #endif
 
+void
+SoRenderManager::setRenderPipeline(const RenderPipeline pipeline)
+{
+#if !COIN_BUILD_LEGACY_GL_RENDERER
+  if (pipeline == RenderPipeline::LEGACY_GL) {
+    SoDebugError::postWarning("SoRenderManager::setRenderPipeline",
+                              "LEGACY_GL is unavailable in a core-only build; "
+                              "keeping the DRAW_LIST pipeline");
+    return;
+  }
+#endif
+  if (PRIVATE(this)->renderPipeline == pipeline) return;
+  PRIVATE(this)->renderPipeline = pipeline;
+  this->scheduleRedraw();
+}
+
+SoRenderManager::RenderPipeline
+SoRenderManager::getRenderPipeline(void) const
+{
+  return PRIVATE(this)->renderPipeline;
+}
+
+SbBool
+SoRenderManager::pickClosest(const int x, const int y, const int radius,
+                             SoPickedPoint *& result)
+{
+  result = NULL;
+  SoPickedPointList hits;
+  if (!this->pickDepthStack(x, y, radius, 1, hits, 1) ||
+      hits.getLength() == 0) return FALSE;
+  result = hits[0];
+  hits.remove(0);
+  return TRUE;
+}
+
+SbBool
+SoRenderManager::pickDepthStack(const int x, const int y, const int radius,
+                                const int maxLayers,
+                                SoPickedPointList & results,
+                                const int maxHits)
+{
+  results.truncate(0);
+  if (PRIVATE(this)->renderPipeline != RenderPipeline::DRAW_LIST ||
+      !PRIVATE(this)->renderBackend || !PRIVATE(this)->irAction ||
+      !PRIVATE(this)->renderBackend->isInitialized()) return FALSE;
+
+  SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
+  const SoRenderParams params = retainedRenderParams(PRIVATE(this));
+  if (PRIVATE(this)->pickTargetDirty ||
+      PRIVATE(this)->pickTargetGeneration != drawlist.getGeneration()) {
+    SoRenderPlanner planner;
+    SoRenderPlan plan;
+    planner.build(drawlist, plan);
+    if (!PRIVATE(this)->renderBackend->updatePickBuffer(drawlist, plan,
+                                                        params)) return FALSE;
+    PRIVATE(this)->pickTargetDirty = FALSE;
+    PRIVATE(this)->pickTargetGeneration = drawlist.getGeneration();
+  }
+
+  SoPickResultList raw;
+  if (!PRIVATE(this)->renderBackend->pickDepthStack(
+        x, y, radius, maxLayers, maxHits, raw)) return FALSE;
+  if (raw.generation != drawlist.getGeneration()) return FALSE;
+  for (const SoPickResult & hit : raw.hits) {
+    SoPickedPoint * picked = resolvePickResult(PRIVATE(this), hit, params);
+    if (picked) results.append(picked);
+  }
+  return results.getLength() != 0;
+}
+
+SbBool
+SoRenderManager::pickVisibleRegion(const SbBox2s & region,
+                                   SoPickedPointList & results)
+{
+  results.truncate(0);
+  if (PRIVATE(this)->renderPipeline != RenderPipeline::DRAW_LIST ||
+      !PRIVATE(this)->renderBackend || !PRIVATE(this)->irAction ||
+      !PRIVATE(this)->renderBackend->isInitialized()) return FALSE;
+
+  SoDrawList & drawlist = PRIVATE(this)->irAction->getMutableDrawList();
+  const SoRenderParams params = retainedRenderParams(PRIVATE(this));
+  if (PRIVATE(this)->pickTargetDirty ||
+      PRIVATE(this)->pickTargetGeneration != drawlist.getGeneration()) {
+    SoRenderPlanner planner;
+    SoRenderPlan plan;
+    planner.build(drawlist, plan);
+    if (!PRIVATE(this)->renderBackend->updatePickBuffer(drawlist, plan,
+                                                        params)) return FALSE;
+    PRIVATE(this)->pickTargetDirty = FALSE;
+    PRIVATE(this)->pickTargetGeneration = drawlist.getGeneration();
+  }
+
+  SoPickResultList raw;
+  if (!PRIVATE(this)->renderBackend->pickVisibleRegion(region, raw)) {
+    return FALSE;
+  }
+  if (raw.generation != drawlist.getGeneration()) return FALSE;
+  for (const SoPickResult & hit : raw.hits) {
+    SoPickedPoint * picked = resolvePickResult(PRIVATE(this), hit, params);
+    if (picked) results.append(picked);
+  }
+  return results.getLength() != 0;
+}
 /*!
   This method returns the current auto clipping strategy.
 

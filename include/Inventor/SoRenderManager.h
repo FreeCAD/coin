@@ -34,13 +34,18 @@
 \**************************************************************************/
 
 #include <Inventor/SbColor4f.h>
+#include <Inventor/SbBox2s.h>
 #include <Inventor/SbVec2s.h>
+
+#include <cstdint>
 #if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
 #endif
 
 class SbViewportRegion;
 class SoEvent;
+class SoPath;
+class SoDetail;
 #if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
 #endif
@@ -51,11 +56,30 @@ class SoNodeSensor;
 class SoOneShotSensor;
 class SoSensor;
 class SoRenderManagerP;
+class SoPickedPoint;
+class SoPickedPointList;
 
 typedef void SoRenderManagerRenderCB(void * userdata, class SoRenderManager * mgr);
 
+/*!
+  \class SoRenderManager SoRenderManager.h Inventor/SoRenderManager.h
+  \brief Owns frame orchestration and selects the active Coin render pipeline.
+
+  The manager owns camera, viewport, device-pixel-ratio, callback and scene
+  traversal policy. The retained pipeline records commands through
+  SoIRRenderAction and delegates execution to a SoRenderBackend; the backend
+  does not replace manager orchestration.
+
+  \ingroup coin_retained_rendering
+*/
 class COIN_DLL_API SoRenderManager {
 public:
+
+  /*! Selects the scene execution pipeline for ordinary manager rendering. */
+  enum class RenderPipeline {
+    LEGACY_GL,
+    DRAW_LIST
+  };
 
   class COIN_DLL_API Superimposition {
   public:
@@ -192,6 +216,17 @@ public:
   void setGLRenderAction(SoGLRenderAction * const action);
   SoGLRenderAction * getGLRenderAction(void) const;
 #endif
+  void setRenderPipeline(RenderPipeline pipeline);
+  RenderPipeline getRenderPipeline(void) const;
+
+  /*! Return the closest renderer-neutral scene hit. The caller owns result. */
+  SbBool pickClosest(int x, int y, int radius, SoPickedPoint *& result);
+  /*! Return front-to-back renderer-neutral scene hits around a cursor. */
+  SbBool pickDepthStack(int x, int y, int radius, int maxLayers,
+                        SoPickedPointList & results, int maxHits = 32);
+  /*! Return deduplicated visible scene hits in a viewport-local region. */
+  SbBool pickVisibleRegion(const SbBox2s & region,
+                           SoPickedPointList & results);
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 
@@ -236,6 +271,8 @@ protected:
 #endif
 
 private:
+  void renderDrawListPipeline(SbBool clearwindow, SbBool clearzbuffer);
+
   void attachRootSensor(SoNode * const sceneroot);
   void attachClipSensor(SoNode * const sceneroot);
   void detachRootSensor(void);

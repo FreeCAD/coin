@@ -55,10 +55,15 @@ class SbMatrix;
 class SoNodeSensor;
 class SoInfo;
 class SoNode;
+class SoPath;
+class SoDetail;
 class SoGetBoundingBoxAction;
 class SoGetMatrixAction;
 class SoSearchAction;
 class SbPList;
+class SoIRRenderAction;
+class SoRenderBackend;
+
 class SoRenderManagerP {
 public:
   SoRenderManagerP(SoRenderManager * publ);
@@ -115,6 +120,13 @@ public:
 #endif
   SbViewportRegion viewport;
   float devicePixelRatio;
+  SoRenderManager::RenderPipeline renderPipeline;
+  SoIRRenderAction * irAction;
+  SoRenderBackend * renderBackend;
+  uint32_t renderBackendContextId;
+  SbBool drawListCallbackScope;
+  SbBool pickTargetDirty;
+  uint32_t pickTargetGeneration;
 
   SoRenderManager::StereoMode stereostenciltype;
   SoRenderManager::RenderMode rendermode;

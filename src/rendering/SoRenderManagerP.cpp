@@ -39,6 +39,8 @@
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
 #include "Inventor/nodes/SoOrthographicCamera.h"
+#include <Inventor/SoPath.h>
+#include <Inventor/details/SoDetail.h>
 #if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
 #endif
