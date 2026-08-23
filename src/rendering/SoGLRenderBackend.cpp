@@ -928,6 +928,7 @@ SoGLRenderBackend::shutdown()
   this->pickTarget.generation = 0;
   this->pickTarget.updateSerial = 0;
   this->pickTarget.ready = false;
+  this->orderedSubmissionCandidates = OrderedSubmissionCandidates();
   this->glue = nullptr;
   this->context = nullptr;
   this->setInitialized(FALSE);
@@ -947,6 +948,7 @@ SoGLRenderBackend::discard()
   this->haveCacheGeneration = false;
   this->cacheGeneration = 0;
   this->cacheResourceRevision = 0;
+  this->orderedSubmissionCandidates = OrderedSubmissionCandidates();
   this->visualProgram = VisualProgram();
   this->rasterPrograms = RasterPrograms();
   this->pickPrograms = PickPrograms();
@@ -2245,6 +2247,20 @@ void
 SoGLRenderBackend::measureOrderedSubmissionCandidates(
   const SoDrawList & drawlist, const SoRenderPlan & plan)
 {
+  OrderedSubmissionCandidates & cached = this->orderedSubmissionCandidates;
+  if (cached.valid && cached.drawlist == &drawlist && cached.plan == &plan &&
+      cached.generation == drawlist.getGeneration() &&
+      cached.planRevision == drawlist.getRenderPlanRevision() &&
+      cached.resourceRevision == drawlist.getResourceRevision()) {
+    this->statistics.submission.orderedSubmissionCandidateBatches =
+      cached.batches;
+    this->statistics.submission.orderedSubmissionCandidateCommands =
+      cached.commands;
+    return;
+  }
+
+  uint64_t candidateBatches = 0;
+  uint64_t candidateCommands = 0;
   uint64_t runLength = 0;
   uint32_t firstCommandIndex = 0;
   bool needsHeterogeneousSubmission = false;
@@ -2253,9 +2269,8 @@ SoGLRenderBackend::measureOrderedSubmissionCandidates(
     drawlist.getNumCommands());
   const auto flushRun = [&]() {
     if (runLength > 1 && needsHeterogeneousSubmission) {
-      ++this->statistics.submission.orderedSubmissionCandidateBatches;
-      this->statistics.submission.orderedSubmissionCandidateCommands +=
-        runLength;
+      ++candidateBatches;
+      candidateCommands += runLength;
     }
     runLength = 0;
     needsHeterogeneousSubmission = false;
@@ -2301,6 +2316,19 @@ SoGLRenderBackend::measureOrderedSubmissionCandidates(
     }
   }
   flushRun();
+
+  cached.drawlist = &drawlist;
+  cached.plan = &plan;
+  cached.generation = drawlist.getGeneration();
+  cached.planRevision = drawlist.getRenderPlanRevision();
+  cached.resourceRevision = drawlist.getResourceRevision();
+  cached.batches = candidateBatches;
+  cached.commands = candidateCommands;
+  cached.valid = true;
+  this->statistics.submission.orderedSubmissionCandidateBatches =
+    candidateBatches;
+  this->statistics.submission.orderedSubmissionCandidateCommands =
+    candidateCommands;
 }
 
 void

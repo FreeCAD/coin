@@ -129,6 +129,9 @@ The `ordered_submission_candidate_*` counters report consecutive opaque runs
 that preserve command order and share one indirect-call state, but cannot use
 the existing same-geometry instancing path. They measure opportunity only;
 submitted draw-call counters continue to describe work actually executed.
+The backend caches this diagnostic analysis across frames whose draw-list
+generation, plan revision, and resource revision remain stable, so the scan
+does not inflate steady-state or incremental submission timings.
 
 The shared-assembly interaction curves distinguish cold hover-target creation,
 warm hover queries, and target refresh after an incremental occurrence update.

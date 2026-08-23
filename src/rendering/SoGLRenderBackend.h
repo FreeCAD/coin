@@ -135,6 +135,20 @@ private:
     bool persistent = false;
   };
 
+  struct OrderedSubmissionCandidates {
+    // Candidate analysis is diagnostic work, not part of frame submission.
+    // These identities and revisions keep stable retained frames from paying
+    // for the same linear scan while invalidating every input to eligibility.
+    const SoDrawList * drawlist = nullptr;
+    const SoRenderPlan * plan = nullptr;
+    uint32_t generation = 0;
+    uint64_t planRevision = 0;
+    uint64_t resourceRevision = 0;
+    uint64_t batches = 0;
+    uint64_t commands = 0;
+    bool valid = false;
+  };
+
   struct SurfaceUniforms {
     struct Transforms {
       GLint view = -1;
@@ -598,6 +612,7 @@ private:
   uint64_t cacheResourceRevision = 0;
   size_t cachedCommandCount = 0;
   bool haveCacheGeneration = false;
+  OrderedSubmissionCandidates orderedSubmissionCandidates;
   GLuint instanceBuffer = 0;
   SoRenderBackendStatistics statistics;
 };
