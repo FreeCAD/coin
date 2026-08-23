@@ -50,6 +50,8 @@ struct Options {
   int rebuildOnly = 0;
   int mutationOnly = 0;
   std::string mutationWorkload;
+  std::string mutationCase;
+  int mutationCount = 0;
   bool mutationUpdatesOnly = false;
   int interactionOnly = 0;
   std::string output;
@@ -501,9 +503,20 @@ bool runVariant(GLTestProfile profile,
 
 bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
                                    int samples,
+                                   const std::string & caseFilter,
+                                   int countFilter,
                                    std::vector<Measurement> & results,
                                    std::string & unavailable)
 {
+  const bool knownCase = caseFilter.empty() || caseFilter == "translation" ||
+    caseFilter == "material" || caseFilter == "geometry" ||
+    caseFilter == "visibility";
+  if (!knownCase || countFilter < 0 || countFilter > drawCount ||
+      (caseFilter == "geometry" && countFilter > 1)) {
+    unavailable = "invalid focused mutation case or count";
+    return false;
+  }
+
   GLTestContextConfig config;
   config.profile = profile;
   config.major = 3;
@@ -552,6 +565,10 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
+    std::vector<double> submissionTimes;
+    std::vector<double> frameSetupTimes;
+    std::vector<double> resourcePreparationTimes;
+    std::vector<double> commandExecutionTimes;
     for (int sample = 0; sample < samples; ++sample) {
       mutate(sample);
       context.bindFramebuffer();
@@ -563,6 +580,14 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
       constructionTimes.push_back(
         phases.drawListConstructionNanoseconds / 1000000.0);
       planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
+      submissionTimes.push_back(
+        phases.backendSubmissionNanoseconds / 1000000.0);
+      frameSetupTimes.push_back(
+        phases.backendFrameSetupNanoseconds / 1000000.0);
+      resourcePreparationTimes.push_back(
+        phases.backendResourcePreparationNanoseconds / 1000000.0);
+      commandExecutionTimes.push_back(
+        phases.backendCommandExecutionNanoseconds / 1000000.0);
       if (phases.drawListRebuilds != 0 ||
           phases.incrementalCommandUpdates !=
             static_cast<uint64_t>(changedCount) ||
@@ -596,6 +621,12 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     result.drawListConstructionMedianMs =
       percentile(constructionTimes, 0.5);
     result.planConstructionMedianMs = percentile(planTimes, 0.5);
+    result.backendSubmissionMedianMs = percentile(submissionTimes, 0.5);
+    result.backendFrameSetupMedianMs = percentile(frameSetupTimes, 0.5);
+    result.backendResourcePreparationMedianMs =
+      percentile(resourcePreparationTimes, 0.5);
+    result.backendCommandExecutionMedianMs =
+      percentile(commandExecutionTimes, 0.5);
     result.incrementalCommandUpdates = static_cast<uint64_t>(changedCount);
     result.pixelChecksum = checksumPixels(context.readPixels());
     results.push_back(result);
@@ -604,7 +635,13 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
 
   std::vector<int> changedCounts;
   const int requestedCounts[] = { 1, 10, 100 };
-  for (int requested : requestedCounts) {
+  const int requestedCountLength = countFilter > 0
+    ? 1 : static_cast<int>(sizeof(requestedCounts) /
+                           sizeof(requestedCounts[0]));
+  for (int requestedIndex = 0; requestedIndex < requestedCountLength;
+       ++requestedIndex) {
+    const int requested = countFilter > 0
+      ? countFilter : requestedCounts[requestedIndex];
     const int count = std::min(drawCount, requested);
     if (changedCounts.empty() || changedCounts.back() != count) {
       changedCounts.push_back(count);
@@ -621,23 +658,29 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
       positions[static_cast<size_t>(i)] =
         mutations.coordinates[static_cast<size_t>(i)]->point[0];
     }
-    valid = measure("translation", changedCount, [&](int sample) {
-      const float offset = (sample & 1) ? -0.01f : 0.01f;
-      for (int i = 0; i < changedCount; ++i) {
-        mutations.transforms[static_cast<size_t>(i)]->translation =
-          translations[static_cast<size_t>(i)] + SbVec3f(offset, 0.0f, 0.0f);
-      }
-    });
-    if (!valid) break;
-    valid = measure("material", changedCount, [&](int sample) {
-      const SbColor color = (sample & 1)
-        ? SbColor(0.75f, 0.25f, 0.15f) : SbColor(0.15f, 0.55f, 0.85f);
-      for (int i = 0; i < changedCount; ++i) {
-        mutations.materials[static_cast<size_t>(i)]->diffuseColor = color;
-      }
-    });
-    if (!valid) break;
-    if (changedCount == 1) {
+    if (caseFilter.empty() || caseFilter == "translation") {
+      valid = measure("translation", changedCount, [&](int sample) {
+        const float offset = (sample & 1) ? -0.01f : 0.01f;
+        for (int i = 0; i < changedCount; ++i) {
+          mutations.transforms[static_cast<size_t>(i)]->translation =
+            translations[static_cast<size_t>(i)] +
+            SbVec3f(offset, 0.0f, 0.0f);
+        }
+      });
+      if (!valid) break;
+    }
+    if (caseFilter.empty() || caseFilter == "material") {
+      valid = measure("material", changedCount, [&](int sample) {
+        const SbColor color = (sample & 1)
+          ? SbColor(0.75f, 0.25f, 0.15f) : SbColor(0.15f, 0.55f, 0.85f);
+        for (int i = 0; i < changedCount; ++i) {
+          mutations.materials[static_cast<size_t>(i)]->diffuseColor = color;
+        }
+      });
+      if (!valid) break;
+    }
+    if ((caseFilter.empty() || caseFilter == "geometry") &&
+        changedCount == 1) {
       valid = measure("geometry", changedCount, [&](int sample) {
         const float offset = (sample & 1) ? -0.01f : 0.01f;
         mutations.coordinates[0]->point.set1Value(
@@ -648,7 +691,15 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
   }
 
   const int requestedVisibilityCounts[] = { 1, 10, 100, 1000 };
-  for (int requested : requestedVisibilityCounts) {
+  const int visibilityCountLength = countFilter > 0
+    ? 1 : static_cast<int>(sizeof(requestedVisibilityCounts) /
+                           sizeof(requestedVisibilityCounts[0]));
+  for (int requestedIndex = 0;
+       (caseFilter.empty() || caseFilter == "visibility") &&
+         requestedIndex < visibilityCountLength;
+       ++requestedIndex) {
+    const int requested = countFilter > 0
+      ? countFilter : requestedVisibilityCounts[requestedIndex];
     if (!valid || requested > drawCount) break;
     valid = measure("visibility", requested, [&](int sample) {
       const int child = (sample & 1) ? SO_SWITCH_ALL : SO_SWITCH_NONE;
@@ -667,7 +718,7 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     manager.render(TRUE, TRUE);
   }
 
-  if (valid && drawCount > 256) {
+  if (valid && caseFilter.empty() && drawCount > 256) {
     const int changedCount = 257;
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
@@ -716,7 +767,7 @@ bool runIncrementalMutationScaling(GLTestProfile profile, int drawCount,
     }
   }
 
-  if (valid) {
+  if (valid && caseFilter.empty()) {
     SoSeparator * branch = mutations.structuralBranches[0];
     SoFaceSet * insertedFace = new SoFaceSet;
     insertedFace->ref();
@@ -1910,6 +1961,8 @@ bool runAssemblyDepthStack(GLTestProfile profile, int occurrenceCount,
 
 void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
                            const std::string & workloadFilter,
+                           const std::string & caseFilter,
+                           int countFilter,
                            bool updatesOnly,
                            std::vector<Measurement> & results,
                            std::vector<std::string> & unavailable)
@@ -1919,7 +1972,8 @@ void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
   std::string reason;
   if ((workloadFilter.empty() || workloadFilter == "incremental") &&
       !runIncrementalMutationScaling(
-        profile, objectCount, samples, results, reason)) {
+        profile, objectCount, samples, caseFilter, countFilter,
+        results, reason)) {
     unavailable.push_back(
       "incremental mutations DrawList " + profileName + ": " + reason);
   }
@@ -1970,6 +2024,10 @@ Options parseOptions(int argc, char ** argv)
       options.mutationOnly = std::atoi(argv[++i]);
     else if (arg == "--mutation-workload" && i + 1 < argc)
       options.mutationWorkload = argv[++i];
+    else if (arg == "--mutation-case" && i + 1 < argc)
+      options.mutationCase = argv[++i];
+    else if (arg == "--mutation-count" && i + 1 < argc)
+      options.mutationCount = std::atoi(argv[++i]);
     else if (arg == "--mutation-updates-only")
       options.mutationUpdatesOnly = true;
     else if (arg == "--interaction-only" && i + 1 < argc)
@@ -1979,6 +2037,7 @@ Options parseOptions(int argc, char ** argv)
       std::cerr << "Usage: CoinRenderGLBenchmarks [--smoke] [--samples N] "
                    "[--rebuild-only N] [--mutation-only N] "
                    "[--mutation-workload NAME] "
+                   "[--mutation-case NAME] [--mutation-count N] "
                    "[--mutation-updates-only] "
                    "[--interaction-only N] [--output FILE]\n";
       std::exit(2);
@@ -2176,10 +2235,12 @@ int main(int argc, char ** argv)
     runMutationBenchmarks(GLTestProfile::Compatibility,
                           options.mutationOnly, samples,
                           options.mutationWorkload,
+                          options.mutationCase, options.mutationCount,
                           options.mutationUpdatesOnly,
                           results, unavailable);
     runMutationBenchmarks(GLTestProfile::Core, options.mutationOnly, samples,
                           options.mutationWorkload,
+                          options.mutationCase, options.mutationCount,
                           options.mutationUpdatesOnly,
                           results, unavailable);
     const std::string document = toJson(results, unavailable, options);
@@ -2270,7 +2331,8 @@ int main(int argc, char ** argv)
   }
   for (GLTestProfile profile : { GLTestProfile::Compatibility,
                                  GLTestProfile::Core }) {
-    runMutationBenchmarks(profile, draws, samples, std::string(), false,
+    runMutationBenchmarks(profile, draws, samples, std::string(),
+                          std::string(), 0, false,
                           results, unavailable);
   }
   const std::string document = toJson(results, unavailable, options);
