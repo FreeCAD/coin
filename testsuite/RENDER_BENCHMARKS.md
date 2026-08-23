@@ -142,8 +142,10 @@ submission and completion. UI ownership and request coalescing remain with the
 caller, while the manager rejects results made stale by a target update.
 Pick draw-call and instance counters verify that primitive-mapped occurrences
 remain on the primitive-ID submission path and do not exceed its unbatched
-draw ceiling. Non-adjacent face and edge commands retain scene insertion order;
-the benchmark does not treat unsafe regrouping as a performance requirement.
+draw ceiling. The recipe control retains non-adjacent face and edge insertion
+order; the staged variant exercises the same picking and selection invariants
+after explicitly placing edges in the foreground stage. The benchmark never
+treats implicit, unsafe regrouping as a performance requirement.
 When pick topology and render-plan order remain stable, the backend reuses the
 classified submissions while refreshing their per-instance matrices.
 Selection curves render deterministic 1% and 10% selected sets, replace 10% of
@@ -154,13 +156,12 @@ policy into `SoRenderManager`. The subelement curve requires instanced coverage
 for nontrivial sets so range selection cannot silently regress to one draw per
 target.
 
-The shared-assembly depth-stack curves place every occurrence on one view ray
-and request 1, 8, 32, and 128 primitive depth layers. They verify resolved
+The recipe and staged shared-assembly depth-stack curves place every
+occurrence on one view ray and request 1, 8, 32, and 128 primitive depth
+layers. They verify resolved
 front-to-back ordering, distinct occurrence identities, zero retained rebuilds,
 primitive-ID submission coverage, and that draw calls do not exceed the
-unbatched peel-pass ceiling. Face and edge commands remain in scene insertion
-order, so this workload does not require unsafe non-adjacent regrouping merely
-to satisfy a batching assertion. Results separate initial depth rendering,
+unbatched peel-pass ceiling. Results separate initial depth rendering,
 peeling, synchronous readback, hit processing, target restoration, and scene
 result resolution. The expensive 32- and 128-layer curves use a bounded sample
 count so focused interaction runs remain practical.
@@ -276,8 +277,8 @@ direct baseline for deciding whether further matrix-replay optimization is
 worthwhile.
 
 Occurrence-local assembly materials use the same 1, 10, and 100 batch sizes
-across expanded, shared-source, and shared-recipe geometry ownership. Each
-material must patch exactly its face command, preserve edge state, rebuild the
+across expanded, shared-source, shared-recipe, and staged geometry ownership.
+Each material must patch exactly its face command, preserve edge state and the
 render plan without rebuilding the DrawList, and match a forced-rebuild image.
 A single-occurrence opacity curve crosses the opaque/transparent boundary to
 include blend classification and transparent ordering in the same invariants.

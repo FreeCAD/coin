@@ -1544,7 +1544,8 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
 }
 
 bool runAssemblySelectionInteractions(
-  GLTestProfile profile, int occurrenceCount, int samples,
+  GLTestProfile profile, WorkloadKind workload,
+  int occurrenceCount, int samples,
   std::vector<Measurement> & results, std::string & unavailable)
 {
   GLTestContextConfig config;
@@ -1560,8 +1561,7 @@ bool runAssemblySelectionInteractions(
   }
 
   SoOrthographicCamera * camera = NULL;
-  SoSeparator * scene = makeScene(
-    WorkloadKind::SharedAssemblyRecipe, occurrenceCount, camera);
+  SoSeparator * scene = makeScene(workload, occurrenceCount, camera);
   SbViewportRegion viewport(SbVec2s(256, 256));
   viewport.setViewportPixels(SbVec2s(0, 0), SbVec2s(256, 256));
   SoIRRenderAction action(viewport);
@@ -1671,7 +1671,8 @@ bool runAssemblySelectionInteractions(
     }
   }
   Measurement asyncHover;
-  asyncHover.workload = "shared_assembly_backend_async_hover_" +
+  asyncHover.workload = std::string(workloadName(workload)) +
+    "_backend_async_hover_" +
     std::to_string(occurrenceCount);
   asyncHover.renderer = "DrawList";
   asyncHover.profile = profile == GLTestProfile::Core
@@ -1743,8 +1744,8 @@ bool runAssemblySelectionInteractions(
     }
 
     Measurement result;
-    result.workload = std::string(label) + '_' +
-      std::to_string(occurrenceCount);
+    result.workload = std::string(workloadName(workload)) + '_' + label +
+      '_' + std::to_string(occurrenceCount);
     result.renderer = "DrawList";
     result.profile = profile == GLTestProfile::Core
       ? "core" : "compatibility";
@@ -1774,19 +1775,19 @@ bool runAssemblySelectionInteractions(
   const int tenPercent = std::max(1, occurrenceCount / 10);
   const bool valid =
     measureSelection(
-      "shared_assembly_selection_1_percent", onePercent,
+      "selection_1_percent", onePercent,
       false, false, false) &&
     measureSelection(
-      "shared_assembly_selection_10_percent", tenPercent,
+      "selection_10_percent", tenPercent,
       false, false, false) &&
     measureSelection(
-      "shared_assembly_selection_churn", tenPercent,
+      "selection_churn", tenPercent,
       true, false, false) &&
     measureSelection(
-      "shared_assembly_subelement_selection", tenPercent,
+      "subelement_selection", tenPercent,
       true, true, false) &&
     measureSelection(
-      "shared_assembly_preselection", 1, false, false, true);
+      "preselection", 1, false, false, true);
   if (!valid) unavailable = "assembly selection interaction invariant failed";
   backend.shutdown();
   camera->unref();
@@ -1794,7 +1795,8 @@ bool runAssemblySelectionInteractions(
   return valid;
 }
 
-bool runAssemblyDepthStack(GLTestProfile profile, int occurrenceCount,
+bool runAssemblyDepthStack(GLTestProfile profile, WorkloadKind workload,
+                           int occurrenceCount,
                            int samples, std::vector<Measurement> & results,
                            std::string & unavailable)
 {
@@ -1813,7 +1815,7 @@ bool runAssemblyDepthStack(GLTestProfile profile, int occurrenceCount,
   SceneMutationHandles mutations;
   SoOrthographicCamera * camera = NULL;
   SoSeparator * scene = makeScene(
-    WorkloadKind::SharedAssemblyRecipe, occurrenceCount, camera, &mutations);
+    workload, occurrenceCount, camera, &mutations);
   if (mutations.transforms.size() != static_cast<size_t>(occurrenceCount)) {
     unavailable = "depth-stack scene did not expose every occurrence";
     camera->unref();
@@ -1982,7 +1984,7 @@ bool runAssemblyDepthStack(GLTestProfile profile, int occurrenceCount,
     if (!valid) break;
 
     Measurement result;
-    result.workload = "shared_assembly_depth_stack_" +
+    result.workload = std::string(workloadName(workload)) + "_depth_stack_" +
       std::to_string(maxLayers) + "_of_" +
       std::to_string(occurrenceCount);
     result.renderer = "DrawList";
@@ -2055,19 +2057,25 @@ void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
         " mutation DrawList " + profileName + ": " + reason);
     }
   }
-  reason.clear();
-  if ((workloadFilter.empty() || workloadFilter == "selection") &&
-      !runAssemblySelectionInteractions(
-        profile, objectCount, samples, results, reason)) {
-    unavailable.push_back(
-      "shared assembly selection DrawList " + profileName + ": " + reason);
-  }
-  reason.clear();
-  if ((workloadFilter.empty() || workloadFilter == "depth_stack") &&
-      !runAssemblyDepthStack(
-        profile, objectCount, samples, results, reason)) {
-    unavailable.push_back(
-      "shared assembly depth stack DrawList " + profileName + ": " + reason);
+  const WorkloadKind interactionWorkloads[] = {
+    WorkloadKind::SharedAssemblyRecipe,
+    WorkloadKind::SharedAssemblyStaged
+  };
+  for (WorkloadKind workload : interactionWorkloads) {
+    reason.clear();
+    if ((workloadFilter.empty() || workloadFilter == "selection") &&
+        !runAssemblySelectionInteractions(
+          profile, workload, objectCount, samples, results, reason)) {
+      unavailable.push_back(std::string(workloadName(workload)) +
+        " selection DrawList " + profileName + ": " + reason);
+    }
+    reason.clear();
+    if ((workloadFilter.empty() || workloadFilter == "depth_stack") &&
+        !runAssemblyDepthStack(
+          profile, workload, objectCount, samples, results, reason)) {
+      unavailable.push_back(std::string(workloadName(workload)) +
+        " depth stack DrawList " + profileName + ": " + reason);
+    }
   }
 }
 
@@ -2275,15 +2283,23 @@ int main(int argc, char ** argv)
             AssemblyBenchmarkScope::HoverOnly)) {
         unavailable.push_back("shared assembly hover: " + reason);
       }
-      reason.clear();
-      if (!runAssemblySelectionInteractions(
-            profile, options.interactionOnly, samples, results, reason)) {
-        unavailable.push_back("shared assembly interactions: " + reason);
-      }
-      reason.clear();
-      if (!runAssemblyDepthStack(
-            profile, options.interactionOnly, samples, results, reason)) {
-        unavailable.push_back("shared assembly depth stack: " + reason);
+      for (WorkloadKind workload : {
+             WorkloadKind::SharedAssemblyRecipe,
+             WorkloadKind::SharedAssemblyStaged }) {
+        reason.clear();
+        if (!runAssemblySelectionInteractions(
+              profile, workload, options.interactionOnly, samples,
+              results, reason)) {
+          unavailable.push_back(std::string(workloadName(workload)) +
+            " interactions: " + reason);
+        }
+        reason.clear();
+        if (!runAssemblyDepthStack(
+              profile, workload, options.interactionOnly, samples,
+              results, reason)) {
+          unavailable.push_back(std::string(workloadName(workload)) +
+            " depth stack: " + reason);
+        }
       }
     }
     const std::string document = toJson(results, unavailable, options);
