@@ -43,10 +43,10 @@
 
 /* ********************************************************************** */
 
-#include <Inventor/system/gl.h>
 #include "base/dict.h"
 #include <Inventor/C/base/string.h>
 #include <Inventor/C/glue/dl.h>
+#include <Inventor/C/glue/gl.h>
 
 /* ********************************************************************** */
 
@@ -274,6 +274,12 @@ typedef void (APIENTRY * COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC)(
 typedef void (APIENTRY * COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC)(
   GLenum mode, GLenum type, const GLvoid * indirect, GLsizei drawcount,
   GLsizei stride);
+typedef cc_glglue_sync (APIENTRY * COIN_PFNGLFENCESYNCPROC)(GLenum condition,
+                                                            GLbitfield flags);
+typedef void (APIENTRY * COIN_PFNGLDELETESYNCPROC)(cc_glglue_sync sync);
+typedef GLenum (APIENTRY * COIN_PFNGLCLIENTWAITSYNCPROC)(cc_glglue_sync sync,
+                                                         GLbitfield flags,
+                                                         uint64_t timeout);
 
 /* Core framebuffer entry points which are not exported by the Windows
    OpenGL 1.1 import library and may be absent from older platform headers. */
@@ -763,6 +769,9 @@ struct cc_glglue {
   COIN_PFNGLBINDBUFFERBASEPROC glBindBufferBase;
   COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC glMultiDrawArraysIndirect;
   COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC glMultiDrawElementsIndirect;
+  COIN_PFNGLFENCESYNCPROC glFenceSync;
+  COIN_PFNGLDELETESYNCPROC glDeleteSync;
+  COIN_PFNGLCLIENTWAITSYNCPROC glClientWaitSync;
   COIN_PFNGLCLEARBUFFERUIVPROC glClearBufferuiv;
   COIN_PFNGLCLEARBUFFERFVPROC glClearBufferfv;
   COIN_PFNGLUNIFORM1UIPROC glUniform1ui;

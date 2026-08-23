@@ -1255,6 +1255,12 @@ glglue_resolve_symbols(cc_glglue * w)
   w->glMultiDrawElementsIndirect =
     (COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC)
       cc_glglue_getprocaddress(w, "glMultiDrawElementsIndirect");
+  w->glFenceSync = (COIN_PFNGLFENCESYNCPROC)
+    cc_glglue_getprocaddress(w, "glFenceSync");
+  w->glDeleteSync = (COIN_PFNGLDELETESYNCPROC)
+    cc_glglue_getprocaddress(w, "glDeleteSync");
+  w->glClientWaitSync = (COIN_PFNGLCLIENTWAITSYNCPROC)
+    cc_glglue_getprocaddress(w, "glClientWaitSync");
 
   /* These core framebuffer entry points are not exported by the Windows
      OpenGL 1.1 import library.  Resolve them through the active context just
@@ -3808,6 +3814,29 @@ cc_glglue_glDrawElementsInstanced(const cc_glglue * glue,
 {
   assert(glue->glDrawElementsInstanced);
   glue->glDrawElementsInstanced(mode, count, type, indices, instancecount);
+}
+
+cc_glglue_sync
+cc_glglue_glFenceSync(const cc_glglue * glue,
+                      GLenum condition, GLbitfield flags)
+{
+  assert(glue->glFenceSync);
+  return glue->glFenceSync(condition, flags);
+}
+
+void
+cc_glglue_glDeleteSync(const cc_glglue * glue, cc_glglue_sync sync)
+{
+  assert(glue->glDeleteSync);
+  glue->glDeleteSync(sync);
+}
+
+GLenum
+cc_glglue_glClientWaitSync(const cc_glglue * glue, cc_glglue_sync sync,
+                           GLbitfield flags, uint64_t timeout)
+{
+  assert(glue->glClientWaitSync);
+  return glue->glClientWaitSync(sync, flags, timeout);
 }
 
 void
