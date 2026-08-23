@@ -145,6 +145,7 @@ endif()
 
 if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
+	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
