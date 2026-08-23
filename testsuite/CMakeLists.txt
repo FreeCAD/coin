@@ -253,6 +253,14 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 	coin_add_gl_test(GLSLRuntimeTest GLSLRuntimeTest.cpp)
 	coin_add_gl_test(GLSLDiagnosticsTest GLSLDiagnosticsTest.cpp)
 	coin_add_gl_test(OffscreenReadbackTest OffscreenReadbackTest.cpp)
+	if(COIN_BUILD_LEGACY_GL_RENDERER)
+		coin_add_gl_test(SoText2RasterLayoutTest
+			SoText2RasterLayoutTest.cpp)
+		coin_add_gl_test(LegacyDirectRasterTransparencyTest
+			LegacyDirectRasterTransparencyTest.cpp)
+		coin_add_gl_test(LegacyShapeGatingOrderTest
+			LegacyShapeGatingOrderTest.cpp)
+	endif()
 endif()
 
 # Many warnings are generated from test macros on macOS with Xcode.
