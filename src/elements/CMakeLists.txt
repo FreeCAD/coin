@@ -58,6 +58,8 @@ set(COIN_ELEMENTS_FILES
 	SoProfileCoordinateElement.cpp
 	SoProfileElement.cpp
 	SoProjectionMatrixElement.cpp
+	SoRenderMatrixPolicyElement.cpp
+	SoRenderPlacementElement.cpp
 	SoReplacedElement.cpp
 	SoShapeHintsElement.cpp
 	SoShapeStyleElement.cpp
@@ -92,6 +94,7 @@ set(COIN_ELEMENTS_INTERNAL_FILES
 	SoTextureScalePolicyElement.cpp
 	SoTextureScaleQualityElement.h
 	SoTextureScaleQualityElement.cpp
+	SoRenderPlacementElement.h
 	SoVertexAttributeData.h
 )
 

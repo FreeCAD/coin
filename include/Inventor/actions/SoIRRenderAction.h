@@ -15,8 +15,8 @@
 class SoPrimitiveVertex;
 class SoPath;
 class SoPathList;
-class SoNode;
 class SoCamera;
+class SoNode;
 class SoIRRenderActionP;
 
 /*!
@@ -44,6 +44,14 @@ class COIN_DLL_API SoIRRenderAction : public SoAction {
   SO_ACTION_HEADER(SoIRRenderAction);
 
 public:
+  /*! Camera state policy used when starting a root traversal. */
+  enum class CameraPolicy {
+    //! Initialize the traversal from the camera configured on this action.
+    USE_CONFIGURED_CAMERA,
+    //! Start with the current state and let a camera node in the root set it.
+    CAMERA_IN_ROOT
+  };
+
   /*!
     \class SoIRRenderAction::PrimitiveCollector
     \brief Callback interface for receiving primitives generated during traversal.
@@ -77,6 +85,8 @@ public:
 
   void setCamera(SoCamera * camera) { this->camera = camera; }
   SoCamera * getCamera(void) const { return this->camera; }
+  void setCameraPolicy(CameraPolicy policy) { this->cameraPolicy = policy; }
+  CameraPolicy getCameraPolicy(void) const { return this->cameraPolicy; }
   void setDevicePixelRatio(float dpr) { this->devicePixelRatio = dpr; }
   float getDevicePixelRatio(void) const { return this->devicePixelRatio; }
 
@@ -87,10 +97,6 @@ public:
 
   //! Append a retained command produced during the current traversal.
   void addCommand(const SoRenderCommand & command);
-  //! Return the non-owned path retained for a command in this frame.
-  //! The pointer is borrowed and remains valid until the next apply/beginFrame
-  //! on this action or until the action is destroyed.
-  const SoPath * getCommandPath(int commandIndex) const;
 
   //! Mark the current frame as unsupported by the retained renderer.
   void markUnsupported(const SoNode * node, const char * reason);
@@ -100,6 +106,32 @@ public:
   const SoNode * getUnsupportedNode() const { return this->unsupportedNode; }
   //! Return a static or otherwise frame-stable explanation for the status.
   const char * getUnsupportedReason() const { return this->unsupportedReason; }
+  //! Return the non-owned path retained for a command in this frame.
+  //! The pointer is borrowed and remains valid until the next apply/beginFrame
+  //! on this action or until the action is destroyed.
+  const SoPath * getCommandPath(int commandIndex) const;
+
+  //! Append a root without clearing the current retained frame.
+  void traverseAdditionalRoot(
+    SoNode * root,
+    CameraPolicy policy = CameraPolicy::USE_CONFIGURED_CAMERA);
+
+  //! Traverse a path without clearing the retained frame. Ancestor traversal
+  //! reconstructs inherited scene state for the replayed path.
+  void traverseAdditionalPath(SoPath * path);
+#ifdef COIN_INTERNAL
+  //! Traverse a path using a copied replay context. The context supplements
+  //! path traversal; it is not a general snapshot of SoState.
+  void traverseAdditionalPath(SoPath * path,
+                              const SoIRRenderContext & context);
+#endif
+
+  SoRenderStage getRenderStage() const { return this->renderStage; }
+  void setRenderStage(SoRenderStage stage) { this->renderStage = stage; }
+  void applyRenderStage(SoRenderCommand & command);
+  //! Record a depth-clear barrier at the current traversal position.
+  void requestDepthClear();
+
 
   //! Return the generated draw list for the current frame.
   const SoDrawList & getDrawList(void) const { return this->drawlist; }
@@ -133,18 +165,44 @@ protected:
   virtual void beginTraversal(SoNode * node) override;
 
 private:
+  void initializeCameraState(CameraPolicy policy);
   void resetFrameResources();
   void clearCommandPaths();
+  void traverseAdditionalPathInternal(
+    SoPath * path, const SoIRRenderContext * context);
+  const SoIRRenderContext * getRenderContextOverride() const
+  {
+    return this->hasRenderContextOverride
+      ? &this->renderContextOverride : nullptr;
+  }
 
   SbViewportRegion vpRegion;
   SoCamera *       camera = nullptr;
+  CameraPolicy     cameraPolicy = CameraPolicy::USE_CONFIGURED_CAMERA;
   float            devicePixelRatio = 1.0f;
   SoDrawList       drawlist;
   std::vector<SoPath *> commandPaths;
   SoIRRenderActionP * pimpl;
+  SoRenderStage    renderStage = SoRenderStage::Main;
+  SoIRRenderContext renderContextOverride;
+  bool hasRenderContextOverride = false;
   bool unsupportedRendering = false;
   const SoNode * unsupportedNode = nullptr;
   const char * unsupportedReason = nullptr;
+};
+
+/*! \brief RAII guard for an action-local manager render stage. */
+class COIN_DLL_API SoIRRenderStageScope {
+public:
+  SoIRRenderStageScope(SoIRRenderAction & action, SoRenderStage stage);
+  ~SoIRRenderStageScope();
+
+  SoIRRenderStageScope(const SoIRRenderStageScope &) = delete;
+  SoIRRenderStageScope & operator=(const SoIRRenderStageScope &) = delete;
+
+private:
+  SoIRRenderAction * action;
+  SoRenderStage previousStage;
 };
 
 #endif // COIN_SOIRRENDERACTION_H

@@ -52,6 +52,7 @@
 #include <Inventor/elements/SoDecimationTypeElement.h>
 #include <Inventor/elements/SoTextureOverrideElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/nodes/SoShaderProgram.h>
 #include <Inventor/nodes/SoCamera.h>
@@ -60,12 +61,13 @@
 #include <Inventor/lists/SoPathList.h>
 
 #include "actions/SoSubActionP.h"
+#include "elements/SoRenderPlacementElement.h"
 #include "rendering/SoRenderIRP.h"
 
-#include <algorithm>
 #include <cassert>
-#include <limits>
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 SO_ACTION_SOURCE(SoIRRenderAction);
@@ -100,8 +102,13 @@ SoIRRenderAction::initClass(void)
     SoCacheElement::initClass();
   }
   SO_ACTION_ADD_METHOD_INTERNAL(SoNode, SoNode::IRRenderS);
+  if (SoRenderPlacementElement::getClassTypeId() == SoType::badType()) {
+    SoRenderPlacementElement::initClass();
+  }
 
   SO_ENABLE(SoIRRenderAction, SoViewportRegionElement);
+  SO_ENABLE(SoIRRenderAction, SoRenderPlacementElement);
+  SO_ENABLE(SoIRRenderAction, SoRenderMatrixPolicyElement);
   SO_ENABLE(SoIRRenderAction, SoDevicePixelRatioElement);
   SO_ENABLE(SoIRRenderAction, SoViewVolumeElement);
   SO_ENABLE(SoIRRenderAction, SoViewingMatrixElement);
@@ -219,6 +226,17 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
       (minimum[2] + maximum[2]) * 0.5f);
     retained.geometry.hasBounds = TRUE;
   }
+  SoState * state = this->getState();
+  const SoIRRenderContext * context = this->getRenderContextOverride();
+  if (context && context->hasLighting) {
+    retained.lightingHandle = SoRenderIR::fillLightingFromState(
+      state, this->drawlist, context->lighting);
+  }
+  else if (retained.lightingHandle == 0 && state) {
+    retained.lightingHandle = SoRenderIR::fillLightingFromState(
+      state, this->drawlist);
+  }
+
   const int commandIndex = this->drawlist.getNumCommands();
   this->drawlist.addCommand(retained);
 
@@ -229,6 +247,15 @@ SoIRRenderAction::addCommand(const SoRenderCommand & command)
     this->commandPaths.resize(static_cast<size_t>(commandIndex) + 1, NULL);
   }
   this->commandPaths[static_cast<size_t>(commandIndex)] = retainedPath;
+}
+
+void
+SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
+{
+  if (this->unsupportedRendering) return;
+  this->unsupportedRendering = true;
+  this->unsupportedNode = node;
+  this->unsupportedReason = reason ? reason : "unsupported retained rendering semantics";
 }
 
 const SoPath *
@@ -263,13 +290,92 @@ SoIRRenderAction::apply(const SoPathList & pathlist, SbBool obeysrules)
 }
 
 void
-SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
+SoIRRenderAction::initializeCameraState(CameraPolicy policy)
 {
-  if (this->unsupportedRendering) return;
-  this->unsupportedRendering = true;
-  this->unsupportedNode = node;
-  this->unsupportedReason = reason ? reason :
-    "unsupported retained rendering semantics";
+  if (policy != CameraPolicy::USE_CONFIGURED_CAMERA || !this->camera) {
+    return;
+  }
+
+  SbViewportRegion cameraViewport = this->vpRegion;
+  const SbViewVolume viewVolume =
+    this->camera->getViewVolume(this->vpRegion, cameraViewport);
+  SbMatrix viewingMatrix;
+  SbMatrix projectionMatrix;
+  viewVolume.getMatrices(viewingMatrix, projectionMatrix);
+  SoViewportRegionElement::set(this->state, cameraViewport);
+  SoViewVolumeElement::set(this->state, this->camera, viewVolume);
+  SoViewingMatrixElement::set(this->state, this->camera, viewingMatrix);
+  SoProjectionMatrixElement::set(this->state, this->camera, projectionMatrix);
+}
+
+void
+SoIRRenderAction::traverseAdditionalRoot(SoNode * root, CameraPolicy policy)
+{
+  if (!root) return;
+  this->traversalMethods->setUp();
+  this->state->push();
+  SoViewportRegionElement::set(this->state, this->vpRegion);
+  SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
+  this->initializeCameraState(policy);
+  SoRenderMatrixPolicyElement::set(
+    this->state, nullptr,
+    policy == CameraPolicy::CAMERA_IN_ROOT
+      ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+      : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
+  this->switchToNodeTraversal(root);
+  this->state->pop();
+}
+
+void
+SoIRRenderAction::traverseAdditionalPath(SoPath * path)
+{
+  this->traverseAdditionalPathInternal(path, nullptr);
+}
+
+void
+SoIRRenderAction::traverseAdditionalPath(SoPath * path,
+                                         const SoIRRenderContext & context)
+{
+  this->traverseAdditionalPathInternal(path, &context);
+}
+
+void
+SoIRRenderAction::traverseAdditionalPathInternal(
+  SoPath * path, const SoIRRenderContext * context)
+{
+  if (!path) return;
+
+  this->traversalMethods->setUp();
+  const bool previousHasContext = this->hasRenderContextOverride;
+  const SoIRRenderContext previousContext = this->renderContextOverride;
+  this->hasRenderContextOverride = context != nullptr;
+  if (context) {
+    this->renderContextOverride = *context;
+  }
+  this->state->push();
+  if (context) {
+    // The path traversal reconstructs model state through its ancestors.
+    context->applyToState(this->state, FALSE);
+    SoRenderMatrixPolicyElement::set(
+      this->state, nullptr,
+      SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES);
+  }
+  else {
+    SoViewportRegionElement::set(this->state, this->vpRegion);
+    SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
+    this->initializeCameraState(this->cameraPolicy);
+    SoRenderMatrixPolicyElement::set(
+      this->state, nullptr,
+      this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT
+        ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+        : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
+  }
+  this->switchToPathTraversal(path);
+  this->state->pop();
+  this->hasRenderContextOverride = previousHasContext;
+  if (previousHasContext) {
+    this->renderContextOverride = previousContext;
+  }
 }
 
 void
@@ -277,18 +383,12 @@ SoIRRenderAction::beginTraversal(SoNode * node)
 {
   SoViewportRegionElement::set(this->state, this->vpRegion);
   SoDevicePixelRatioElement::set(this->state, this->devicePixelRatio);
-  if (this->camera) {
-    SbViewportRegion cameraViewport = this->vpRegion;
-    const SbViewVolume viewVolume =
-      this->camera->getViewVolume(this->vpRegion, cameraViewport);
-    SbMatrix viewingMatrix;
-    SbMatrix projectionMatrix;
-    viewVolume.getMatrices(viewingMatrix, projectionMatrix);
-    SoViewportRegionElement::set(this->state, cameraViewport);
-    SoViewVolumeElement::set(this->state, this->camera, viewVolume);
-    SoViewingMatrixElement::set(this->state, this->camera, viewingMatrix);
-    SoProjectionMatrixElement::set(this->state, this->camera, projectionMatrix);
-  }
+  this->initializeCameraState(this->cameraPolicy);
+  SoRenderMatrixPolicyElement::set(
+    this->state, nullptr,
+    this->cameraPolicy == CameraPolicy::CAMERA_IN_ROOT
+      ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
+      : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   inherited::beginTraversal(node);
 }
 
@@ -372,6 +472,60 @@ SoIRRenderAction::allocateTextureStorage(const unsigned char * source,
 }
 
 void
+SoIRRenderAction::applyRenderStage(SoRenderCommand & command)
+{
+  if (this->renderStage == SoRenderStage::Background) {
+    command.stage = SoRenderStage::Background;
+  }
+  else if (this->renderStage == SoRenderStage::AfterMain) {
+    command.stage = SoRenderStage::AfterMain;
+  }
+  else if (this->renderStage == SoRenderStage::Foreground ||
+           SoRenderPlacementElement::getLayer(this->state) ==
+             SoRenderPlacementElement::FOREGROUND) {
+    command.stage = SoRenderStage::Foreground;
+  }
+}
+
+void
+SoIRRenderAction::requestDepthClear()
+{
+  SoDepthClearEvent event;
+  event.stage = this->renderStage;
+  if (SoRenderPlacementElement::getLayer(this->state) ==
+      SoRenderPlacementElement::FOREGROUND) {
+    event.stage = SoRenderStage::Foreground;
+  }
+  event.sequence = static_cast<uint32_t>(
+    this->drawlist.getNumCommands());
+  int x = 0;
+  int y = 0;
+  int width = 0;
+  int height = 0;
+  if (SoRenderPlacementElement::getViewport(
+        this->state, x, y, width, height)) {
+    event.viewportOverride = TRUE;
+    event.viewportX = x;
+    event.viewportY = y;
+    event.viewportWidth = width;
+    event.viewportHeight = height;
+  }
+  this->drawlist.addDepthClearEvent(event);
+}
+
+SoIRRenderStageScope::SoIRRenderStageScope(SoIRRenderAction & action,
+                                           SoRenderStage stage)
+  : action(&action), previousStage(action.getRenderStage())
+{
+  this->action->setRenderStage(stage);
+}
+
+SoIRRenderStageScope::~SoIRRenderStageScope()
+{
+  this->action->setRenderStage(this->previousStage);
+}
+
+void
 SoIRRenderAction::resetFrameResources()
 {
   PRIVATE(this)->geometryPool.clear();
@@ -386,4 +540,7 @@ SoIRRenderAction::clearCommandPaths()
     if (path && SoDB::isInitialized()) path->unref();
   }
   this->commandPaths.clear();
+  this->renderStage = SoRenderStage::Main;
+  this->hasRenderContextOverride = false;
+  this->renderContextOverride = SoIRRenderContext();
 }

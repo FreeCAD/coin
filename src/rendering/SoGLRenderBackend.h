@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -37,9 +38,11 @@ public:
   const char * getName() const override;
   SbBool initialize(const SoRenderBackendInitParams & params) override;
   void shutdown() override;
+  void discard() override;
   SbBool render(const SoDrawList & drawlist,
                 const SoRenderPlan & plan,
-                const SoRenderParams & params) override;
+                const SoRenderParams & params,
+                const SoSelectionState * selection = nullptr) override;
 
   //! Render the current DrawList into the explicit integer picking buffer.
   SbBool updatePickBuffer(const SoDrawList & drawlist,
@@ -59,6 +62,24 @@ public:
                          const SoRenderParams & params) override;
 
 private:
+  struct ResourceCacheKey {
+    uint64_t geometry = 0;
+    uint64_t texture = 0;
+
+    bool operator==(const ResourceCacheKey & rhs) const
+    { return this->geometry == rhs.geometry && this->texture == rhs.texture; }
+  };
+
+  struct ResourceCacheKeyHash {
+    size_t operator()(const ResourceCacheKey & key) const
+    {
+      const size_t geometryHash = std::hash<uint64_t>()(key.geometry);
+      const size_t textureHash = std::hash<uint64_t>()(key.texture);
+      return geometryHash ^ (textureHash + static_cast<size_t>(0x9e3779b9) +
+                            (geometryHash << 6) + (geometryHash >> 2));
+    }
+  };
+
   struct CachedCommand {
     GLuint positionBuffer = 0;
     GLuint normalBuffer = 0;
@@ -102,7 +123,12 @@ private:
     SoTextureWrap textureWrapS = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
     SoTextureWrap textureWrapT = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
     bool textureAnisotropic = false;
-    uint32_t cacheGeneration = 0;
+    uint64_t geometryCacheKey = 0;
+    uint64_t geometryRevision = 0;
+    uint64_t textureCacheKey = 0;
+    uint64_t textureRevision = 0;
+    ResourceCacheKey resourceKey;
+    bool persistent = false;
   };
 
   struct SurfaceUniforms {
@@ -282,6 +308,13 @@ private:
     bool ready = false;
   } pickTarget;
 
+  struct CommandFrame {
+    SbMat view;
+    SbMat projection;
+    SbVec2s viewportOrigin;
+    SbVec2s viewportSize;
+  };
+
   bool createShaders();
   bool ensurePickFramebuffer(const SbVec2s & size);
   void destroyPickFramebuffer();
@@ -320,6 +353,12 @@ private:
                                      const SbVec2s & viewportSize);
   void setupLineRasterVAO(CachedCommand & entry);
   void destroyLineRasterStream(CachedCommand & entry);
+  CommandFrame effectiveCommandFrame(const SoRenderCommand & command,
+                                      const SoRenderParams & params,
+                                      bool framebufferLocal) const;
+  void clearDepthEvent(const SoDepthClearEvent & event,
+                       const SoRenderParams & params,
+                       bool framebufferLocal);
   void drawCommand(const SoDrawList & drawlist,
                    const SoRenderCommand & command,
                    const SbMat & viewMat,
@@ -340,7 +379,8 @@ private:
                           const RasterPath & path,
                           const SbMat & viewMat,
                           const SbMat & projMat,
-                          const SoRenderParams & params,
+                          const SbVec2s & viewportOrigin,
+                          const SbVec2s & viewportSize,
                           const CachedCommand & entry);
   void drawGeometry(const SoRenderCommand & command,
                     const RasterPath & path,
@@ -406,8 +446,10 @@ private:
                        const SbVec2s & viewportSize);
 
   const cc_glglue * glue = nullptr;
+  void * context = nullptr;
   std::vector<CachedCommand> gpuCache;
   std::unordered_map<const SoRenderCommand *, size_t> commandToCache;
+  std::unordered_map<ResourceCacheKey, size_t, ResourceCacheKeyHash> resourceToCache;
   uint32_t cacheGeneration = 0;
   size_t cachedCommandCount = 0;
   bool haveCacheGeneration = false;

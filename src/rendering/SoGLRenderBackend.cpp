@@ -14,8 +14,11 @@
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <functional>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <data/shaders/gl/visual/Fragment.h>
@@ -540,7 +543,12 @@ SoGLRenderBackend::SoGLRenderBackend()
 {
 }
 
-SoGLRenderBackend::~SoGLRenderBackend() = default;
+SoGLRenderBackend::~SoGLRenderBackend()
+{
+  if (!this->isInitialized()) return;
+  if (coin_gl_current_context() == this->context) this->shutdown();
+  else this->discard();
+}
 
 const char *
 SoGLRenderBackend::getName() const
@@ -554,8 +562,9 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   if (this->isInitialized()) return TRUE;
 
   this->setInitParams(params);
-  void * context = coin_gl_current_context();
-  this->glue = context ? cc_glglue_instance_from_context_ptr(context) : nullptr;
+  this->context = coin_gl_current_context();
+  this->glue = this->context
+    ? cc_glglue_instance_from_context_ptr(this->context) : nullptr;
   if (!this->glue) {
     this->emitError("active context does not provide retained-renderer GL dispatch");
     return FALSE;
@@ -584,12 +593,14 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
       !this->glue->glBlendFuncSeparate) {
     this->emitError("active context does not provide retained-renderer GL dispatch");
     this->glue = nullptr;
+    this->context = nullptr;
     return FALSE;
   }
 
   if (!this->createShaders()) {
     this->emitError("failed to create retained OpenGL 3.3 shaders");
     this->glue = nullptr;
+    this->context = nullptr;
     return FALSE;
   }
 
@@ -673,6 +684,7 @@ SoGLRenderBackend::invalidateCache()
   }
   this->gpuCache.clear();
   this->commandToCache.clear();
+  this->resourceToCache.clear();
   this->cachedCommandCount = 0;
   this->haveCacheGeneration = false;
 }
@@ -681,7 +693,10 @@ void
 SoGLRenderBackend::shutdown()
 {
   if (!this->isInitialized()) return;
-
+  if (coin_gl_current_context() != this->context) {
+    this->discard();
+    return;
+  }
   this->invalidateCache();
   if (this->visualProgram.handle) {
     cc_glglue_glDeleteProgram(this->glue, this->visualProgram.handle);
@@ -751,10 +766,29 @@ SoGLRenderBackend::shutdown()
   this->pickTarget.generation = 0;
   this->pickTarget.ready = false;
   this->glue = nullptr;
+  this->context = nullptr;
   this->setInitialized(FALSE);
   this->emitLog("shutdown");
 }
 
+void
+SoGLRenderBackend::discard()
+{
+  this->gpuCache.clear();
+  this->commandToCache.clear();
+  this->resourceToCache.clear();
+  this->cachedCommandCount = 0;
+  this->haveCacheGeneration = false;
+  this->cacheGeneration = 0;
+  this->visualProgram = VisualProgram();
+  this->rasterPrograms = RasterPrograms();
+  this->pickPrograms = PickPrograms();
+  this->selectionPrograms = PickPrograms();
+  this->pickTarget = PickTarget();
+  this->glue = nullptr;
+  this->context = nullptr;
+  this->setInitialized(FALSE);
+}
 SoGLRenderBackend::CachedCommand &
 SoGLRenderBackend::getOrCreateCache(const SoRenderCommand * command)
 {
@@ -763,9 +797,35 @@ SoGLRenderBackend::getOrCreateCache(const SoRenderCommand * command)
     return this->gpuCache[found->second];
   }
 
+  const SoGeometryDesc & geometry = command->geometry;
+  const SoTextureData & texture = command->material.texture;
+  const bool hasTexture =
+    (texture.cacheKey != 0 || texture.pixels != nullptr) &&
+    texture.width > 0 && texture.height > 0 &&
+    texture.numComponents >= 1 && texture.numComponents <= 4 &&
+    geometry.texcoords != nullptr && geometry.vertexCount != 0;
+  const bool persistent = geometry.cacheKey != 0 &&
+    (!hasTexture || texture.cacheKey != 0);
+  ResourceCacheKey resourceKey;
+  resourceKey.geometry = persistent ? geometry.cacheKey : 0;
+  resourceKey.texture = persistent && hasTexture ? texture.cacheKey : 0;
+  if (persistent) {
+    const auto resource = this->resourceToCache.find(resourceKey);
+    if (resource != this->resourceToCache.end()) {
+      this->commandToCache[command] = resource->second;
+      return this->gpuCache[resource->second];
+    }
+  }
+
   const size_t index = this->gpuCache.size();
   this->gpuCache.emplace_back();
   this->commandToCache[command] = index;
+  if (persistent) {
+    CachedCommand & entry = this->gpuCache.back();
+    entry.persistent = true;
+    entry.resourceKey = resourceKey;
+    this->resourceToCache[resourceKey] = index;
+  }
   return this->gpuCache.back();
 }
 
@@ -1001,6 +1061,10 @@ SoGLRenderBackend::updateCacheDescription(CachedCommand & entry,
   entry.textureWrapT = hasTexture ? texture.wrapT
                                   : SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
   entry.textureAnisotropic = hasTexture ? texture.anisotropic : false;
+  entry.geometryCacheKey = geometry.cacheKey;
+  entry.geometryRevision = geometry.revision;
+  entry.textureCacheKey = hasTexture ? texture.cacheKey : 0;
+  entry.textureRevision = hasTexture ? texture.revision : 0;
 }
 
 void
@@ -1358,7 +1422,17 @@ SoGLRenderBackend::textureDescriptionMatches(
   const SoRenderCommand & command) const
 {
   const SoTextureData & texture = command.material.texture;
-  return entry.texturePixelsKey == texture.pixels &&
+  const bool hasTexture =
+    (texture.cacheKey != 0 || texture.pixels != nullptr) &&
+    texture.width > 0 && texture.height > 0 &&
+    texture.numComponents >= 1 && texture.numComponents <= 4 &&
+    command.geometry.texcoords != nullptr && command.geometry.vertexCount != 0;
+  const bool identityMatches = texture.cacheKey != 0
+    ? entry.textureCacheKey == texture.cacheKey &&
+      entry.textureRevision == texture.revision
+    : entry.texturePixelsKey == texture.pixels;
+  return identityMatches &&
+    ((entry.texturePixelsKey != nullptr) == hasTexture) &&
     entry.textureWidth == texture.width &&
     entry.textureHeight == texture.height &&
     entry.textureComponents == texture.numComponents &&
@@ -1373,10 +1447,21 @@ void
 SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
 {
   const uint32_t generation = drawlist.getGeneration();
-  if ((this->haveCacheGeneration && this->cacheGeneration != generation) ||
-      (this->haveCacheGeneration &&
-       this->cachedCommandCount != static_cast<size_t>(drawlist.getNumCommands()))) {
-    this->invalidateCache();
+  if (!this->haveCacheGeneration || this->cacheGeneration != generation) {
+    for (CachedCommand & entry : this->gpuCache) {
+      if (!entry.persistent) this->destroyCacheEntry(entry);
+    }
+    std::vector<CachedCommand> persistentEntries;
+    persistentEntries.reserve(this->gpuCache.size());
+    for (CachedCommand & entry : this->gpuCache) {
+      if (entry.persistent) persistentEntries.push_back(std::move(entry));
+    }
+    this->gpuCache.swap(persistentEntries);
+    this->resourceToCache.clear();
+    for (size_t i = 0; i < this->gpuCache.size(); ++i) {
+      this->resourceToCache[this->gpuCache[i].resourceKey] = i;
+    }
+    this->commandToCache.clear();
   }
   this->cacheGeneration = generation;
   this->haveCacheGeneration = true;
@@ -1385,7 +1470,8 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
     const SoGeometryDesc & geometry = command.geometry;
-    if (!geometry.positions || geometry.vertexCount == 0 ||
+    if ((!geometry.positions && geometry.cacheKey == 0) ||
+        geometry.vertexCount == 0 ||
         geometry.vertexCount > MAX_VERTEX_COUNT) continue;
 
     CachedCommand & entry = this->getOrCreateCache(&command);
@@ -1393,26 +1479,29 @@ SoGLRenderBackend::updateGeometryCache(const SoDrawList & drawlist)
       ? geometry.vertexStride : sizeof(float) * 3;
     const bool lineGeometry = geometry.topology == SO_TOPOLOGY_LINES ||
       geometry.topology == SO_TOPOLOGY_LINE_STRIP;
+    const bool identityMatches = geometry.cacheKey != 0
+      ? entry.geometryCacheKey == geometry.cacheKey &&
+        entry.geometryRevision == geometry.revision
+      : entry.positionsKey == geometry.positions &&
+        entry.normalsKey == geometry.normals &&
+        entry.colorsKey == geometry.colors &&
+        entry.texcoordsKey == geometry.texcoords &&
+        entry.indicesKey == geometry.indices;
+    const bool lineDistanceMatches = geometry.cacheKey != 0
+      ? entry.lineDistanceBuffer != 0 || !lineGeometry
+      : entry.lineDistanceKey == (lineGeometry ? geometry.positions : nullptr);
     const bool geometryMatches = entry.positionBuffer != 0 &&
-      entry.cacheGeneration == generation &&
-      entry.positionsKey == geometry.positions &&
-      entry.normalsKey == geometry.normals &&
-      entry.colorsKey == geometry.colors &&
-      entry.texcoordsKey == geometry.texcoords &&
-      entry.indicesKey == geometry.indices &&
+      identityMatches &&
       entry.vertexCount == geometry.vertexCount &&
       entry.normalCount == geometry.normalCount &&
       entry.indexCount == geometry.indexCount &&
       entry.vertexStride == vertexStride &&
       entry.texcoordStride == geometry.texcoordStride &&
-      entry.lineDistanceKey == (lineGeometry ? geometry.positions : nullptr) &&
-      this->textureDescriptionMatches(entry, command) &&
-      ((entry.texturePixelsKey != nullptr) ==
-       (command.material.texture.pixels != nullptr));
+      lineDistanceMatches && this->textureDescriptionMatches(entry, command);
     if (!geometryMatches) {
+      if (!geometry.positions) continue;
       this->uploadGeometry(entry, command);
       this->setupVisualVAO(entry);
-      entry.cacheGeneration = generation;
     }
   }
 }
@@ -1689,6 +1778,83 @@ SoGLRenderBackend::bindPixelShader(const SoRenderCommand & command,
                           command.state.alphaTest.reference);
 }
 
+SoGLRenderBackend::CommandFrame
+SoGLRenderBackend::effectiveCommandFrame(const SoRenderCommand & command,
+                                         const SoRenderParams & params,
+                                         const bool framebufferLocal) const
+{
+  CommandFrame frame;
+  params.viewMatrix.getValue(frame.view);
+  params.projMatrix.getValue(frame.projection);
+  if (command.state.useCommandMatrices) {
+    command.viewMatrix.getValue(frame.view);
+    command.projMatrix.getValue(frame.projection);
+  }
+
+  const SbVec2s baseOrigin = params.viewport.getViewportOriginPixels();
+  if (command.state.raster.viewportOverride) {
+    frame.viewportOrigin = SbVec2s(
+      static_cast<short>(command.state.raster.viewportX),
+      static_cast<short>(command.state.raster.viewportY));
+    frame.viewportSize = SbVec2s(
+      static_cast<short>(command.state.raster.viewportWidth),
+      static_cast<short>(command.state.raster.viewportHeight));
+  }
+  else {
+    frame.viewportOrigin = baseOrigin;
+    frame.viewportSize = params.viewport.getViewportSizePixels();
+  }
+
+  if (framebufferLocal) {
+    frame.viewportOrigin -= baseOrigin;
+  }
+  return frame;
+}
+
+void
+SoGLRenderBackend::clearDepthEvent(const SoDepthClearEvent & event,
+                                   const SoRenderParams & params,
+                                   const bool framebufferLocal)
+{
+  GLint oldScissor[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_SCISSOR_BOX, oldScissor);
+  const GLboolean oldScissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean oldDepthMask = GL_TRUE;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &oldDepthMask);
+  GLfloat oldClearDepth = 1.0f;
+  glGetFloatv(GL_DEPTH_CLEAR_VALUE, &oldClearDepth);
+
+  const SbVec2s baseOrigin = params.viewport.getViewportOriginPixels();
+  int x = baseOrigin[0];
+  int y = baseOrigin[1];
+  int width = params.viewport.getViewportSizePixels()[0];
+  int height = params.viewport.getViewportSizePixels()[1];
+  if (event.viewportOverride) {
+    x = event.viewportX;
+    y = event.viewportY;
+    width = event.viewportWidth;
+    height = event.viewportHeight;
+  }
+  if (framebufferLocal) {
+    x -= baseOrigin[0];
+    y -= baseOrigin[1];
+  }
+
+  if (width > 0 && height > 0) {
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x, y, width, height);
+    glDepthMask(GL_TRUE);
+    glClearDepth(params.clearDepth);
+    glClear(GL_DEPTH_BUFFER_BIT);
+  }
+
+  glScissor(oldScissor[0], oldScissor[1], oldScissor[2], oldScissor[3]);
+  if (oldScissorEnabled) glEnable(GL_SCISSOR_TEST);
+  else glDisable(GL_SCISSOR_TEST);
+  glDepthMask(oldDepthMask);
+  glClearDepth(oldClearDepth);
+}
+
 void
 SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                                const SoRenderCommand & command,
@@ -1696,31 +1862,40 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
                                const SbMat & projMat,
                                const SoRenderParams & params)
 {
+  (void) viewMat;
+  (void) projMat;
   if (!command.state.raster.visible) return;
-  if (!command.geometry.positions || command.geometry.vertexCount == 0) return;
+  if ((!command.geometry.positions && command.geometry.cacheKey == 0) ||
+      command.geometry.vertexCount == 0) return;
+  if (command.state.raster.viewportOverride &&
+      !command.state.raster.viewportEnabled) return;
   const auto found = this->commandToCache.find(&command);
   if (found == this->commandToCache.end()) return;
   CachedCommand & entry = this->gpuCache[found->second];
   if (!entry.vertexArray) return;
 
+  const CommandFrame frame = this->effectiveCommandFrame(command, params, false);
+  if (frame.viewportSize[0] <= 0 || frame.viewportSize[1] <= 0) return;
   RasterPath path = this->selectRasterPath(entry, command, params);
+  const SbVec2s & viewportSize = frame.viewportSize;
+  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
+             viewportSize[0], viewportSize[1]);
   if (path.useLineShader &&
       (path.primitive == GL_LINES || path.primitive == GL_LINE_STRIP)) {
-    this->updateLineDistances(entry, command, viewMat, projMat,
-                              params.viewport.getViewportSizePixels());
+    this->updateLineDistances(entry, command, frame.view, frame.projection,
+                              viewportSize);
     path.expandedLineStream = command.geometry.indices &&
       command.geometry.indexCount && entry.lineRasterVertexArray != 0;
   }
 
-  applyViewport(params);
   this->applyDepthState(command);
   this->applyRasterState(command, path);
   this->applyBlendState(command);
   GLenum polygonOffsetTarget = GL_POLYGON_OFFSET_FILL;
   const bool polygonOffset = this->applyPolygonOffset(
     command, path, polygonOffsetTarget);
-  this->bindCommandProgram(drawlist, command, path, viewMat, projMat,
-                            params, entry);
+  this->bindCommandProgram(drawlist, command, path, frame.view, frame.projection,
+                           frame.viewportOrigin, viewportSize, entry);
   this->drawGeometry(command, path, entry);
   this->restoreRasterState(path, polygonOffsetTarget, polygonOffset);
 }
@@ -1876,7 +2051,8 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
                                       const RasterPath & path,
                                       const SbMat & viewMat,
                                       const SbMat & projMat,
-                                      const SoRenderParams & params,
+                                      const SbVec2s & viewportOrigin,
+                                      const SbVec2s & viewportSize,
                                       const CachedCommand & entry)
 {
   if (path.textured) {
@@ -1886,19 +2062,19 @@ SoGLRenderBackend::bindCommandProgram(const SoDrawList & drawlist,
   const SbVec4f & color = command.material.diffuse;
   if (path.pixelRaster) {
     this->bindPixelShader(command, viewMat, projMat,
-                          params.viewport.getViewportOriginPixels(),
-                          params.viewport.getViewportSizePixels());
+                          viewportOrigin,
+                          viewportSize);
   }
   else if (path.usePointShader) {
     this->bindPointShader(command, viewMat, projMat, color,
                           entry.colorBuffer != 0, path.pointSize,
-                          params.viewport.getViewportSizePixels(),
+                          viewportSize,
                           path.pointTriangleInput, drawlist, path.textured);
   }
   else if (path.useLineShader) {
     this->bindLineShader(command, viewMat, projMat, color,
                          entry.colorBuffer != 0, path.lineWidth,
-                         params.viewport.getViewportSizePixels(),
+                         viewportSize,
                          path.lineTriangleInput, drawlist, path.textured);
   }
   else {
@@ -1976,8 +2152,15 @@ SoGLRenderBackend::beginFrame(const SoRenderParams & params)
   GLbitfield clearMask = 0;
   if (params.flags & SO_PARAM_CLEAR_WINDOW) clearMask |= GL_COLOR_BUFFER_BIT;
   if (params.flags & SO_PARAM_CLEAR_DEPTH) {
+    GLfloat oldClearDepth = 1.0f;
+    glGetFloatv(GL_DEPTH_CLEAR_VALUE, &oldClearDepth);
     glClearDepth(params.clearDepth);
     clearMask |= GL_DEPTH_BUFFER_BIT;
+    if (clearMask) {
+      glClear(clearMask);
+      glClearDepth(oldClearDepth);
+      clearMask = 0;
+    }
   }
   if (clearMask) glClear(clearMask);
 
@@ -2397,11 +2580,22 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
                                      const SoRenderParams & params,
                                      const bool selection)
 {
+  (void) viewMat;
+  (void) projMat;
   if (entry.commandIndex < 0 ||
       entry.commandIndex >= drawlist.getNumCommands()) return;
   const SoRenderCommand & command = drawlist.getCommand(entry.commandIndex);
   if (!command.state.raster.visible) return;
-  if (!command.geometry.positions || command.geometry.vertexCount == 0) return;
+  if ((!command.geometry.positions && command.geometry.cacheKey == 0) ||
+      command.geometry.vertexCount == 0) return;
+  if (command.state.raster.viewportOverride &&
+      !command.state.raster.viewportEnabled) return;
+
+  const CommandFrame frame = this->effectiveCommandFrame(
+    command, params, !selection);
+  if (frame.viewportSize[0] <= 0 || frame.viewportSize[1] <= 0) return;
+  glViewport(frame.viewportOrigin[0], frame.viewportOrigin[1],
+             frame.viewportSize[0], frame.viewportSize[1]);
 
   const auto cacheIt = this->commandToCache.find(&command);
   if (cacheIt == this->commandToCache.end()) return;
@@ -2444,8 +2638,8 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
 
   if (useLineShader && lineTopology) {
     CachedCommand & mutableCache = this->gpuCache[cacheIt->second];
-    this->updateLineDistances(mutableCache, command, viewMat, projMat,
-                              params.viewport.getViewportSizePixels());
+    this->updateLineDistances(mutableCache, command, frame.view,
+                              frame.projection, frame.viewportSize);
   }
   const bool expandedLineStream = useLineShader && lineTopology &&
     command.geometry.indices && command.geometry.indexCount &&
@@ -2494,8 +2688,8 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
 
   SbMat model;
   command.modelMatrix.getValue(model);
-  uniformMatrix(locations->view, viewMat);
-  uniformMatrix(locations->proj, projMat);
+  uniformMatrix(locations->view, frame.view);
+  uniformMatrix(locations->proj, frame.projection);
   uniformMatrix(locations->model, model);
   uniform4f(locations->color, command.material.diffuse);
   uniform1f(locations->useVertexColor, cache.colorBuffer ? 1.0f : 0.0f);
@@ -2531,7 +2725,7 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
 
   if (useLineShader) {
     uniform1f(locations->lineWidth, lineWidth);
-    const SbVec2s size = params.viewport.getViewportSizePixels();
+    const SbVec2s & size = frame.viewportSize;
     uniform2f(locations->vpSize, static_cast<float>(size[0]),
               static_cast<float>(size[1]));
     uniform1i(locations->stipplePattern,
@@ -2542,7 +2736,7 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
   }
   if (usePointShader) {
     uniform1f(locations->pointSize, pointSize);
-    const SbVec2s size = params.viewport.getViewportSizePixels();
+    const SbVec2s & size = frame.viewportSize;
     uniform2f(locations->vpSize, static_cast<float>(size[0]),
               static_cast<float>(size[1]));
   }
@@ -2576,15 +2770,10 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
     uniform2f(locations->rasterSize,
               static_cast<float>(command.pixelRaster.width),
               static_cast<float>(command.pixelRaster.height));
-    const SbVec2s viewportOrigin = selection
-      ? params.viewport.getViewportOriginPixels() : SbVec2s(0, 0);
-    // Picking is rendered into a viewport-local FBO. Selection is rendered
-    // into the caller's framebuffer, so its fragment coordinates retain the
-    // active viewport origin.
     uniform2f(locations->viewportOrigin,
-              static_cast<float>(viewportOrigin[0]),
-              static_cast<float>(viewportOrigin[1]));
-    const SbVec2s size = params.viewport.getViewportSizePixels();
+              static_cast<float>(frame.viewportOrigin[0]),
+              static_cast<float>(frame.viewportOrigin[1]));
+    const SbVec2s & size = frame.viewportSize;
     uniform2f(locations->vpSize, static_cast<float>(size[0]),
               static_cast<float>(size[1]));
     uniform2f(locations->pixelOrigin,
@@ -2755,23 +2944,41 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
   this->glue->glClearBufferuiv(GL_COLOR, 0, &zero);
   this->glue->glClearBufferfv(GL_DEPTH, 0, &clearDepth);
 
-  SbMat view;
-  SbMat projection;
-  params.viewMatrix.getValue(view);
-  params.projMatrix.getValue(projection);
-  for (int planIndex = 0; planIndex < plan.getNumDraws(); ++planIndex) {
-    const uint32_t commandIndex = plan.getDraw(planIndex).commandIndex;
-    if (commandIndex >= static_cast<uint32_t>(drawlist.getNumCommands())) {
-      this->emitError("pick plan references a missing DrawList command");
-      return FALSE;
+  SbMat frameView;
+  SbMat frameProjection;
+  params.viewMatrix.getValue(frameView);
+  params.projMatrix.getValue(frameProjection);
+  auto drawPickCommand = [&](const uint32_t commandIndex) {
+    for (size_t i = 0; i < this->pickTarget.lookup.size(); ++i) {
+      const int lookupCommandIndex = this->pickTarget.lookup[i].commandIndex;
+      if (lookupCommandIndex < 0 ||
+          static_cast<uint32_t>(lookupCommandIndex) != commandIndex) continue;
+      this->drawPickEntry(drawlist, this->pickTarget.lookup[i],
+                          static_cast<GLuint>(i + 1),
+                          frameView, frameProjection, params);
     }
-    for (size_t entryIndex = 0; entryIndex < this->pickTarget.lookup.size();
-         ++entryIndex) {
-      const SoPickLUTEntry & entry = this->pickTarget.lookup[entryIndex];
-      if (entry.commandIndex != static_cast<int>(commandIndex)) continue;
-      this->drawPickEntry(drawlist, entry,
-                          static_cast<GLuint>(entryIndex + 1),
-                          view, projection, params);
+  };
+
+  const uint32_t commandCount = static_cast<uint32_t>(drawlist.getNumCommands());
+  const uint32_t eventCount = static_cast<uint32_t>(
+    drawlist.getDepthClearEvents().size());
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type == SoRenderOperationType::DRAW) {
+      if (operation.commandIndex >= commandCount) {
+        this->emitError("pick plan references a missing DrawList command");
+        return FALSE;
+      }
+      drawPickCommand(operation.commandIndex);
+    }
+    else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
+      if (operation.depthClearEventIndex >= eventCount) {
+        this->emitError("pick plan references a missing depth-clear event");
+        return FALSE;
+      }
+      this->clearDepthEvent(
+        drawlist.getDepthClearEvents()[operation.depthClearEventIndex],
+        params, true);
     }
   }
   this->pickTarget.generation = drawlist.getPickLUTGeneration();
@@ -2950,10 +3157,42 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
 
   const SoDrawList & drawlist = *this->pickTarget.drawlist;
   if (drawlist.getGeneration() != this->pickTarget.generation) return FALSE;
-  const SoRenderPlan & plan = this->pickTarget.plan;
+  const SoRenderPlan plan = this->pickTarget.plan;
   const SoRenderParams & params = this->pickTarget.params;
   const uint32_t commandCount = static_cast<uint32_t>(
     drawlist.getNumCommands());
+
+  // A depth clear starts a new visual depth segment only where that clear
+  // applies. At a local-viewport cursor, later segments supersede earlier
+  // ones; outside that viewport, depth continuity is preserved.
+  std::vector<std::vector<uint32_t> > segments(1);
+  const SbVec2s baseOrigin = params.viewport.getViewportOriginPixels();
+  const std::vector<SoDepthClearEvent> & events =
+    drawlist.getDepthClearEvents();
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type == SoRenderOperationType::DRAW) {
+      if (operation.commandIndex >= commandCount) return FALSE;
+      segments.back().push_back(operation.commandIndex);
+      continue;
+    }
+    if (operation.type != SoRenderOperationType::CLEAR_DEPTH ||
+        operation.depthClearEventIndex >= events.size()) continue;
+    const SoDepthClearEvent & event = events[operation.depthClearEventIndex];
+    int clearX = 0;
+    int clearY = 0;
+    int clearWidth = width;
+    int clearHeight = height;
+    if (event.viewportOverride) {
+      clearX = event.viewportX - baseOrigin[0];
+      clearY = event.viewportY - baseOrigin[1];
+      clearWidth = event.viewportWidth;
+      clearHeight = event.viewportHeight;
+    }
+    const bool cursorInside = x >= clearX && y >= clearY &&
+      x < clearX + clearWidth && y < clearY + clearHeight;
+    if (cursorInside) segments.push_back(std::vector<uint32_t>());
+  }
 
   ScopedGLState state(this->glue);
   ScopedPixelPackState packState;
@@ -3006,7 +3245,8 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
     return ordered;
   };
 
-  auto renderLayer = [&](const int previousDepth, const int targetDepth,
+  auto renderLayer = [&](const std::vector<uint32_t> & commands,
+                         const int previousDepth, const int targetDepth,
                          const bool peel) {
     cc_glglue_glBindFramebuffer(this->glue, GL_FRAMEBUFFER,
                                 this->pickTarget.framebuffer);
@@ -3046,9 +3286,7 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
                             frameView, frameProjection, params);
       }
     };
-    for (int i = 0; i < plan.getNumDraws(); ++i) {
-      const uint32_t commandIndex = plan.getDraw(i).commandIndex;
-      if (commandIndex >= commandCount) return false;
+    for (const uint32_t commandIndex : commands) {
       drawPickCommand(commandIndex);
     }
     return true;
@@ -3056,39 +3294,49 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
 
   results.generation = this->pickTarget.generation;
   std::vector<GLuint> seenIds;
-  int currentDepth = 0;
-  for (int layer = 0; layer <= maxLayers; ++layer) {
-    const std::vector<SoPickResult> layerHits = readLayer();
-    if (layerHits.empty()) break;
-    if (layer == maxLayers) {
-      results.truncated = TRUE;
+  bool queryFailed = false;
+  for (auto segment = segments.rbegin(); segment != segments.rend();
+       ++segment) {
+    if (segment->empty()) continue;
+    int currentDepth = 0;
+    if (!renderLayer(*segment, 1, currentDepth, false)) {
+      results.hits.clear();
+      queryFailed = true;
       break;
     }
-    for (const SoPickResult & hit : layerHits) {
-      if (std::find(seenIds.begin(), seenIds.end(), hit.id) !=
-          seenIds.end()) continue;
-      if (static_cast<int>(results.hits.size()) >= maxHits) {
+    for (int layer = 0; layer <= maxLayers; ++layer) {
+      const std::vector<SoPickResult> layerHits = readLayer();
+      if (layerHits.empty()) break;
+      if (layer == maxLayers) {
         results.truncated = TRUE;
         break;
       }
-      seenIds.push_back(hit.id);
-      results.hits.push_back(hit);
+      for (const SoPickResult & hit : layerHits) {
+        if (std::find(seenIds.begin(), seenIds.end(), hit.id) !=
+            seenIds.end()) continue;
+        if (static_cast<int>(results.hits.size()) >= maxHits) {
+          results.truncated = TRUE;
+          break;
+        }
+        seenIds.push_back(hit.id);
+        results.hits.push_back(hit);
+      }
+      if (results.truncated) break;
+      const int nextDepth = 1 - currentDepth;
+      if (!renderLayer(*segment, currentDepth, nextDepth, true)) {
+        results.hits.clear();
+        queryFailed = true;
+        break;
+      }
+      currentDepth = nextDepth;
     }
-    if (results.truncated) break;
-    const int nextDepth = 1 - currentDepth;
-    if (!renderLayer(currentDepth, nextDepth, true)) {
-      results.hits.clear();
-      results.truncated = FALSE;
-      break;
-    }
-    currentDepth = nextDepth;
+    if (results.truncated || queryFailed) break;
   }
 
-  // Restore the frontmost target in the queried region so subsequent hover
-  // queries remain cheap and observe the same snapshot.
-  renderLayer(1, 0, false);
+  // A depth-stack query mutates the ping-pong attachments. Rebuild the cached
+  // frontmost target once so ordinary hover remains a read-only tiny query.
   this->pickTarget.peelEnabled = false;
-  this->pickTarget.activeDepth = 0;
+  this->updatePickBuffer(drawlist, plan, params);
   return !results.hits.empty();
 }
 
@@ -3128,6 +3376,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
     if (target.type == SO_PICK_OBJECT && target.elementIndex < 0) {
       SoPickLUTEntry entry;
       entry.commandIndex = target.commandIndex;
+      entry.objectId = target.objectId != 0
+        ? target.objectId : command.objectId;
       entry.type = SO_PICK_OBJECT;
       const bool indexed = command.geometry.indices != nullptr &&
         command.geometry.indexCount != 0;
@@ -3143,6 +3393,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
           range.elementIndex != target.elementIndex) continue;
       SoPickLUTEntry entry;
       entry.commandIndex = target.commandIndex;
+      entry.objectId = target.objectId != 0
+        ? target.objectId : command.objectId;
       entry.type = range.type;
       entry.elementIndex = range.elementIndex;
       const bool indexed = command.geometry.indices != nullptr &&
@@ -3170,7 +3422,8 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
 SbBool
 SoGLRenderBackend::render(const SoDrawList & drawlist,
                           const SoRenderPlan & plan,
-                          const SoRenderParams & params)
+                          const SoRenderParams & params,
+                          const SoSelectionState * selection)
 {
   if (!this->isInitialized()) {
     this->emitError("render called before backend initialization");
@@ -3185,15 +3438,54 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   SbMat projection;
   params.viewMatrix.getValue(view);
   params.projMatrix.getValue(projection);
-
-  for (int i = 0; i < plan.getNumDraws(); ++i) {
-    const uint32_t commandIndex = plan.getDraw(i).commandIndex;
-    if (commandIndex >= static_cast<uint32_t>(drawlist.getNumCommands())) {
-      this->emitError("render plan references a missing DrawList command");
-      return FALSE;
+  const uint32_t commandCount = static_cast<uint32_t>(drawlist.getNumCommands());
+  const uint32_t eventCount = static_cast<uint32_t>(
+    drawlist.getDepthClearEvents().size());
+  SoSelectionState queuedSelection;
+  const auto queueTargets = [&](const uint32_t commandIndex) {
+    if (!selection) return;
+    for (const SoSelectionTarget & target : selection->selected) {
+      if (target.commandIndex == static_cast<int>(commandIndex)) {
+        queuedSelection.selected.push_back(target);
+      }
     }
-    this->drawCommand(drawlist, drawlist.getCommand(
-      static_cast<int>(commandIndex)), view, projection, params);
+    for (const SoSelectionTarget & target : selection->highlighted) {
+      if (target.commandIndex == static_cast<int>(commandIndex)) {
+        queuedSelection.highlighted.push_back(target);
+      }
+    }
+  };
+  const auto flushSelection = [&]() {
+    if (!queuedSelection.selected.empty() ||
+        !queuedSelection.highlighted.empty()) {
+      this->renderSelection(drawlist, queuedSelection, params);
+      queuedSelection = SoSelectionState();
+    }
+  };
+  for (int i = 0; i < plan.getNumOperations(); ++i) {
+    const SoRenderOperation & operation = plan.getOperation(i);
+    if (operation.type == SoRenderOperationType::DRAW) {
+      if (operation.commandIndex >= commandCount) {
+        this->emitError("render plan references a missing DrawList command");
+        return FALSE;
+      }
+      this->drawCommand(drawlist,
+                        drawlist.getCommand(static_cast<int>(operation.commandIndex)),
+                        view, projection, params);
+      queueTargets(operation.commandIndex);
+    }
+    else if (operation.type == SoRenderOperationType::END_DEPTH_SEGMENT) {
+      flushSelection();
+    }
+    else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
+      if (operation.depthClearEventIndex >= eventCount) {
+        this->emitError("render plan references a missing depth-clear event");
+        return FALSE;
+      }
+      this->clearDepthEvent(
+        drawlist.getDepthClearEvents()[operation.depthClearEventIndex],
+        params, false);
+    }
   }
   cc_glglue_glUseProgram(this->glue, 0);
   return TRUE;

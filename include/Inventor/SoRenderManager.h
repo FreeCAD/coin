@@ -46,6 +46,7 @@ class SbViewportRegion;
 class SoEvent;
 class SoPath;
 class SoDetail;
+class SoAction;
 #if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
 #endif
@@ -60,14 +61,18 @@ class SoPickedPoint;
 class SoPickedPointList;
 
 typedef void SoRenderManagerRenderCB(void * userdata, class SoRenderManager * mgr);
+typedef void SoRenderManagerStageCB(void * userdata,
+                                    class SoRenderManager * mgr,
+                                    SoAction * action);
 
 /*!
   \class SoRenderManager SoRenderManager.h Inventor/SoRenderManager.h
-  \brief Owns frame orchestration and selects the active Coin render pipeline.
+  \brief Owns frame, stage, pipeline, and retained-backend lifecycle policy.
 
-  The manager owns camera, viewport, device-pixel-ratio, callback and scene
-  traversal policy. The retained pipeline records commands through
-  SoIRRenderAction and delegates execution to a SoRenderBackend; the backend
+  The manager owns camera, viewport, device-pixel-ratio, callback, and scene
+  traversal policy. It orchestrates Background, Main, AfterMain, and
+  Foreground work; the retained pipeline records commands through
+  SoIRRenderAction and delegates execution to a SoRenderBackend. The backend
   does not replace manager orchestration.
 
   \ingroup coin_retained_rendering
@@ -79,6 +84,22 @@ public:
   enum class RenderPipeline {
     LEGACY_GL,
     DRAW_LIST
+  };
+
+  /*! Describes the pipeline outcome of the most recent render call. */
+  struct RenderResult {
+    enum class FallbackReason {
+      NONE,
+      MANAGER_FEATURE_UNSUPPORTED,
+      CONTEXT_UNSUPPORTED,
+      BACKEND_INITIALIZATION_FAILED,
+      TRAVERSAL_UNSUPPORTED
+    };
+
+    RenderPipeline requestedPipeline;
+    RenderPipeline usedPipeline;
+    FallbackReason fallbackReason;
+    SbBool rendered;
   };
 
   class COIN_DLL_API Superimposition {
@@ -118,6 +139,16 @@ public:
     HIDDEN_LINE,
     BOUNDING_BOX,
     SHADED_HIDDEN_LINES
+  };
+
+  enum LightingMode {
+    LIT,
+    UNLIT
+  };
+
+  enum RenderLayer {
+    RENDER_LAYER_BACKGROUND,
+    RENDER_LAYER_FOREGROUND
   };
 
   enum StereoMode {
@@ -166,6 +197,16 @@ public:
   void setCamera(SoCamera * camera);
   SoCamera * getCamera(void) const;
 
+  /*!\brief Declare that the main scene graph contains the configured camera.
+
+    The retained renderer uses this to preserve scene-graph camera ordering:
+    state before the camera node starts from identity, just as in legacy
+    traversal. The default is FALSE, meaning the configured camera is
+    external to the scene graph.
+  */
+  void setCameraInSceneGraph(SbBool inSceneGraph);
+  SbBool isCameraInSceneGraph(void) const;
+
   void setAutoClipping(AutoClippingStrategy autoclipping);
   AutoClippingStrategy getAutoClipping(void) const;
   void setNearPlaneValue(float value);
@@ -176,6 +217,8 @@ public:
   SbBool isDoubleBuffer(void) const;
   void setRenderMode(const RenderMode mode);
   RenderMode getRenderMode(void) const;
+  void setLightingMode(const LightingMode mode);
+  LightingMode getLightingMode(void) const;
   void setStereoMode(const StereoMode mode);
   StereoMode getStereoMode(void) const;
   void setStereoOffset(const float offset);
@@ -218,6 +261,8 @@ public:
 #endif
   void setRenderPipeline(RenderPipeline pipeline);
   RenderPipeline getRenderPipeline(void) const;
+  SbBool isRenderPipelineAvailable(RenderPipeline pipeline) const;
+  const RenderResult & getLastRenderResult(void) const;
 
   /*! Return the closest renderer-neutral scene hit. The caller owns result. */
   SbBool pickClosest(int x, int y, int radius, SoPickedPoint *& result);
@@ -227,6 +272,29 @@ public:
   /*! Return deduplicated visible scene hits in a viewport-local region. */
   SbBool pickVisibleRegion(const SbBox2s & region,
                            SoPickedPointList & results);
+
+  //! Notify the active renderer that external GL state may have changed.
+  void invalidateSharedGLState(void);
+
+  /*! Release backend API resources while its owning GL context is current.
+
+      Calling this with another or no context is invalid; use
+      discardRenderBackendResources() after context loss instead. */
+  void releaseRenderBackendResources(void);
+
+  /*! Forget backend API resource handles after the owning context is lost.
+
+      This operation deliberately issues no GL deletion calls. */
+  void discardRenderBackendResources(void);
+
+  void setRenderLayerRoot(RenderLayer layer, SoNode * root);
+  SoNode * getRenderLayerRoot(RenderLayer layer) const;
+
+  //! Invalidate the retained main-scene frame and schedule a redraw.
+  void invalidateDrawList(void);
+  void invalidateScene(void);
+  void invalidateForeground(void);
+
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 
@@ -239,6 +307,9 @@ public:
 
   void addPostRenderCallback(SoRenderManagerRenderCB * cb, void * data);
   void removePostRenderCallback(SoRenderManagerRenderCB * cb, void * data);
+
+  void addAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data);
+  void removeAfterMainSceneCallback(SoRenderManagerStageCB * cb, void * data);
 
   void reinitialize(void);
 

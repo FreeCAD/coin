@@ -6,13 +6,17 @@
 #include <Inventor/SbBasic.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbMatrix.h>
-#include <Inventor/SbVec2f.h>
+#include <Inventor/SbViewVolume.h>
+#include <Inventor/SbViewportRegion.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SbVec4f.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+
+class SoState;
+class SoNode;
 
 /*!
   \file SoRenderIR.h
@@ -222,19 +226,19 @@ struct SoTextureData {
   int width = 0;
   int height = 0;
   int numComponents = 0; // 1=L, 2=LA, 3=RGB, 4=RGBA
-  // True when at least one texel can contribute alpha below one. This is a
-  // semantic classification captured once with the frame payload.
+  // True when at least one texel can contribute alpha below one.
   bool hasTransparency = false;
 
-  SoTextureFilter minFilter = SO_TEXTURE_FILTER_NEAREST;
-  SoTextureFilter magFilter = SO_TEXTURE_FILTER_NEAREST;
-  SoTextureWrap wrapS = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
-  SoTextureWrap wrapT = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
   // A nonzero key permits a backend to retain the texture resource across
   // frame lifetimes. revision changes require the resource contents to be
   // refreshed; zero remains transient.
   uint64_t cacheKey = 0;
   uint64_t revision = 0;
+
+  SoTextureFilter minFilter = SO_TEXTURE_FILTER_NEAREST;
+  SoTextureFilter magFilter = SO_TEXTURE_FILTER_NEAREST;
+  SoTextureWrap wrapS = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
+  SoTextureWrap wrapT = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
   // Request anisotropic filtering when Coin's texture-quality policy enables
   // it. The executor selects the driver's supported level.
   bool anisotropic = false;
@@ -255,10 +259,14 @@ struct SoPixelRasterData {
 
 /*!
   \struct SoMaterialData
-  \brief Snapshot of the logical Inventor material state for one draw call.
+  \brief Resolved material payload for one draw call.
 
-  Texture pixels are embedded in the IR as borrowed data; the producer owns the
-  storage and keeps it alive until the backend finishes consuming the frame.
+  This is the resolved state required to reproduce today's retained Inventor
+  rendering semantics. It is not a universal material schema: future material
+  work should evolve the abstraction into resolved material resources rather
+  than append every authoring model's parameters to this command payload.
+  Texture pixels are embedded as borrowed data; the producer owns the storage
+  and keeps it alive until the backend finishes consuming the frame.
 */
 struct SoMaterialData {
   SbVec4f  diffuse = {0.8f, 0.8f, 0.8f, 1.0f};
@@ -347,6 +355,7 @@ struct SoRasterState {
   SbBool  cullBackFaces = FALSE;
   SbBool  frontFaceCCW = TRUE;
   SbBool  scissorEnabled = FALSE;
+  SbBool  viewportOverride = FALSE;
   SbBool  viewportEnabled = FALSE;
   int     viewportX = 0;
   int     viewportY = 0;
@@ -372,6 +381,20 @@ struct SoRenderState {
   SoBlendState blend;
   SoAlphaTestState alphaTest;
   SoRasterState raster;
+  //! Use the view/projection matrices captured with the command.
+  SbBool useCommandMatrices = FALSE;
+};
+
+/*!
+  \enum SoRenderStage
+  \brief Ordered scene stage containing draw commands.
+
+*/
+enum class SoRenderStage : uint8_t {
+  Background,
+  Main,
+  AfterMain,
+  Foreground
 };
 
 /*!
@@ -384,6 +407,25 @@ struct SoRenderState {
 enum SoOpacityClass : uint8_t {
   SO_OPACITY_OPAQUE = 0,
   SO_OPACITY_TRANSPARENT
+};
+
+/*!
+  \struct SoDepthClearEvent
+  \brief Explicit depth-buffer clear barrier recorded during traversal.
+
+  The sequence number is a traversal-order barrier. Drawables may be sorted
+  within a segment, but execution must never move a command across this
+  event. An event is meaningful even when the surrounding group emits no
+  drawable command.
+*/
+struct SoDepthClearEvent {
+  SoRenderStage stage = SoRenderStage::Main;
+  uint32_t sequence = 0;
+  SbBool viewportOverride = FALSE;
+  int viewportX = 0;
+  int viewportY = 0;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
 };
 
 /*!
@@ -404,7 +446,10 @@ enum SoLightType : uint8_t {
 
 /*!
   \struct SoLightData
-  \brief View-space light description used by the render backend.
+  \brief View-space light description for resolved legacy lighting.
+
+  View space is part of today's LegacyInventor payload, not a permanent
+  requirement for future light resources or render passes.
 */
 struct SoLightData {
   SoLightType type = SO_LIGHT_DIRECTIONAL;
@@ -418,14 +463,56 @@ struct SoLightData {
 
 /*!
   \struct SoLightingData
-  \brief Shared lighting setup referenced by render commands.
+  \brief Resolved LegacyInventor lighting setup referenced by render commands.
+
+  ambient preserves Coin's legacy ambient-light semantics. It is not an
+  environment-lighting or image-based-lighting representation.
 */
 struct SoLightingData {
   SbVec3f ambient = SbVec3f(0.2f, 0.2f, 0.2f);
   std::vector<SoLightData> lights;
 };
 
-/*! \enum SoPickElementType
+/*!
+  \struct SoIRRenderContext
+  \brief State that must survive when a path is replayed after traversal.
+
+  A delayed path is traversed after the original scene traversal has moved on.
+  These values preserve the camera, model, and lighting context that cannot
+  reliably be reconstructed when a delayed path is replayed. A full path
+  replay reconstructs its model state from the path, so callers can suppress
+  the model transform when applying the context. The validity flags allow the
+  same delayed path element to remain usable by actions which do not enable
+  every IR state element.
+*/
+struct COIN_DLL_API SoIRRenderContext {
+  SoLightingData lighting;
+  SbMatrix modelMatrix;
+  SbViewportRegion viewport;
+  SbViewVolume viewVolume;
+  SbMatrix viewingMatrix;
+  SbMatrix projectionMatrix;
+  float devicePixelRatio = 1.0f;
+  SbBool hasLighting = FALSE;
+  SbBool hasModelMatrix = FALSE;
+  SbBool hasViewport = FALSE;
+  SbBool hasViewVolume = FALSE;
+  SbBool hasViewingMatrix = FALSE;
+  SbBool hasProjectionMatrix = FALSE;
+  SbBool hasDevicePixelRatio = FALSE;
+
+  // This is a replay supplement, not a complete SoState snapshot. Material,
+  // texture, draw-style, pick-style, and other inherited state are rebuilt by
+  // traversing the retained path; these fields preserve frame/view state that
+  // cannot safely be reconstructed after the original traversal.
+  //! Capture the replay-relevant state enabled on an Inventor traversal.
+  void captureFromState(SoState * state);
+  //! Apply the captured state to an active Inventor traversal.
+  void applyToState(SoState * state, SbBool applyModelMatrix = TRUE) const;
+};
+
+/*!
+  \enum SoPickElementType
   \brief Backend-neutral identity kinds retained for picking.
 */
 enum SoPickElementType : uint8_t {
@@ -518,6 +605,7 @@ struct SoPickResultList {
 */
 struct SoSelectionTarget {
   int commandIndex = -1;
+  uint64_t objectId = 0;
   SoPickElementType type = SO_PICK_OBJECT;
   int elementIndex = -1;
   SbColor4f color = SbColor4f(1.0f, 1.0f, 0.0f, 0.75f);
@@ -536,8 +624,8 @@ struct SoSelectionState {
   \struct SoRenderCommand
   \brief Backend-neutral retained rendering command.
 
-  A command contains the geometry, material, raster state, and transforms
-  needed to execute one retained draw operation.
+  A command contains the geometry, material, raster state, transforms,
+  stage needed to execute one retained draw operation.
   Pointer-valued data is borrowed from storage owned by the producing
   SoDrawList/SoIRRenderAction frame and must not outlive that frame.
 
@@ -555,9 +643,10 @@ struct SoRenderCommand {
   SbMatrix         projMatrix;
 
   SoOpacityClass   opacityClass = SO_OPACITY_OPAQUE;
-  SoLightingHandle lightingHandle = 0;
+  SoRenderStage    stage = SoRenderStage::Main;
   // Stable scene identity. Zero means that the producer did not provide one.
   uint64_t         objectId = 0;
+  SoLightingHandle lightingHandle = 0;
   SoPixelRasterData pixelRaster;
   SoPickData       pick;
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
@@ -569,6 +658,9 @@ struct SoRenderCommand {
 
   Commands retain their insertion order. The draw list never imposes
   execution ordering on a backend. clear() starts a new frame and invalidates pointers
+  The internal SoRenderPlanner resolves execution order into a separate
+  SoRenderPlan; it never reorders the command vector.
+  clear() starts a new frame and invalidates pointers
   into producer-owned frame storage.
 
   Command indices are therefore stable until the list is truncated or
@@ -611,6 +703,12 @@ public:
   const SoRenderCommand * begin() const;
   const SoRenderCommand * end() const;
 
+  //! Record an explicit depth-clear barrier at the current insertion point.
+  void addDepthClearEvent(const SoDepthClearEvent & event);
+  //! Return depth-clear barriers in traversal order.
+  const std::vector<SoDepthClearEvent> & getDepthClearEvents() const
+  { return this->depthClearEvents; }
+
   //! Build the frame-local 1-based pick-ID lookup table.
   void buildPickLUT() const;
   //! Resolve a nonzero pick ID, or return NULL for an invalid/stale ID.
@@ -620,9 +718,19 @@ public:
   //! Return the immutable snapshot of the current frame's pick table.
   const std::vector<SoPickLUTEntry> & getPickLUT() const { return pickLUT; }
 
+  //! Return frame-local producer selection targets for this draw list.
+  //!
+  //! These targets are transient traversal output, not persistent manager
+  //! identity. The manager combines them with its resolved selection state
+  //! immediately before backend execution.
+  SoSelectionState & getMutableSelectionState() { return selection; }
+  const SoSelectionState & getSelectionState() const { return selection; }
+
 private:
   std::vector<SoRenderCommand> commands;
   std::vector<SoLightingData> lightingSetups;
+  std::vector<SoDepthClearEvent> depthClearEvents;
+  SoSelectionState selection;
   mutable std::vector<SoPickLUTEntry> pickLUT;
   uint32_t generation = 0;
   mutable uint32_t pickLUTGeneration = 0;

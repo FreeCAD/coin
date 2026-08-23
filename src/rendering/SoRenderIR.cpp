@@ -5,6 +5,7 @@
 #include "elements/SoLazyElementP.h"
 
 #include <Inventor/C/tidbits.h>
+#include <Inventor/elements/SoDevicePixelRatioElement.h>
 #include <Inventor/elements/SoDepthBufferElement.h>
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/elements/SoEnvironmentElement.h>
@@ -17,6 +18,7 @@
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoMultiTextureImageElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoRenderMatrixPolicyElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoProjectionMatrixElement.h>
@@ -24,8 +26,10 @@
 #include <Inventor/elements/SoShapeHintsElement.h>
 #include <Inventor/elements/SoShapeStyleElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
+#include <Inventor/elements/SoViewVolumeElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/elements/SoPolygonOffsetElement.h>
+#include "elements/SoRenderPlacementElement.h"
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/nodes/SoDirectionalLight.h>
 #include <Inventor/nodes/SoLight.h>
@@ -279,6 +283,8 @@ SoDrawList::clear()
 {
   this->commands.clear();
   this->lightingSetups.clear();
+  this->depthClearEvents.clear();
+  this->selection = SoSelectionState();
   this->pickLUT.clear();
   this->generation++;
   this->pickLUTGeneration = 0;
@@ -289,6 +295,22 @@ SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
     this->commands.resize(static_cast<size_t>(count));
+    auto trimTargets = [count](std::vector<SoSelectionTarget> & targets) {
+      targets.erase(
+        std::remove_if(
+          targets.begin(), targets.end(),
+          [count](const SoSelectionTarget & target) {
+            return target.commandIndex >= count;
+          }),
+        targets.end());
+    };
+    trimTargets(this->selection.selected);
+    trimTargets(this->selection.highlighted);
+    while (!this->depthClearEvents.empty() &&
+           this->depthClearEvents.back().sequence >
+             static_cast<uint32_t>(count)) {
+      this->depthClearEvents.pop_back();
+    }
     this->pickLUT.clear();
     this->pickLUTGeneration = 0;
   }
@@ -315,6 +337,15 @@ SoDrawList::emplaceCommand()
   this->pickLUTGeneration = 0;
   this->commands.emplace_back();
   return this->commands.back();
+}
+
+void
+SoDrawList::addDepthClearEvent(const SoDepthClearEvent & event)
+{
+  SoDepthClearEvent recorded = event;
+  recorded.sequence = std::min(recorded.sequence,
+                               static_cast<uint32_t>(this->commands.size()));
+  this->depthClearEvents.push_back(recorded);
 }
 
 int
@@ -443,6 +474,18 @@ SoDrawList::end() const
   return this->commands.empty() ? nullptr : this->commands.data() + this->commands.size();
 }
 
+static const char *
+renderstage_name(SoRenderStage stage)
+{
+  switch (stage) {
+  case SoRenderStage::Background: return "background";
+  case SoRenderStage::Main: return "main";
+  case SoRenderStage::AfterMain: return "after-main";
+  case SoRenderStage::Foreground: return "foreground";
+  default: return "unknown";
+  }
+}
+
 void
 SoIRDumpSummary(const SoDrawList & drawlist)
 {
@@ -486,8 +529,9 @@ SoIRDumpFirstN(const SoDrawList & drawlist, int count)
       ambient = lighting->ambient;
     }
     SoDebugError::postInfo("SoDrawList",
-                           "[%d] depth=%d topo=%d verts=%u idx=%u colors=%p diffuse=(%.3f, %.3f, %.3f, %.3f) lights=%d ambient=(%.3f, %.3f, %.3f)",
+                           "[%d] stage=%s depth=%d topo=%d verts=%u idx=%u colors=%p diffuse=(%.3f, %.3f, %.3f, %.3f) lights=%d ambient=(%.3f, %.3f, %.3f)",
                            i,
+                           renderstage_name(cmd.stage),
                            cmd.state.depth.enabled,
                            static_cast<int>(cmd.geometry.topology),
                            cmd.geometry.vertexCount,
@@ -501,6 +545,70 @@ SoIRDumpFirstN(const SoDrawList & drawlist, int count)
                            ambient[0],
                            ambient[1],
                            ambient[2]);
+  }
+}
+
+void
+SoIRRenderContext::captureFromState(SoState * state)
+{
+  *this = SoIRRenderContext();
+  if (!state) return;
+
+  if (state->isElementEnabled(SoEnvironmentElement::getClassStackIndex()) &&
+      state->isElementEnabled(SoLightAttenuationElement::getClassStackIndex()) &&
+      state->isElementEnabled(SoLightElement::getClassStackIndex())) {
+    SoRenderIR::captureLightingFromState(state, this->lighting);
+    this->hasLighting = TRUE;
+  }
+
+  if (state->isElementEnabled(SoViewportRegionElement::getClassStackIndex())) {
+    this->viewport = SoViewportRegionElement::get(state);
+    this->hasViewport = TRUE;
+  }
+  if (state->isElementEnabled(SoModelMatrixElement::getClassStackIndex())) {
+    this->modelMatrix = SoModelMatrixElement::get(state);
+    this->hasModelMatrix = TRUE;
+  }
+  if (state->isElementEnabled(SoViewVolumeElement::getClassStackIndex())) {
+    this->viewVolume = SoViewVolumeElement::get(state);
+    this->hasViewVolume = TRUE;
+  }
+  if (state->isElementEnabled(SoViewingMatrixElement::getClassStackIndex())) {
+    this->viewingMatrix = SoViewingMatrixElement::get(state);
+    this->hasViewingMatrix = TRUE;
+  }
+  if (state->isElementEnabled(SoProjectionMatrixElement::getClassStackIndex())) {
+    this->projectionMatrix = SoProjectionMatrixElement::get(state);
+    this->hasProjectionMatrix = TRUE;
+  }
+  if (state->isElementEnabled(SoDevicePixelRatioElement::getClassStackIndex())) {
+    this->devicePixelRatio = SoDevicePixelRatioElement::get(state);
+    this->hasDevicePixelRatio = TRUE;
+  }
+}
+
+void
+SoIRRenderContext::applyToState(SoState * state, SbBool applyModelMatrix) const
+{
+  if (!state) return;
+
+  if (applyModelMatrix && this->hasModelMatrix) {
+    SoModelMatrixElement::set(state, nullptr, this->modelMatrix);
+  }
+  if (this->hasViewport) {
+    SoViewportRegionElement::set(state, this->viewport);
+  }
+  if (this->hasViewVolume) {
+    SoViewVolumeElement::set(state, nullptr, this->viewVolume);
+  }
+  if (this->hasViewingMatrix) {
+    SoViewingMatrixElement::set(state, nullptr, this->viewingMatrix);
+  }
+  if (this->hasProjectionMatrix) {
+    SoProjectionMatrixElement::set(state, nullptr, this->projectionMatrix);
+  }
+  if (this->hasDevicePixelRatio) {
+    SoDevicePixelRatioElement::set(state, this->devicePixelRatio);
   }
 }
 
@@ -525,6 +633,14 @@ textureWrapFromLegacy(SoMultiTextureImageElement::Wrap wrap)
 }
 
 static bool
+hasTexture(const SoMaterialData & material)
+{
+  return material.texture.pixels != nullptr &&
+    material.texture.width > 0 && material.texture.height > 0 &&
+    material.texture.numComponents > 0;
+}
+
+static bool
 textureHasTransparency(const SoTextureData & texture)
 {
   // DECAL uses texture alpha as a color interpolation factor; it does not
@@ -538,10 +654,9 @@ textureHasTransparency(const SoTextureData & texture)
   const size_t pixelCount = static_cast<size_t>(texture.width) *
                             static_cast<size_t>(texture.height);
   for (size_t pixel = 0; pixel < pixelCount; ++pixel) {
-    if (texture.pixels[pixel * static_cast<size_t>(texture.numComponents) +
-                       static_cast<size_t>(texture.numComponents - 1)] != 0xffu) {
-      return true;
-    }
+    const size_t alpha = pixel * static_cast<size_t>(texture.numComponents) +
+                         static_cast<size_t>(texture.numComponents - 1);
+    if (texture.pixels[alpha] != 0xffu) return true;
   }
   return false;
 }
@@ -656,6 +771,9 @@ void
 fillRenderStateFromState(SoState * state, SoRenderState & rs)
 {
   SoState * mutableState = state;
+  rs.useCommandMatrices =
+    SoRenderMatrixPolicyElement::get(mutableState) ==
+      SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES;
   SbBool depthtest = TRUE;
   SbBool depthwrite = TRUE;
   SoDepthBufferElement::DepthWriteFunction depthfunc =
@@ -744,14 +862,31 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   rs.raster.linePatternScale = static_cast<int16_t>(std::max(
     1, SoLinePatternElement::getScaleFactor(mutableState)));
 
-  const SbViewportRegion & viewport = SoViewportRegionElement::get(mutableState);
-  const SbVec2s & viewportOrigin = viewport.getViewportOriginPixels();
-  const SbVec2s & viewportSize = viewport.getViewportSizePixels();
-  rs.raster.viewportEnabled = viewportSize[0] > 0 && viewportSize[1] > 0;
-  rs.raster.viewportX = viewportOrigin[0];
-  rs.raster.viewportY = viewportOrigin[1];
-  rs.raster.viewportWidth = viewportSize[0];
-  rs.raster.viewportHeight = viewportSize[1];
+  int viewportX = 0;
+  int viewportY = 0;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+  if (SoRenderPlacementElement::getViewport(mutableState,
+                                            viewportX, viewportY,
+                                            viewportWidth, viewportHeight)) {
+    rs.raster.viewportOverride = TRUE;
+    rs.raster.viewportEnabled = viewportWidth > 0 && viewportHeight > 0;
+    rs.raster.viewportX = viewportX;
+    rs.raster.viewportY = viewportY;
+    rs.raster.viewportWidth = viewportWidth;
+    rs.raster.viewportHeight = viewportHeight;
+  }
+  else {
+    rs.raster.viewportOverride = FALSE;
+    const SbViewportRegion & viewport = SoViewportRegionElement::get(mutableState);
+    const SbVec2s & viewportOrigin = viewport.getViewportOriginPixels();
+    const SbVec2s & viewportSize = viewport.getViewportSizePixels();
+    rs.raster.viewportEnabled = viewportSize[0] > 0 && viewportSize[1] > 0;
+    rs.raster.viewportX = viewportOrigin[0];
+    rs.raster.viewportY = viewportOrigin[1];
+    rs.raster.viewportWidth = viewportSize[0];
+    rs.raster.viewportHeight = viewportSize[1];
+  }
 
   float offsetfactor = 0.0f;
   float offsetunits = 0.0f;
@@ -773,11 +908,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
     (offsetstyle & SoPolygonOffsetElement::POINTS);
 }
 
-SoLightingHandle
-fillLightingFromState(SoState * state, SoDrawList & drawlist)
+void
+captureLightingFromState(SoState * state, SoLightingData & lighting)
 {
-  SoLightingData lighting;
-
   const SbColor & ambientColor = SoEnvironmentElement::getAmbientColor(state);
   const float ambientIntensity = SoEnvironmentElement::getAmbientIntensity(state);
   lighting.ambient.setValue(ambientColor[0] * ambientIntensity,
@@ -842,6 +975,33 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
     lighting.lights.push_back(lightData);
   }
 
+}
+
+void
+captureRenderContextFromState(SoState * state, SoIRRenderContext & context)
+{
+  context.captureFromState(state);
+}
+
+void
+applyRenderContextToState(SoState * state, const SoIRRenderContext & context)
+{
+  context.applyToState(state);
+}
+
+SoLightingHandle
+fillLightingFromState(SoState * state, SoDrawList & drawlist)
+{
+  SoLightingData lighting;
+  captureLightingFromState(state, lighting);
+  return drawlist.addLightingSetup(lighting);
+}
+
+SoLightingHandle
+fillLightingFromState(SoState * /* state */,
+                      SoDrawList & drawlist,
+                      const SoLightingData & lighting)
+{
   return drawlist.addLightingSetup(lighting);
 }
 
