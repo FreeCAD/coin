@@ -128,6 +128,7 @@ resetRenderStatistics(SoRenderManager::RenderPhaseStatistics & phaseStatistics)
   phaseStatistics.instanceRecordsRebuilt = 0;
   phaseStatistics.instanceRecordsPatched = 0;
   phaseStatistics.instanceRecordsUploaded = 0;
+  phaseStatistics.preparedInstanceBatches = 0;
   phaseStatistics.selectionTargets = 0;
   phaseStatistics.selectionDrawCalls = 0;
   phaseStatistics.selectionInstancedBatches = 0;
@@ -189,6 +190,8 @@ copyBackendFrameStatistics(
     source.submission.instanceRecordsPatched;
   destination.instanceRecordsUploaded =
     source.submission.instanceRecordsUploaded;
+  destination.preparedInstanceBatches =
+    source.submission.preparedInstanceBatches;
   destination.resourceValidations = source.submission.resourceValidations;
   destination.selectionTargets = source.selection.targets;
   destination.selectionDrawCalls = source.selection.drawCalls;

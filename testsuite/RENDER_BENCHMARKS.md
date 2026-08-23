@@ -99,6 +99,12 @@ ctest --test-dir build-bench -L benchmark
 ctest --test-dir build-bench -L stress
 ```
 
+The GL stress run uses staged assemblies across compatibility and core
+contexts. It alternates transform and material patches, periodically changes
+visibility and refreshes picking, verifies prepared-batch counts and partial
+instance uploads, compares incremental pixels with forced rebuilds, and
+recreates the context four times during 10,000 frames.
+
 When GLFW and OpenGL 3.3 are available, `CoinRenderGLBenchmarks` runs the same
 semantic scenes through DrawList compatibility and core contexts. Builds with
 `COIN_BUILD_LEGACY_GL_RENDERER=ON` additionally run LegacyGL in a compatibility
