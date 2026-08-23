@@ -538,6 +538,8 @@ private:
                                            const SoRenderCommand & next,
                                            size_t firstCacheIndex,
                                            size_t nextCacheIndex) const;
+  void measureOrderedSubmissionCandidates(const SoDrawList & drawlist,
+                                          const SoRenderPlan & plan);
   void drawInstancedCommands(const SoDrawList & drawlist,
                              const std::vector<uint32_t> & commandIndices,
                              size_t cacheIndex,

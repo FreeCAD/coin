@@ -180,6 +180,27 @@ main()
   edge.geometry.topology = SO_TOPOLOGY_LINES;
   edge.geometry.cacheKey = 5;
   edge2.geometry = edge.geometry;
+  surfaceA1.material.shadingModel = SO_SHADING_UNLIT;
+  surfaceA2.material.shadingModel = SO_SHADING_UNLIT;
+  surfaceB.material.shadingModel = SO_SHADING_UNLIT;
+  edge.material.shadingModel = SO_SHADING_UNLIT;
+  edge2.material.shadingModel = SO_SHADING_UNLIT;
+  surfaceB.material.diffuse = SbColor4f(0.25f, 0.5f, 0.75f, 1.0f);
+  result = check(
+    SoRenderCommandTraits::sameOrderedSubmissionState(
+      surfaceA1, surfaceA1.geometry, surfaceB, surfaceB.geometry),
+    "ordered submission rejected heterogeneous geometry and color") && result;
+  result = check(
+    !SoRenderCommandTraits::sameOrderedSubmissionState(
+      surfaceA1, surfaceA1.geometry, edge, edge.geometry),
+    "ordered submission crossed a primitive-mode change") && result;
+  SoRenderCommand differentDepth = surfaceB;
+  differentDepth.state.depth.func = SO_DEPTH_ALWAYS;
+  result = check(
+    !SoRenderCommandTraits::sameOrderedSubmissionState(
+      surfaceA1, surfaceA1.geometry, differentDepth,
+      differentDepth.geometry),
+    "ordered submission crossed a depth-state change") && result;
   groupedDrawList.addCommand(surfaceA1);
   groupedDrawList.addCommand(edge);
   groupedDrawList.addCommand(surfaceB);

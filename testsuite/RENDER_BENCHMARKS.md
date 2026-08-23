@@ -115,7 +115,7 @@ explicitly. This keeps the common hover path distinct from the more expensive
 selection-cycling operation.
 
 The GL benchmark explicitly enables renderer phase timing. JSON schema version
-13 identifies each result as `per_frame_traversal`, `steady_state`,
+14 identifies each result as `per_frame_traversal`, `steady_state`,
 `forced_rebuild`, or `incremental_update`. It separates draw-list construction
 into primitive generation, geometry packing, and command emission, and also
 reports incremental command updates, render-plan construction, and backend
@@ -125,6 +125,10 @@ total draw-list construction. Backend submission is divided into frame setup,
 resource preparation, command execution, and selection overlays. Picking
 reports target preparation and rendering, depth rendering and peeling,
 readback, hit processing, target restoration, and final scene-result resolution.
+The `ordered_submission_candidate_*` counters report consecutive opaque runs
+that preserve command order and share one indirect-call state, but cannot use
+the existing same-geometry instancing path. They measure opportunity only;
+submitted draw-call counters continue to describe work actually executed.
 
 The shared-assembly interaction curves distinguish cold hover-target creation,
 warm hover queries, and target refresh after an incremental occurrence update.
