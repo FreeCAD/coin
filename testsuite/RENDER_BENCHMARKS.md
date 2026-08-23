@@ -220,6 +220,11 @@ build-bench/bin/CoinRenderGLBenchmarks --mutation-only 50000 \
   --mutation-count 1 --samples 20 --output translation-1-of-50000.json
 ```
 
+Assembly families accept `--mutation-case translation`; combine it with
+`--mutation-count 1`, `10`, or `100` to isolate one transform-update curve.
+This is useful for profiling submission of a stable retained assembly without
+also sampling its material, geometry, and forced-rebuild cases.
+
 Focused and full mutation results include backend frame-setup, resource-
 preparation, command-execution, and total-submission medians. These phases
 show whether a change affects retained update processing or the subsequent

@@ -859,8 +859,15 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
                           std::vector<Measurement> & results,
                           std::string & unavailable,
                           AssemblyBenchmarkScope scope =
-                            AssemblyBenchmarkScope::All)
+                            AssemblyBenchmarkScope::All,
+                          const std::string & caseFilter = std::string(),
+                          int countFilter = 0)
 {
+  if (!caseFilter.empty() && caseFilter != "translation") {
+    unavailable = "assembly mutation case must be 'translation'";
+    return false;
+  }
+  const size_t resultStart = results.size();
   GLTestContextConfig config;
   config.profile = profile;
   config.major = 3;
@@ -911,6 +918,14 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
   manager.setRenderPhaseTimingEnabled(TRUE);
   context.bindFramebuffer();
   manager.render(TRUE, TRUE);
+
+  const auto finish = [&]() {
+    manager.releaseRenderBackendResources();
+    manager.setCamera(NULL);
+    manager.setSceneGraph(NULL);
+    camera->unref();
+    scene->unref();
+  };
   context.bindFramebuffer();
   manager.render(TRUE, TRUE);
 
@@ -1165,6 +1180,8 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
           occurrenceCount, requestedTransformCounts[batchIndex - 1])) {
       continue;
     }
+    if (caseFilter == "translation" && countFilter > 0 &&
+        changedCount != countFilter) continue;
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
@@ -1245,6 +1262,16 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     copySubmissionStatistics(transformResult, submissionPhases);
     transformResult.pixelChecksum = checksumPixels(incrementalPixels);
     results.push_back(transformResult);
+  }
+
+  if (caseFilter == "translation") {
+    if (results.size() == resultStart) {
+      unavailable = "assembly translation count must resolve to 1, 10, or 100";
+      finish();
+      return false;
+    }
+    finish();
+    return true;
   }
 
   std::vector<SbColor> originalMaterialColors;
@@ -1492,11 +1519,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
   rebuildResult.pixelChecksum = checksumPixels(context.readPixels());
   results.push_back(rebuildResult);
 
-  manager.releaseRenderBackendResources();
-  manager.setCamera(NULL);
-  manager.setSceneGraph(NULL);
-  camera->unref();
-  scene->unref();
+  finish();
   return true;
 }
 
@@ -2005,7 +2028,8 @@ void runMutationBenchmarks(GLTestProfile profile, int objectCount, int samples,
     if (!runAssemblyMutations(
           profile, workload, objectCount, samples, results, reason,
           updatesOnly ? AssemblyBenchmarkScope::UpdatesOnly
-                      : AssemblyBenchmarkScope::All)) {
+                      : AssemblyBenchmarkScope::All,
+          caseFilter, countFilter)) {
       unavailable.push_back(std::string(workloadName(workload)) +
         " mutation DrawList " + profileName + ": " + reason);
     }
