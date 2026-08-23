@@ -22,6 +22,42 @@ SoRenderBackend::~SoRenderBackend()
 }
 
 SbBool
+SoRenderBackend::updatePickBuffer(const SoDrawList &,
+                                   const SoRenderPlan &,
+                                   const SoRenderParams &)
+{
+  return FALSE;
+}
+
+SbBool
+SoRenderBackend::pickClosest(int, int, int, SoPickResult &)
+{
+  return FALSE;
+}
+
+SbBool
+SoRenderBackend::pickVisibleRegion(const SbBox2s &,
+                                   SoPickResultList &)
+{
+  return FALSE;
+}
+
+SbBool
+SoRenderBackend::pickDepthStack(int, int, int, int, int,
+                                SoPickResultList &)
+{
+  return FALSE;
+}
+
+SbBool
+SoRenderBackend::renderSelection(const SoDrawList &,
+                                  const SoSelectionState &,
+                                  const SoRenderParams &)
+{
+  return FALSE;
+}
+
+SbBool
 SoRenderBackend::isInitialized() const
 {
   return this->initialized;

@@ -17,6 +17,7 @@
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoMultiTextureImageElement.h>
 #include <Inventor/elements/SoPointSizeElement.h>
+#include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoProjectionMatrixElement.h>
 #include <Inventor/elements/SoTextureQualityElement.h>
@@ -278,7 +279,9 @@ SoDrawList::clear()
 {
   this->commands.clear();
   this->lightingSetups.clear();
+  this->pickLUT.clear();
   this->generation++;
+  this->pickLUTGeneration = 0;
 }
 
 void
@@ -286,6 +289,8 @@ SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
     this->commands.resize(static_cast<size_t>(count));
+    this->pickLUT.clear();
+    this->pickLUTGeneration = 0;
   }
 }
 
@@ -299,11 +304,15 @@ void
 SoDrawList::addCommand(const SoRenderCommand & cmd)
 {
   this->commands.push_back(cmd);
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
 }
 
 SoRenderCommand &
 SoDrawList::emplaceCommand()
 {
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
   this->commands.emplace_back();
   return this->commands.back();
 }
@@ -317,6 +326,8 @@ SoDrawList::getNumCommands() const
 SoRenderCommand &
 SoDrawList::getCommand(int i)
 {
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
   return this->commands[static_cast<size_t>(i)];
 }
 
@@ -351,15 +362,72 @@ SoDrawList::getLighting(SoLightingHandle handle) const
   return &this->lightingSetups[index];
 }
 
+void
+SoDrawList::buildPickLUT() const
+{
+  this->pickLUT.clear();
+  this->pickLUTGeneration = this->generation;
+
+  for (int commandIndex = 0; commandIndex < this->getNumCommands(); ++commandIndex) {
+    const SoRenderCommand & command = this->getCommand(commandIndex);
+    if (!command.pick.pickable || !command.state.raster.visible) continue;
+
+    const bool indexed = command.geometry.indices != nullptr &&
+      command.geometry.indexCount != 0;
+    const uint32_t drawLimit = indexed ? command.geometry.indexCount
+                                       : command.geometry.vertexCount;
+    if (drawLimit == 0) continue;
+
+    if (command.pick.elementRanges.empty()) {
+      SoPickLUTEntry entry;
+      entry.commandIndex = commandIndex;
+      entry.objectId = command.objectId;
+      entry.type = SO_PICK_OBJECT;
+      entry.elementIndex = -1;
+      entry.drawStart = 0;
+      entry.drawCount = drawLimit;
+      this->pickLUT.push_back(entry);
+      continue;
+    }
+
+    for (const SoRenderElementRange & range : command.pick.elementRanges) {
+      SoPickLUTEntry entry;
+      entry.commandIndex = commandIndex;
+      entry.objectId = command.objectId;
+      entry.type = range.type;
+      entry.elementIndex = range.elementIndex;
+      if (range.drawCount == 0 || range.drawStart >= drawLimit ||
+          range.drawCount > drawLimit - range.drawStart) {
+        continue;
+      }
+      entry.drawStart = range.drawStart;
+      entry.drawCount = range.drawCount;
+      this->pickLUT.push_back(entry);
+    }
+  }
+}
+
+const SoPickLUTEntry *
+SoDrawList::resolvePickId(uint32_t id) const
+{
+  if (id == 0 || id > this->pickLUT.size()) return nullptr;
+  if (this->pickLUTGeneration != this->generation) return nullptr;
+  return &this->pickLUT[static_cast<size_t>(id - 1)];
+}
+
 SoRenderCommand *
 SoDrawList::begin()
 {
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data();
 }
 
 SoRenderCommand *
 SoDrawList::end()
 {
+  this->pickLUT.clear();
+  this->pickLUTGeneration = 0;
   return this->commands.empty() ? nullptr : this->commands.data() + this->commands.size();
 }
 
@@ -489,6 +557,8 @@ fillCommandTraversalStateFromAction(SoIRRenderAction * action,
   command.projMatrix = SoProjectionMatrixElement::get(state);
   fillRenderStateFromState(state, command.state);
   command.lightingHandle = fillLightingFromState(state, drawlist);
+  command.pick.pickable = SoPickStyleElement::get(state) !=
+    SoPickStyleElement::UNPICKABLE;
 }
 
 void

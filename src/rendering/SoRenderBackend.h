@@ -4,9 +4,11 @@
 #define COIN_SORENDERBACKEND_H
 
 #include <Inventor/SbBasic.h>
+#include <Inventor/SbBox2s.h>
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewportRegion.h>
+#include <Inventor/rendering/SoRenderIR.h>
 
 #include "rendering/SoRenderPlan.h"
 
@@ -70,6 +72,30 @@ public:
   virtual SbBool render(const SoDrawList & drawlist,
                         const SoRenderPlan & plan,
                         const SoRenderParams & params) = 0;
+
+  //! Update the backend's explicit picking target for a retained frame.
+  //! Ordinary render() does not implicitly regenerate this target.
+  virtual SbBool updatePickBuffer(const SoDrawList & drawlist,
+                                  const SoRenderPlan & plan,
+                                  const SoRenderParams & params);
+  //! Resolve the closest viewport-local hit against the last explicit update.
+  virtual SbBool pickClosest(int x, int y, int radius,
+                             SoPickResult & result);
+  //! Resolve and deduplicate the visible IDs in a viewport-local region.
+  virtual SbBool pickVisibleRegion(const SbBox2s & region,
+                                   SoPickResultList & results);
+  //! Resolve a bounded front-to-back stack around a viewport-local cursor.
+  virtual SbBool pickDepthStack(int x, int y, int radius, int maxLayers,
+                                int maxHits,
+                                SoPickResultList & results);
+  //! Compatibility spelling for the original closest-hit backend query.
+  SbBool pick(int x, int y, int radius, SoPickResult & result)
+  { return this->pickClosest(x, y, radius, result); }
+
+  //! Render frame-level selection/highlight targets over the current frame.
+  virtual SbBool renderSelection(const SoDrawList & drawlist,
+                                 const SoSelectionState & selection,
+                                 const SoRenderParams & params);
 
   SbBool isInitialized() const;
 

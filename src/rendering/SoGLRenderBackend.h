@@ -41,6 +41,23 @@ public:
                 const SoRenderPlan & plan,
                 const SoRenderParams & params) override;
 
+  //! Render the current DrawList into the explicit integer picking buffer.
+  SbBool updatePickBuffer(const SoDrawList & drawlist,
+                          const SoRenderPlan & plan,
+                          const SoRenderParams & params) override;
+  //! Resolve the closest nonzero ID in a viewport-local pixel-radius query.
+  SbBool pickClosest(int x, int y, int radius,
+                     SoPickResult & result) override;
+  SbBool pickVisibleRegion(const SbBox2s & region,
+                           SoPickResultList & results) override;
+  SbBool pickDepthStack(int x, int y, int radius, int maxLayers,
+                        int maxHits,
+                        SoPickResultList & results) override;
+  //! Render explicit selected/highlighted targets over the current framebuffer.
+  SbBool renderSelection(const SoDrawList & drawlist,
+                         const SoSelectionState & selection,
+                         const SoRenderParams & params) override;
+
 private:
   struct CachedCommand {
     GLuint positionBuffer = 0;
@@ -202,7 +219,92 @@ private:
     float lineWidth = 1.0f;
   };
 
+  struct PickProgram {
+    GLuint handle = 0;
+    struct Uniforms {
+      GLint view = -1;
+      GLint proj = -1;
+      GLint model = -1;
+      GLint color = -1;
+      GLint useVertexColor = -1;
+      GLint vertexColorAlphaIncludesOpacity = -1;
+      GLint textureAlphaIncludesOpacity = -1;
+      GLint textureHasAlpha = -1;
+      GLint textureEnabled = -1;
+      GLint textureModel = -1;
+      GLint textureBlendColor = -1;
+      GLint texture = -1;
+      GLint selectionColor = -1;
+      GLint alphaTestFunction = -1;
+      GLint alphaTestReference = -1;
+      GLint pickId = -1;
+      GLint vpSize = -1;
+      GLint lineWidth = -1;
+      GLint pointSize = -1;
+      GLint stipplePattern = -1;
+      GLint stippleScale = -1;
+      GLint cullBackFaces = -1;
+      GLint frontFaceCCW = -1;
+      GLint quadCenter = -1;
+      GLint sourceSize = -1;
+      GLint rasterSize = -1;
+      GLint viewportOrigin = -1;
+      GLint pixelOrigin = -1;
+      GLint texModColor = -1;
+      GLint previousDepth = -1;
+      GLint peelEnabled = -1;
+    } uniforms;
+  };
+
+  struct PickPrograms {
+    PickProgram visual;
+    PickProgram line;
+    PickProgram triangleLine;
+    PickProgram point;
+    PickProgram trianglePoint;
+    PickProgram pixel;
+  } pickPrograms;
+
+  PickPrograms selectionPrograms;
+
+  struct PickTarget {
+    GLuint framebuffer = 0;
+    GLuint colorTexture = 0;
+    GLuint depthTextures[2] = {0, 0};
+    int activeDepth = 0;
+    bool peelEnabled = false;
+    SbVec2s size;
+    std::vector<SoPickLUTEntry> lookup;
+    uint32_t generation = 0;
+    const SoDrawList * drawlist = nullptr;
+    SoRenderPlan plan;
+    SoRenderParams params;
+    bool ready = false;
+  } pickTarget;
+
   bool createShaders();
+  bool ensurePickFramebuffer(const SbVec2s & size);
+  void destroyPickFramebuffer();
+  void drawPickEntry(const SoDrawList & drawlist,
+                     const SoPickLUTEntry & entry,
+                     GLuint id,
+                     const SbMat & viewMat,
+                     const SbMat & projMat,
+                     const SoRenderParams & params);
+  void drawSelectionEntry(const SoDrawList & drawlist,
+                          const SoPickLUTEntry & entry,
+                          const SbColor4f & color,
+                          const SbMat & viewMat,
+                          const SbMat & projMat,
+                          const SoRenderParams & params);
+  void drawCoverageEntry(const SoDrawList & drawlist,
+                         const SoPickLUTEntry & entry,
+                         GLuint id,
+                         const SbColor4f & selectionColor,
+                         const SbMat & viewMat,
+                         const SbMat & projMat,
+                         const SoRenderParams & params,
+                         bool selection);
   void beginFrame(const SoRenderParams & params);
   void invalidateCache();
   void updateGeometryCache(const SoDrawList & drawlist);

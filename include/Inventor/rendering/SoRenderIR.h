@@ -4,6 +4,7 @@
 #define COIN_SORENDERIR_H
 
 #include <Inventor/SbBasic.h>
+#include <Inventor/SbColor4f.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbVec2f.h>
 #include <Inventor/SbVec3f.h>
@@ -424,6 +425,113 @@ struct SoLightingData {
   std::vector<SoLightData> lights;
 };
 
+/*! \enum SoPickElementType
+  \brief Backend-neutral identity kinds retained for picking.
+*/
+enum SoPickElementType : uint8_t {
+  SO_PICK_OBJECT = 0,
+  SO_PICK_FACE,
+  SO_PICK_EDGE,
+  SO_PICK_VERTEX
+};
+
+/*! \struct SoRenderElementRange
+  \brief Maps one logical subelement to a geometry draw range.
+
+  For indexed geometry, drawStart/drawCount refer to indices. For
+  non-indexed geometry, they refer to vertices.
+*/
+struct SoRenderElementRange {
+  SoPickElementType type = SO_PICK_OBJECT;
+  int elementIndex = -1;
+  uint32_t drawStart = 0;
+  uint32_t drawCount = 0;
+};
+
+/*! \struct SoPickData
+  \brief Backend-neutral pickability and optional subelement ranges.
+*/
+struct SoPickData {
+  bool pickable = true;
+  std::vector<SoRenderElementRange> elementRanges;
+};
+
+/*!
+  \struct SoPickLUTEntry
+  \brief Frame-local mapping from an integer pick ID to a command range.
+*/
+struct SoPickLUTEntry {
+  int commandIndex = -1;
+  uint64_t objectId = 0;
+  SoPickElementType type = SO_PICK_OBJECT;
+  int elementIndex = -1;
+  uint32_t drawStart = 0;
+  uint32_t drawCount = 0;
+};
+
+/*!
+  \struct SoPickResult
+  \brief Result of resolving one frame-local integer pick ID.
+
+  The command index is resolved by the backend-neutral DrawList.  A caller
+  can use the corresponding SoIRRenderAction to obtain the retained scene
+  path for that command; Coin does not encode application identity strings in
+  the renderer.
+
+  \ingroup coin_retained_rendering
+*/
+struct SoPickResult {
+  uint32_t id = 0;
+  uint32_t generation = 0;
+  int commandIndex = -1;
+  uint64_t objectId = 0;
+  SoPickElementType type = SO_PICK_OBJECT;
+  int elementIndex = -1;
+  int pixelX = 0;
+  int pixelY = 0;
+  float depth = 1.0f;
+};
+
+/*!
+  \struct SoPickResultList
+  \brief Results from one frame-local retained picking query.
+
+  Results are renderer mechanics and remain valid only for the recorded
+  DrawList generation.  Public scene-graph APIs resolve them to
+  SoPickedPoint instances before returning them to applications.
+*/
+struct SoPickResultList {
+  uint32_t generation = 0;
+  std::vector<SoPickResult> hits;
+  SbBool truncated = FALSE;
+};
+
+/*!
+  \struct SoSelectionTarget
+  \brief One retained command or subelement to highlight in a frame.
+
+  Selection is interaction state applied to retained identity.  It is not
+  part of a command's scene identity and carries no application-specific
+  names or interaction policy.
+
+  \ingroup coin_retained_rendering
+*/
+struct SoSelectionTarget {
+  int commandIndex = -1;
+  SoPickElementType type = SO_PICK_OBJECT;
+  int elementIndex = -1;
+  SbColor4f color = SbColor4f(1.0f, 1.0f, 0.0f, 0.75f);
+};
+
+/*!
+  \struct SoSelectionState
+  \brief Frame-level selected and highlighted retained targets.
+*/
+struct SoSelectionState {
+  std::vector<SoSelectionTarget> selected;
+  std::vector<SoSelectionTarget> highlighted;
+};
+
 /*!
   \struct SoRenderCommand
   \brief Backend-neutral retained rendering command.
@@ -451,6 +559,7 @@ struct SoRenderCommand {
   // Stable scene identity. Zero means that the producer did not provide one.
   uint64_t         objectId = 0;
   SoPixelRasterData pixelRaster;
+  SoPickData       pick;
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
 };
 
@@ -485,6 +594,7 @@ public:
   int getNumCommands() const;
   //! Remove commands beyond index count without reordering remaining commands.
   void truncate(int count);
+  //! Mutable access invalidates the frame-local pick lookup table.
   SoRenderCommand & getCommand(int i);
   const SoRenderCommand & getCommand(int i) const;
 
@@ -495,15 +605,27 @@ public:
   //! Returns NULL for handle 0 or an invalid handle.
   const SoLightingData * getLighting(SoLightingHandle handle) const;
 
+  //! Mutable iteration invalidates the frame-local pick lookup table.
   SoRenderCommand * begin();
   SoRenderCommand * end();
   const SoRenderCommand * begin() const;
   const SoRenderCommand * end() const;
 
+  //! Build the frame-local 1-based pick-ID lookup table.
+  void buildPickLUT() const;
+  //! Resolve a nonzero pick ID, or return NULL for an invalid/stale ID.
+  const SoPickLUTEntry * resolvePickId(uint32_t id) const;
+  //! Return the generation for which the current pick table was built.
+  uint32_t getPickLUTGeneration() const { return pickLUTGeneration; }
+  //! Return the immutable snapshot of the current frame's pick table.
+  const std::vector<SoPickLUTEntry> & getPickLUT() const { return pickLUT; }
+
 private:
   std::vector<SoRenderCommand> commands;
   std::vector<SoLightingData> lightingSetups;
+  mutable std::vector<SoPickLUTEntry> pickLUT;
   uint32_t generation = 0;
+  mutable uint32_t pickLUTGeneration = 0;
 };
 
 #endif // COIN_SORENDERIR_H

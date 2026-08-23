@@ -6,6 +6,7 @@
 #include <Inventor/lists/SoPathList.h>
 #include <Inventor/nodes/SoCube.h>
 #include <Inventor/nodes/SoNode.h>
+#include <Inventor/nodes/SoPickStyle.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSubNode.h>
 
@@ -72,6 +73,17 @@ runTest()
   action.apply(static_cast<SoNode *>(root));
   check(action.getDrawList().getNumCommands() == 2,
         "apply(SoNode*) did not traverse both cubes", result);
+  check(action.getCommandPath(0) != NULL &&
+        action.getCommandPath(0)->getTail() == firstCube &&
+        action.getCommandPath(1) != NULL &&
+        action.getCommandPath(1)->getTail() == secondCube,
+        "retained commands did not preserve their producing scene paths", result);
+  action.getMutableDrawList().buildPickLUT();
+  check(action.getDrawList().getPickLUT().size() >= 2,
+        "pick lookup table did not assign object IDs to retained commands", result);
+  const SoPickLUTEntry * firstPick = action.getDrawList().resolvePickId(1);
+  check(firstPick != NULL && firstPick->commandIndex == 0,
+        "pick lookup table did not resolve the first command", result);
 
   SoPath * firstPath = new SoPath(root);
   firstPath->append(firstCube);
@@ -80,6 +92,9 @@ runTest()
   check(action.getDrawList().getNumCommands() == 1 &&
         action.getDrawList().getCommand(0).userData == firstCube,
         "apply(SoPath*) did not traverse the selected cube", result);
+  check(action.getCommandPath(0) != NULL &&
+        action.getCommandPath(0)->getTail() == firstCube,
+        "path traversal did not retain the selected scene path", result);
   firstPath->unref();
 
   SoPath * oneNodePath = new SoPath(probe);
@@ -112,6 +127,24 @@ runTest()
   action.apply(static_cast<SoNode *>(probe));
   check(action.getDrawList().getNumCommands() == 0,
         "repeated apply() did not clear the previous frame", result);
+
+  SoSeparator * unpickableRoot = new SoSeparator;
+  unpickableRoot->ref();
+  SoPickStyle * unpickableStyle = new SoPickStyle;
+  unpickableStyle->style = SoPickStyle::UNPICKABLE;
+  unpickableRoot->addChild(unpickableStyle);
+  unpickableRoot->addChild(new SoCube);
+  action.apply(static_cast<SoNode *>(unpickableRoot));
+  bool allUnpickable = action.getDrawList().getNumCommands() > 0;
+  for (int i = 0; i < action.getDrawList().getNumCommands(); ++i) {
+    allUnpickable = allUnpickable &&
+      !action.getDrawList().getCommand(i).pick.pickable;
+  }
+  action.getMutableDrawList().buildPickLUT();
+  check(allUnpickable && action.getDrawList().getPickLUT().empty(),
+        "SoPickStyle::UNPICKABLE was not retained by DrawList commands",
+        result);
+  unpickableRoot->unref();
 
   probe->unref();
   root->unref();
