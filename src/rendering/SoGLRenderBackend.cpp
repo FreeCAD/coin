@@ -2079,9 +2079,9 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
       command.geometry.indexCount && entry.lineRasterVertexArray != 0;
   }
 
-  this->applyDepthState(command);
+  this->applyDepthState(command, submissionState);
   this->applyRasterState(command, path);
-  this->applyBlendState(command);
+  this->applyBlendState(command, submissionState);
   GLenum polygonOffsetTarget = GL_POLYGON_OFFSET_FILL;
   const bool polygonOffset = this->applyPolygonOffset(
     command, path, polygonOffsetTarget);
@@ -2197,9 +2197,9 @@ SoGLRenderBackend::drawInstancedCommands(
   }
 
   this->applySubmissionViewport(frame, submissionState);
-  this->applyDepthState(first);
+  this->applyDepthState(first, submissionState);
   this->applyRasterState(first, path);
-  this->applyBlendState(first);
+  this->applyBlendState(first, submissionState);
   this->bindCommandProgram(drawlist, first, path, frame.view, frame.projection,
                            frame.viewportOrigin, frame.viewportSize, entry,
                            submissionState);
@@ -2338,17 +2338,27 @@ SoGLRenderBackend::nonColorUniformsMatch(
 }
 
 void
-SoGLRenderBackend::applyDepthState(const SoRenderCommand & command)
+SoGLRenderBackend::applyDepthState(const SoRenderCommand & command,
+                                   SubmissionState & submissionState)
 {
-  if (command.state.depth.enabled) {
+  const SoDepthState & depth = command.state.depth;
+  if (submissionState.depthValid &&
+      submissionState.depth.enabled == depth.enabled &&
+      submissionState.depth.writeEnabled == depth.writeEnabled &&
+      submissionState.depth.func == depth.func &&
+      submissionState.depth.range[0] == depth.range[0] &&
+      submissionState.depth.range[1] == depth.range[1]) return;
+  if (depth.enabled) {
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(depthFunctionToGL(command.state.depth.func));
+    glDepthFunc(depthFunctionToGL(depth.func));
   }
   else {
     glDisable(GL_DEPTH_TEST);
   }
-  glDepthMask(command.state.depth.writeEnabled ? GL_TRUE : GL_FALSE);
-  glDepthRange(command.state.depth.range[0], command.state.depth.range[1]);
+  glDepthMask(depth.writeEnabled ? GL_TRUE : GL_FALSE);
+  glDepthRange(depth.range[0], depth.range[1]);
+  submissionState.depth = depth;
+  submissionState.depthValid = true;
 }
 
 void
@@ -2381,18 +2391,30 @@ SoGLRenderBackend::applyRasterState(const SoRenderCommand & command,
 }
 
 void
-SoGLRenderBackend::applyBlendState(const SoRenderCommand & command)
+SoGLRenderBackend::applyBlendState(const SoRenderCommand & command,
+                                   SubmissionState & submissionState)
 {
-  const bool blending = command.state.blend.enabled;
+  const SoBlendState & blend = command.state.blend;
+  if (submissionState.blendValid &&
+      submissionState.blend.enabled == blend.enabled &&
+      submissionState.blend.srcRGBFactor == blend.srcRGBFactor &&
+      submissionState.blend.dstRGBFactor == blend.dstRGBFactor &&
+      submissionState.blend.srcAlphaFactor == blend.srcAlphaFactor &&
+      submissionState.blend.dstAlphaFactor == blend.dstAlphaFactor &&
+      submissionState.blend.rgbEquation == blend.rgbEquation &&
+      submissionState.blend.alphaEquation == blend.alphaEquation) return;
+  submissionState.blend = blend;
+  submissionState.blendValid = true;
+  const bool blending = blend.enabled;
   if (!blending) {
     glDisable(GL_BLEND);
     return;
   }
   glEnable(GL_BLEND);
-  if (isDualSourceBlendFactor(command.state.blend.srcRGBFactor) ||
-      isDualSourceBlendFactor(command.state.blend.dstRGBFactor) ||
-      isDualSourceBlendFactor(command.state.blend.srcAlphaFactor) ||
-      isDualSourceBlendFactor(command.state.blend.dstAlphaFactor)) {
+  if (isDualSourceBlendFactor(blend.srcRGBFactor) ||
+      isDualSourceBlendFactor(blend.dstRGBFactor) ||
+      isDualSourceBlendFactor(blend.srcAlphaFactor) ||
+      isDualSourceBlendFactor(blend.dstAlphaFactor)) {
     static std::once_flag dualSourceWarning;
     std::call_once(dualSourceWarning, []() {
       SoDebugError::postWarning(
@@ -2402,14 +2424,14 @@ SoGLRenderBackend::applyBlendState(const SoRenderCommand & command)
     });
   }
   cc_glglue_glBlendFuncSeparate(
-    this->glue, blendFactorToGL(command.state.blend.srcRGBFactor),
-    blendFactorToGL(command.state.blend.dstRGBFactor),
-    blendFactorToGL(command.state.blend.srcAlphaFactor),
-    blendFactorToGL(command.state.blend.dstAlphaFactor));
+    this->glue, blendFactorToGL(blend.srcRGBFactor),
+    blendFactorToGL(blend.dstRGBFactor),
+    blendFactorToGL(blend.srcAlphaFactor),
+    blendFactorToGL(blend.dstAlphaFactor));
   if (cc_glglue_has_blendequation(this->glue) &&
-      command.state.blend.rgbEquation == command.state.blend.alphaEquation) {
+      blend.rgbEquation == blend.alphaEquation) {
     cc_glglue_glBlendEquation(
-      this->glue, blendEquationToGL(command.state.blend.rgbEquation));
+      this->glue, blendEquationToGL(blend.rgbEquation));
   }
 }
 
@@ -4355,6 +4377,10 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     }
     else if (operation.type == SoRenderOperationType::END_DEPTH_SEGMENT) {
       flushSelection();
+      // Selection rendering owns its own GL setup and may leave either state
+      // changed. Re-establish retained visual state at the next draw.
+      submissionState.depthValid = false;
+      submissionState.blendValid = false;
     }
     else if (operation.type == SoRenderOperationType::CLEAR_DEPTH) {
       if (operation.depthClearEventIndex >= eventCount) {
