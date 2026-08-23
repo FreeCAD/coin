@@ -1248,6 +1248,13 @@ glglue_resolve_symbols(cc_glglue * w)
     w->glDrawElementsInstanced = (COIN_PFNGLDRAWELEMENTSINSTANCEDPROC)
       cc_glglue_getprocaddress(w, "glDrawElementsInstancedEXT");
   }
+  w->glBindBufferBase = (COIN_PFNGLBINDBUFFERBASEPROC)
+    cc_glglue_getprocaddress(w, "glBindBufferBase");
+  w->glMultiDrawArraysIndirect = (COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC)
+    cc_glglue_getprocaddress(w, "glMultiDrawArraysIndirect");
+  w->glMultiDrawElementsIndirect =
+    (COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC)
+      cc_glglue_getprocaddress(w, "glMultiDrawElementsIndirect");
 
   /* These core framebuffer entry points are not exported by the Windows
      OpenGL 1.1 import library.  Resolve them through the active context just
@@ -3824,6 +3831,61 @@ cc_glglue_has_multidraw_vertex_arrays(const cc_glglue * glue)
 {
   if (!glglue_allow_newer_opengl(glue)) return FALSE;
   return glue->glMultiDrawArrays && glue->glMultiDrawElements;
+}
+
+SbBool
+cc_glglue_has_multi_draw_indirect(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  const SbBool advertised =
+    cc_glglue_glversion_matches_at_least(glue, 4, 3, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_multi_draw_indirect");
+  return advertised && glue->glMultiDrawArraysIndirect &&
+    glue->glMultiDrawElementsIndirect;
+}
+
+SbBool
+cc_glglue_has_shader_storage_buffer_object(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  const SbBool advertised =
+    cc_glglue_glversion_matches_at_least(glue, 4, 3, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_shader_storage_buffer_object");
+  return advertised && glue->glBindBufferBase;
+}
+
+SbBool
+cc_glglue_has_shader_draw_parameters(const cc_glglue * glue)
+{
+  if (!glglue_allow_newer_opengl(glue)) return FALSE;
+  return cc_glglue_glversion_matches_at_least(glue, 4, 6, 0) ||
+    cc_glglue_glext_supported(glue, "GL_ARB_shader_draw_parameters");
+}
+
+void
+cc_glglue_glBindBufferBase(const cc_glglue * glue, GLenum target,
+                           GLuint index, GLuint buffer)
+{
+  assert(glue->glBindBufferBase);
+  glue->glBindBufferBase(target, index, buffer);
+}
+
+void
+cc_glglue_glMultiDrawArraysIndirect(const cc_glglue * glue, GLenum mode,
+                                    const GLvoid * indirect,
+                                    GLsizei drawcount, GLsizei stride)
+{
+  assert(glue->glMultiDrawArraysIndirect);
+  glue->glMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
+}
+
+void
+cc_glglue_glMultiDrawElementsIndirect(const cc_glglue * glue, GLenum mode,
+                                      GLenum type, const GLvoid * indirect,
+                                      GLsizei drawcount, GLsizei stride)
+{
+  assert(glue->glMultiDrawElementsIndirect);
+  glue->glMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
 }
 
 void

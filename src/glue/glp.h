@@ -266,6 +266,14 @@ typedef void (APIENTRY * COIN_PFNGLDRAWELEMENTSINSTANCEDPROC)(GLenum mode,
                                                               GLenum type,
                                                               const GLvoid * indices,
                                                               GLsizei instancecount);
+typedef void (APIENTRY * COIN_PFNGLBINDBUFFERBASEPROC)(GLenum target,
+                                                       GLuint index,
+                                                       GLuint buffer);
+typedef void (APIENTRY * COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC)(
+  GLenum mode, const GLvoid * indirect, GLsizei drawcount, GLsizei stride);
+typedef void (APIENTRY * COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC)(
+  GLenum mode, GLenum type, const GLvoid * indirect, GLsizei drawcount,
+  GLsizei stride);
 
 /* Core framebuffer entry points which are not exported by the Windows
    OpenGL 1.1 import library and may be absent from older platform headers. */
@@ -752,6 +760,9 @@ struct cc_glglue {
   COIN_PFNGLVERTEXATTRIBIPOINTERPROC glVertexAttribIPointer;
   COIN_PFNGLDRAWARRAYSINSTANCEDPROC glDrawArraysInstanced;
   COIN_PFNGLDRAWELEMENTSINSTANCEDPROC glDrawElementsInstanced;
+  COIN_PFNGLBINDBUFFERBASEPROC glBindBufferBase;
+  COIN_PFNGLMULTIDRAWARRAYSINDIRECTPROC glMultiDrawArraysIndirect;
+  COIN_PFNGLMULTIDRAWELEMENTSINDIRECTPROC glMultiDrawElementsIndirect;
   COIN_PFNGLCLEARBUFFERUIVPROC glClearBufferuiv;
   COIN_PFNGLCLEARBUFFERFVPROC glClearBufferfv;
   COIN_PFNGLUNIFORM1UIPROC glUniform1ui;

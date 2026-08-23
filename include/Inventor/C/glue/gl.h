@@ -385,6 +385,21 @@ COIN_DLL_API void cc_glglue_glDrawElementsInstanced(const cc_glglue * glue,
                                                     GLenum type,
                                                     const GLvoid * indices,
                                                     GLsizei instancecount);
+COIN_DLL_API SbBool cc_glglue_has_multi_draw_indirect(
+  const cc_glglue * glue);
+COIN_DLL_API SbBool cc_glglue_has_shader_storage_buffer_object(
+  const cc_glglue * glue);
+COIN_DLL_API SbBool cc_glglue_has_shader_draw_parameters(
+  const cc_glglue * glue);
+COIN_DLL_API void cc_glglue_glBindBufferBase(const cc_glglue * glue,
+                                             GLenum target, GLuint index,
+                                             GLuint buffer);
+COIN_DLL_API void cc_glglue_glMultiDrawArraysIndirect(
+  const cc_glglue * glue, GLenum mode, const GLvoid * indirect,
+  GLsizei drawcount, GLsizei stride);
+COIN_DLL_API void cc_glglue_glMultiDrawElementsIndirect(
+  const cc_glglue * glue, GLenum mode, GLenum type, const GLvoid * indirect,
+  GLsizei drawcount, GLsizei stride);
 COIN_DLL_API void cc_glglue_glDrawRangeElements(const cc_glglue * glue, 
                                                 GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid * indices);
 COIN_DLL_API void cc_glglue_glArrayElement(const cc_glglue * glue, GLint i);
