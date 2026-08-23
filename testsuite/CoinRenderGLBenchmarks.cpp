@@ -130,6 +130,20 @@ struct Measurement {
   uint64_t pixelChecksum = 0;
 };
 
+void copySubmissionStatistics(
+  Measurement & measurement,
+  const SoRenderManager::RenderPhaseStatistics & phases)
+{
+  measurement.submittedDrawCalls = phases.submittedDrawCalls;
+  if (phases.semanticDrawCommands != 0) {
+    measurement.semanticDraws = static_cast<int>(phases.semanticDrawCommands);
+  }
+  measurement.instancedTriangleBatches = phases.instancedTriangleBatches;
+  measurement.instancedTriangleCommands = phases.instancedTriangleCommands;
+  measurement.instancedLineBatches = phases.instancedLineBatches;
+  measurement.instancedLineCommands = phases.instancedLineCommands;
+}
+
 double elapsedMs(const Clock::time_point & start)
 {
   return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
@@ -302,15 +316,7 @@ bool runVariant(GLTestProfile profile,
       renderPhases.backendCommandExecutionNanoseconds / 1000000.0);
     backendSelection.push_back(
       renderPhases.backendSelectionNanoseconds / 1000000.0);
-    result.submittedDrawCalls = renderPhases.submittedDrawCalls;
-    if (renderPhases.semanticDrawCommands != 0) {
-      result.semanticDraws = static_cast<int>(
-        renderPhases.semanticDrawCommands);
-    }
-    result.instancedTriangleBatches = renderPhases.instancedTriangleBatches;
-    result.instancedTriangleCommands = renderPhases.instancedTriangleCommands;
-    result.instancedLineBatches = renderPhases.instancedLineBatches;
-    result.instancedLineCommands = renderPhases.instancedLineCommands;
+    copySubmissionStatistics(result, renderPhases);
     result.drawListRebuilds += renderPhases.drawListRebuilds;
     glEndQuery(GL_TIME_ELAPSED);
     GLuint64 nanoseconds = 0;
@@ -1156,6 +1162,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     std::vector<double> frameTimes;
     std::vector<double> constructionTimes;
     std::vector<double> planTimes;
+    SoRenderManager::RenderPhaseStatistics submissionPhases;
     const float magnitude = 0.002f * static_cast<float>(batchIndex + 1);
     for (int sample = 0; sample < samples; ++sample) {
       const float offset = (sample & 1) ? -magnitude : magnitude;
@@ -1170,6 +1177,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
       frameTimes.push_back(elapsedMs(start));
       const SoRenderManager::RenderPhaseStatistics phases =
         manager.getRenderPhaseStatistics();
+      submissionPhases = phases;
       constructionTimes.push_back(
         phases.drawListConstructionNanoseconds / 1000000.0);
       planTimes.push_back(phases.planConstructionNanoseconds / 1000000.0);
@@ -1228,6 +1236,7 @@ bool runAssemblyMutations(GLTestProfile profile, WorkloadKind workload,
     transformResult.planConstructionMedianMs = percentile(planTimes, 0.5);
     transformResult.incrementalCommandUpdates =
       static_cast<uint64_t>(changedCount) * 2;
+    copySubmissionStatistics(transformResult, submissionPhases);
     transformResult.pixelChecksum = checksumPixels(incrementalPixels);
     results.push_back(transformResult);
   }

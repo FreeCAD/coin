@@ -228,6 +228,12 @@ time so a silent fallback cannot appear to be a valid incremental result. The
 normal and smoke benchmark runs include the same curves at their standard
 scene sizes.
 
+Assembly transform curves also report semantic commands, submitted draw
+calls, and instanced triangle/line batches. This keeps geometry ownership and
+submission behavior visible together. In particular, shared resources do not
+imply visual instancing when face and edge commands alternate and opaque
+insertion order must be preserved.
+
 The same mutation run toggles visibility for batches of 1, 10, 100, and 1,000
 occurrences. These curves verify exact incremental command counts and expose
 the difference between inexpensive dependency updates and the subsequent
