@@ -357,17 +357,3 @@ SoSFPath::notify(SoNotList * l)
 
   inherited::notify(l);
 }
-
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFPath field;
-  BOOST_CHECK_MESSAGE(SoSFPath::getClassTypeId() != SoType::badType(),
-                      "SoSFPath class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

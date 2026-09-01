@@ -154,16 +154,3 @@ SoSFBox3s::getValue(SbBox3s & box) const
 }
 
 // *************************************************************************
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFBox3s field;
-  BOOST_CHECK_MESSAGE(SoSFBox3s::getClassTypeId() != SoType::badType(),
-                      "SoSFBox3s class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE

@@ -1,59 +1,43 @@
 Coin Test-Suite Instructions
 
-The test-suite uses an in-tree, minimal test runner (`testsuite/CoinTest.h`)
-that provides a small subset of Boost.Test-style macros (e.g.
-`BOOST_AUTO_TEST_CASE`, `BOOST_CHECK_MESSAGE`).
+The test-suite uses Catch2 v2.13.10, vendored under
+`testsuite/thirdparty/catch2`.  Coin-specific initialization and test helpers
+remain in `testsuite/CoinTest.h`.
 
-Test-code is written in the implementation file of the component to
-be tested.  The test-code is wrapped inside a define-wrapper like this:
+Component tests live in standalone `*Test.cpp` files below `testsuite/`,
+grouped by subsystem.  Each file includes the public header for the component
+under test and registers its cases with a suite name, for example:
 
-  #ifdef COIN_TEST_SUITE
+  #include <Inventor/SbVec3f.h>
+  #include "CoinTest.h"
 
-  BOOST_AUTO_TEST_CASE(name)
+  TEST_CASE("SbVec3f_TestSuite.example", "[SbVec3f_TestSuite]")
   {
     // test-code ...
   }
 
-  #endif // COIN_TEST_SUITE
+Only public parts of the API can be tested in this test-suite because it is
+built separately from Coin and linked with the library.
 
-Note the comment behind the #endif-directive.  It is necessary to
-include the COIN_TEST_SUITE token for the extractor to be able to
-detect the end of the testsuite block.
+When adding a test file, place it below the appropriate `testsuite/` subsystem
+directory and give it a name ending in `Test.cpp`.  Register cases with
+Catch2's `TEST_CASE` and use its assertions such as `CHECK`, `REQUIRE`, and
+`INFO`.  CMake discovers these sources automatically and converts the Catch2
+registry into individual CTest tests after the executable is built.
 
-One Coin-component implementation file may have multiple test-suite
-blocks, it is not limited to one.
+Useful commands from the build directory include:
 
-You can also add/implement utility functions outside the
-BOOST_AUTO_TEST_CASE blocks to structure code better.
+  ./bin/CoinTests --list-test-names-only
+  ctest -N
+  ctest -R 'CoinTests\.base\.' --output-on-failure
+  ctest --output-on-failure
 
-Every file that includes test-suite blocks need to have as the first
-#include-file the header that declares the component implemented in
-the cpp-file.  Otherwise the test-suite part won't be able to compile.
-You can add #include-directives in the COIN_TESTSUITE_BLOCK though,
-and get compilation to work that way.
+The CTest names are prefixed with `CoinTests.`, so a single case can be
+selected with `ctest -R 'CoinTests\.<suite>\.<case>'`.  Catch2 test specs can
+also be passed directly to the executable, for example:
 
-Only public parts of the API can be tested in this test-suite because
-it is built separately outside Coin and then linked with Coin.
+  ./bin/CoinTests "SbVec3f_TestSuite.example"
 
-When a new cpp-file gets its first test-case, the test-suite does not
-are discovered by the CMake-based testsuite extractor (`testsuite/CMakeLists.txt`)
-and compiled into the `CoinTests` executable.
-The thing that doesn't get updated automatically is the *list* of
-files that actually contain test-case code, which you must trigger
-manual updating of by running "make makefile-update" as mentioned above.
-
-Run the tests by running "make testsuite-run" in the top-level directory,
-or by running "make" in the testsuite directory (after building Coin, of 
-course).
-
-If the test-suite crashes (as opposed to just reporting errors),
-running "make verbose" might be helpful to figure out exactly which
-test-case is the one that causes the problem, or "make debug" to make
-the testsuite run in gdb so you end up in the debugger when the
-testsuite crashes.  This works only on platforms that use gcc and gdb
-as the compiler/debugger suite (Linux, OS X, unixes...) and is not
-supported on Windows for now.
-
-That's it.
-
-/2008-11-16 larsa
+If the test-suite crashes, select a narrow CTest expression or invoke the
+executable directly with a Catch2 test spec to identify the failing case
+before using a debugger.

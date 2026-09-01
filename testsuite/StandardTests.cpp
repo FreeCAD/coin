@@ -50,22 +50,17 @@ namespace {
   static std::vector<std::string> standardSuffixes(standardSuffixes_initializer,&standardSuffixes_initializer[sizeof(standardSuffixes_initializer)/sizeof(standardSuffixes_initializer[0])]);
 }
 
-
-BOOST_AUTO_TEST_SUITE(StandardTests);
-
-BOOST_AUTO_TEST_CASE(loadCorrectfiles)
+TEST_CASE("StandardTests.loadCorrectfiles", "[StandardTests]")
 {
   TestSuite::test_all_files("models",standardSuffixes,&TestSuite::testCorrectFile);
 }
 
-BOOST_AUTO_TEST_CASE(loadIncorrectfiles)
+TEST_CASE("StandardTests.loadIncorrectfiles", "[StandardTests]")
 {
   TestSuite::test_all_files("killers",standardSuffixes,&TestSuite::testIncorrectFile);
 }
 
-BOOST_AUTO_TEST_CASE(loadOutOfSpecFilesWhichWeAccept)
+TEST_CASE("StandardTests.loadOutOfSpecFilesWhichWeAccept", "[StandardTests]")
 {
   TestSuite::test_all_files("slackers",standardSuffixes,&TestSuite::testOutOfSpecFile);
 }
-
-BOOST_AUTO_TEST_SUITE_END();

@@ -103,7 +103,7 @@ floatEquals(float a, float b, float tol)
   return fabs(b-a)/fabs(a)<tol;
 }
 
-#define COIN_TESTCASE_CHECK_FLOAT(X,Y) BOOST_CHECK_MESSAGE(floatEquals((X), (Y), 1), std::string("unexpected value: expected ") + ::CoinTest::stringify((Y)) +", got " + ::CoinTest::stringify((X)) + " difference is: " + ::CoinTest::stringify((X)-(Y)))
+#define COIN_TESTCASE_CHECK_FLOAT(X,Y) do { INFO(std::string("unexpected value: expected ") + ::CoinTest::stringify((Y)) +", got " + ::CoinTest::stringify((X)) + " difference is: " + ::CoinTest::stringify((X)-(Y))); CHECK((floatEquals((X), (Y), 1))); } while (false)
 
 namespace SIM { namespace Coin { namespace TestSuite {
 
@@ -165,7 +165,7 @@ struct to<1> {
    {
      using namespace internal;
      bool cmp=fuzzyCompare(v1,v2, tolerance);
-     BOOST_CHECK_MESSAGE(cmp, txt+": "+to<SbTypeInfo<T>::Dimensions>::String(v1) + " != "+ to<SbTypeInfo<T>::Dimensions>::String(v2) );
+     do { INFO(txt+": "+to<SbTypeInfo<T>::Dimensions>::String(v1) + " != "+ to<SbTypeInfo<T>::Dimensions>::String(v2)); CHECK((cmp)); } while (false);
      return cmp;
    }
 }}}

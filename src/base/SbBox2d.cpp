@@ -560,34 +560,3 @@ SbBox2d::getClosestPoint(const SbVec2d & point) const
 
   Check \a b1 and \a b2 for inequality.
 */
-
-#ifdef COIN_TEST_SUITE
-BOOST_AUTO_TEST_CASE(checkSize) {
-  SbVec2d min(1,2);
-  SbVec2d max(3,4);
-
-  SbVec2d diff = max - min;
-
-  SbBox2d box(min, max);
-
-  BOOST_CHECK_MESSAGE(box.getSize() == diff,
-                      "Box has incorrect size");
-}
-BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
-  SbVec2d point(1524, 13794);
-  SbVec2d min(1557, 3308);
-  SbVec2d max(3113, 30157);
-
-  SbBox2d box(min, max);
-  SbVec2d expected(1557, 13794);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(point) == expected,
-                      "Closest point does not fit");
-
-  SbVec2d sizes = box.getSize();
-  SbVec2d expectedCenterQuery(max[0], sizes[1] / 2.0);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(box.getCenter()) == expectedCenterQuery,
-                      "Closest point for center query does not fit");
-}
-#endif //COIN_TEST_SUITE

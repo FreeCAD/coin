@@ -87,7 +87,3 @@ SbVec3us::operator *= (double d)
   vec[2] = static_cast<unsigned short>(vec[2] * d);
   return *this;
 }
-
-#ifdef COIN_TEST_SUITE
-
-#endif //COIN_TEST_SUITE

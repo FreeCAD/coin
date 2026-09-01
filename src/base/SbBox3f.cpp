@@ -589,23 +589,3 @@ SbBox3f::getClosestPoint(const SbVec3f & point) const
 
   return closest;
 }
-
-#ifdef COIN_TEST_SUITE
-BOOST_AUTO_TEST_CASE(checkGetClosestPoint) {
-  SbVec3f point(1524 , 13794 , 851);
-  SbVec3f min(1557, 3308, 850);
-  SbVec3f max(3113, 30157, 1886);
-
-  SbBox3f box(min, max);
-  SbVec3f expected(1557, 13794, 851);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(point) == expected,
-                      "Closest point does not fit");
-
-  SbVec3f sizes = box.getSize();
-  SbVec3f expectedCenterQuery(sizes[0]/2.0f, sizes[1]/2.0f, max[2]);
-
-  BOOST_CHECK_MESSAGE(box.getClosestPoint(box.getCenter()) == expectedCenterQuery,
-                      "Closest point for center query does not fit");
-}
-#endif //COIN_TEST_SUITE

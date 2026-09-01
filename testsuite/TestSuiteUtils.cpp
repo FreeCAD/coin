@@ -431,20 +431,20 @@ TestSuite::test_all_files(const std::string & search_directory,
 
 bool
 TestSuite::testCorrectFile(SoNode * root, const std::string & filename) {
-    BOOST_CHECK_MESSAGE((root != NULL) && (GetReadErrorCount() == 0), (std::string("failed to read file ") + filename).c_str());
+    do { INFO(std::string("failed to read file ") + filename); CHECK(((root != NULL) && (GetReadErrorCount() == 0))); } while (false);
     ResetReadErrorCount();
     return root != NULL;
 }
 
 bool
 TestSuite::testIncorrectFile(SoNode * root, const std::string & filename) {
-    BOOST_CHECK_MESSAGE((root == NULL) || (GetReadErrorCount() > 0), (std::string("Managed to read an incorrect file ") + filename).c_str());
+    do { INFO(std::string("Managed to read an incorrect file ") + filename); CHECK(((root == NULL) || (GetReadErrorCount() > 0))); } while (false);
     ResetReadErrorCount();
     return root != NULL;
 }
 
 bool
 TestSuite::testOutOfSpecFile(SoNode * root, const std::string & filename) {
-    BOOST_CHECK_MESSAGE(root != NULL, (std::string("This out of spec file could be read in an earlier version ") + filename).c_str());
+    do { INFO(std::string("This out of spec file could be read in an earlier version ") + filename); CHECK((root != NULL)); } while (false);
     return root != NULL;
 }

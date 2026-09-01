@@ -594,16 +594,3 @@ SoSFImage::hasTransparency(void) const
 }
 
 #undef PRIVATE
-
-#ifdef COIN_TEST_SUITE
-
-BOOST_AUTO_TEST_CASE(initialized)
-{
-  SoSFImage field;
-  BOOST_CHECK_MESSAGE(SoSFImage::getClassTypeId() != SoType::badType(),
-                      "SoSFImage class not initialized");
-  BOOST_CHECK_MESSAGE(field.getTypeId() != SoType::badType(),
-                      "missing class initialization");
-}
-
-#endif // COIN_TEST_SUITE
