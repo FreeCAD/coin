@@ -53,6 +53,16 @@ endif()
 set( CMAKE_CXX_STANDARD 11 CACHE STRING "C++ standard used for the build" )
 message( STATUS "Setting C++ standard: '${CMAKE_CXX_STANDARD}', which is the minimum needed to compile Coin.")
 
+# Coin does not use C++20 modules. Disable CMake's module dependency scanning
+# when Coin is embedded in projects that build with C++20 or newer.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# Coin's Win32 code still relies on narrow Win32 API types in several places.
+# Keep this workaround local until those call sites use explicit A/W APIs.
+if(MSVC)
+  add_compile_options(/UUNICODE /U_UNICODE)
+endif()
+
 # ############################################################################
 # Include necessary submodules
 # ############################################################################
@@ -84,6 +94,7 @@ option(COIN_BUILD_TESTS "Build unit tests when ON (default), skips them when OFF
 option(COIN_BUILD_DOCUMENTATION "Build and install API documentation (requires Doxygen)." OFF)
 option(COIN_BUILD_AWESOME_DOCUMENTATION "Build and install API documentation in new modern style (requires Doxygen)." OFF)
 option(COIN_BUILD_EXAMPLES "Build examples when ON (default), skips them when OFF." OFF)
+option(COIN_INSTALL "Generate install rules for Coin runtime, development, and package files." ON)
 cmake_dependent_option(COIN_BUILD_INTERNAL_DOCUMENTATION "Document internal code not part of the API." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_MAN "Build Coin man pages." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_QTHELP "Build QtHelp documentation." OFF "COIN_BUILD_DOCUMENTATION" OFF)
@@ -168,6 +179,7 @@ report_prepare(
   COIN_BUILD_DOCUMENTATION_CHM
   COIN_BUILD_EGL
   COIN_BUILD_AWESOME_DOCUMENTATION
+  COIN_INSTALL
   COIN_STRICT_WARNINGS
   COIN_THREADSAFE
   HAVE_VRML97
@@ -308,9 +320,16 @@ if(Threads_FOUND)
   #pthreads does not provide pkg-config file, therefore not added here
 endif()
 
+set(COIN_USE_SYSTEM_EXPAT OFF)
+set(COIN_EXPAT_PROVIDER "bundled")
+
+# USE_EXTERNAL_EXPAT is a preference. Resolve the actual provider once so
+# bundled fallback and downstream subdirectories stay in sync.
 if(USE_EXTERNAL_EXPAT)
   find_package(EXPAT)
   if(EXPAT_FOUND)
+    set(COIN_USE_SYSTEM_EXPAT ON)
+    set(COIN_EXPAT_PROVIDER "system")
     set(HAVE_EXPAT 1)
     if(NOT TARGET EXPAT::EXPAT)
       add_library(EXPAT::EXPAT UNKNOWN IMPORTED)
@@ -320,12 +339,16 @@ if(USE_EXTERNAL_EXPAT)
         INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIRS}")
     endif()
     list(APPEND COIN_TARGET_LINK_LIBRARIES EXPAT::EXPAT)
-  endif()
-else()
-  if(NOT WIN32)
-    set(XML_DEV_URANDOM 1)
+  else()
+    message(STATUS "Expat not found, falling back to bundled copy")
   endif()
 endif()
+
+if(NOT COIN_USE_SYSTEM_EXPAT AND NOT WIN32)
+  set(XML_DEV_URANDOM 1)
+endif()
+
+message(STATUS "Using ${COIN_EXPAT_PROVIDER} Expat")
 
 if(USE_SUPERGLU)
   find_package(superglu)
@@ -957,6 +980,6 @@ endif()
 
 # ############################################################################
 # New CPACK section, please see the README file inside cpack.d directory.
-if (COIN_USE_CPACK)
+if (COIN_USE_CPACK AND COIN_INSTALL)
   add_subdirectory(cpack.d)
 endif()
