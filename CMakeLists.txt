@@ -4,7 +4,8 @@ set(COIN_MAJOR_VERSION 4)
 set(COIN_MINOR_VERSION 0)
 set(COIN_MICRO_VERSION 10)
 set(COIN_BETA_VERSION)
-set(COIN_VERSION ${COIN_MAJOR_VERSION}.${COIN_MINOR_VERSION}.${COIN_MICRO_VERSION}${COIN_BETA_VERSION})
+set(COIN_VERSION ${COIN_MAJOR_VERSION}.${COIN_MINOR_VERSION}.${COIN_MICRO_VERSION}${COIN_BETA_VERSION}
+  CACHE INTERNAL "Coin version string")
 
 project(Coin VERSION ${COIN_MAJOR_VERSION}.${COIN_MINOR_VERSION}.${COIN_MICRO_VERSION})
 string(TOLOWER ${PROJECT_NAME} PROJECT_NAME_LOWER)
@@ -52,6 +53,16 @@ endif()
 set( CMAKE_CXX_STANDARD 11 CACHE STRING "C++ standard used for the build" )
 message( STATUS "Setting C++ standard: '${CMAKE_CXX_STANDARD}', which is the minimum needed to compile Coin.")
 
+# Coin does not use C++20 modules. Disable CMake's module dependency scanning
+# when Coin is embedded in projects that build with C++20 or newer.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# Coin's Win32 code still relies on narrow Win32 API types in several places.
+# Keep this workaround local until those call sites use explicit A/W APIs.
+if(MSVC)
+  add_compile_options(/UUNICODE /U_UNICODE)
+endif()
+
 # ############################################################################
 # Include necessary submodules
 # ############################################################################
@@ -83,6 +94,7 @@ option(COIN_BUILD_TESTS "Build unit tests when ON (default), skips them when OFF
 option(COIN_BUILD_DOCUMENTATION "Build and install API documentation (requires Doxygen)." OFF)
 option(COIN_BUILD_AWESOME_DOCUMENTATION "Build and install API documentation in new modern style (requires Doxygen)." OFF)
 option(COIN_BUILD_EXAMPLES "Build examples when ON (default), skips them when OFF." OFF)
+option(COIN_INSTALL "Generate install rules for Coin runtime, development, and package files." ON)
 cmake_dependent_option(COIN_BUILD_INTERNAL_DOCUMENTATION "Document internal code not part of the API." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_MAN "Build Coin man pages." OFF "COIN_BUILD_DOCUMENTATION" OFF)
 cmake_dependent_option(COIN_BUILD_DOCUMENTATION_QTHELP "Build QtHelp documentation." OFF "COIN_BUILD_DOCUMENTATION" OFF)
@@ -167,6 +179,7 @@ report_prepare(
   COIN_BUILD_DOCUMENTATION_CHM
   COIN_BUILD_EGL
   COIN_BUILD_AWESOME_DOCUMENTATION
+  COIN_INSTALL
   COIN_STRICT_WARNINGS
   COIN_THREADSAFE
   HAVE_VRML97
@@ -307,9 +320,16 @@ if(Threads_FOUND)
   #pthreads does not provide pkg-config file, therefore not added here
 endif()
 
+set(COIN_USE_SYSTEM_EXPAT OFF)
+set(COIN_EXPAT_PROVIDER "bundled")
+
+# USE_EXTERNAL_EXPAT is a preference. Resolve the actual provider once so
+# bundled fallback and downstream subdirectories stay in sync.
 if(USE_EXTERNAL_EXPAT)
   find_package(EXPAT)
   if(EXPAT_FOUND)
+    set(COIN_USE_SYSTEM_EXPAT ON)
+    set(COIN_EXPAT_PROVIDER "system")
     set(HAVE_EXPAT 1)
     if(NOT TARGET EXPAT::EXPAT)
       add_library(EXPAT::EXPAT UNKNOWN IMPORTED)
@@ -319,12 +339,16 @@ if(USE_EXTERNAL_EXPAT)
         INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIRS}")
     endif()
     list(APPEND COIN_TARGET_LINK_LIBRARIES EXPAT::EXPAT)
-  endif()
-else()
-  if(NOT WIN32)
-    set(XML_DEV_URANDOM 1)
+  else()
+    message(STATUS "Expat not found, falling back to bundled copy")
   endif()
 endif()
+
+if(NOT COIN_USE_SYSTEM_EXPAT AND NOT WIN32)
+  set(XML_DEV_URANDOM 1)
+endif()
+
+message(STATUS "Using ${COIN_EXPAT_PROVIDER} Expat")
 
 if(USE_SUPERGLU)
   find_package(superglu)
@@ -550,18 +574,6 @@ foreach (_config ${CMAKE_CONFIGURATION_TYPES})
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_config} "${CMAKE_BINARY_DIR}/bin")
 endforeach()
 
-# Checks for existence of specified types and set variable to the first type found
-coin_find_int_type_with_size(COIN_INT8_T 1 "int8_t" "char")
-coin_find_int_type_with_size(COIN_UINT8_T 1 "uint8_t" "u_int8_t" "unsigned char")
-coin_find_int_type_with_size(COIN_INT16_T 2 "int16_t" "short" "int")
-coin_find_int_type_with_size(COIN_UINT16_T 2 "uint16_t" "u_int16_t" "unsigned short" "unsigned int")
-coin_find_int_type_with_size(COIN_INT32_T 4 "int32_t" "int" "long")
-coin_find_int_type_with_size(COIN_UINT32_T 4 "uint32_t" "u_int32_t" "unsigned int" "unsigned long")
-coin_find_int_type_with_size(COIN_INT64_T 8 "int64_t" "long" "int" "long long" "__int64")
-coin_find_int_type_with_size(COIN_UINT64_T 8 "uint64_t" "u_int64_t" "unsigned long" "unsigned int" "unsigned long long" "unsigned __int64")
-coin_find_int_type_with_size(COIN_INTPTR_T ${CMAKE_SIZEOF_VOID_P} "intptr_t" "int" "long" "long long" "__int64")
-coin_find_int_type_with_size(COIN_UINTPTR_T ${CMAKE_SIZEOF_VOID_P} "uintptr_t" "u_intptr_t" "_W64 unsigned int" "unsigned int" "unsigned long" "u_int64_t" "unsigned long long" "unsigned __int64")
-
 if(MSVC)
   option(COIN_BUILD_MSVC_STATIC_RUNTIME "Build against the static Microsoft Visual C runtime library." OFF)
   option(COIN_BUILD_SINGLE_LIB "Build only one library when ON, multiple when OFF." ON)
@@ -606,21 +618,23 @@ if(WIN32)
     set(COIN_DEFAULT_POSTFIX ${COIN_DEFAULT_STATIC_POSTFIX})
     set(COIN_LIBRARY_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX})
   endif()
+  set(COIN_RELEASE_POSTFIX "${COIN_DEFAULT_POSTFIX}")
+  set(COIN_DEBUG_POSTFIX "${COIN_DEFAULT_POSTFIX}d")
   # Don't set these if the project is built as cmake a subdirectory
   if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(CMAKE_RELEASE_POSTFIX "${COIN_DEFAULT_POSTFIX}"
+    set(CMAKE_RELEASE_POSTFIX "${COIN_RELEASE_POSTFIX}"
       CACHE STRING "Default filename postfix for libraries under configuration Release")
-    set(CMAKE_MINSIZEREL_POSTFIX "${COIN_DEFAULT_POSTFIX}"
+    set(CMAKE_MINSIZEREL_POSTFIX "${COIN_RELEASE_POSTFIX}"
       CACHE STRING "Default filename postfix for libraries under configuration MinSizeRel")
-    set(CMAKE_RELWITHDEBINFO_POSTFIX "${COIN_DEFAULT_POSTFIX}"
+    set(CMAKE_RELWITHDEBINFO_POSTFIX "${COIN_RELEASE_POSTFIX}"
       CACHE STRING "Default filename postfix for libraries under configuration RelWithDebInfo")
-    set(CMAKE_DEBUG_POSTFIX "${COIN_DEFAULT_POSTFIX}d"
+    set(CMAKE_DEBUG_POSTFIX "${COIN_DEBUG_POSTFIX}"
       CACHE STRING "Default filename postfix for libraries under configuration Debug")
   endif()
 
 
-  set(COIN_RELEASE_SYSTEM_LIBRARY_NAME Coin${CMAKE_RELEASE_POSTFIX}${COIN_LIBRARY_SUFFIX})
-  set(COIN_DEBUG_SYSTEM_LIBRARY_NAME Coin${CMAKE_DEBUG_POSTFIX}${COIN_LIBRARY_SUFFIX})
+  set(COIN_RELEASE_SYSTEM_LIBRARY_NAME Coin${COIN_RELEASE_POSTFIX}${COIN_LIBRARY_SUFFIX})
+  set(COIN_DEBUG_SYSTEM_LIBRARY_NAME Coin${COIN_DEBUG_POSTFIX}${COIN_LIBRARY_SUFFIX})
 elseif(APPLE)
   if(POLICY CMP0042)
     # get rid of MACOSX_RPATH warning on Mac OS X from CMake 3.12.2
@@ -669,13 +683,9 @@ else()
   set(COIN_DEBUG_SYSTEM_LIBRARY_NAME "$<TARGET_FILE_NAME:Coin>")
 endif()
 
-check_include_file(inttypes.h HAVE_INTTYPES_H)
-check_include_file(stdint.h HAVE_STDINT_H)
-check_include_file(stddef.h HAVE_STDDEF_H)
 check_include_file(unistd.h HAVE_UNISTD_H)
 check_include_file(sys/time.h HAVE_SYS_TIME_H)
 check_include_file(sys/timeb.h HAVE_SYS_TIMEB_H)
-check_include_file(sys/types.h HAVE_SYS_TYPES_H)
 check_include_file(sys/stat.h HAVE_SYS_STAT_H)
 check_include_file(sys/param.h HAVE_SYS_PARAM_H)
 check_include_file(io.h HAVE_IO_H)
@@ -954,6 +964,6 @@ endif()
 
 # ############################################################################
 # New CPACK section, please see the README file inside cpack.d directory.
-if (COIN_USE_CPACK)
+if (COIN_USE_CPACK AND COIN_INSTALL)
   add_subdirectory(cpack.d)
 endif()

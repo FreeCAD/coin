@@ -174,7 +174,7 @@ set(COIN_GLELEMENTS_OBJECTS $<TARGET_OBJECTS:glelements>)
 if(COIN_BUILD_SINGLE_LIB)
   add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES})
 else()
-  if(NOT HAVE_EXPAT)
+  if(NOT COIN_USE_SYSTEM_EXPAT)
     set(expat_target $<TARGET_OBJECTS:expat>)
   endif()
 
@@ -253,6 +253,12 @@ if(WIN32)
     set_property(SOURCE scxml/eval-minimum-tab.cpp APPEND PROPERTY COMPILE_FLAGS /wd4065)
     set_property(SOURCE soscxml/eval-coin-tab.cpp APPEND PROPERTY COMPILE_FLAGS /wd4065)
   endif()
+  set_target_properties(${PROJECT_NAME} PROPERTIES
+    RELEASE_POSTFIX        "${COIN_RELEASE_POSTFIX}"
+    MINSIZEREL_POSTFIX     "${COIN_RELEASE_POSTFIX}"
+    RELWITHDEBINFO_POSTFIX "${COIN_RELEASE_POSTFIX}"
+    DEBUG_POSTFIX          "${COIN_DEBUG_POSTFIX}"
+  )
 elseif(APPLE)
   if(COIN_BUILD_MAC_FRAMEWORK)
     # Set the framework target properties just to make sure the relevant links inside the framework 
@@ -370,11 +376,15 @@ if(COIN_BUILD_MAC_FRAMEWORK)
 # Install framework target
 # ############################################################################
 
+if(COIN_INSTALL)
   install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}
     FRAMEWORK DESTINATION . COMPONENT development
   )
+endif()
 
 else()
+
+if(COIN_INSTALL)
 
 # ############################################################################
 # Install headers
@@ -422,9 +432,13 @@ else()
   endif()
 endif()
 
+endif()
+
 # ############################################################################
 # Install config package and pkgconfig file
 # ############################################################################
+
+if(COIN_INSTALL)
 
 if(COIN_BUILD_MAC_FRAMEWORK)
   set(COIN_CONFIG_PACKAGE_LOCATION ${COIN_MAC_FRAMEWORK_NAME}.framework/Resources/CMake)
@@ -480,3 +494,5 @@ install(EXPORT ${PROJECT_NAME}
   FILE ${COIN_CONFIG_PACKAGE_BASENAME}-export.cmake
   COMPONENT development
 )
+
+endif()

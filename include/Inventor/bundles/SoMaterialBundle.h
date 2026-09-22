@@ -35,7 +35,6 @@
 
 #include <Inventor/bundles/SoBundle.h>
 #include <Inventor/SbBasic.h>
-#include <Inventor/system/inttypes.h>
 
 class SoGLLazyElement;
 

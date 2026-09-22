@@ -36,7 +36,6 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include <Inventor/system/inttypes.h>
 #include <Inventor/C/base/string.h>
 
 #ifdef COIN_INTERNAL
