@@ -109,6 +109,7 @@ cmake_dependent_option(HAVE_MANIPULATORS "Enable Manipulator support." ON "HAVE_
 option(HAVE_SOUND "Enable OpenAL sound support." ON)
 option(HAVE_3DS_IMPORT_CAPABILITIES "Enable 3ds import capabilities." ON)
 option(USE_EXTERNAL_EXPAT "Use system install of Expat." OFF)
+option(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR "Use system install of Vulkan Memory Allocator." OFF)
 option(USE_EXCEPTIONS "Compile with exceptions (g++ only)." ON)
 option(USE_SUPERGLU "Use superglu library when ON, GLU implementation of platform when OFF (default)." OFF)
 
@@ -211,6 +212,7 @@ report_prepare(
   HAVE_SOUND
   HAVE_3DS_IMPORT_CAPABILITIES
   USE_EXTERNAL_EXPAT
+  USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR
   USE_EXCEPTIONS
   USE_SUPERGLU
   FONTCONFIG_RUNTIME_LINKING
@@ -333,10 +335,37 @@ if(COIN_BUILD_VULKAN_RENDERER)
     list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${Vulkan_INCLUDE_DIRS})
     list(APPEND COIN_TARGET_LINK_LIBRARIES ${Vulkan_LIBRARIES})
   endif()
-  # Vendored Vulkan Memory Allocator (header-only; the implementation is
-  # compiled once from rendering/third_party/vma/vk_mem_alloc_impl.cpp).
-  list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES
-       ${PROJECT_SOURCE_DIR}/src/rendering/third_party/vma)
+  # Vulkan Memory Allocator (header-only).  Bundled by default; set
+  # USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR=ON to prefer a system install,
+  # mirroring USE_EXTERNAL_EXPAT.  The single implementation is always compiled
+  # from rendering/third_party/vma/vk_mem_alloc_impl.cpp, so whichever header
+  # provider is selected is what the renderer and that TU both include.
+  set(COIN_VMA_PROVIDER "bundled")
+  set(COIN_VMA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/rendering/third_party/vma")
+  if(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR)
+    find_package(VulkanMemoryAllocator CONFIG QUIET)
+    if(TARGET VulkanMemoryAllocator::VulkanMemoryAllocator)
+      set(COIN_VMA_PROVIDER "system")
+      set(HAVE_VULKAN_MEMORY_ALLOCATOR 1)
+      set(COIN_VMA_INCLUDE_DIR "")
+      list(APPEND COIN_TARGET_LINK_LIBRARIES VulkanMemoryAllocator::VulkanMemoryAllocator)
+    else()
+      find_path(COIN_VMA_SYSTEM_INCLUDE_DIR
+        NAMES vk_mem_alloc.h
+        PATH_SUFFIXES vma VulkanMemoryAllocator)
+      if(COIN_VMA_SYSTEM_INCLUDE_DIR)
+        set(COIN_VMA_PROVIDER "system")
+        set(HAVE_VULKAN_MEMORY_ALLOCATOR 1)
+        set(COIN_VMA_INCLUDE_DIR "${COIN_VMA_SYSTEM_INCLUDE_DIR}")
+      else()
+        message(STATUS "VulkanMemoryAllocator not found, falling back to bundled copy")
+      endif()
+    endif()
+  endif()
+  if(COIN_VMA_INCLUDE_DIR)
+    list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${COIN_VMA_INCLUDE_DIR})
+  endif()
+  message(STATUS "Using ${COIN_VMA_PROVIDER} VulkanMemoryAllocator")
   set(HAVE_VULKAN 1)
   # Optional: Intel Open Image Denoise for the path tracing denoise pass.
   # When absent the RTX backend falls back to the in-shader edge-stopping

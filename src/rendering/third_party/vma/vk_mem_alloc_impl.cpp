@@ -8,9 +8,14 @@
 // functions rather than resolving them through vkGetInstanceProcAddr at
 // runtime.  Both macros are pinned here so the choice does not depend on
 // whether VK_NO_PROTOTYPES happens to be defined elsewhere in the build.
+//
+// The header is included with angle brackets so the include path (bundled copy
+// vs. USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR system install) selects the
+// provider; a quoted include would always pick the bundled header next to this
+// file.
 
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 1
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
