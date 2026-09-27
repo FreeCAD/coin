@@ -842,7 +842,18 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
               pp[3][0], pp[3][1], pp[3][2], pp[3][3]);
     }
   }
-  const SbVec2s lineViewportSize = params.viewport.getViewportSizePixels();
+  // The GPU wide-line shader sizes its quads from the viewport it is
+  // rasterized into.  A sub-viewport overlay (the navigation cube) rasterizes
+  // into its own rect, not the frame, so size from the command's viewport
+  // there; using the frame size shrinks the quads to sub-pixel dots.
+  SbVec2s lineViewportSize = params.viewport.getViewportSizePixels();
+  const SoRasterState & lineRaster = command.state.raster;
+  if (lineRaster.viewportEnabled && lineRaster.viewportWidth > 0
+      && lineRaster.viewportHeight > 0) {
+    lineViewportSize = SbVec2s(
+      static_cast<short>(lineRaster.viewportWidth),
+      static_cast<short>(lineRaster.viewportHeight));
+  }
   const VulkanPushConstants push = packPushConstants(
     command, entry, uniformColorOverride, this->frameDpr,
     stippleFactor, stipplePatternBits, useWideLine,
