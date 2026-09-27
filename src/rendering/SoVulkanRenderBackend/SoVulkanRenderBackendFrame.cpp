@@ -743,6 +743,15 @@ SoVulkanRenderBackend::setOverlayCompositeMode(SbBool enabled)
   this->overlayCompositeMode = enabled != FALSE;
 }
 
+void
+SoVulkanRenderBackend::resetExternalGpuQueries(VkCommandBuffer commandBuffer)
+{
+  // The caller records this on its own command buffer before vkCmdBeginRenderPass:
+  // vkCmdResetQueryPool is illegal inside a render pass, and renderExternal()
+  // can only record inside the caller's pass.  No-op when timing is disabled.
+  this->gpuTimers.resetSlot(commandBuffer);
+}
+
 SbBool
 SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
                                       const SoRenderParams & params,
@@ -758,13 +767,28 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
 
   this->debugValidateDrawList(drawlist);
 
+  // GPU timestamps on the caller-owned pass: the caller has already begun its
+  // render pass, so it must have recorded the frame's query reset on its
+  // command buffer before vkCmdBeginRenderPass (resetExternalGpuQueries()).
+  // Only then may we write timestamps inside the pass; guard on the reset
+  // because an in-pass beginScope() cannot reset the pool itself.
+  if (SoVulkanConfig::get().diagnostics.gpuTimestamps &&
+      !this->gpuTimers.initialized()) {
+    this->gpuTimers.initialize(this->device, this->physicalDevice,
+                               this->queueFamilyIndex);
+  }
+  const bool gpuScopes =
+    this->gpuTimers.initialized() && this->gpuTimers.slotReset();
+
   const bool wantCpuTiming = vkBackendFrameTimingEnabled();
+  const double extT0 = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
   ExternalFrameTiming timing;
   const SoVulkanRenderTarget * target = this->prepareExternalFrame(
     drawlist, params, commandBuffer, renderPass, "renderExternal",
     /*overlaysOnly*/ false, /*reserveCompositeSlots*/ false,
     wantCpuTiming ? &timing : nullptr);
   if (target == nullptr) return FALSE;
+  const double extPrepareEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
 
   // The M1c/M1d secondary path records with RENDER_PASS_CONTINUE inheritance,
   // which needs the framebuffer matching the caller's pass + swapchain image.
@@ -802,11 +826,18 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
     }
   }
 
+  const double extPreRecEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
   const double recordT0 = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
   const long recordBcStart = vkBackendRenderBreadcrumbEnabled() ? vkBackendRenderNowUs() : 0;
   this->recordContext.buffer = commandBuffer;
+  if (gpuScopes) {
+    this->gpuTimers.beginScope(commandBuffer, "renderPass");
+  }
   const bool recorded = this->recordFrame(drawlist, params, *target, renderPass,
                                           this->recordContext, framebuffer);
+  if (gpuScopes) {
+    this->gpuTimers.endScope(commandBuffer);
+  }
   vkBackendRenderBreadcrumbSince(recordBcStart, 5000, "renderExternal recordFrame end");
   this->recordContext.buffer = VK_NULL_HANDLE;
   const double recordEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
@@ -816,6 +847,12 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
   // critical path now; the frame recording above overlapped the previous GPU
   // frame.
   this->submitExternalPrepass(prepass, wantCpuTiming ? &timing : nullptr);
+  const double extSubmitEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
+
+  // Advance the GPU-timestamp ring and read back the oldest completed frame.
+  // The caller submits its pass after we return, so the writes for this frame
+  // are read a few frames later (no stall).  No-op when timing is disabled.
+  this->gpuTimers.endFrame();
 
   if (wantCpuTiming) {
     const double recordMs = recordEnd - recordT0;
@@ -827,6 +864,12 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
                  "tex=%.2f lod=%.2f record=%.2f total=%.2f\n",
                  timing.setupMs, timing.geomMs, timing.texMs, lodMs,
                  recordMs, totalMs);
+    std::fprintf(stderr,
+                 "[RTDBG] extPhase prepare=%.2f prepassRecord=%.2f "
+                 "record=%.2f prepassSubmit=%.2f wall=%.2f\n",
+                 extPrepareEnd - extT0, extPreRecEnd - extPrepareEnd,
+                 recordEnd - recordT0, extSubmitEnd - extPreRecEnd,
+                 extSubmitEnd - extT0);
     std::fflush(stderr);
   }
   vkBackendRenderBreadcrumbSince(externalBcStart, 5000, "renderExternal end");
