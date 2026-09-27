@@ -1,0 +1,134 @@
+// src/rendering/SoVulkanConfig.cpp
+#include "rendering/SoVulkanConfig.h"
+
+#include "rendering/SoVulkanShared.h"
+
+#include <cstdio>
+#include <cstdlib>
+
+namespace SoVulkanConfig {
+
+namespace {
+
+// Read a non-negative float; a missing or invalid value keeps the default.
+float readNonNegativeFloat(const char * name, float fallback)
+{
+  if (!SoVulkanShared::envSet(name)) {
+    return fallback;
+  }
+  const float value = SoVulkanShared::envFloat(name, fallback);
+  return value >= 0.0f ? value : fallback;
+}
+
+// Read a strictly positive uint32; a missing/invalid value keeps the default.
+// Parsed with strtoll (not envInt) so a value above INT_MAX -- e.g. a large
+// FC_VULKAN_GEOM_LOD_MAX_INDEX -- saturates at UINT32_MAX instead of
+// overflowing the int round-trip.
+uint32_t readPositiveUint(const char * name, uint32_t fallback)
+{
+  const char * value = SoVulkanShared::envString(name);
+  if (value == nullptr || *value == '\0') {
+    return fallback;
+  }
+  char * end = nullptr;
+  const long long parsed = std::strtoll(value, &end, 10);
+  if (end == value || parsed <= 0) {
+    return fallback;
+  }
+  if (parsed > static_cast<long long>(UINT32_MAX)) {
+    return UINT32_MAX;
+  }
+  return static_cast<uint32_t>(parsed);
+}
+
+Config load()
+{
+  Config c;
+
+  // GPU sub-pixel geometry LOD.
+  c.geometryLod.enabled =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD", true);
+  c.geometryLod.always =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD_ALWAYS", false);
+  c.geometryLod.stats =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD_STATS", false);
+  c.geometryLod.minAreaPixels =
+    readNonNegativeFloat("FC_VULKAN_GEOM_LOD_PIXELS", 1.0f);
+  c.geometryLod.maxIndices =
+    readPositiveUint("FC_VULKAN_GEOM_LOD_MAX_INDEX", 64000000u);
+
+  // Command recording / queue concurrency.
+  c.concurrency.parallelRecord =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_PARALLEL_RECORD", false);
+  if (SoVulkanShared::envSet("FC_VULKAN_RECORD_WORKERS")) {
+    const int v = SoVulkanShared::envInt("FC_VULKAN_RECORD_WORKERS", 0);
+    if (v >= 1) {
+      c.concurrency.recordWorkerCap = static_cast<unsigned int>(v);
+    }
+  }
+  c.concurrency.externalSecondary =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_EXTERNAL_SECONDARY", false);
+
+  // Raster-path options.
+  c.raster.wideLineCpu =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_WLINE_CPU", false);
+
+  // Diagnostic tooling.
+  c.diagnostics.debugUtils =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_DEBUG_UTILS", false);
+  c.diagnostics.debugPrintf =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_DEBUG_PRINTF", false);
+  c.diagnostics.gpuTimestamps =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_GPU_TIMING", false);
+  c.diagnostics.pipelineFeedback =
+    SoVulkanShared::envFlagEnabled("FC_VULKAN_PIPELINE_FEEDBACK", false);
+
+  return c;
+}
+
+} // namespace
+
+const Config & get()
+{
+  // C++11 guarantees thread-safe initialization of a function-local static, so
+  // the environment is resolved exactly once, on first use, and the result is
+  // immutable for the process lifetime.
+  static const Config config = load();
+  return config;
+}
+
+void dump()
+{
+  const Config & c = get();
+  std::fprintf(stderr,
+               "[VKCONFIG] geomLod enabled=%d always=%d stats=%d "
+               "pixels=%.3f maxIndex=%u\n",
+               c.geometryLod.enabled ? 1 : 0,
+               c.geometryLod.always ? 1 : 0,
+               c.geometryLod.stats ? 1 : 0,
+               static_cast<double>(c.geometryLod.minAreaPixels),
+               c.geometryLod.maxIndices);
+  char sWorkerCap[16];
+  if (c.concurrency.recordWorkerCap) {
+    std::snprintf(sWorkerCap, sizeof(sWorkerCap), "%u",
+                  *c.concurrency.recordWorkerCap);
+  }
+  else {
+    std::snprintf(sWorkerCap, sizeof(sWorkerCap), "-");
+  }
+  std::fprintf(stderr,
+               "[VKCONFIG] parallel=%d workerCap=%s extSec=%d wlineCpu=%d\n",
+               c.concurrency.parallelRecord ? 1 : 0,
+               sWorkerCap,
+               c.concurrency.externalSecondary ? 1 : 0,
+               c.raster.wideLineCpu ? 1 : 0);
+  std::fprintf(stderr,
+               "[VKCONFIG] diagnostics debugUtils=%d debugPrintf=%d "
+               "gpuTiming=%d pipelineFeedback=%d\n",
+               c.diagnostics.debugUtils ? 1 : 0,
+               c.diagnostics.debugPrintf ? 1 : 0,
+               c.diagnostics.gpuTimestamps ? 1 : 0,
+               c.diagnostics.pipelineFeedback ? 1 : 0);
+}
+
+} // namespace SoVulkanConfig

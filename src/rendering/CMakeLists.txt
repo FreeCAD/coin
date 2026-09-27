@@ -1,26 +1,62 @@
 # source files
 set(COIN_RENDERING_FILES
-	SoGL.cpp
-	SoGLBigImage.cpp
+	SoGLContext.cpp
 	SoGLDriverDatabase.cpp
-	SoGLImage.cpp
-	SoGLCubeMapImage.cpp
 	SoGLNurbs.cpp
+	CoinOffscreenGLCanvas.cpp
 	SoRenderManager.cpp
 	SoRenderManagerP.cpp
-	SoOffscreenRenderer.cpp
-	SoOffscreenCGData.cpp
-	SoOffscreenGLXData.cpp
-	SoOffscreenWGLData.cpp
-	SoVBO.cpp
-	SoVertexArrayIndexer.cpp
-	CoinOffscreenGLCanvas.cpp
+	SoRenderIR.cpp
+	SoRenderBackend.cpp
+	# SoGLRenderBackend.cpp is intentionally NOT part of libCoin: it is a
+	# reference DrawList consumer used only by the testsuite. The production
+	# OpenGL viewport renders through SoRenderManager/SoGLRenderAction, not the
+	# IR, so the class is compiled into the GL testsuite targets instead (see
+	# testsuite/CMakeLists.txt). This keeps the installed renderer surface the
+	# Vulkan path only.
 )
+
+if(COIN_BUILD_VULKAN_RENDERER)
+	list(APPEND COIN_RENDERING_FILES
+		SoVulkanConfig.cpp
+		SoVulkanGpuTimers.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendCore.cpp
+		SoVulkanRenderBackend/SoVulkanRenderPassCache.cpp
+		SoVulkanRenderBackend/SoVulkanPipelineCache.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendPipeline.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendGeometry.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendTexture.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendCommand.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendWideLine.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendGeometryLod.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendFrame.cpp
+		SoVulkanRenderManager.cpp
+		third_party/vma/vk_mem_alloc_impl.cpp
+	)
+endif()
+
+if(COIN_BUILD_LEGACY_GL_RENDERER)
+	list(APPEND COIN_RENDERING_FILES
+		SoGL.cpp
+		SoGLBigImage.cpp
+		SoGLImage.cpp
+		SoGLCubeMapImage.cpp
+		SoOffscreenRenderer.cpp
+		SoOffscreenCGData.cpp
+		SoOffscreenGLXData.cpp
+		SoOffscreenWGLData.cpp
+		# These belong to the legacy renderer's resource/draw architecture.
+		# VBOs themselves are not unsupported by core OpenGL.
+		SoVBO.cpp
+		SoVertexArrayIndexer.cpp
+	)
+endif()
 
 # Files excluded from public API documentation, included in complete documentation.
 set(COIN_RENDERING_INTERNAL_FILES
 	SoGL.h
 	SoGL.cpp
+	SoGLContext.cpp
 	SoGLNurbs.h
 	SoGLNurbs.cpp
 	SoRenderManagerP.h
@@ -37,6 +73,16 @@ set(COIN_RENDERING_INTERNAL_FILES
 	SoVertexArrayIndexer.cpp
 	CoinOffscreenGLCanvas.h
 	CoinOffscreenGLCanvas.cpp
+	SoRenderIRP.h
+	SoRenderBackend.h
+	SoGLRenderBackend.h
+	SoVulkanConfig.h
+	SoVulkanResult.h
+	SoVulkanRenderBackend.h
+	SoVulkanRenderBackend/SoVulkanRenderBackendP.h
+	SoVulkanRenderBackend/SoVulkanRenderPassCache.h
+	SoVulkanShared.h
+	SoVulkanRenderManager.h
 )
 
 # build library

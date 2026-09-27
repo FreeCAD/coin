@@ -98,6 +98,22 @@ SbBool eglglue_context_pbuffer_max(void * ctx, unsigned int * lims)
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+// Keep the core-profile request available with older EGL headers.  The
+// runtime extension/version check below still decides whether the attributes
+// may actually be passed to eglCreateContext().
+#ifndef EGL_CONTEXT_MAJOR_VERSION_KHR
+#define EGL_CONTEXT_MAJOR_VERSION_KHR 0x3098
+#endif
+#ifndef EGL_CONTEXT_MINOR_VERSION_KHR
+#define EGL_CONTEXT_MINOR_VERSION_KHR 0x30FB
+#endif
+#ifndef EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR
+#define EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR 0x30FD
+#endif
+#ifndef EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR
+#define EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR 0x00000001
+#endif
+
 EGLDisplay eglglue_display = EGL_NO_DISPLAY;
 // A display borrowed from an application's current context must not be
 // terminated when Coin's EGL glue is cleaned up.
@@ -151,7 +167,7 @@ struct eglglue_binding {
 };
 
 static eglglue_binding
-eglglue_capture_binding()
+eglglue_capture_binding(void)
 {
   eglglue_binding binding;
   binding.api = eglQueryAPI();

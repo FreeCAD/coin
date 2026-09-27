@@ -99,14 +99,20 @@
 #include <Inventor/SbVec4f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoEnvironmentElement.h>
+#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLightIdElement.h>
+#endif
 #include <Inventor/elements/SoLightElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/system/gl.h>
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "nodes/SoSubNodeP.h"
+#include "rendering/SoGL.h"
 
 // *************************************************************************
 
@@ -152,6 +158,7 @@ SoDirectionalLight::initClass(void)
 // *************************************************************************
 
 // Doc from superclass.
+#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -192,6 +199,23 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
                               "Direction is a null vector.");
 #endif // COIN_DEBUG
   }
+  if (std::getenv("FC_VULKAN_LIGHTFRESH_DBG")) {
+    static int glLitBudget = 64;
+    if (glLitBudget-- > 0) {
+      const SbMatrix & mm = SoModelMatrixElement::get(action->getState());
+      const SbMatrix & vm = SoViewingMatrixElement::get(action->getState());
+      fprintf(stderr,
+              "[GLLIT] '%s' on=%d rawdir=(%.4f,%.4f,%.4f) col=(%.3f,%.3f,%.3f)"
+              " int=%.3f model00=%.3f m11=%.3f view00=%.3f v11=%.3f v22=%.3f"
+              " viewT=(%.2f,%.2f,%.2f)\n",
+              this->getName().getString(), (int)this->on.getValue(),
+              dir[0], dir[1], dir[2],
+              this->color.getValue()[0], this->color.getValue()[1],
+              this->color.getValue()[2], this->intensity.getValue(),
+              mm[0][0], mm[1][1], vm[0][0], vm[1][1], vm[2][2],
+              vm[0][3], vm[1][3], vm[2][3]);
+    }
+  }
   // directional when w = 0.0
   SbVec4f dirvec(dir[0], dir[1], dir[2], 0.0f);
   glLightfv(light, GL_POSITION, dirvec.getValue());
@@ -202,5 +226,6 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_LINEAR_ATTENUATION, 0);
   glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
 }
+#endif
 
 // *************************************************************************

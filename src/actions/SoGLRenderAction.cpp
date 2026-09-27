@@ -80,6 +80,7 @@
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/elements/SoDecimationPercentageElement.h>
 #include <Inventor/elements/SoDecimationTypeElement.h>
+#include <Inventor/elements/SoDevicePixelRatioElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoGLLazyElement.h>
 #include <Inventor/elements/SoGLLightIdElement.h>
@@ -644,15 +645,16 @@ SoGLRenderAction::initClass(void)
 
   SO_ENABLE(SoGLRenderAction, SoDecimationPercentageElement);
   SO_ENABLE(SoGLRenderAction, SoDecimationTypeElement);
-  SO_ENABLE(SoGLRenderAction, SoGLLightIdElement);
-  SO_ENABLE(SoGLRenderAction, SoGLRenderPassElement);
-  SO_ENABLE(SoGLRenderAction, SoGLUpdateAreaElement);
+  SO_ENABLE(SoGLRenderAction, SoDevicePixelRatioElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLightIdElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLRenderPassElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLUpdateAreaElement);
   SO_ENABLE(SoGLRenderAction, SoLazyElement);
   SO_ENABLE(SoGLRenderAction, SoOverrideElement);
   SO_ENABLE(SoGLRenderAction, SoTextureOverrideElement);
   SO_ENABLE(SoGLRenderAction, SoWindowElement);
-  SO_ENABLE(SoGLRenderAction, SoGLViewportRegionElement);
-  SO_ENABLE(SoGLRenderAction, SoGLCacheContextElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLViewportRegionElement);
+  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLCacheContextElement);
 
   const char * env = coin_getenv("COIN_GLBBOX");
   if (env) {
@@ -1025,6 +1027,14 @@ SoGLRenderAction::getSortedLayersNumPasses() const
 void
 SoGLRenderAction::beginTraversal(SoNode * node)
 {
+  if (!sogl_context_supports_legacy_rendering(this->getState())) {
+    SoDebugError::postWarning(
+      "SoGLRenderAction::beginTraversal",
+      "legacy OpenGL traversal requested without a compatibility context");
+    this->setTerminated(TRUE);
+    return;
+  }
+
   if (PRIVATE(this)->cachedprofilingsg == NULL) {
     if (node->isOfType(SoGroup::getClassTypeId()) &&
         (coin_assert_cast<SoGroup *>(node))->getNumChildren() > 0) {
