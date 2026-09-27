@@ -2,16 +2,20 @@
 
 #include <Inventor/rendering/SoVulkanRenderManager.h>
 
+#include <Inventor/SoPath.h>
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/SbXfBox3f.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/errors/SoDebugError.h>
+#include <Inventor/misc/SoNotRec.h>
 #include <Inventor/nodes/SoCamera.h>
+#include <Inventor/nodes/SoGroup.h>
 #include <Inventor/nodes/SoLight.h>
 #include <Inventor/nodes/SoEnvironment.h>
 #include <Inventor/nodes/SoNode.h>
+#include <Inventor/sensors/SoDataSensor.h>
 #include <Inventor/sensors/SoNodeSensor.h>
 #include <Inventor/nodes/SoOrthographicCamera.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
@@ -40,6 +44,7 @@ static void vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor);
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -204,19 +209,28 @@ void mixHash(uint64_t & h, uint64_t v)
 //      /shape/selection nodes, which still fold their ids, so an in-place
 //      edit, a move, an add/remove or a material/texture swap still
 //      invalidates the draw list and forces a re-record.
-void graphFingerprintWalk(SoNode * node, const SoNode * skip, uint64_t & h)
+//! True for a node whose id the graph fingerprint deliberately ignores: the
+//! camera-coupled chatter (camera/light/environment/rotation/transform-
+//! separator) and the plain container nodes.  A field write on such a node
+//! cannot change the retained main draw list, so it is also what the
+//! scene-dirty sensor treats as non-invalidating (see the callback below) --
+//! shared here so the two stay consistent.
+inline bool fingerprintSkipsNodeId(const SoNode * node)
 {
-  if (!node || node == skip) return;
-  mixHash(h, reinterpret_cast<uintptr_t>(node));
-  const bool skipId =
-    node->isOfType(SoCamera::getClassTypeId()) ||
+  return node->isOfType(SoCamera::getClassTypeId()) ||
     node->isOfType(SoLight::getClassTypeId()) ||
     node->isOfType(SoEnvironment::getClassTypeId()) ||
     node->isOfType(SoRotation::getClassTypeId()) ||
     node->isOfType(SoTransformSeparator::getClassTypeId()) ||
     node->getTypeId() == SoGroup::getClassTypeId() ||
     node->getTypeId() == SoSeparator::getClassTypeId();
-  if (!skipId) {
+}
+
+inline void graphFingerprintWalk(SoNode * node, const SoNode * skip, uint64_t & h)
+{
+  if (!node || node == skip) return;
+  mixHash(h, reinterpret_cast<uintptr_t>(node));
+  if (!fingerprintSkipsNodeId(node)) {
     mixHash(h, static_cast<uint64_t>(node->getNodeId()));
   }
   if (node->isOfType(SoGroup::getClassTypeId())) {
@@ -253,6 +267,11 @@ public:
     // where the scene has not changed (static / camera-only frames).
     this->sceneGraphSensor =
       new SoNodeSensor(vulkanSceneGraphChangedCallback, this);
+    // Priority 0 makes this a SoDelayQueueSensor "immediate" sensor AND makes
+    // SoDataSensor populate the trigger node/operation type; at the default
+    // priority the trigger is left null and the callback cannot tell a
+    // camera-coupled field write from a real scene change (see the callback).
+    this->sceneGraphSensor->setPriority(0);
   }
 
   ~SoVulkanRenderManagerP()
@@ -288,6 +307,24 @@ public:
   SoNode * overlayScene = nullptr;
   SoNode * decorationScene = nullptr;
   SoCamera * camera = nullptr;
+  //! Cached result of resolveActiveCamera(): the first camera node found in the
+  //! scene, plus the child-index path from the scene root down to it.  Reused
+  //! while the path still resolves to the same node, which is checked in O(depth)
+  //! instead of an O(scene) SoSearchAction.  A camera-pose write does not change
+  //! the path (the node identity is unchanged), so the search is skipped on
+  //! navigation frames; a child-list edit that shifts, removes or replaces any
+  //! node on the path fails the check and re-runs the search.  See
+  //! resolveActiveCamera().
+  SoCamera * resolvedCamera = nullptr;
+  SoNode * resolvedCameraScene = nullptr;
+  std::vector<int> resolvedCameraPath;
+  //! The retained camera (this->camera) at the time the search last ran.  Used
+  //! only for the "no camera in the scene" result: it is reused while the scene
+  //! pointer and this pointer are unchanged, so a fruitless search is not
+  //! repeated every frame (it costs ~44 ms on a 1600-shape scene and FreeCAD's
+  //! camera is never inside the traversed scene).
+  SoCamera * resolvedCameraFallback = nullptr;
+  bool resolvedCameraCached = false;
   // Persistent traversal root (see the constructor comment).
   SoSeparator * frameRoot = nullptr;
   //! Persistent root for the always-re-recorded overlay/decoration scenes.
@@ -491,14 +528,30 @@ setRetainedNode(T *& slot, T * node)
   if (slot) slot->ref();
 }
 
-// Mark the graph fingerprint dirty when any part of the main scene is notified
-// (a field write or child-list edit anywhere in the subtree) -- the exact
-// condition the O(N) fingerprint walk detects, so it can be skipped until the
-// scene actually changes.
+// Mark the graph fingerprint dirty when a render-affecting part of the main
+// scene changes.  The root sensor fires on ANY subtree notification, including
+// the headlight/camera-coupled field writes FreeCAD performs every navigation
+// frame.  Those do not change the retained main draw list -- the fingerprint
+// walk skips their node ids (fingerprintSkipsNodeId) -- so treating them as a
+// graph change forced the O(scene) fingerprint walk (~55 ms on a 1600-shape
+// scene) on every navigation frame, defeating the retained-IR replay.  A
+// structural edit (child-list op) or a field write on any other node still
+// dirties.  The sensor runs at priority 0 (an "immediate" delay sensor) so
+// SoDataSensor populates the trigger node/op; at the default priority the
+// trigger is left null and no distinction is possible.
 static void
-vulkanSceneGraphChangedCallback(void * data, SoSensor * /*sensor*/)
+vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor)
 {
   auto * pimpl = static_cast<SoVulkanRenderManagerP *>(data);
+  auto * dataSensor = static_cast<SoDataSensor *>(sensor);
+  const SoNotRec::OperationType op =
+    sensor ? dataSensor->getTriggerOperationType() : SoNotRec::UNSPECIFIED;
+  const bool fieldChange =
+    (op == SoNotRec::FIELD_UPDATE || op == SoNotRec::UNSPECIFIED);
+  SoNode * trigger = sensor ? dataSensor->getTriggerNode() : nullptr;
+  if (fieldChange && trigger && fingerprintSkipsNodeId(trigger)) {
+    return;
+  }
   pimpl->sceneGraphDirty = TRUE;
 }
 
@@ -982,19 +1035,71 @@ SoVulkanRenderManagerP::computeGraphFingerprint() const
 SoCamera *
 SoVulkanRenderManagerP::resolveActiveCamera()
 {
+  // Cache the resolved node.  This runs at least twice per frame
+  // (refreshActiveCamera() then setClippingPlanes()), and the fallback
+  // SoSearchAction below is an O(scene) full-graph search with per-match path
+  // allocation: measured at ~41 ms for a 1600-shape scene, i.e. ~82 ms/frame of
+  // pure camera lookup -- and the scene root sensor fires on the camera-pose
+  // write FreeCAD performs every navigation frame, so gating on that flag alone
+  // left the search running on exactly the moving frames that need it most.
+  //
+  // Instead re-validate the cached node with the stored child-index path from
+  // the scene root: O(depth), no search.  The path is only a way to reach the
+  // same node, so a camera-pose write keeps it valid (the node identity is
+  // unchanged and its pose is read live elsewhere); a child-list edit that
+  // shifts, removes or replaces any node on the path makes the walk land on a
+  // different node (or fail), which re-runs the search.
+  if (this->resolvedCameraCached && this->resolvedCameraScene == this->scene) {
+    if (this->resolvedCamera) {
+      SoNode * node = this->scene;
+      bool valid = node != nullptr;
+      for (int index : this->resolvedCameraPath) {
+        if (!node || !node->isOfType(SoGroup::getClassTypeId())) {
+          valid = false;
+          break;
+        }
+        SoGroup * group = static_cast<SoGroup *>(node);
+        if (index < 0 || index >= group->getNumChildren()) {
+          valid = false;
+          break;
+        }
+        node = group->getChild(index);
+      }
+      if (valid && node == this->resolvedCamera) {
+        return this->resolvedCamera;
+      }
+    }
+    else if (this->resolvedCameraFallback == this->camera) {
+      // Cached "no camera in the scene"; the retained camera is the authority
+      // and nothing that could introduce an in-scene camera (a different scene
+      // or a different retained camera) has happened.
+      return this->camera;
+    }
+  }
+  // About to (re)run the search: reset and record the inputs it depends on.
+  this->resolvedCameraCached = true;
+  this->resolvedCamera = nullptr;
+  this->resolvedCameraScene = this->scene;
+  this->resolvedCameraFallback = this->camera;
+  this->resolvedCameraPath.clear();
+
   // The scene graph passed to setSceneGraph() is the GL viewer's superscene,
-  // which CONTAINS the camera node that navigation actually mutates (FreeCAD
-  // keeps the camera inside the scene root separator).  Prefer that node: it
-  // is the single authority and cannot go stale, whereas the retained pointer
-  // set by setCamera() is a snapshot that diverges as soon as the camera is
-  // rotated/panned without an intervening sync.
+  // which CAN contain the camera node that navigation mutates, so prefer an
+  // in-scene camera when there is one: it is the single authority and cannot go
+  // stale, whereas the retained pointer set by setCamera() could be a snapshot
+  // that diverges once the camera is rotated/panned without a re-sync.  In
+  // practice FreeCAD sets the camera explicitly and the superscene holds only
+  // the geometry (the search finds nothing) -- which is why the empty result is
+  // cached: the search is O(scene) and would otherwise run every frame.
   if (this->scene) {
     if (this->scene->getTypeId().isDerivedFrom(SoSeparator::getClassTypeId())) {
       SoSeparator * sep = static_cast<SoSeparator *>(this->scene);
       for (int i = 0; i < sep->getNumChildren(); ++i) {
         SoNode * child = sep->getChild(i);
         if (child && child->isOfType(SoCamera::getClassTypeId())) {
-          return static_cast<SoCamera *>(child);
+          this->resolvedCamera = static_cast<SoCamera *>(child);
+          this->resolvedCameraPath.push_back(i);
+          return this->resolvedCamera;
         }
       }
     }
@@ -1007,7 +1112,14 @@ SoVulkanRenderManagerP::resolveActiveCamera()
     search.apply(this->scene);
     const SoPathList & paths = search.getPaths();
     if (paths.getLength() > 0) {
-      return static_cast<SoCamera *>(paths[0]->getTail());
+      SoPath * path = paths[0];
+      this->resolvedCamera = static_cast<SoCamera *>(path->getTail());
+      // Record the descent from the scene root: getIndex(i) is the index of the
+      // i-th path node within its parent, so start at 1 (0 is the root itself).
+      for (int i = 1; i < path->getLength(); ++i) {
+        this->resolvedCameraPath.push_back(path->getIndex(i));
+      }
+      return this->resolvedCamera;
     }
   }
   // No camera in the scene graph: fall back to the retained pointer (used by
@@ -1471,7 +1583,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       // forever, leaving an object's show/hide state never reflected in the
       // viewport.  The walk is the authoritative signal and is O(nodes) (a few
       // mixHash per node), far cheaper than an actual re-traversal.
+      const long fpBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
       graphFp = this->computeGraphFingerprint();
+      vkRenderBreadcrumbSince(fpBcStart, 1000, "prepare computeGraphFingerprint end");
       this->sceneGraphDirty = FALSE;
     }
    this->lastFpScene = this->scene;
@@ -2182,6 +2296,12 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
               wx, wy, wz, vz, nx, ny, nz, nw);
     }
   }
+}
+
+void
+SoVulkanRenderManager::resetExternalGpuQueries(VkCommandBuffer commandBuffer)
+{
+  this->pimpl->backend.resetExternalGpuQueries(commandBuffer);
 }
 
 SoVulkanRenderBackend *

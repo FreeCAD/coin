@@ -79,6 +79,17 @@ uint32_t geometryLodMaxIndices()
   return SoVulkanConfig::get().geometryLod.maxIndices;
 }
 
+// Smallest triangle count worth compacting.  A command below this is drawn in
+// full: the per-command compaction cost (one indirect-cursor fill, one barrier,
+// one dispatch, one descriptor bind) is fixed, so compacting a handful of
+// triangles costs more than it saves.  This is what makes an assembly of many
+// small parts cheap; the huge meshes the feature exists for are unaffected.
+// FC_VULKAN_GEOM_LOD_MIN_PRIMS; 0 disables the gate.
+uint32_t geometryLodMinPrims()
+{
+  return SoVulkanConfig::get().geometryLod.minPrims;
+}
+
 bool geometryLodEnabled()
 {
   return SoVulkanConfig::get().geometryLod.enabled;
@@ -134,6 +145,9 @@ SoVulkanRenderBackend::isSubPixelEligible(const SoRenderCommand & command)
   // can never change the visible set.
   const SubPixelElementForm form = subPixelElementForm(command);
   if (form.elements < 3 || (form.elements % 3) != 0) return false;
+  // Small meshes are not worth a dispatch: draw them in full (the same fallback
+  // the feature already uses for oversized/absent geometry).
+  if ((form.elements / 3) < geometryLodMinPrims()) return false;
   return true;
 }
 
@@ -367,13 +381,13 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
   return true;
 }
 
-void
+uint32_t
 SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
                                                 const SoDrawList & drawlist,
                                                 const SoRenderParams & params)
 {
   const int num = drawlist.getNumCommands();
-  if (num == 0) return;
+  if (num == 0) return 0;
 
   const bool debug = COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG");
 
@@ -510,19 +524,24 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
   }
 
   // One barrier after every dispatch: compute writes become visible to the
-  // indirect-command read and the index/vertex-input reads of the draws.
-  SoVulkanShared::memoryBarrier(
-    cb, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-    VK_ACCESS_SHADER_WRITE_BIT,
-    VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
-      VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT);
+  // indirect-command read and the index/vertex-input reads of the draws.  Only
+  // needed when something was dispatched; a frame that compacted nothing
+  // records no commands at all, so the caller can skip its submit entirely.
+  if (compacted > 0) {
+    SoVulkanShared::memoryBarrier(
+      cb, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+      VK_ACCESS_SHADER_WRITE_BIT,
+      VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
+        VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT);
+  }
 
   if (debug) {
     fprintf(stderr, "[GEOMLOD] prepass slot=%u compacted=%u skipped=%u "
                     "threshold=%.2fpx2 maxPrims=%u maxVc=%u maxIc=%u\n",
             slot, compacted, skipped, areaThreshold, maxPrims, maxVc, maxIc);
   }
+  return compacted;
 }
 
 bool
@@ -591,10 +610,21 @@ SoVulkanRenderBackend::beginExternalPrepass(const SoDrawList & drawlist,
   const double texEnd = timing ? SoVulkanShared::steadyNowMs() : 0.0;
   if (timing) timing->texMs = texEnd - recordT0;
 
+  uint32_t lodCompacted = 0;
   if (wantLod) {
-    this->recordGeometryLodPrepass(cb, drawlist, params);
+    lodCompacted = this->recordGeometryLodPrepass(cb, drawlist, params);
   }
   if (timing) timing->lodRecordMs = SoVulkanShared::steadyNowMs() - texEnd;
+
+  // The buffer is empty when there are no texture copies and no command was
+  // worth compacting.  End and free it and report "no pre-pass" so the caller
+  // skips submitExternalPrepass() -- a full host wait -- entirely; every
+  // command then takes the full-detail draw path, exactly as when LOD is off.
+  if (!wantTextures && lodCompacted == 0) {
+    vkEndCommandBuffer(cb);
+    vkFreeCommandBuffers(this->device, this->commandPool, 1, &cb);
+    return VK_NULL_HANDLE;
+  }
 
   if (vkEndCommandBuffer(cb) != VK_SUCCESS) {
     vkFreeCommandBuffers(this->device, this->commandPool, 1, &cb);
@@ -622,17 +652,41 @@ SoVulkanRenderBackend::submitExternalPrepass(VkCommandBuffer commandBuffer,
   submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit.commandBufferCount = 1;
   submit.pCommandBuffers = &commandBuffer;
-  const bool ok =
-    vkQueueSubmit(this->queue, 1, &submit, VK_NULL_HANDLE) == VK_SUCCESS;
   // Host wait: the copies and the compacted writes must be complete and
   // visible before the caller submits its pass, and the caller's submission is
-  // out of reach, so no semaphore can be threaded through it.  The queue
-  // drains here; because the frame was already recorded above, only the
-  // pre-pass itself is on the critical path.
-  vkQueueWaitIdle(this->queue);
+  // out of reach, so no semaphore can be threaded through it.  Wait on a
+  // dedicated fence so only this pre-pass submission is observed, rather than
+  // draining the whole shared graphics queue with vkQueueWaitIdle() (which
+  // also waits on the caller's swapchain acquire/present).  Fall back to the
+  // queue drain if the fence cannot be created or reset.
+  if (this->externalPrepassFence == VK_NULL_HANDLE) {
+    VkFenceCreateInfo fenceInfo {};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    if (vkCreateFence(this->device, &fenceInfo, this->allocator,
+                      &this->externalPrepassFence) != VK_SUCCESS) {
+      this->externalPrepassFence = VK_NULL_HANDLE;
+    }
+  }
+  bool submitted = false;
+  bool waited = false;
+  if (this->externalPrepassFence != VK_NULL_HANDLE &&
+      vkResetFences(this->device, 1, &this->externalPrepassFence) ==
+        VK_SUCCESS) {
+    submitted = vkQueueSubmit(this->queue, 1, &submit,
+                              this->externalPrepassFence) == VK_SUCCESS;
+    if (submitted) {
+      waited = vkWaitForFences(this->device, 1, &this->externalPrepassFence,
+                               VK_TRUE, UINT64_MAX) == VK_SUCCESS;
+    }
+  }
+  else {
+    submitted =
+      vkQueueSubmit(this->queue, 1, &submit, VK_NULL_HANDLE) == VK_SUCCESS;
+    waited = submitted && vkQueueWaitIdle(this->queue) == VK_SUCCESS;
+  }
   vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
   if (timing) timing->lodMs = SoVulkanShared::steadyNowMs() - submitT0;
-  if (!ok) {
+  if (!submitted || !waited) {
     SoDebugError::postWarning("SoVulkanRenderBackend::submitExternalPrepass",
                               "external pre-pass transient submit failed; "
                               "falling back to the full-detail draw");

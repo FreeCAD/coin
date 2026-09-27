@@ -247,6 +247,18 @@ public:
                         VkFramebuffer framebuffer);
 
   /*!
+    \brief Reset the current frame's GPU-timestamp queries on the caller's
+    command buffer.
+
+    Only meaningful when GPU timing (FC_VULKAN_GPU_TIMING) is active.  An
+    external embedder that begins its own render pass must record this before
+    vkCmdBeginRenderPass, because vkCmdResetQueryPool is illegal inside a pass;
+    renderExternal() then records the timestamp writes inside the pass.  A
+    no-op when timing is disabled, so it is safe to always call.
+  */
+  void resetExternalGpuQueries(VkCommandBuffer commandBuffer);
+
+  /*!
     \brief Record only the overlay pass (e.g. the navigation cube) into a
     caller-owned command buffer/render pass.
 
@@ -662,10 +674,13 @@ private:
   bool allocateSubPixelDescriptorSet(VkDescriptorSet & set);
   // Record the compaction dispatches for the frame into \a cb.  Must run
   // outside a render pass; a trailing memory barrier orders the writes
-  // against the indirect/index reads of the subsequent draws.
-  void recordGeometryLodPrepass(VkCommandBuffer cb,
-                                const SoDrawList & drawlist,
-                                const SoRenderParams & params);
+  // against the indirect/index reads of the subsequent draws.  Returns the
+  // number of commands compacted; 0 means nothing was recorded (no eligible
+  // command, or all were below GeometryLod.minPrims), so the caller can skip
+  // submitting the buffer.
+  uint32_t recordGeometryLodPrepass(VkCommandBuffer cb,
+                                    const SoDrawList & drawlist,
+                                    const SoRenderParams & params);
   // True when the geometry-LOD pre-pass would record anything this frame:
   // interaction LOD (or the verification override) is engaged, the feature is
   // enabled and the compaction pipeline exists.  Split out so the external
@@ -925,6 +940,14 @@ private:
   std::vector<VkCommandBuffer> frameCommandBuffers;
   std::vector<VkFence> frameFences;
   std::vector<uint8_t> frameFencePending;
+  // Fence for the external pre-pass submit (texture copies + geometry-LOD
+  // compaction).  The pre-pass must complete before the caller's render pass
+  // is submitted, but the caller owns that submit, so a semaphore cannot be
+  // threaded through it and the pre-pass is host-waited.  This dedicated
+  // fence waits for exactly this submit instead of draining the whole queue
+  // with vkQueueWaitIdle(), which also waits on the caller's acquire/present
+  // operations.  Lazily created; destroyed in shutdown().
+  VkFence externalPrepassFence = VK_NULL_HANDLE;
   // Secondary command buffers for M1c/M1d: one per in-flight frame slot per
   // worker, used to record the render-order-independent opaque pass inside an
   // already-begun render pass (RENDER_PASS_CONTINUE), then

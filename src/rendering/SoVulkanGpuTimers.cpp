@@ -69,32 +69,51 @@ SoVulkanGpuTimers::initialize(VkDevice device, VkPhysicalDevice physicalDevice,
 }
 
 void
+SoVulkanGpuTimers::resetSlot(VkCommandBuffer commandBuffer)
+{
+  if (this->queryPool == VK_NULL_HANDLE ||
+      commandBuffer == VK_NULL_HANDLE || this->slotResetForFrame) {
+    return;
+  }
+  const uint32_t base = this->ringIndex * kMaxScopesPerFrame * 2;
+  vkCmdResetQueryPool(commandBuffer, this->queryPool, base,
+                      kMaxScopesPerFrame * 2);
+  this->slotResetForFrame = true;
+}
+
+void
 SoVulkanGpuTimers::beginScope(VkCommandBuffer commandBuffer, const char * name)
 {
   if (this->queryPool == VK_NULL_HANDLE ||
       commandBuffer == VK_NULL_HANDLE ||
       this->scopeCount >= kMaxScopesPerFrame) {
+    // No begin was recorded, so the matching endScope() must not write either.
+    this->scopePending = false;
     return;
   }
   const uint32_t slot = this->ringIndex;
   const uint32_t base = slot * kMaxScopesPerFrame * 2;
-  if (this->scopeCount == 0) {
+  if (!this->slotResetForFrame) {
     // Reset this slot's query range before the first write: vkCmdWriteTimestamp
     // requires the query to be unavailable, and the slot's previous results
-    // were read back kRingFrames ago.  Must run outside a render pass.
+    // were read back kRingFrames ago.  Must run outside a render pass, so the
+    // external path resets via resetSlot() before its pass instead.
     vkCmdResetQueryPool(commandBuffer, this->queryPool, base,
                         kMaxScopesPerFrame * 2);
+    this->slotResetForFrame = true;
   }
   this->scopeNames[slot][this->scopeCount] = name;
   vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                       this->queryPool, base + this->scopeCount * 2);
+  ++this->scopeCount;
+  this->scopePending = true;
 }
 
 void
 SoVulkanGpuTimers::endScope(VkCommandBuffer commandBuffer)
 {
   if (this->queryPool == VK_NULL_HANDLE || commandBuffer == VK_NULL_HANDLE ||
-      this->scopeCount == 0) {
+      !this->scopePending) {
     return;
   }
   const uint32_t slot = this->ringIndex;
@@ -102,7 +121,7 @@ SoVulkanGpuTimers::endScope(VkCommandBuffer commandBuffer)
   vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                       this->queryPool,
                       base + (this->scopeCount - 1) * 2 + 1);
-  ++this->scopeCount;
+  this->scopePending = false;
 }
 
 void
@@ -111,6 +130,9 @@ SoVulkanGpuTimers::endFrame()
   if (this->queryPool == VK_NULL_HANDLE) {
     return;
   }
+  // The next frame must reset its slot again before writing.
+  this->slotResetForFrame = false;
+  this->scopePending = false;
   const uint32_t slot = this->ringIndex;
   this->slotScopeCount[slot] = this->scopeCount;
   this->scopeCount = 0;
