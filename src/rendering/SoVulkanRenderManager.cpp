@@ -400,16 +400,17 @@ public:
 
 
   // Near/far planes computed by setClippingPlanes(), consumed by
-  // prepareRenderParams().  Deliberately NOT written back into
-  // SoCamera::nearDistance/farDistance: the camera node is shared with the
-  // hidden GL viewer (FreeCAD), whose SoRenderManager concurrently writes
-  // the same fields with its own GL-side values.  Reading those fields back
-  // to build the projection matrix races with the GL manager and
-  // intermittently renders with the wrong near plane -- the front face of
-  // the object clips away and the interior shows through while rotating.
-  // Keeping the Vulkan planes private to this manager makes the two
-  // renderers independent and gives CAD-grade zoom behavior on both axes
-  // (near plane hugs the closest geometry, far plane grows with distance).
+  // prepareRenderParams().  The projection is built from these fields, never
+  // read back from SoCamera::nearDistance/farDistance: the camera node is
+  // shared with the hidden GL viewer (FreeCAD), whose SoRenderManager can
+  // concurrently write the same fields with its own GL-side values, and
+  // reading them back races that writer (it intermittently rendered with the
+  // wrong near plane while rotating).  Keeping the projection input private
+  // makes the two renderers independent.  setClippingPlanes() additionally
+  // publishes these values onto the shared camera node (guarded on an actual
+  // change) so external consumers -- SoRayPickAction's ray depth range in
+  // particular -- see scene-fitted planes even though the GL viewer never
+  // renders to fit them.
   float computedNear = 1.0f;
   float computedFar = 10.0f;
   // Camera back-off along the view direction applied by the zoom wall (see
@@ -1269,10 +1270,30 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   const float newfar = farval >= 0 ? farval * (1.0f + SLACK)
                                    : farval * (1.0f - SLACK);
 
-  // Store the planes privately; see the computedNear/computedFar comment in
-  // the pimpl declaration for why the camera fields must stay untouched.
+  // Store the planes privately: prepareRenderParams() builds the projection
+  // from these fields, never from the camera node's, so rendering stays
+  // independent of the values the GL manager may write concurrently.
   this->computedNear = newnear;
   this->computedFar = newfar;
+
+  // Publish the planes onto the shared camera node too.  The camera is the
+  // clipping authority every other Coin consumer reads (SoRayPickAction's ray
+  // depth range, a perspective view volume, an external render manager).  A
+  // normal GL render auto-fits these fields, but FreeCAD's Vulkan viewport
+  // keeps the GL viewer hidden and never renders through it, so without this
+  // they keep whatever the last viewAll()/viewBoundingBox() wrote -- for an
+  // orthographic camera that is near=0, which is wrong for perspective
+  // clipping and pick-ray depth.  Write only when the value actually changes:
+  // SoSFFloat::setValue() notifies the field's auditors unconditionally, and
+  // the FreeCAD camera carries a node sensor, so an unconditional write from
+  // inside prepareRenderParams() would request another frame every frame and
+  // keep the viewport rendering at full rate while idle.
+  if (camera->nearDistance.getValue() != newnear) {
+    camera->nearDistance = newnear;
+  }
+  if (camera->farDistance.getValue() != newfar) {
+    camera->farDistance = newfar;
+  }
 }
 
 SbBool
