@@ -454,7 +454,7 @@ SoVulkanRenderBackend::uploadGeometry(VulkanCachedCommand & entry,
   // highlights, text, images -- which rewrite every frame) stays host-visible
   // so its frequent re-uploads never take the synchronous transfer stall.
   bool vertexCreated = false;
-  if (geometry.retained) {
+  if (geometry.cacheKey != 0) {
     vertexCreated = this->createBufferDeviceLocal(vertexBytes,
                                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -477,7 +477,7 @@ SoVulkanRenderBackend::uploadGeometry(VulkanCachedCommand & entry,
     const VkDeviceSize indexBytes =
       static_cast<VkDeviceSize>(geometry.indexCount) * sizeof(uint32_t);
     bool indexCreated = false;
-    if (geometry.retained) {
+    if (geometry.cacheKey != 0) {
       indexCreated = this->createBufferDeviceLocal(indexBytes,
                                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -812,13 +812,13 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     //    place, e.g. per-vertex colors): fall back to the sampled content hash
     //    to catch in-place edits.
     const bool pointerIdentitySufficient =
-      geometry.retained || geometryContentUnchanged;
+      geometry.cacheKey != 0 || geometryContentUnchanged;
     const bool geometryMatches = identityMatches &&
       (pointerIdentitySufficient ||
        entry.contentHash == hashGeometryContent(geometry));
     if (!geometryMatches) {
       needsGeometry[static_cast<size_t>(i)] = 1;
-      if (geometry.retained) {
+      if (geometry.cacheKey != 0) {
         ++retainedUploads;
         retainedUploadBytes += alignGeometryUpload(
           static_cast<VkDeviceSize>(geometry.vertexCount) *
@@ -883,7 +883,7 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       ++bcGeometryUploads;
       this->deferDestroyCacheEntry(entry);
       bool uploadedShared = false;
-      if (geometry.retained && sharedBlockId != 0) {
+      if (geometry.cacheKey != 0 && sharedBlockId != 0) {
         uploadedShared =
           this->uploadGeometryShared(entry, command, sharedBlockId);
         if (uploadedShared) {

@@ -65,7 +65,7 @@ packPushConstants(const SoRenderCommand & command,
   push.texParams[1] = static_cast<float>(command.state.alphaTest.function);
   push.texParams[2] = command.state.alphaTest.reference;
   push.texParams[3] =
-    (command.material.flags & SO_MAT_IS_PIXEL_TEXT) ? 1.0f : 0.0f;
+    command.pixelRaster.enabled ? 1.0f : 0.0f;
   const SbVec4f & blendColor = command.material.texture.blendColor;
   push.texBlend[0] = blendColor[0];
   push.texBlend[1] = blendColor[1];

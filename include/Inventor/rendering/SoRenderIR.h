@@ -109,19 +109,6 @@ struct SoGeometryDesc {
   // unset when the backend should use its conservative origin fallback.
   SbVec3f             boundsCenter = SbVec3f(0.0f, 0.0f, 0.0f);
   SbBool              hasBounds = FALSE;
-
-  // Index of this command's first primitive within the source shape's
-  // primitive stream. A shape whose material changes partway is split into
-  // several contiguous commands; each carries the offset so a backend can map
-  // a per-command primitive id back to a global primitive index (for example
-  // an SoBrepFaceSet face via partIndex). Zero when the command covers the
-  // shape from its start.
-  uint32_t            primitiveOffset = 0;
-
-  //! True when the streams come from a producer-owned retained tessellation
-  //! cache rather than a transient per-frame arena, so a backend may key
-  //! resource reuse on the source identity instead of the frame lifetime.
-  bool                retained = false;
 };
 
 //! Stable, draw-list-local reference to a geometry resource.
@@ -355,16 +342,7 @@ struct SoMaterialData {
   bool     vertexColorAlphaIncludesOpacity = false;
 
   bool     twoSidedLighting = false;
-
-  //! Command-level material flags. Historically the Vulkan path used these to
-  //! distinguish an embedded texture from a pixel text/image raster without
-  //! re-deriving it from the payload.
-  uint32_t flags = 0;
 };
-
-static constexpr uint32_t SO_MAT_HAS_TEXTURE = 0x1;
-static constexpr uint32_t SO_MAT_IS_PIXEL_TEXT = 0x2;
-static constexpr uint32_t SO_MAT_IS_PIXEL_IMAGE = 0x4;
 
 /*!
   \struct SoDepthState

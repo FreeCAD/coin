@@ -149,8 +149,7 @@ static bool vkCommandBatchable(const SoRenderCommand & a,
     return false;
   if (ma.textureAlphaIncludesOpacity != mb.textureAlphaIncludesOpacity)
     return false;
-  if ((ma.flags & (SO_MAT_HAS_TEXTURE | SO_MAT_IS_PIXEL_TEXT)) !=
-      (mb.flags & (SO_MAT_HAS_TEXTURE | SO_MAT_IS_PIXEL_TEXT))) return false;
+  if (a.pixelRaster.enabled != b.pixelRaster.enabled) return false;
   if (ma.texture.pixels != mb.texture.pixels) return false;
   if (ma.texture.width != mb.texture.width) return false;
   if (ma.texture.height != mb.texture.height) return false;
