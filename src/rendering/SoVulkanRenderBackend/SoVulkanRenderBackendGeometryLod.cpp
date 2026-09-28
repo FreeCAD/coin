@@ -38,7 +38,7 @@
 
 #include <Inventor/errors/SoDebugError.h>
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 
 #include <algorithm>
 #include <atomic>

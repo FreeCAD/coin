@@ -8,9 +8,9 @@
 #include "rendering/SoVulkanShared.h"
 #include "rendering/SoVulkanResult.h"
 // Vulkan Memory Allocator handles.  Only the opaque handle types are needed in
-// this header; the full API lives in third_party/vma/vk_mem_alloc.h, included
-// by the .cpp files that allocate.  VK_DEFINE_HANDLE produces the same typedef
-// VMA does, so either include order is safe.
+// this header; the full API lives in the system-provided vk_mem_alloc.h,
+// included by the .cpp files that allocate.  VK_DEFINE_HANDLE produces the same
+// typedef VMA does, so either include order is safe.
 #ifndef AMD_VULKAN_MEMORY_ALLOCATOR_H
 VK_DEFINE_HANDLE(VmaAllocator)
 VK_DEFINE_HANDLE(VmaAllocation)

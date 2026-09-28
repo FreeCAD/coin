@@ -31,7 +31,7 @@ if(COIN_BUILD_VULKAN_RENDERER)
 		SoVulkanRenderBackend/SoVulkanRenderBackendGeometryLod.cpp
 		SoVulkanRenderBackend/SoVulkanRenderBackendFrame.cpp
 		SoVulkanRenderManager.cpp
-		third_party/vma/vk_mem_alloc_impl.cpp
+		SoVulkanRenderBackend/VmaImpl.cpp
 	)
 endif()
 

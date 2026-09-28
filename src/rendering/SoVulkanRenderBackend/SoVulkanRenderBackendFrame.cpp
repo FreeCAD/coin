@@ -17,7 +17,7 @@
 #include "rendering/SoVulkanConfig.h"
 #include "rendering/SoVulkanDebugUtils.h"
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/errors/SoDebugError.h>

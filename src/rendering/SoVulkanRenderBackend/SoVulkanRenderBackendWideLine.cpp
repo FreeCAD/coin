@@ -20,7 +20,7 @@
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/errors/SoDebugError.h>
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 
 #include <algorithm>
 #include <condition_variable>
