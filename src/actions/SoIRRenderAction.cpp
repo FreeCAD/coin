@@ -194,7 +194,8 @@ void
 SoIRRenderAction::callDoAction(SoAction * action, SoNode * node)
 {
   node->doAction(action);
-  if (getenv("FC_VULKAN_CLIP_DEBUG")) {
+  static const bool clipdebug = getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
+  if (clipdebug) {
     static int cdaCount = 0;
     if (cdaCount++ < 40) {
       SoState * st = action->getState();
@@ -253,7 +254,8 @@ SoIRRenderAction::beginTraversal(SoNode * node)
   // logical-pixel viewport multiplied by dpr instead).  SoShapeScale and
   // friends rely on this element being set.
   SoDevicePixelRatioElement::set(this->state, this->vpRegion.getPixelsPerPoint());
-  if (getenv("FC_VULKAN_CLIP_DEBUG")) {
+  static const bool clipdebug_bt = getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
+  if (clipdebug_bt) {
     static bool btLogged = false;
     if (!btLogged) {
       btLogged = true;

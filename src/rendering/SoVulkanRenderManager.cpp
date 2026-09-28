@@ -32,6 +32,7 @@
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanShared.h"
 #include "rendering/SoVulkanConfig.h"
+#include "rendering/SoVulkanReplayKey.h"
 
 class SoVulkanRenderManagerP;
 static void vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor);
@@ -45,6 +46,10 @@ static void vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor);
 #include <limits>
 #include <memory>
 #include <vector>
+
+// Graph-fingerprint helpers for the retained-IR replay live in
+// SoVulkanReplayKey.h so the key and its node-class exclusions are testable.
+using namespace CoinVulkanReplay;
 
 namespace {
 
@@ -176,71 +181,6 @@ bool irReplayEnabled()
   static const bool enabled =
     SoVulkanShared::envFlagEnabled("FC_VULKAN_IR_REPLAY", true);
   return enabled;
-}
-
-void mixHash(uint64_t & h, uint64_t v)
-{
-  h ^= v + 0x9E3779B97F4A7C15ULL + (h << 6) + (h >> 2);
-}
-
-// Recursively fold (node pointer, SoNode::getNodeId()) of every reachable
-// node into \a h.  Any change that can alter the IR draw list -- a field
-// write, a child-list edit, a geometry rebuild -- notifies through the node,
-// and SoNode::notify() bumps its unique id, so matching ids mean every
-// retained command was produced from exactly the current graph.  Group
-// children are folded via SoGroup; non-group child containers would have to
-// route through SoChildList notifications, which bump the owning node's id
-// and are caught by its own entry.
-//
-// NODE-ID EXCLUSIONS (camera-coupled infra): Coin propagates a notification
-// up the parent chain, so any changed node re-bumps every ancestor's node-id.
-// Two classes of node must be excluded or the fingerprint changes on every
-// camera-only frame and defeats the retained-IR replay:
-//   * SoCamera                                     -- its pose is the very
-//      change replay exists for (restamped/re-lit after a frame-view change).
-//   * The headlight envelope (SoRotation / SoTransformSeparator / SoLight /
-//      SoEnvironment) plus bare SoGroup/SoSeparator aggregation containers.
-//      FreeCAD re-aims the headlight ROTATION to follow the camera every
-//      navigation frame, and the container's node-ids are re-bumped purely by
-//      propagation.  None of these nodes produce the rasterized fill-geometry
-//      in the draw list -- lighting is re-derived every frame by the backend's
-//      updateLightingSetup() -- so excluding their ids only suppresses the
-//      camera-coupled chatter.  Real geometry edits use SoTransform/SoMatrix
-//      /shape/selection nodes, which still fold their ids, so an in-place
-//      edit, a move, an add/remove or a material/texture swap still
-//      invalidates the draw list and forces a re-record.
-//! True for a node whose id the graph fingerprint deliberately ignores: the
-//! camera-coupled chatter (camera/light/environment/rotation/transform-
-//! separator) and the plain container nodes.  A field write on such a node
-//! cannot change the retained main draw list, so it is also what the
-//! scene-dirty sensor treats as non-invalidating (see the callback below) --
-//! shared here so the two stay consistent.
-inline bool fingerprintSkipsNodeId(const SoNode * node)
-{
-  return node->isOfType(SoCamera::getClassTypeId()) ||
-    node->isOfType(SoLight::getClassTypeId()) ||
-    node->isOfType(SoEnvironment::getClassTypeId()) ||
-    node->isOfType(SoRotation::getClassTypeId()) ||
-    node->isOfType(SoTransformSeparator::getClassTypeId()) ||
-    node->getTypeId() == SoGroup::getClassTypeId() ||
-    node->getTypeId() == SoSeparator::getClassTypeId();
-}
-
-inline void graphFingerprintWalk(SoNode * node, const SoNode * skip, uint64_t & h)
-{
-  if (!node || node == skip) return;
-  mixHash(h, reinterpret_cast<uintptr_t>(node));
-  if (!fingerprintSkipsNodeId(node)) {
-    mixHash(h, static_cast<uint64_t>(node->getNodeId()));
-  }
-  if (node->isOfType(SoGroup::getClassTypeId())) {
-    const SoGroup * group = static_cast<const SoGroup *>(node);
-    const int num = group->getNumChildren();
-    mixHash(h, static_cast<uint64_t>(num));
-    for (int i = 0; i < num; ++i) {
-      graphFingerprintWalk(group->getChild(i), skip, h);
-    }
-  }
 }
 
 } // namespace

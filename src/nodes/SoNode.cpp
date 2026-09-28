@@ -871,7 +871,8 @@ SoNode::IRRender(SoIRRenderAction * action)
 void
 SoNode::IRRenderS(SoAction * action, SoNode * node)
 {
-  if (getenv("FC_IR_BREADCRUMB"))
+  static const bool ircrumb_enabled = (std::getenv("FC_IR_BREADCRUMB") != nullptr);
+  if (ircrumb_enabled)
     fprintf(stderr, "[BC-IR] IRRenderS node=%p type=%s action=%p\n",
             (void *)node, node->getTypeId().getName().getString(),
             (void *)action);
