@@ -170,6 +170,20 @@ option(COIN_BUILD_LEGACY_GL_RENDERER
   ON)
 set(COIN_HAVE_LEGACY_GL_RENDERER ${COIN_BUILD_LEGACY_GL_RENDERER})
 
+option(COIN_BUILD_VULKAN_RENDERER
+  "Build Coin's experimental Vulkan retained-renderer backend."
+  OFF)
+
+option(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR
+  "Use a system install of the Vulkan Memory Allocator."
+  ON)
+
+# The Vulkan backend uses C++17 facilities (std::optional, structured
+# bindings); the rest of Coin stays on the C++11 baseline.
+if(COIN_BUILD_VULKAN_RENDERER AND CMAKE_CXX_STANDARD LESS 17)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
 
@@ -546,6 +560,37 @@ if(NOT SIMAGE_RUNTIME_LINKING)
     set(HAVE_LIBSIMAGE 1)
     list(APPEND COIN_TARGET_LINK_LIBRARIES simage::simage)
   endif()
+endif()
+
+if(COIN_BUILD_VULKAN_RENDERER)
+  find_package(Vulkan REQUIRED)
+  if(TARGET Vulkan::Vulkan)
+    list(APPEND COIN_TARGET_LINK_LIBRARIES Vulkan::Vulkan)
+  else()
+    list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${Vulkan_INCLUDE_DIRS})
+    list(APPEND COIN_TARGET_LINK_LIBRARIES ${Vulkan_LIBRARIES})
+  endif()
+  # Vulkan Memory Allocator is header-only; the single implementation TU is
+  # rendering/SoVulkanRenderBackend/VmaImpl.cpp. Prefer a system install,
+  # mirroring USE_EXTERNAL_EXPAT; set OFF to use the bundled copy.
+  if(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR)
+    find_package(VulkanMemoryAllocator CONFIG QUIET)
+    if(TARGET VulkanMemoryAllocator::VulkanMemoryAllocator)
+      list(APPEND COIN_TARGET_LINK_LIBRARIES VulkanMemoryAllocator::VulkanMemoryAllocator)
+    else()
+      find_path(COIN_VMA_INCLUDE_DIR vk_mem_alloc.h)
+      if(COIN_VMA_INCLUDE_DIR)
+        list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${COIN_VMA_INCLUDE_DIR})
+      else()
+        message(FATAL_ERROR
+          "USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR=ON but vk_mem_alloc.h was not found")
+      endif()
+    endif()
+  else()
+    list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES
+         ${PROJECT_SOURCE_DIR}/src/rendering/third_party/vma)
+  endif()
+  set(HAVE_VULKAN 1)
 endif()
 
 message(STATUS "${COIN_TARGET_INCLUDE_DIRECTORIES}")

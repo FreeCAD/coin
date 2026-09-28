@@ -121,7 +121,7 @@ static bool vkCommandBatchable(const SoRenderCommand & a,
       aa.reference != ab.reference) return false;
   const SoRasterState & ra = a.state.raster, &rb = b.state.raster;
   if (ra.fillMode != rb.fillMode || ra.pointShape != rb.pointShape ||
-      ra.cullMode != rb.cullMode || ra.ccwFrontFace != rb.ccwFrontFace ||
+      soVulkanCullMode(ra) != soVulkanCullMode(rb) || soVulkanCcwFrontFace(ra) != soVulkanCcwFrontFace(rb) ||
       ra.scissorEnabled != rb.scissorEnabled ||
       ra.viewportEnabled != rb.viewportEnabled ||
       ra.viewportX != rb.viewportX || ra.viewportY != rb.viewportY ||
@@ -180,8 +180,8 @@ static uint64_t vkBatchKey(const SoRenderCommand & a, uint64_t contentHash)
   const SoRasterState & r = a.state.raster;
   uint32_t s = (uint32_t)a.state.depth.func |
     ((uint32_t)(a.state.depth.enabled ? 1 : 0) << 3) |
-    ((uint32_t)r.fillMode << 4) | ((uint32_t)r.cullMode << 6) |
-    ((uint32_t)r.ccwFrontFace << 8) |
+    ((uint32_t)r.fillMode << 4) | ((uint32_t)soVulkanCullMode(r) << 6) |
+    ((uint32_t)soVulkanCcwFrontFace(r) << 8) |
     ((uint32_t)r.linePattern << 9) |
     ((uint32_t)(a.state.blend.enabled ? 1 : 0) << 25);
   h ^= (uint64_t)s << 1;

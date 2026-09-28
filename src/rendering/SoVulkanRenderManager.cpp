@@ -2247,7 +2247,7 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
               "[CLIP] cmd%d pass=%d verts=%d cull=%d "
               "world=(%.3f,%.3f,%.3f) viewz=%.3f ndc=(%.3f,%.3f,%.3f,%.3f)\n",
               i, static_cast<int>(soVulkanCommandPass(cmd)), static_cast<int>(geo.vertexCount),
-              static_cast<int>(cmd.state.raster.cullMode),
+              static_cast<int>(soVulkanCullMode(cmd.state.raster)),
               wx, wy, wz, vz, nx, ny, nz, nw);
     }
   }

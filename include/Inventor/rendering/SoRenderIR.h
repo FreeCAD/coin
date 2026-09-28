@@ -117,6 +117,11 @@ struct SoGeometryDesc {
   // an SoBrepFaceSet face via partIndex). Zero when the command covers the
   // shape from its start.
   uint32_t            primitiveOffset = 0;
+
+  //! True when the streams come from a producer-owned retained tessellation
+  //! cache rather than a transient per-frame arena, so a backend may key
+  //! resource reuse on the source identity instead of the frame lifetime.
+  bool                retained = false;
 };
 
 //! Stable, draw-list-local reference to a geometry resource.
@@ -266,6 +271,7 @@ enum SoAlphaTestPolicy : uint8_t {
 // --- Render param flags (SoRenderParams::flags) ---
 static constexpr uint32_t SO_PARAM_CLEAR_WINDOW = 1u;
 static constexpr uint32_t SO_PARAM_CLEAR_DEPTH  = 4u;  //!< Clear depth buffer before rendering
+static constexpr uint32_t SO_PARAM_CLEAR_STENCIL = 8u; //!< Clear stencil buffer before rendering
 //! The owning caller guarantees that this exact draw list is unchanged.
 static constexpr uint32_t SO_PARAM_REUSE_DRAW_LIST = 8u;
 
@@ -349,7 +355,16 @@ struct SoMaterialData {
   bool     vertexColorAlphaIncludesOpacity = false;
 
   bool     twoSidedLighting = false;
+
+  //! Command-level material flags. Historically the Vulkan path used these to
+  //! distinguish an embedded texture from a pixel text/image raster without
+  //! re-deriving it from the payload.
+  uint32_t flags = 0;
 };
+
+static constexpr uint32_t SO_MAT_HAS_TEXTURE = 0x1;
+static constexpr uint32_t SO_MAT_IS_PIXEL_TEXT = 0x2;
+static constexpr uint32_t SO_MAT_IS_PIXEL_IMAGE = 0x4;
 
 /*!
   \struct SoDepthState
@@ -446,9 +461,14 @@ enum SoRasterFillMode : uint8_t {
 struct SoRasterState {
   SbBool  visible = TRUE;
   SoRasterFillMode fillMode = SO_RASTER_FILL;
+  SoPointShape pointShape = SO_POINT_SHAPE_SQUARE;
   SbBool  cullBackFaces = FALSE;
   SbBool  frontFaceCCW = TRUE;
   SbBool  scissorEnabled = FALSE;
+  int     scissorX = 0;
+  int     scissorY = 0;
+  int     scissorWidth = 0;
+  int     scissorHeight = 0;
   SbBool  viewportOverride = FALSE;
   SbBool  viewportEnabled = FALSE;
   int     viewportX = 0;

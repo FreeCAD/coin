@@ -13,6 +13,25 @@ set(COIN_RENDERING_FILES
 	SoGLRenderBackend.cpp
 )
 
+if(COIN_BUILD_VULKAN_RENDERER)
+	list(APPEND COIN_RENDERING_FILES
+		SoVulkanConfig.cpp
+		SoVulkanGpuTimers.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendCore.cpp
+		SoVulkanRenderBackend/SoVulkanRenderPassCache.cpp
+		SoVulkanRenderBackend/SoVulkanPipelineCache.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendPipeline.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendGeometry.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendTexture.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendCommand.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendWideLine.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendGeometryLod.cpp
+		SoVulkanRenderBackend/SoVulkanRenderBackendFrame.cpp
+		SoVulkanRenderManager.cpp
+		SoVulkanRenderBackend/VmaImpl.cpp
+	)
+endif()
+
 if(COIN_BUILD_LEGACY_GL_RENDERER)
 	list(APPEND COIN_RENDERING_FILES
 		SoGL.cpp
@@ -57,6 +76,13 @@ set(COIN_RENDERING_INTERNAL_FILES
 	SoTextureQualityPolicy.h
 	SoRenderBackend.h
 	SoGLRenderBackend.h
+	SoVulkanConfig.h
+	SoVulkanResult.h
+	SoVulkanRenderBackend.h
+	SoVulkanRenderBackend/SoVulkanRenderBackendP.h
+	SoVulkanRenderBackend/SoVulkanRenderPassCache.h
+	SoVulkanShared.h
+	SoVulkanRenderManager.h
 )
 
 # build library
