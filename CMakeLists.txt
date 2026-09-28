@@ -109,7 +109,6 @@ cmake_dependent_option(HAVE_MANIPULATORS "Enable Manipulator support." ON "HAVE_
 option(HAVE_SOUND "Enable OpenAL sound support." ON)
 option(HAVE_3DS_IMPORT_CAPABILITIES "Enable 3ds import capabilities." ON)
 option(USE_EXTERNAL_EXPAT "Use system install of Expat." OFF)
-option(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR "Use system install of Vulkan Memory Allocator." OFF)
 option(USE_EXCEPTIONS "Compile with exceptions (g++ only)." ON)
 option(USE_SUPERGLU "Use superglu library when ON, GLU implementation of platform when OFF (default)." OFF)
 
@@ -212,7 +211,6 @@ report_prepare(
   HAVE_SOUND
   HAVE_3DS_IMPORT_CAPABILITIES
   USE_EXTERNAL_EXPAT
-  USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR
   USE_EXCEPTIONS
   USE_SUPERGLU
   FONTCONFIG_RUNTIME_LINKING
@@ -335,37 +333,28 @@ if(COIN_BUILD_VULKAN_RENDERER)
     list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${Vulkan_INCLUDE_DIRS})
     list(APPEND COIN_TARGET_LINK_LIBRARIES ${Vulkan_LIBRARIES})
   endif()
-  # Vulkan Memory Allocator (header-only).  Bundled by default; set
-  # USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR=ON to prefer a system install,
-  # mirroring USE_EXTERNAL_EXPAT.  The single implementation is always compiled
-  # from rendering/third_party/vma/vk_mem_alloc_impl.cpp, so whichever header
-  # provider is selected is what the renderer and that TU both include.
-  set(COIN_VMA_PROVIDER "bundled")
-  set(COIN_VMA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/rendering/third_party/vma")
-  if(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR)
-    find_package(VulkanMemoryAllocator CONFIG QUIET)
-    if(TARGET VulkanMemoryAllocator::VulkanMemoryAllocator)
-      set(COIN_VMA_PROVIDER "system")
-      set(HAVE_VULKAN_MEMORY_ALLOCATOR 1)
-      set(COIN_VMA_INCLUDE_DIR "")
-      list(APPEND COIN_TARGET_LINK_LIBRARIES VulkanMemoryAllocator::VulkanMemoryAllocator)
-    else()
-      find_path(COIN_VMA_SYSTEM_INCLUDE_DIR
-        NAMES vk_mem_alloc.h
-        PATH_SUFFIXES vma VulkanMemoryAllocator)
-      if(COIN_VMA_SYSTEM_INCLUDE_DIR)
-        set(COIN_VMA_PROVIDER "system")
-        set(HAVE_VULKAN_MEMORY_ALLOCATOR 1)
-        set(COIN_VMA_INCLUDE_DIR "${COIN_VMA_SYSTEM_INCLUDE_DIR}")
-      else()
-        message(STATUS "VulkanMemoryAllocator not found, falling back to bundled copy")
-      endif()
-    endif()
-  endif()
-  if(COIN_VMA_INCLUDE_DIR)
+  # Vulkan Memory Allocator (VMA, header-only).  It is intentionally not bundled
+  # with Coin: a Vulkan build requires VMA to be provided by the system.  Supply
+  # the header (conda-forge "vulkan-memory-allocator", Debian/Ubuntu
+  # "libvulkan-memory-allocator-dev", vcpkg "vulkan-memory-allocator", or the
+  # LunarG SDK), or point COIN_VMA_INCLUDE_DIR at the directory containing
+  # vk_mem_alloc.h.  The single implementation is compiled from
+  # rendering/SoVulkanRenderBackend/VmaImpl.cpp.
+  find_package(VulkanMemoryAllocator CONFIG QUIET)
+  if(TARGET VulkanMemoryAllocator::VulkanMemoryAllocator)
+    set(COIN_VMA_PROVIDER "VulkanMemoryAllocator::VulkanMemoryAllocator")
+    list(APPEND COIN_TARGET_LINK_LIBRARIES VulkanMemoryAllocator::VulkanMemoryAllocator)
+  else()
+    find_path(COIN_VMA_INCLUDE_DIR
+      NAMES vk_mem_alloc.h
+      PATH_SUFFIXES vma VulkanMemoryAllocator
+      REQUIRED
+      DOC "Directory containing vk_mem_alloc.h (Vulkan Memory Allocator)")
     list(APPEND COIN_TARGET_INCLUDE_DIRECTORIES ${COIN_VMA_INCLUDE_DIR})
+    set(COIN_VMA_PROVIDER "${COIN_VMA_INCLUDE_DIR}")
   endif()
-  message(STATUS "Using ${COIN_VMA_PROVIDER} VulkanMemoryAllocator")
+  set(HAVE_VULKAN_MEMORY_ALLOCATOR 1)
+  message(STATUS "Using Vulkan Memory Allocator from ${COIN_VMA_PROVIDER}")
   set(HAVE_VULKAN 1)
 endif()
 
