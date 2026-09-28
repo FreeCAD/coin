@@ -588,6 +588,52 @@ struct SoLightingData {
   std::vector<SoLightData> lights;
 };
 
+//! Maximum number of lights mirrored into a backend's lighting constant block.
+constexpr int SO_MAX_SHADER_LIGHTS = 8;
+
+/*!
+  \struct SoLightingBlock
+  \brief Standardized fixed-capacity GPU mirror of one world-space lighting
+  setup, shared by every retained backend's lighting uniform/staging buffer.
+
+  The layout matches the std140 LightingBlock uniform layout of the retained
+  shaders byte-for-byte. Producers fill it with
+  SoRenderIR::fillLightingBlock(); backends copy the finished block straight
+  into their buffer, so the per-light field packing lives in exactly one
+  place. The evaluated light count travels separately.
+*/
+struct COIN_DLL_API SoLightingBlock {
+  float ambientLight[4];
+  float lightType[SO_MAX_SHADER_LIGHTS * 4];
+  float lightColor[SO_MAX_SHADER_LIGHTS * 4];
+  float lightDirection[SO_MAX_SHADER_LIGHTS * 4];
+  float lightPosition[SO_MAX_SHADER_LIGHTS * 4];
+  float lightAttenuation[SO_MAX_SHADER_LIGHTS * 4];
+  float lightSpotParams[SO_MAX_SHADER_LIGHTS * 4];
+};
+static_assert(sizeof(SoLightingBlock) == 784,
+              "SoLightingBlock must match the std140 LightingBlock layout");
+
+namespace SoRenderIR {
+
+//! Transform one world-space light into eye space for \a view.
+COIN_DLL_API SoLightData lightToEye(const SoLightData & world,
+                                    const SbMatrix & view);
+
+//! Transform one eye-space light back into world space (inverse of lightToEye).
+COIN_DLL_API SoLightData lightToWorld(const SoLightData & eye,
+                                      const SbMatrix & inverseView);
+
+//! Fill a SoLightingBlock from a world-space SoLightingData. When \a toEye is
+//! non-null every light is transformed into eye space; otherwise the
+//! world-space fields are copied verbatim. Returns the number of lights
+//! written (<= SO_MAX_SHADER_LIGHTS).
+COIN_DLL_API int fillLightingBlock(SoLightingBlock & block,
+                                   const SoLightingData & world,
+                                   const SbMatrix * toEye);
+
+} // namespace SoRenderIR
+
 /*!
   \struct SoIRRenderContext
   \brief State that must survive when a path is replayed after traversal.

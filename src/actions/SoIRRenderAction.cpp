@@ -349,6 +349,7 @@ SoIRRenderAction::beginFrame()
   this->unsupportedRendering = false;
   this->unsupportedNode = nullptr;
   this->unsupportedReason = nullptr;
+  this->cameraDependent = FALSE;
 }
 
 void

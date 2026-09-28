@@ -130,6 +130,18 @@ public:
   void setDevicePixelRatio(float dpr) { this->devicePixelRatio = dpr; }
   float getDevicePixelRatio(void) const { return this->devicePixelRatio; }
 
+  /*!
+    Mark the current frame's traversal as camera-dependent.
+
+    A node whose retained output bakes in a camera-derived transform (for
+    example a screen-constant-size scale or an auto-zoom translation) sets
+    this during traversal. An embedding that reuses a retained frame on a
+    camera-only change must then re-record instead of replaying, because the
+    baked transform would otherwise stay stale. Cleared by beginFrame().
+  */
+  void setCameraDependent(SbBool on) { this->cameraDependent = on; }
+  SbBool isCameraDependent(void) const { return this->cameraDependent; }
+
   // Standard entry points, mirroring SoGLRenderAction
   virtual void apply(SoNode * root) override;
   virtual void apply(SoPath * path) override;
@@ -257,6 +269,7 @@ private:
   SbViewportRegion vpRegion;
   SoCamera *       camera = nullptr;
   CameraPolicy     cameraPolicy = CameraPolicy::USE_CONFIGURED_CAMERA;
+  SbBool           cameraDependent = FALSE;
   float            devicePixelRatio = 1.0f;
   SoDrawList       drawlist;
   // Full SoPath objects are materialized only for consumers that need to

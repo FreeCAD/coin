@@ -1320,4 +1320,100 @@ finalizeCommand(SoRenderCommand & command)
   }
 }
 
+SoLightData
+lightToEye(const SoLightData & world, const SbMatrix & view)
+{
+  SoLightData eye = world;
+  view.multDirMatrix(world.direction, eye.direction);
+  if (eye.direction.normalize() == 0.0f) {
+    eye.direction = world.direction;
+  }
+  if (world.type != SO_LIGHT_DIRECTIONAL) {
+    view.multVecMatrix(world.position, eye.position);
+  }
+  return eye;
+}
+
+SoLightData
+lightToWorld(const SoLightData & eye, const SbMatrix & inverseView)
+{
+  SoLightData world = eye;
+  inverseView.multDirMatrix(eye.direction, world.direction);
+  if (world.direction.normalize() == 0.0f) {
+    world.direction = eye.direction;
+  }
+  if (eye.type != SO_LIGHT_DIRECTIONAL) {
+    inverseView.multVecMatrix(eye.position, world.position);
+  }
+  return world;
+}
+
+namespace {
+
+void
+packLightIntoBlock(SoLightingBlock & block, int slot, const SoLightData & light)
+{
+  float * type = block.lightType + slot * 4;
+  type[0] = static_cast<float>(light.type);
+  type[1] = type[2] = 0.0f;
+  type[3] = 1.0f;
+
+  float * color = block.lightColor + slot * 4;
+  color[0] = light.color[0];
+  color[1] = light.color[1];
+  color[2] = light.color[2];
+  color[3] = 1.0f;
+
+  float * direction = block.lightDirection + slot * 4;
+  direction[0] = light.direction[0];
+  direction[1] = light.direction[1];
+  direction[2] = light.direction[2];
+  direction[3] = 1.0f;
+
+  float * position = block.lightPosition + slot * 4;
+  position[0] = light.position[0];
+  position[1] = light.position[1];
+  position[2] = light.position[2];
+  position[3] = 1.0f;
+
+  float * attenuation = block.lightAttenuation + slot * 4;
+  attenuation[0] = light.attenuation[0];
+  attenuation[1] = light.attenuation[1];
+  attenuation[2] = light.attenuation[2];
+  attenuation[3] = 1.0f;
+
+  float * spot = block.lightSpotParams + slot * 4;
+  spot[0] = light.spotCutoffCos;
+  spot[1] = light.spotExponent;
+  spot[2] = 0.0f;
+  spot[3] = 1.0f;
+}
+
+} // namespace
+
+int
+fillLightingBlock(SoLightingBlock & block,
+                  const SoLightingData & world,
+                  const SbMatrix * toEye)
+{
+  std::memset(&block, 0, sizeof(block));
+  block.ambientLight[0] = world.ambient[0];
+  block.ambientLight[1] = world.ambient[1];
+  block.ambientLight[2] = world.ambient[2];
+  block.ambientLight[3] = 1.0f;
+
+  const int count = static_cast<int>(std::min<size_t>(
+    world.lights.size(), static_cast<size_t>(SO_MAX_SHADER_LIGHTS)));
+  for (int i = 0; i < count; ++i) {
+    const SoLightData & light = world.lights[static_cast<size_t>(i)];
+    if (toEye != nullptr) {
+      packLightIntoBlock(block, i, lightToEye(light, *toEye));
+    }
+    else {
+      packLightIntoBlock(block, i, light);
+    }
+  }
+  return count;
+}
+
 } // namespace SoRenderIR

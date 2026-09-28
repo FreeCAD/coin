@@ -153,7 +153,7 @@ SoVulkanRenderBackend::createBackgroundPipeline(
   rasterization.depthClampEnable = VK_FALSE;
   rasterization.rasterizerDiscardEnable = VK_FALSE;
   rasterization.polygonMode = VK_POLYGON_MODE_FILL;
-  soVulkanCullMode(rasterization) = VK_CULL_MODE_NONE;
+  rasterization.cullMode = VK_CULL_MODE_NONE;
   rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterization.lineWidth = 1.0f;
 
@@ -318,8 +318,8 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   key.topology = command.geometry.topology;
   key.fillMode = overlay ? static_cast<uint8_t>(fillModeOverride)
                           : command.state.raster.fillMode;
-  soVulkanCullMode(key) = overlay ? 0 : soVulkanCullMode(command.state.raster);
-  soVulkanCcwFrontFace(key) = soVulkanCcwFrontFace(command.state.raster);
+  key.cullMode = overlay ? 0 : soVulkanCullMode(command.state.raster);
+  key.ccwFrontFace = soVulkanCcwFrontFace(command.state.raster);
   key.depthTestEnable = command.state.depth.enabled || overlay;
   // Overlay-pass geometry (e.g. the navigation cube) draws last into its own
   // viewport and keeps depth writes so it can self-occlude correctly; the
@@ -566,10 +566,10 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   // SOLID shape type cull (ccwFrontFace/cullMode above).  FreeCAD BRep
   // tessellations declare COUNTERCLOCKWISE/SOLID, so closed parts cull
   // back faces here exactly like the GL pipeline does.
-  soVulkanCullMode(rasterization) =
-    key.wideLine || !soVulkanCullMode(key) ? VK_CULL_MODE_NONE
+  rasterization.cullMode =
+    key.wideLine || !key.cullMode ? VK_CULL_MODE_NONE
                                   : VK_CULL_MODE_BACK_BIT;
-  rasterization.frontFace = soVulkanCcwFrontFace(key)
+  rasterization.frontFace = key.ccwFrontFace
     ? VK_FRONT_FACE_CLOCKWISE
     : VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterization.lineWidth = 1.0f;

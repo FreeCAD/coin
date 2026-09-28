@@ -19,7 +19,30 @@
 #include <vector>
 
 #include <Inventor/rendering/SoVulkanImageCopy.h>
+#include <Inventor/rendering/SoRenderIR.h>
 #include <vulkan/vulkan.h>
+
+// The retained planner classifies commands with two orthogonal flags (opacity
+// class and render stage) and stores raster culling as booleans. The Vulkan
+// recorder historically used a single pass value and numeric cull fields, so
+// these adapters keep every mapping in one place.
+enum : int {
+  SO_RENDERPASS_VK_OPAQUE = 0,
+  SO_RENDERPASS_VK_TRANSPARENT = 1,
+  SO_RENDERPASS_VK_OVERLAY = 2
+};
+
+inline int soVulkanCommandPass(const SoRenderCommand & command)
+{
+  if (command.stage != SoRenderStage::Main) return SO_RENDERPASS_VK_OVERLAY;
+  return command.opacityClass == SO_OPACITY_TRANSPARENT
+    ? SO_RENDERPASS_VK_TRANSPARENT : SO_RENDERPASS_VK_OPAQUE;
+}
+
+inline uint8_t soVulkanCullMode(const SoRasterState & raster)
+{ return raster.cullBackFaces ? 1u : 0u; }
+inline uint8_t soVulkanCcwFrontFace(const SoRasterState & raster)
+{ return raster.frontFaceCCW ? 1u : 0u; }
 
 namespace SoVulkanShared {
 

@@ -41,29 +41,6 @@
 // interface in.
 struct SoRenderParams;
 
-// The retained planner classifies commands with two orthogonal flags (opacity
-// class and render stage). The Vulkan recorder historically used a single
-// three-valued pass, so this adapter keeps the mapping in exactly one place.
-enum : int {
-  SO_RENDERPASS_VK_OPAQUE = 0,
-  SO_RENDERPASS_VK_TRANSPARENT = 1,
-  SO_RENDERPASS_VK_OVERLAY = 2
-};
-
-inline int soVulkanCommandPass(const SoRenderCommand & command)
-{
-  if (command.stage != SoRenderStage::Main) return SO_RENDERPASS_VK_OVERLAY;
-  return command.opacityClass == SO_OPACITY_TRANSPARENT
-    ? SO_RENDERPASS_VK_TRANSPARENT : SO_RENDERPASS_VK_OPAQUE;
-}
-
-// The Vulkan recorder used a numeric cull mode (0 = none) and a numeric
-// CCW-front-face flag; the IR stores both as booleans.
-inline uint8_t soVulkanCullMode(const SoRasterState & raster)
-{ return raster.cullBackFaces ? 1u : 0u; }
-inline uint8_t soVulkanCcwFrontFace(const SoRasterState & raster)
-{ return raster.frontFaceCCW ? 1u : 0u; }
-
 namespace CoinVulkanDetail {
 
   // ---- [TRC] per-step recording traces (FC_VULKAN_TRACE) ----

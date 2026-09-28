@@ -78,8 +78,8 @@ struct PipelineKey {
   bool operator==(const PipelineKey & other) const
   {
     return renderPass == other.renderPass && topology == other.topology &&
-      fillMode == other.fillMode && cullMode == soVulkanCullMode(other) &&
-      ccwFrontFace == soVulkanCcwFrontFace(other) &&
+      fillMode == other.fillMode && cullMode == other.cullMode &&
+      ccwFrontFace == other.ccwFrontFace &&
       depthTestEnable == other.depthTestEnable &&
       depthWriteEnable == other.depthWriteEnable &&
       depthFunction == other.depthFunction &&
@@ -117,8 +117,8 @@ struct PipelineKeyHash
       reinterpret_cast<uintptr_t>(key.renderPass));
     hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.topology));
     hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.fillMode));
-    hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(soVulkanCullMode(key)));
-    hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(soVulkanCcwFrontFace(key)));
+    hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.cullMode));
+    hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.ccwFrontFace));
     hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.depthTestEnable));
     hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.depthWriteEnable));
     hash = vkPipelineHashCombine(hash, std::hash<uint32_t>()(key.depthFunction));

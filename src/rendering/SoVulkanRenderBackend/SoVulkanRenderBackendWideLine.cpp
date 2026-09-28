@@ -834,7 +834,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
       const auto found = this->commandToCache.find(command);
       VulkanCachedCommand & entry = this->gpuCache[found->second];
       this->expandWideLinesFor(entry, *command, params,
-                               command->pass == SO_RENDERPASS_VK_OVERLAY);
+                               soVulkanCommandPass(*command) == SO_RENDERPASS_VK_OVERLAY);
     }
     return;
   }
@@ -875,7 +875,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
       if (found == this->commandToCache.end()) continue;
       VulkanCachedCommand & entry = this->gpuCache[found->second];
       this->expandWideLinesFor(entry, *command, params,
-                               command->pass == SO_RENDERPASS_VK_OVERLAY);
+                               soVulkanCommandPass(*command) == SO_RENDERPASS_VK_OVERLAY);
     }
     this->recordJobs[0].ok = true;
   }

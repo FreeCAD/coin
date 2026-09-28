@@ -893,7 +893,10 @@ SoVulkanRenderManager::render(SbBool clearwindow, SbBool clearzbuffer)
     return FALSE;
   }
   params.frame = ++this->pimpl->frameOrdinal;
-  if (!this->pimpl->backend.render(*drawlist, params)) {
+  SoRenderPlan plan;
+  SoRenderPlanner planner;
+  planner.build(*drawlist, plan);
+  if (!this->pimpl->backend.render(*drawlist, plan, params)) {
     SoDebugError::postWarning("SoVulkanRenderManager::render",
                               "backend render failed (%d draw commands)",
                               drawlist->getNumCommands());
@@ -1995,7 +1998,8 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     // changed, the previous order holds stale (out-of-range) indices.
   }
   else {
-    list.buildSortedOrder(params.viewMatrix);
+    // Retained command ordering is produced by SoRenderPlanner when the
+    // SoRenderPlan is built for the frame (see SoRenderManager::renderDrawListPipeline).
     this->lastSortView = params.viewMatrix;
     this->lastSortValid = TRUE;
     this->lastSortCommandCount = list.getNumCommands();

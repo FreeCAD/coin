@@ -533,14 +533,14 @@ SoVulkanRenderBackend::updateLightingUniforms(const SoDrawList & drawlist,
   // single set, so the count comes from it rather than the IR capture.
   int count = 0;
   if (!this->sceneLighting.lights.empty()) {
-    count = this->sceneLighting.lightCount();
+    count = this->sceneLighting.lights.size();
   }
   else {
     const SoLightingData * lighting =
       drawlist.getLighting(command.lightingHandle);
     static const SoLightingData emptyLighting;
     if (!lighting) lighting = &emptyLighting;
-    count = lighting->lightCount();
+    count = lighting->lights.size();
   }
   ubo.materialParams[2] = static_cast<float>(count);
 
