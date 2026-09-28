@@ -269,6 +269,11 @@ public:
 
   void setAutoClipping(AutoClippingStrategy autoclipping);
   AutoClippingStrategy getAutoClipping(void) const;
+  //! Recompute the scene-fitted near/far clip planes for the active camera
+  //! when auto-clipping is enabled. Callers that drive the camera directly
+  //! (for example a retained backend publishing a fitted clip plane to the
+  //! shared camera) use this to refresh them without a full render.
+  void updateClippingPlanes(void);
   void setNearPlaneValue(float value);
   float getNearPlaneValue(void) const;
   void setTexturesEnabled(const SbBool onoff);

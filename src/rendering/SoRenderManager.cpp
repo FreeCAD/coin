@@ -1982,6 +1982,15 @@ SoRenderManager::setAutoClipping(AutoClippingStrategy autoclipping)
   //}
 }
 
+// Recompute the scene-fitted clip planes when auto-clipping is enabled.
+void
+SoRenderManager::updateClippingPlanes(void)
+{
+  if (PRIVATE(this)->autoclipping != SoRenderManager::NO_AUTO_CLIPPING) {
+    PRIVATE(this)->setClippingPlanes();
+  }
+}
+
 /*!
   Initializes stencil buffers for interleaved stereo
 */
