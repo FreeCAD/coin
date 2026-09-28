@@ -519,7 +519,7 @@ SoVulkanRenderBackend::recordJobWorker(const size_t workerIndex)
           if (found == this->commandToCache.end()) continue;
           VulkanCachedCommand & entry = this->gpuCache[found->second];
           this->expandWideLinesFor(entry, *command, *job.params,
-                                   command->pass == SO_RENDERPASS_OVERLAY);
+                                   command->pass == SO_RENDERPASS_VK_OVERLAY);
         }
         job.ok = true;
       }

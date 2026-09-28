@@ -137,7 +137,7 @@ SubPixelElementForm subPixelElementForm(const SoRenderCommand & command)
 bool
 SoVulkanRenderBackend::isSubPixelEligible(const SoRenderCommand & command)
 {
-  if (command.pass == SO_RENDERPASS_OVERLAY) return false;
+  if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) return false;
   if (command.geometry.topology != SO_TOPOLOGY_TRIANGLES) return false;
   // The IR emits the Voron-class meshes as non-indexed triangle lists, so the
   // compaction must handle both forms.  Triangle lists always carry a multiple
@@ -402,7 +402,7 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
               "[GEOMLOD] cmd %d topo=%d vc=%u ic=%u pass=%d idx=%p\n",
               i, static_cast<int>(c.geometry.topology),
               c.geometry.vertexCount, c.geometry.indexCount,
-              static_cast<int>(c.pass),
+              static_cast<int>(soVulkanCommandPass(c)),
               reinterpret_cast<const void *>(c.geometry.indices));
     }
   }

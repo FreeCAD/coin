@@ -91,7 +91,7 @@ static bool vkCommandBatchable(const SoRenderCommand & a,
   if (a.geometry.vertexStride != b.geometry.vertexStride) return false;
   if (a.geometry.texcoordStride != b.geometry.texcoordStride) return false;
   if (a.lightingHandle != b.lightingHandle) return false;
-  if (a.pass != b.pass) return false;
+  if (soVulkanCommandPass(a) != soVulkanCommandPass(b)) return false;
   if (hashA != hashB) return false;
   // Compare the pipeline/push-determining state FIELD BY FIELD.  memcmp of the
   // sub-structs is unsafe: SbBool is an int and the enum fields leave padding
@@ -538,7 +538,7 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
   if (overlaysOnly) {
     bool hasOverlay = false;
     for (int i = 0; i < drawlist.getNumCommands(); ++i) {
-      if (drawlist.getCommand(i).pass == SO_RENDERPASS_OVERLAY) {
+      if (soVulkanCommandPass(drawlist.getCommand(i)) == SO_RENDERPASS_VK_OVERLAY) {
         hasOverlay = true;
         break;
       }
@@ -725,16 +725,34 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
 
 SbBool
 SoVulkanRenderBackend::render(const SoDrawList & drawlist,
-                              const SoRenderParams & params)
+                              const SoRenderPlan & plan,
+                              const SoRenderParams & params,
+                              const SoSelectionState * selection)
 {
-  return this->renderInternal(drawlist, params, false);
+  (void)selection;
+  this->activePlan = &plan;
+  const SbBool result = this->renderInternal(drawlist, params, false);
+  this->activePlan = nullptr;
+  return result;
+}
+
+void
+SoVulkanRenderBackend::ensureActivePlan(const SoDrawList & drawlist)
+{
+  if (this->activePlan) return;
+  SoRenderPlanner planner;
+  planner.build(drawlist, this->localPlan);
+  this->activePlan = &this->localPlan;
 }
 
 SbBool
 SoVulkanRenderBackend::renderOverlaysOnly(const SoDrawList & drawlist,
                                           const SoRenderParams & params)
 {
-  return this->renderInternal(drawlist, params, true);
+  this->ensureActivePlan(drawlist);
+  const SbBool result = this->renderInternal(drawlist, params, true);
+  this->activePlan = nullptr;
+  return result;
 }
 
 void
@@ -759,6 +777,8 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
                                       VkRenderPass renderPass,
                                       VkFramebuffer framebuffer)
 {
+  this->activePlan = nullptr;
+  this->ensureActivePlan(drawlist);
   const long externalBcStart = vkBackendRenderBreadcrumbEnabled() ? vkBackendRenderNowUs() : 0;
 
   if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG"))
@@ -882,6 +902,8 @@ SoVulkanRenderBackend::renderExternalOverlay(const SoDrawList & drawlist,
                                              VkCommandBuffer commandBuffer,
                                              VkRenderPass renderPass)
 {
+  this->activePlan = nullptr;
+  this->ensureActivePlan(drawlist);
   if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG"))
     fprintf(stderr, "[BLACK] renderExternalOverlay ENTER frame=%d cmds=%d\n",
             this->uboFrameIndex, drawlist.getNumCommands());
@@ -946,7 +968,22 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
   const int wireframeFillMode = wireframeOverlay
     ? SoDrawStyleElement::LINES
     : (pointsOverlay ? SoDrawStyleElement::POINTS : -1);
-  const std::vector<int> & order = drawlist.getSortedOrder();
+
+  // Execution order comes from the retained render plan (opaque insertion
+  // order, transparent depth-sorted within each depth segment). External
+  // entry points that do not receive a plan build a frame-local one, so
+  // activePlan is normally set here; fall back to identity order otherwise.
+  std::vector<int> planOrder;
+  if (this->activePlan) {
+    planOrder.reserve(static_cast<size_t>(this->activePlan->getNumOperations()));
+    for (int i = 0; i < this->activePlan->getNumOperations(); ++i) {
+      const SoRenderOperation & op = this->activePlan->getOperation(i);
+      if (op.type == SoRenderOperationType::DRAW) {
+        planOrder.push_back(static_cast<int>(op.commandIndex));
+      }
+    }
+  }
+  const std::vector<int> & order = planOrder;
   out.clear();
 
   // Geometry content identity for batching: reuse the cached content hash the
@@ -976,8 +1013,8 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
         const int index = orderedIndex(i);
         const SoRenderCommand & command = drawlist.getCommand(index);
-        if (command.pass == SO_RENDERPASS_OVERLAY) continue;
-        if (command.pass != SO_RENDERPASS_TRANSPARENT) continue;
+        if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
+        if (soVulkanCommandPass(command) != SO_RENDERPASS_VK_TRANSPARENT) continue;
         if (!this->findCachedDrawable(command)) continue;
         VulkanWorkItem item;
         item.single = &command;
@@ -998,8 +1035,8 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
         const int index = orderedIndex(i);
         const SoRenderCommand & command = drawlist.getCommand(index);
-        if (command.pass == SO_RENDERPASS_OVERLAY) continue;
-        if (command.pass == SO_RENDERPASS_TRANSPARENT) continue;
+        if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
+        if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_TRANSPARENT) continue;
         if (!command.state.depth.enabled) continue; // on-top annotation (later)
         if (isWideLine(command, -1, this->interactionLodActive)) {
           // CPU-expanded per command, so never batched.  It still goes into a
@@ -1074,8 +1111,8 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
         const int index = orderedIndex(i);
         const SoRenderCommand & command = drawlist.getCommand(index);
-        if (command.pass == SO_RENDERPASS_OVERLAY) continue;
-        if (command.pass == SO_RENDERPASS_TRANSPARENT) continue;
+        if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
+        if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_TRANSPARENT) continue;
         if (!command.geometry.positions || command.geometry.vertexCount == 0)
           continue;
         const SoPrimitiveTopology topo = command.geometry.topology;
@@ -1119,7 +1156,7 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
   // insertion order.
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    if (command.pass == SO_RENDERPASS_OVERLAY) continue;
+    if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
     if (command.state.depth.enabled) continue;
     if (!this->findCachedDrawable(command)) continue;
     VulkanWorkItem item;
@@ -1570,7 +1607,7 @@ SoVulkanRenderBackend::recordOverlayBlock(const SoDrawList & drawlist,
   const SbVec2s frameSize = params.viewport.getViewportSizePixels();
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    if (command.pass != SO_RENDERPASS_OVERLAY) continue;
+    if (soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY) continue;
     const SoRasterState & raster = command.state.raster;
     if (!raster.scissorEnabled || raster.scissorWidth <= 0 ||
         raster.scissorHeight <= 0) {
@@ -1624,7 +1661,7 @@ SoVulkanRenderBackend::recordTracedComposite(const SoDrawList & drawlist,
   // look.  Depth is not cleared here and depth write stays off.
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    if (command.pass == SO_RENDERPASS_OVERLAY) continue;
+    if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
     const SoPrimitiveTopology topo = command.geometry.topology;
     if (topo == SO_TOPOLOGY_TRIANGLES) continue;
     if (topo == SO_TOPOLOGY_TRIANGLE_STRIP) continue;

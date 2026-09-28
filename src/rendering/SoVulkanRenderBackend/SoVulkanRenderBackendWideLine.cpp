@@ -158,7 +158,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   // view here transformed the overlay wide lines with the wrong camera,
   // displacing the NaviCube edges / origin axes off the cube (the
   // 'edges/axes drift away from the cube' bug).
-  const bool wlineOverlay = (command.pass == SO_RENDERPASS_OVERLAY);
+  const bool wlineOverlay = (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY);
   SbMat model;
   command.modelMatrix.getValue(model);
   auto multiplyMat = [](const SbMat & a, const SbMat & b, SbMat & out) {
@@ -802,7 +802,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
     const uint32_t count = geometry.indexCount && geometry.indices
       ? geometry.indexCount : geometry.vertexCount;
     const bool splittable =
-      command.pass != SO_RENDERPASS_OVERLAY &&
+      soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY &&
       geometry.topology == SO_TOPOLOGY_LINES &&
       !isPatternedLine(command) &&
       count / 2 >= kWideLineSplitMinSegments;
@@ -834,7 +834,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
       const auto found = this->commandToCache.find(command);
       VulkanCachedCommand & entry = this->gpuCache[found->second];
       this->expandWideLinesFor(entry, *command, params,
-                               command->pass == SO_RENDERPASS_OVERLAY);
+                               command->pass == SO_RENDERPASS_VK_OVERLAY);
     }
     return;
   }
@@ -875,7 +875,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
       if (found == this->commandToCache.end()) continue;
       VulkanCachedCommand & entry = this->gpuCache[found->second];
       this->expandWideLinesFor(entry, *command, params,
-                               command->pass == SO_RENDERPASS_OVERLAY);
+                               command->pass == SO_RENDERPASS_VK_OVERLAY);
     }
     this->recordJobs[0].ok = true;
   }

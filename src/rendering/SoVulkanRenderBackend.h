@@ -218,7 +218,9 @@ public:
   SbBool initialize(const SoRenderBackendInitParams & params) override;
   void shutdown() override;
   SbBool render(const SoDrawList & drawlist,
-                const SoRenderParams & params) override;
+                const SoRenderPlan & plan,
+                const SoRenderParams & params,
+                const SoSelectionState * selection = nullptr) override;
 
   /*!
     \brief Record the draw list into a caller-owned command buffer/render pass.
@@ -276,7 +278,7 @@ public:
 
     Offscreen counterpart of renderExternalOverlay(): runs a complete
     one-shot render into params.renderTarget without touching anything but
-    SO_RENDERPASS_OVERLAY commands, so it can be layered on top of a
+    SO_RENDERPASS_VK_OVERLAY commands, so it can be layered on top of a
     previously rendered (e.g. ray-traced) frame.  Returns TRUE with no work
     if the draw list contains no overlay commands.
   */
@@ -499,7 +501,7 @@ private:
     uint32_t slotBase = 0;
     bool transparent = false;
     bool recordToSecondary = false; // opaque pass → secondary cmd buffer (M1c)
-    bool overlayPass = false;      // SO_RENDERPASS_OVERLAY screen-space draw
+    bool overlayPass = false;      // SO_RENDERPASS_VK_OVERLAY screen-space draw
     int fillModeOverride = -1;     // wireframe/point redraw fill mode, or -1
     const float * uniformColorOverride = nullptr;
     // Pre-resolved per-item state so the record path (and parallel workers)
@@ -802,6 +804,18 @@ private:
   SbBool renderInternal(const SoDrawList & drawlist,
                         const SoRenderParams & params,
                         bool overlaysOnly);
+
+  //! Execution order for the frame currently being recorded.
+  //!
+  //! Set by the render entry points from the caller-supplied SoRenderPlan;
+  //! external entry points that do not receive one build a frame-local plan
+  //! via SoRenderPlanner. The pointer is borrowed and only valid for the
+  //! duration of the recording call.
+  const SoRenderPlan * activePlan = nullptr;
+  SoRenderPlan localPlan;
+  //! Ensure activePlan is set, building a frame-local plan when the caller did
+  //! not supply one (external entry points).
+  void ensureActivePlan(const SoDrawList & drawlist);
   bool recordFrame(const SoDrawList & drawlist,
                    const SoRenderParams & params,
                    const SoVulkanRenderTarget & target,

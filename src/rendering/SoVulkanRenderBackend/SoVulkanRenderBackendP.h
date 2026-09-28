@@ -41,6 +41,22 @@
 // interface in.
 struct SoRenderParams;
 
+// The retained planner classifies commands with two orthogonal flags (opacity
+// class and render stage). The Vulkan recorder historically used a single
+// three-valued pass, so this adapter keeps the mapping in exactly one place.
+enum : int {
+  SO_RENDERPASS_VK_OPAQUE = 0,
+  SO_RENDERPASS_VK_TRANSPARENT = 1,
+  SO_RENDERPASS_VK_OVERLAY = 2
+};
+
+inline int soVulkanCommandPass(const SoRenderCommand & command)
+{
+  if (command.stage != SoRenderStage::Main) return SO_RENDERPASS_VK_OVERLAY;
+  return command.opacityClass == SO_OPACITY_TRANSPARENT
+    ? SO_RENDERPASS_VK_TRANSPARENT : SO_RENDERPASS_VK_OPAQUE;
+}
+
 namespace CoinVulkanDetail {
 
   // ---- [TRC] per-step recording traces (FC_VULKAN_TRACE) ----
@@ -111,10 +127,10 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
   const int num = drawlist.getNumCommands();
   for (int i = 0; i < num; ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    if (command.pass == SO_RENDERPASS_OVERLAY) continue;
+    if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) continue;
     ++draws;
     if ((wireframeFillMode >= 0 || tessellationOverlay) &&
-        command.pass != SO_RENDERPASS_TRANSPARENT) {
+        soVulkanCommandPass(command) != SO_RENDERPASS_VK_TRANSPARENT) {
       ++draws;
       const SoPrimitiveTopology topo = command.geometry.topology;
       const bool triTopo = topo == SO_TOPOLOGY_TRIANGLES ||
@@ -135,7 +151,7 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
     }
   }
   for (int i = 0; i < num; ++i) {
-    if (drawlist.getCommand(i).pass == SO_RENDERPASS_OVERLAY) ++draws;
+    if (soVulkanCommandPass(drawlist.getCommand(i)) == SO_RENDERPASS_VK_OVERLAY) ++draws;
   }
   return draws;
 }
@@ -151,7 +167,7 @@ countCompositeCommands(const SoDrawList & drawlist)
   const int num = drawlist.getNumCommands();
   for (int i = 0; i < num; ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    if (command.pass == SO_RENDERPASS_OVERLAY) {
+    if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) {
       ++draws;
       continue;
     }
@@ -270,7 +286,7 @@ isInstancedWideLine(const SoRenderCommand & command)
 isFrameCameraOverlay(const SoRenderCommand & command,
                      const SoRenderParams & params)
 {
-  if (command.pass != SO_RENDERPASS_OVERLAY) return false;
+  if (soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY) return false;
   const SbVec2s frameSize = params.viewport.getViewportSizePixels();
   return command.state.raster.viewportWidth == frameSize[0] &&
     command.state.raster.viewportHeight == frameSize[1];
@@ -296,8 +312,8 @@ collectFrameStats(const SoDrawList & drawlist)
   VulkanFrameStats s;
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & c = drawlist.getCommand(i);
-    if (c.pass == SO_RENDERPASS_OVERLAY) s.overlay++;
-    else if (c.pass == SO_RENDERPASS_TRANSPARENT) s.trans++;
+    if (soVulkanCommandPass(c) == SO_RENDERPASS_VK_OVERLAY) s.overlay++;
+    else if (soVulkanCommandPass(c) == SO_RENDERPASS_VK_TRANSPARENT) s.trans++;
     if (c.geometry.topology == SO_TOPOLOGY_TRIANGLES) {
       s.tri++;
       if (c.material.shadingModel == SO_SHADING_LEGACY_GOURAUD) s.triLit++;

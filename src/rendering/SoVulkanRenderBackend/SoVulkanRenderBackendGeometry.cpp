@@ -87,7 +87,7 @@ static inline uint16_t floatToHalf(float value)
 }
 
 // True when updateGeometryCache() should visit a command.  On an overlay-only
-// render only SO_RENDERPASS_OVERLAY commands and the non-triangle residual
+// render only SO_RENDERPASS_VK_OVERLAY commands and the non-triangle residual
 // geometry the RT backend did not trace are in scope; a full render visits
 // every command with usable geometry.  Both cache passes shared this filter.
 bool shouldProcessGeometry(const SoRenderCommand & command,
@@ -95,8 +95,8 @@ bool shouldProcessGeometry(const SoRenderCommand & command,
 {
   const bool isResidual =
     command.geometry.topology != SO_TOPOLOGY_TRIANGLES &&
-    command.pass != SO_RENDERPASS_OVERLAY;
-  if (overlaysOnly && command.pass != SO_RENDERPASS_OVERLAY && !isResidual) {
+    soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY;
+  if (overlaysOnly && soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY && !isResidual) {
     return false;
   }
   const SoGeometryDesc & geometry = command.geometry;
@@ -855,7 +855,7 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
 
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    // Overlay-only renders (ray-tracing compositing) draw SO_RENDERPASS_OVERLAY
+    // Overlay-only renders (ray-tracing compositing) draw SO_RENDERPASS_VK_OVERLAY
     // commands (nav cube, axis cross, selection/hover highlights) plus the
     // non-triangle residue the RT backend did not trace (Brep edge lines,
     // point markers, polylines): those must be uploaded so the composite can

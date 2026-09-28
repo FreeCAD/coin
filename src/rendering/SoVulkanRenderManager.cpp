@@ -1930,7 +1930,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
         int restamped = 0;
         for (int i = 0; i < numCommands; ++i) {
           SoRenderCommand & command = list.getCommand(i);
-          if (command.pass == SO_RENDERPASS_OVERLAY) {
+          if (soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) {
             continue;
           }
           SbMat cmdView;
@@ -1954,7 +1954,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     const int numCommands = list.getNumCommands();
     for (int i = 0; i < numCommands; ++i) {
       const SoRenderCommand & command = list.getCommand(i);
-      if (command.pass != SO_RENDERPASS_OVERLAY) {
+      if (soVulkanCommandPass(command) != SO_RENDERPASS_VK_OVERLAY) {
         this->lastFrameView = command.viewMatrix;
         this->lastFrameViewValid = TRUE;
         break;
@@ -2115,7 +2115,7 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
         fprintf(stderr,
                 "[CLIP] cmd%d pass=%d verts=%u model00=%.3f trans=(%.3f,%.3f,%.3f) "
                 "m11=%.3f m22=%.3f\n",
-                ci, static_cast<int>(c0.pass),
+                ci, static_cast<int>(soVulkanCommandPass(c0)),
                 c0.geometry.vertexCount,
                 cm[0][0], cm[3][0], cm[3][1], cm[3][2],
                 cm[1][1], cm[2][2]);
@@ -2246,7 +2246,7 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
       fprintf(stderr,
               "[CLIP] cmd%d pass=%d verts=%d cull=%d "
               "world=(%.3f,%.3f,%.3f) viewz=%.3f ndc=(%.3f,%.3f,%.3f,%.3f)\n",
-              i, static_cast<int>(cmd.pass), static_cast<int>(geo.vertexCount),
+              i, static_cast<int>(soVulkanCommandPass(cmd)), static_cast<int>(geo.vertexCount),
               static_cast<int>(cmd.state.raster.cullMode),
               wx, wy, wz, vz, nx, ny, nz, nw);
     }

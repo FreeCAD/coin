@@ -495,7 +495,7 @@ SoVulkanRenderBackend::updateLightingUniforms(const SoDrawList & drawlist,
   // viewport (the navigation cube sub-scene) keep their own camera.
   const bool frameCameraOverlay = isFrameCameraOverlay(command, params);
   if (command.state.raster.scissorEnabled
-      && command.pass == SO_RENDERPASS_OVERLAY && !frameCameraOverlay) {
+      && soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY && !frameCameraOverlay) {
     command.viewMatrix.getValue(m);
   }
   else {
@@ -628,11 +628,11 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   vkBackendTrace(this->uboFrameIndex, "recordDrawCommand.enter",
                  "cmd=%p pass=%d slot=%u",
                  reinterpret_cast<const void *>(&command),
-                 static_cast<int>(command.pass), ctx.uboCmdIndex);
+                 static_cast<int>(soVulkanCommandPass(command)), ctx.uboCmdIndex);
   if (!command.geometry.positions || command.geometry.vertexCount == 0) {
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
       fprintf(stderr, "[VKBE] cmd %p pass=%d skip: no positions/verts\n",
-              (const void*)&command, static_cast<int>(command.pass));
+              (const void*)&command, static_cast<int>(soVulkanCommandPass(command)));
     }
     return;
   }
@@ -640,7 +640,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   if (found == this->commandToCache.end()) {
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
       fprintf(stderr, "[VKBE] cmd %p pass=%d skip: no gpu cache entry\n",
-              (const void*)&command, static_cast<int>(command.pass));
+              (const void*)&command, static_cast<int>(soVulkanCommandPass(command)));
     }
     return;
   }
@@ -653,7 +653,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
             "[VKBE] line/point cmd=%p pass=%d topo=%d verts=%u "
             "diffuse=(%.2f,%.2f,%.2f,%.2f) colorKey=%d shading=%d "
             "lineWidth=%.2f pattern=0x%04x fillMode=%d\n",
-            (const void*)&command, static_cast<int>(command.pass),
+            (const void*)&command, static_cast<int>(soVulkanCommandPass(command)),
             static_cast<int>(command.geometry.topology),
             command.geometry.vertexCount,
             command.material.diffuse[0], command.material.diffuse[1],
@@ -668,7 +668,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   if (entry.vertexBuffer == VK_NULL_HANDLE) {
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
       fprintf(stderr, "[VKBE] cmd %p pass=%d skip: vertexBuffer null\n",
-              (const void*)&command, static_cast<int>(command.pass));
+              (const void*)&command, static_cast<int>(soVulkanCommandPass(command)));
     }
     return;
   }
@@ -698,7 +698,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
       fprintf(stderr, "[VKBE] cmd %p pass=%d skip: pipeline creation failed "
                       "(transparent=%d fillOverride=%d overlay=%d)\n",
-              (const void*)&command, static_cast<int>(command.pass),
+              (const void*)&command, static_cast<int>(soVulkanCommandPass(command)),
               transparent ? 1 : 0, fillModeOverride, overlayPass ? 1 : 0);
     }
     return;
@@ -711,7 +711,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
       fprintf(stderr,
               "[VKBE] draw %d cmd=%p pass=%d verts=%u idx=%u topo=%d "
               "overlay=%d transparent=%d\n",
-              drawn, (const void*)&command, static_cast<int>(command.pass),
+              drawn, (const void*)&command, static_cast<int>(soVulkanCommandPass(command)),
               command.geometry.vertexCount, command.geometry.indexCount,
               static_cast<int>(command.geometry.topology),
               overlayPass ? 1 : 0, transparent ? 1 : 0);
@@ -794,7 +794,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
                                &projValue[0][0]);
   vkBackendTrace(this->uboFrameIndex, "draw.uboWrite", "slot=%u", slotIndex);
   if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_OVERLAY_CAM_DEBUG")
-      && command.pass == SO_RENDERPASS_OVERLAY
+      && soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY
       && command.state.raster.scissorEnabled
       && command.state.raster.scissorWidth > 800) {
     SbMat cv, pv, cp, pp;
@@ -818,7 +818,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
               "  parProj:\n"
               "    [%.4f %.4f %.4f %.4f]\n    [%.4f %.4f %.4f %.4f]\n"
               "    [%.4f %.4f %.4f %.4f]\n    [%.4f %.4f %.4f %.4f]\n",
-              static_cast<int>(command.pass),
+              static_cast<int>(soVulkanCommandPass(command)),
               frameCameraOverlay ? 1 : 0,
               command.state.raster.scissorX, command.state.raster.scissorY,
               command.state.raster.scissorWidth, command.state.raster.scissorHeight,
@@ -880,7 +880,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
             "override=%d pushColor=(%.2f,%.2f,%.2f,%.2f) flags=(%.0f,%.0f,%.0f,%.0f) "
             "lineParams=(%.2f,%.2f,%.2f,%.2f) pointSize=%.2f wideLine=%d stippleFactor=%.1f pattern=0x%04x patternRaw=0x%08x "
             "fillMode=%d fillModeOverride=%d overlayPass=%d transparent=%d vbuf=%p vertexCount=%u\n",
-            (const void*)&command, static_cast<int>(command.pass),
+            (const void*)&command, static_cast<int>(soVulkanCommandPass(command)),
             static_cast<int>(command.geometry.topology),
             command.material.diffuse[0], command.material.diffuse[1],
             command.material.diffuse[2], command.material.diffuse[3],
@@ -904,7 +904,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
     command.modelMatrix.getValue(mm);
     SbMat vm;
     if (command.state.raster.scissorEnabled
-        && command.pass == SO_RENDERPASS_OVERLAY) {
+        && soVulkanCommandPass(command) == SO_RENDERPASS_VK_OVERLAY) {
       command.viewMatrix.getValue(vm);
     }
     else {
@@ -917,7 +917,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
             "  [%.4f %.4f %.4f %.4f]\n"
             "  [%.4f %.4f %.4f %.4f]\n"
             "  [%.4f %.4f %.4f %.4f]\n",
-            s_debugFrame, s_dumpCmdCount - 1, static_cast<int>(command.pass),
+            s_debugFrame, s_dumpCmdCount - 1, static_cast<int>(soVulkanCommandPass(command)),
             command.geometry.vertexCount, overlayPass ? 1 : 0,
             command.state.raster.scissorEnabled ? 1 : 0,
             mm[0][0], mm[0][1], mm[0][2], mm[0][3],
@@ -1017,7 +1017,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG") && wldrawDiag++ < 40) {
       fprintf(stderr, "[WLINE2] DRAW cmd=%p wideLineVertexCount=%u pass=%d\n",
               (const void*)&command, entry.wideLineVertexCount,
-              static_cast<int>(command.pass));
+              static_cast<int>(soVulkanCommandPass(command)));
     }
     vkCmdDraw(ctx.buffer, entry.wideLineVertexCount, 1, 0, 0);
   }
