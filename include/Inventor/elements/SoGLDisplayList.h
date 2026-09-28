@@ -35,7 +35,6 @@
 
 #include <Inventor/SbBasic.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoState;
 class SoGLDisplayListP;
 // *************************************************************************
@@ -76,6 +75,5 @@ private:
   friend class SoGLCacheContextElement;
 };
 
-#endif
 
 #endif // !COIN_SOGLDISPLAYLIST_H

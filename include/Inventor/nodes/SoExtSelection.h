@@ -52,7 +52,6 @@ class SoPrimitiveVertex;
 // This shouldn't strictly be necessary, but the OSF1/cxx compiler
 // complains if this is left out, while using the "friend class
 // SoExtSelectionP" statement in the class definition.
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoExtSelectionP;
 typedef SbBool SoExtSelectionTriangleCB(void * userdata,
                                         SoCallbackAction * action,
@@ -113,9 +112,7 @@ public:
   SbBool isOverlayLassoAnimated(void);
 
   void handleEvent(SoHandleEventAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
-#endif
 
   void select(SoNode * root, int numcoords, SbVec2f * lasso, 
               const SbViewportRegion & vp, SbBool shiftpolicy);
@@ -145,6 +142,5 @@ private:
   friend class SoExtSelectionP;
   class SoExtSelectionP * pimpl;
 };
-#endif
 
 #endif // !COIN_SOEXTSELECTION_H

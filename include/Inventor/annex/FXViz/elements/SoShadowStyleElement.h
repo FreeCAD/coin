@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoInt32Element.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoShadowStyleElement : public SoInt32Element {
   typedef SoInt32Element inherited;
 
@@ -62,6 +61,5 @@ public:
   static int getDefault(void);
 
 };
-#endif
 
 #endif // !COIN_SOSHADOWSTYLEELEMENT_H

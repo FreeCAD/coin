@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoNormalElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLNormalElement : public SoNormalElement {
   typedef SoNormalElement inherited;
 
@@ -51,6 +50,5 @@ public:
 
 };
 
-#endif
 
 #endif // !COIN_SOGLNORMALELEMENT_H

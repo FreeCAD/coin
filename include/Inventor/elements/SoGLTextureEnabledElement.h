@@ -35,7 +35,6 @@
 
 #include <Inventor/C/basic.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 #ifdef COIN_INTERNAL
 #error Do not use this typedef internally
 #endif
@@ -44,6 +43,5 @@
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
 
 typedef SoGLMultiTextureEnabledElement SoGLTextureEnabledElement;
-#endif
 
 #endif // !COIN_SOGLTEXTUREENABLEDELEMENT_H

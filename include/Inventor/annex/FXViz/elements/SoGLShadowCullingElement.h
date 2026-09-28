@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoInt32Element.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLShadowCullingElement : public SoInt32Element {
   typedef SoInt32Element inherited;
 
@@ -67,6 +66,5 @@ private:
   void updateGL(int32_t oldvalue, int32_t value);
 
 };
-#endif
 
 #endif // !COIN_SOGLSHADOWCULLINGEELEMENT_H

@@ -52,9 +52,7 @@ public:
   SoSFInt32 numControlPoints;
   SoMFFloat knotVector;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void rayPick(SoRayPickAction * action) override;
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
   void getBoundingBox(SoGetBoundingBoxAction * action) override;

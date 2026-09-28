@@ -52,9 +52,7 @@ public:
   SoSFVec4f factorQ;
 
   void doAction(SoAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void pick(SoPickAction * action) override;
   void callback(SoCallbackAction * action) override;
 
@@ -65,9 +63,7 @@ private:
   static const SbVec4f &generate(void *userdata,
                                  const SbVec3f & p,
                                  const SbVec3f & n);
-#if COIN_HAVE_LEGACY_GL_RENDERER
   static void handleTexgen(void *data);
-#endif
 
   SbVec4f dummy_object;
 };

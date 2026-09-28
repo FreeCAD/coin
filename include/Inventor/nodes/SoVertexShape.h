@@ -68,9 +68,7 @@ protected:
   SoVertexShape(void);
   virtual ~SoVertexShape();
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   SbBool shouldGLRender(SoGLRenderAction * action) override;
-#endif
 
   void setNormalCache(SoState * const state,
                       const int num, const SbVec3f * normals);

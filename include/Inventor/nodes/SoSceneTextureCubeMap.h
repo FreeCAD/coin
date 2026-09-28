@@ -44,7 +44,6 @@
 class SoSensor;
 class SoSceneTextureCubeMapP;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoSceneTextureCubeMap : public SoNode {
   typedef SoNode inherited;
 
@@ -85,9 +84,7 @@ public:
   SoSFColor blendColor;
 
   void doAction(SoAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void callback(SoCallbackAction * action) override;
   void rayPick(SoRayPickAction * action) override;
 
@@ -99,6 +96,5 @@ protected:
 private:
   SoSceneTextureCubeMapP * pimpl;
 };
-#endif
 
 #endif // !COIN_SOSCENETEXTURECUBEMAP_H

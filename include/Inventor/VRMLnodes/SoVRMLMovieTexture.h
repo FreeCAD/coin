@@ -67,9 +67,7 @@ public:
   SoSFColor blendColor;
   SoSFBool scaleTexCoord;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender( SoGLRenderAction * action ) override;
-#endif
 
 protected:
   virtual ~SoVRMLMovieTexture();

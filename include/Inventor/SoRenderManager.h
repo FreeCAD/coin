@@ -35,15 +35,11 @@
 
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbVec2s.h>
-#if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 
 class SbViewportRegion;
 class SoEvent;
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
-#endif
 class SoAudioRenderAction;
 class SoNode;
 class SoCamera;
@@ -72,14 +68,10 @@ public:
                     uint32_t flags);
     ~Superimposition();
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
     void render(SoGLRenderAction * action, SbBool clearcolorbuffer = FALSE);
-#endif
     void setEnabled(SbBool yes);
     int getStateFlags(void) const;
-#if COIN_HAVE_LEGACY_GL_RENDERER
     void setTransparencyType(SoGLRenderAction::TransparencyType transparencytype);
-#endif
 
   private:
     static void changeCB(void * data, SoSensor * sensor);
@@ -122,12 +114,10 @@ public:
   virtual void render(const SbBool clearwindow = TRUE,
                       const SbBool clearzbuffer = TRUE);
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   virtual void render(SoGLRenderAction * action,
                       const SbBool initmatrices = TRUE,
                       const SbBool clearwindow = TRUE,
                       const SbBool clearzbuffer = TRUE);
-#endif
 
   Superimposition * addSuperimposition(SoNode * scene,
                                        uint32_t flags =
@@ -196,10 +186,8 @@ public:
 
   void setAntialiasing(const SbBool smoothing, const int numPasses);
   void getAntialiasing(SbBool & smoothing, int & numPasses) const;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void setGLRenderAction(SoGLRenderAction * const action);
   SoGLRenderAction * getGLRenderAction(void) const;
-#endif
   void setAudioRenderAction(SoAudioRenderAction * const action);
   SoAudioRenderAction * getAudioRenderAction(void) const;
 
@@ -219,7 +207,6 @@ protected:
   int isActive(void) const;
   void redraw(void);
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void renderScene(SoGLRenderAction * action,
                    SoNode * scene,
                    uint32_t clearmask);
@@ -241,7 +228,6 @@ protected:
 
   void initStencilBufferForInterleavedStereo(void);
   void clearBuffers(SbBool color, SbBool depth);
-#endif
 
 private:
   void attachRootSensor(SoNode * const sceneroot);
@@ -249,9 +235,7 @@ private:
   void detachRootSensor(void);
   void detachClipSensor(void);
   static void nodesensorCB(void * data, SoSensor *);
-#if COIN_HAVE_LEGACY_GL_RENDERER
   static void prerendercb(void * userdata, SoGLRenderAction * action);
-#endif
 
   SoRenderManagerP * pimpl;
   friend class SoRenderManagerP;

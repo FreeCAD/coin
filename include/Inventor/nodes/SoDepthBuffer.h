@@ -66,9 +66,7 @@ public:
 
   void doAction(SoAction * action) override;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
 
 protected:
   virtual ~SoDepthBuffer();

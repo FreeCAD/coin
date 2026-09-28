@@ -37,7 +37,6 @@
 #include <Inventor/fields/SoSFEnum.h>
 #include <Inventor/annex/FXViz/elements/SoShadowStyleElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoShadowStyle : public SoNode {
   typedef SoNode inherited;
 
@@ -56,13 +55,10 @@ public:
   
   SoSFEnum style;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
 
 protected:
   virtual ~SoShadowStyle();
 };
-#endif
 
 #endif // !COIN_SOSHADOWSTYLE_H

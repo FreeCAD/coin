@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoLinePatternElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLLinePatternElement : public SoLinePatternElement {
   typedef SoLinePatternElement inherited;
 
@@ -60,6 +59,5 @@ private:
 
 };
 
-#endif
 
 #endif // !COIN_SOGLLINEPATTERNELEMENT_H

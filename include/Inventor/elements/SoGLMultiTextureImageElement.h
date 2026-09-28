@@ -40,7 +40,6 @@ class SoGLImage;
 class SoGLDisplayList;
 class SoGLMultiTextureImageElementP;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLMultiTextureImageElement : public SoMultiTextureImageElement {
   typedef SoMultiTextureImageElement inherited;
 
@@ -99,6 +98,5 @@ private:
   static int32_t getMaxGLTextureSize(void);
 };
 
-#endif
 
 #endif // !COIN_SOGLMULTITEXTUREIMAGEELEMENT_H

@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoLineWidthElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLLineWidthElement : public SoLineWidthElement {
   typedef SoLineWidthElement inherited;
 
@@ -61,6 +60,5 @@ private:
   void updategl(void);
 };
 
-#endif
 
 #endif // !COIN_SOGLLINEWIDTHELEMENT_H

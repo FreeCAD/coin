@@ -58,9 +58,7 @@ public:
   SoSFBool convex;
   SoSFFloat creaseAngle;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender( SoGLRenderAction * action ) override;
-#endif
   void getPrimitiveCount( SoGetPrimitiveCountAction * action ) override;
 
   SbBool generateDefaultNormals(SoState * s, SoNormalBundle * nb ) override;

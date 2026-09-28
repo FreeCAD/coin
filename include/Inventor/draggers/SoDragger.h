@@ -72,9 +72,7 @@ public:
 
   // override these in case we decide to do some extra work later
   void callback(SoCallbackAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void getMatrix(SoGetMatrixAction * action) override;
   void rayPick(SoRayPickAction * action) override;
   void search(SoSearchAction * action) override;
