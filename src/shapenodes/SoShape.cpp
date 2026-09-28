@@ -983,7 +983,8 @@ void
 SoShape::IRRender(SoIRRenderAction * action)
 {
   if (!action) return;
-  if (getenv("FC_IR_BREADCRUMB")) {
+  static const bool irbreadcrumbs = getenv("FC_IR_BREADCRUMB") != nullptr;
+  if (irbreadcrumbs) {
     static int n = 0;
     if (n++ < 300) {
       fprintf(stderr, "[BC-IR] IRRender shape=%p type=%s\n", (void *)this,
@@ -995,7 +996,7 @@ SoShape::IRRender(SoIRRenderAction * action)
 
   const SoShapeStyleElement * shapestyle = SoShapeStyleElement::get(state);
   const unsigned int shapestyleflags = shapestyle->getFlags();
-  if (getenv("FC_IR_BREADCRUMB")) {
+  if (irbreadcrumbs) {
     const char * tn = this->getTypeId().getName().getString();
     static int m = 0;
     if (m++ < 20000 && tn && std::strstr(tn, "SoBrep")) {
@@ -1135,7 +1136,8 @@ SoShape::IRRender(SoIRRenderAction * action)
   // viewport's render manager) would otherwise race on irBatchScratch.  The
   // retained geometry itself is safe to read unlocked (emitRuns is a snapshot
   // holding shared_ptr refs), so this only serializes the scratch.
-  if (getenv("FC_IR_BREADCRUMB")) {
+  static const bool irbreadcrumbs_emit = getenv("FC_IR_BREADCRUMB") != nullptr;
+  if (irbreadcrumbs_emit) {
     size_t totalVerts = 0;
     for (const SoIRRetainedGeometry & run : emitRuns) {
       totalVerts += run.vertexCount;

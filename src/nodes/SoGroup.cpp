@@ -545,7 +545,8 @@ SoGroup::initClass(void)
 void
 SoGroup::doAction(SoAction * action)
 {
-  if (getenv("FC_IR_BREADCRUMB"))
+  static const bool irbreadcrumbs = getenv("FC_IR_BREADCRUMB") != nullptr;
+  if (irbreadcrumbs)
     fprintf(stderr, "[BC-IR] SoGroup::doAction group=%p type=%s children=%d\n",
             (void *)this, this->getTypeId().getName().getString(),
             this->getChildren()->getLength());
