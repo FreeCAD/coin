@@ -60,9 +60,7 @@ public:
   SoMField * getValuesField(void) const;
 
   void doAction(SoAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void write(SoWriteAction * action) override;
   virtual void copyContents(const SoFieldContainer * from, 
                             SbBool copyconnections) override;

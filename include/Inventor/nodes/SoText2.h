@@ -60,9 +60,7 @@ public:
   SoSFFloat spacing;
   SoSFEnum justification;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void IRRender(SoIRRenderAction * action) override;
   void rayPick(SoRayPickAction * action) override;
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
@@ -70,9 +68,7 @@ public:
 protected:
   virtual ~SoText2();
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   SbBool canRenderSortedTriangles(void) const override;
-#endif
   void generatePrimitives(SoAction * action) override;
   void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center) override;
 

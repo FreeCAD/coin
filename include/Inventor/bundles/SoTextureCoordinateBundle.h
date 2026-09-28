@@ -37,17 +37,13 @@
 #include <Inventor/SbBasic.h>
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 
 #include <Inventor/SbVec4f.h>
 
 class SoTextureCoordinateCache;
 class SoShape;
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLMultiTextureCoordinateElement;
-#endif
 
 
 class COIN_DLL_API SoTextureCoordinateBundle : public SoBundle {
@@ -65,30 +61,18 @@ public:
   const SbVec4f &get(const SbVec3f &point, const SbVec3f &normal);
 
   void send(const int index) const {
-#if COIN_HAVE_LEGACY_GL_RENDERER
     glElt->send(index);
-#else
-    (void)index;
-#endif
   }
   void send(const int index, const SbVec3f &point,
             const SbVec3f &normal) const {
-#if COIN_HAVE_LEGACY_GL_RENDERER
     glElt->send(index, point, normal);
-#else
-    (void)index;
-    (void)point;
-    (void)normal;
-#endif
   }
 
   SbBool needIndices(void) const;
 
 private:
   const SoMultiTextureCoordinateElement *coordElt;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   const SoGLMultiTextureCoordinateElement *glElt;
-#endif
   unsigned int flags;
 
   // misc stuff for default texture coordinate mapping

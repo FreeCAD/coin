@@ -51,9 +51,7 @@ public:
   SoSFBool colorPerVertex;
 
   void doAction(SoAction * action) override;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void callback(SoCallbackAction * action) override;
   void pick(SoPickAction * action) override;
@@ -64,9 +62,7 @@ protected:
   SoVRMLVertexLine(void);
   virtual ~SoVRMLVertexLine();
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   SbBool shouldGLRender(SoGLRenderAction * action) override;
-#endif
 
 }; // class SoVRMLVertexLine
 

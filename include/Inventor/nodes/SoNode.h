@@ -38,9 +38,7 @@
 class SoAction;
 class SoCallbackAction;
 class SoChildList;
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
-#endif
 class SoGetBoundingBoxAction;
 class SoGetMatrixAction;
 class SoGetPrimitiveCountAction;
@@ -99,12 +97,10 @@ public:
 
   virtual void doAction(SoAction * action);
   virtual void IRRender(SoIRRenderAction * action);
-#if COIN_HAVE_LEGACY_GL_RENDERER
   virtual void GLRender(SoGLRenderAction * action);
   virtual void GLRenderBelowPath(SoGLRenderAction * action);
   virtual void GLRenderInPath(SoGLRenderAction * action);
   virtual void GLRenderOffPath(SoGLRenderAction * action);
-#endif
   virtual void callback(SoCallbackAction * action);
   virtual void getBoundingBox(SoGetBoundingBoxAction * action);
   virtual void getMatrix(SoGetMatrixAction * action);
@@ -144,9 +140,7 @@ public:
 
   static void getBoundingBoxS(SoAction * action, SoNode * node);
   static void IRRenderS(SoAction * action, SoNode * node);
-#if COIN_HAVE_LEGACY_GL_RENDERER
   static void GLRenderS(SoAction * action, SoNode * node);
-#endif
   static void callbackS(SoAction * action, SoNode * node);
   static void getMatrixS(SoAction * action, SoNode * node);
   static void handleEventS(SoAction * action, SoNode * node);

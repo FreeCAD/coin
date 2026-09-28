@@ -62,9 +62,7 @@ public:
   SoMFString rightUrl;
   SoMFString topUrl;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender( SoGLRenderAction * action ) override;
-#endif
 
 protected:
   SbBool readInstance(SoInput * in, unsigned short flags) override;

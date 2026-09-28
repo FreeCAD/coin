@@ -37,7 +37,6 @@
 #include <Inventor/SbVec2f.h>
 #include <Inventor/SbVec2s.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLUpdateAreaElement : public SoElement {
   typedef SoElement inherited;
 
@@ -76,6 +75,5 @@ private:
   SbVec2s screenorigin, screensize;  
 };
 
-#endif
 
 #endif // !COIN_SOGLUPDATEAREAELEMENT_H

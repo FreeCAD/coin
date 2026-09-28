@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoProjectionMatrixElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLProjectionMatrixElement : public SoProjectionMatrixElement {
   typedef SoProjectionMatrixElement inherited;
 
@@ -56,6 +55,5 @@ private:
   void updategl();
 };
 
-#endif
 
 #endif // !COIN_SOGLPROJECTIONMATRIXELEMENT_H

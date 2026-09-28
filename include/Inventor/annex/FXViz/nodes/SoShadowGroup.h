@@ -42,7 +42,6 @@
 
 class SoShadowGroupP;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoShadowGroup : public SoSeparator {
   typedef SoSeparator inherited;
 
@@ -75,10 +74,8 @@ public:
   SoSFFloat epsilon;
   SoSFFloat threshold;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRenderBelowPath(SoGLRenderAction * action) override;
   void GLRenderInPath(SoGLRenderAction * action) override;
-#endif
 
   void notify(SoNotList * nl) override;
 
@@ -91,6 +88,5 @@ private:
   SoShadowGroupP * pimpl;
 
 };
-#endif
 
 #endif // COIN_SOSHADOWGROUP_H

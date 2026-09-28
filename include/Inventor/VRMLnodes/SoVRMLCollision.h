@@ -55,9 +55,7 @@ public:
   SoSFNode proxy;
   SoSFTime collideTime;
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
 
   void notify(SoNotList * list) override;
 

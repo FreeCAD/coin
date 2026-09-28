@@ -42,7 +42,6 @@
 
 #include <cstdio>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoBase;
 class SoGLRenderAction;
 class SoNode;
@@ -104,6 +103,5 @@ private:
   friend class SoOffscreenRendererP;
   class SoOffscreenRendererP * pimpl;
 };
-#endif
 
 #endif // !COIN_SOOFFSCREENRENDERER_H

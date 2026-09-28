@@ -36,14 +36,10 @@
 #include <Inventor/bundles/SoBundle.h>
 #include <Inventor/elements/SoVertexAttributeElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVertexAttributeElement.h>
-#endif
 
 class SoVertexAttributeBundleP;
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLVertexAttributeElement;
-#endif
 
 class COIN_DLL_API SoVertexAttributeBundle : public SoBundle {
 public:
@@ -55,9 +51,7 @@ public:
   
 private:
   const SoVertexAttributeElement * elem;
-#if COIN_HAVE_LEGACY_GL_RENDERER
   const SoGLVertexAttributeElement * glelem;
-#endif
 };
 
 

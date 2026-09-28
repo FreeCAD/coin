@@ -35,7 +35,6 @@
 
 #include <Inventor/elements/SoDrawStyleElement.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class COIN_DLL_API SoGLDrawStyleElement : public SoDrawStyleElement {
   typedef SoDrawStyleElement inherited;
 
@@ -60,6 +59,5 @@ private:
 
 };
 
-#endif
 
 #endif // !COIN_SOGLDRAWSTYLEELEMENT_H

@@ -49,9 +49,7 @@ public:
   static void initClass(void);
   SoIndexedPointSet(void);
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void getBoundingBox(SoGetBoundingBoxAction * action) override;
   void getPrimitiveCount(SoGetPrimitiveCountAction * action) override;
   void notify(SoNotList * list) override;

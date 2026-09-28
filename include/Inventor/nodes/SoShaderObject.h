@@ -44,9 +44,7 @@
 class SoGLShaderObject;
 class SoGLShaderProgram;
 class SoState;
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
-#endif
 
 // *************************************************************************
 
@@ -71,9 +69,7 @@ public:
 
   static void initClass(void);
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
-#endif
   void search(SoSearchAction * action) override;
   void render(SoState * state);
 

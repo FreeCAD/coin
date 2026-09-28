@@ -36,7 +36,6 @@
 #include <Inventor/SbBasic.h>
 #include <Inventor/lists/SbList.h>
 
-#if COIN_HAVE_LEGACY_GL_RENDERER
 class SoGLRenderAction;
 class SoGLRenderCache;
 class SoGLCacheListP;
@@ -56,6 +55,5 @@ public:
 private:
   SoGLCacheListP * pimpl;
 };
-#endif
 
 #endif // !COIN_SOGLCACHELIST_H

@@ -34,7 +34,6 @@
 \**************************************************************************/
 
 #include <Inventor/SbBasic.h>
-#if COIN_HAVE_LEGACY_GL_RENDERER
 #include <Inventor/misc/SoGLImage.h>
 
 class COIN_DLL_API SoGLCubeMapImage : public SoGLImage {
@@ -90,6 +89,5 @@ public:
   friend class SoGLCubeMapImageP;
   static void cleanupClass(void);
 };
-#endif
 
 #endif // !COIN_SOGLCUBEMAPIMAGE_H
