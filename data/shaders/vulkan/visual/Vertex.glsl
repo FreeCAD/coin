@@ -1,0 +1,118 @@
+// data/shaders/vulkan/visual/Vertex.glsl
+// Vulkan visual-pass vertex shader for the retained render backend.
+//
+// The vertex buffer uses a fixed interleaved layout:
+//   location 0: vec3 a_position
+//   location 1: vec3 a_normal
+//   location 2: vec4 a_color
+//   location 3: vec2 a_texcoord
+//
+// The model matrix is supplied per-instance via an instanced vertex attribute
+// (binding 1, VK_VERTEX_INPUT_RATE_INSTANCE) so an entire group of commands
+// that share geometry/material but differ only by their model matrix can be
+// drawn with a single instanced vkCmdDraw.  A one-element instance buffer is
+// bound for non-instanced draws (instanceCount == 1), so the shader reads the
+// transform from the same attribute in every case.  The attribute bytes carry
+// the model matrix in row-major SbMat order; assembling them as mat4 columns
+// reproduces the same effective (transposed) matrix the GLSL compiler builds
+// from the old column-major UBO mat4.
+//
+// A single push-constant block carries the projection matrix, the uniform
+// diffuse color, and scalar feature flags.  The view/model matrices plus the
+// per-draw material state live in a std140 uniform buffer (set 1, binding 0)
+// whose layout mirrors SoGLRenderBackend's uniform set; the lighting constant
+// block (ambient + light array) lives in set 0, binding 0 and is written once
+// per lighting setup per frame, so the per-draw buffer stays small.  Lighting
+// is evaluated per-vertex (Gouraud) in eye space, matching the retained GL
+// visual program.
+
+#version 450
+
+layout(push_constant) uniform PushConstants {
+    vec4  u_color;        // offset 0, 16 bytes
+    vec4  u_flags;        // offset 16, 16 bytes
+    vec4  u_texParams;    // offset 32, 16 bytes
+    vec4  u_texBlend;     // offset 48, 16 bytes
+    float u_pointSize;    // offset 64, 16 bytes (pad[3])
+    vec4  u_lineParams;   // offset 80, 16 bytes: x = stipple factor,
+                          //   y = round points, z = line primitive,
+                          //   w = point primitive
+} pc;
+
+// Lighting constant block (written once per lighting setup per frame).
+layout(set = 0, binding = 0, std140) uniform LightingBlock {
+    vec4  u_ambientLight;         // offset 0
+    vec4  u_lightType[8];         // offset 16
+    vec4  u_lightColor[8];        // offset 144
+    vec4  u_lightDirection[8];    // offset 272
+    vec4  u_lightPosition[8];     // offset 400
+    vec4  u_lightAttenuation[8];  // offset 528
+    vec4  u_lightSpotParams[8];   // offset 656
+} lighting;
+
+// Per-draw block (view/model/material), selected by a dynamic offset.
+layout(set = 1, binding = 0, std140) uniform DrawBlock {
+    mat4  u_view;                 // offset 0
+    mat4  u_model;                // offset 64
+    vec4  u_emissiveColor;        // offset 128
+    vec4  u_materialAmbient;      // offset 144
+    vec4  u_materialSpecular;     // offset 160
+    vec4  u_materialParams;       // offset 176: x=shininess, y=twoSided,
+                                  //            z=lightCount, w=shadingModel
+    mat4  u_proj;                 // offset 192: projection (view/model above)
+} draw;
+
+layout(location = 0) in vec3 a_position;
+layout(location = 1) in vec3 a_normal;
+layout(location = 2) in vec4 a_color;
+layout(location = 3) in vec2 a_texcoord;
+// Per-instance model matrix (binding 1, rate INSTANCE).  The four rows of the
+// row-major SbMat are carried as four vec4 attributes; assembling them as the
+// columns of a mat4 gives the same effective transform the UBO mat4 produced,
+// so lighting/transform output is identical to the pre-instancing path.
+layout(location = 4) in vec4 a_iModelRow0;
+layout(location = 5) in vec4 a_iModelRow1;
+layout(location = 6) in vec4 a_iModelRow2;
+layout(location = 7) in vec4 a_iModelRow3;
+
+// Lighting is evaluated per fragment (see Fragment.glsl): Gouraud shading
+// hardens the light gradient into linear bands between vertices, which on
+// coarse CAD tessellations (FreeCAD's default angular deflection) reads as a
+// sharp, faceted gradient and a hard-edged specular highlight.  Interpolated
+// eye-space position/normal give a smooth gradient and a soft highlight.
+layout(location = 0) out vec4 v_color;
+layout(location = 1) out vec3 v_eyePos;
+layout(location = 2) out vec3 v_eyeNormal;
+layout(location = 3) out vec2 v_texcoord;
+
+void main()
+{
+    mat4 u_iModel = mat4(a_iModelRow0, a_iModelRow1,
+                         a_iModelRow2, a_iModelRow3);
+    vec4 worldPos = u_iModel * vec4(a_position, 1.0);
+    vec4 eyePos = draw.u_view * worldPos;
+    mat3 normalMatrix = transpose(inverse(mat3(draw.u_view * u_iModel)));
+    vec3 eyeNormal = normalMatrix * a_normal;
+
+    vec4 clip = draw.u_proj * eyePos;
+    // Coin/OpenGL uses a bottom-left origin; Vulkan uses top-left.  Flip Y so
+    // the two pipelines produce identical output for the same viewport.
+    clip.y = -clip.y;
+    // Coin's projection matrices are OpenGL-style: clip/NDC depth is in
+    // [-1, 1].  Vulkan's depth range is [0, 1] and clips Z/w against it,
+    // so remap the depth component.  W must stay untouched so the remap
+    // survives perspective division: z_ndc = 0.5*(z_clip/w + 1)
+    // => z_clip' = 0.5*(z_clip + w).
+    clip.z = 0.5 * clip.z + 0.5 * clip.w;
+    // Vulkan has no implicit point size: carry the retained
+    // SoDrawStyle/SoPointSizeElement value in the push constants.  Applies
+    // to point primitives and to the point-list overlay pipeline
+    // (FC_VULKAN_POINTS); other topologies ignore the write.
+    gl_PointSize = pc.u_pointSize;
+    gl_Position = clip;
+
+    v_color = pc.u_flags.x > 0.5 ? a_color : vec4(pc.u_color.rgb, 1.0);
+    v_eyePos = eyePos.xyz;
+    v_eyeNormal = eyeNormal;
+    v_texcoord = a_texcoord;
+}

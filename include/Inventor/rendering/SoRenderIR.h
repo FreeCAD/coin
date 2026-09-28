@@ -58,6 +58,18 @@ enum SoPrimitiveTopology : uint8_t {
 };
 
 /*!
+  \enum SoPointShape
+  \brief Semantic point coverage requested by the retained traversal.
+
+  Backends may emulate this when their native point rasterization cannot
+  provide it (for example, round points in a backend without point sprites).
+*/
+enum SoPointShape : uint8_t {
+  SO_POINT_SHAPE_SQUARE = 0,
+  SO_POINT_SHAPE_ROUND
+};
+
+/*!
   \struct SoGeometryDesc
   \brief Describes vertex/index data for a single draw call.
 
@@ -98,6 +110,13 @@ struct SoGeometryDesc {
   SbVec3f             boundsCenter = SbVec3f(0.0f, 0.0f, 0.0f);
   SbBool              hasBounds = FALSE;
 
+  // Index of this command's first primitive within the source shape's
+  // primitive stream. A shape whose material changes partway is split into
+  // several contiguous commands; each carries the offset so a backend can map
+  // a per-command primitive id back to a global primitive index (for example
+  // an SoBrepFaceSet face via partIndex). Zero when the command covers the
+  // shape from its start.
+  uint32_t            primitiveOffset = 0;
 };
 
 //! Stable, draw-list-local reference to a geometry resource.
@@ -362,6 +381,44 @@ struct SoBlendState {
   SoBlendEquation alphaEquation = SO_BLEND_EQUATION_ADD;
 };
 
+//! Semantic stencil test/operation functions (not GL enum values).
+enum SoStencilFunction : uint8_t {
+  SO_STENCIL_FUNC_NEVER = 0,
+  SO_STENCIL_FUNC_ALWAYS,
+  SO_STENCIL_FUNC_LESS,
+  SO_STENCIL_FUNC_LEQUAL,
+  SO_STENCIL_FUNC_EQUAL,
+  SO_STENCIL_FUNC_GEQUAL,
+  SO_STENCIL_FUNC_GREATER,
+  SO_STENCIL_FUNC_NOTEQUAL
+};
+
+enum SoStencilOp : uint8_t {
+  SO_STENCIL_OP_KEEP = 0,
+  SO_STENCIL_OP_ZERO,
+  SO_STENCIL_OP_REPLACE,
+  SO_STENCIL_OP_INCREMENT,
+  SO_STENCIL_OP_DECREMENT,
+  SO_STENCIL_OP_INVERT,
+  SO_STENCIL_OP_INCREMENT_WRAP,
+  SO_STENCIL_OP_DECREMENT_WRAP
+};
+
+/*!
+  \struct SoStencilState
+  \brief Backend-neutral stencil-test configuration for a draw call.
+*/
+struct SoStencilState {
+  SbBool           enabled = FALSE;
+  SoStencilFunction function = SO_STENCIL_FUNC_ALWAYS;
+  uint8_t          reference = 0;
+  uint8_t          compareMask = 0xFF;
+  uint8_t          writeMask = 0xFF;
+  SoStencilOp      failOp = SO_STENCIL_OP_KEEP;
+  SoStencilOp      zfailOp = SO_STENCIL_OP_KEEP;
+  SoStencilOp      zpassOp = SO_STENCIL_OP_KEEP;
+};
+
 /*!
   \struct SoAlphaTestState
   \brief Explicit fragment alpha policy for a render command.
@@ -416,6 +473,7 @@ struct SoRasterState {
 struct SoRenderState {
   SoDepthState depth;
   SoBlendState blend;
+  SoStencilState stencil;
   SoAlphaTestState alphaTest;
   SoRasterState raster;
   //! Use the view/projection matrices captured with the command.

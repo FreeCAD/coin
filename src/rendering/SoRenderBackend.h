@@ -33,7 +33,47 @@ struct SoRenderParams {
   float            devicePixelRatio = 1.0f;
   SbColor4f        clearColor;
   float            clearDepth = 1.0f;
+  uint32_t         clearStencil = 0;
   uint32_t         flags = 0;
+
+  // Background gradient (vertical, screen-space). When backgroundGradient is
+  // set the backend fills the viewport with a top-to-bottom gradient between
+  // backgroundTopColor and backgroundBottomColor before drawing geometry,
+  // instead of a flat clearColor.
+  SbBool           backgroundGradient = FALSE;
+  SbColor4f        backgroundTopColor = SbColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+  SbColor4f        backgroundBottomColor = SbColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+
+  //! Backend-defined render destination for this frame.
+  //!
+  //! The base interface does not interpret this pointer. Concrete backends
+  //! document the structure they expect; the Vulkan backend expects a
+  //! SoVulkanRenderTarget. A null pointer means "render into whatever
+  //! destination the backend is currently bound to". Borrowed for the
+  //! duration of render() only.
+  void *           renderTarget = nullptr;
+
+  //! Monotonic generation counter for the active camera. Bumped when the
+  //! camera node or its pose changes, so a backend can detect a camera move
+  //! without diffing floating-point matrices. 0 means "not supplied".
+  uint32_t         cameraVersion = 0;
+
+  //! 1-based ordinal of the presented frame, bumped once per frame by the
+  //! embedding. Used as a stable correlation key between backend traces,
+  //! frame dumps and probe phase markers. 0 means "not supplied".
+  uint32_t         frame = 0;
+
+  //! Set when this frame is a retained-IR replay: the main scene graph was
+  //! unchanged, no full traversal ran, and the main retained geometry is
+  //! bit-identical to the previous frame. FALSE by default so a backend that
+  //! ignores it is always correct.
+  SbBool           geometryContentUnchanged = FALSE;
+
+  //! Set while the camera is moving (interaction LOD). A backend may drop
+  //! per-frame work that is invisible in motion and restore full quality when
+  //! the camera stops. FALSE by default so a backend that ignores it is
+  //! always correct.
+  SbBool           interactionLod = FALSE;
 };
 
 /*!
