@@ -400,6 +400,16 @@ public:
   //! Caller-published revision of state the graph walk cannot see (the
   //! selection model behind FreeCAD's highlight roots); mixed in verbatim.
   uint64_t externalRevision = 0;
+  //! True when the last full traversal recorded a node whose retained output
+  //! bakes in the camera pose (a screen-constant-size datum node such as
+  //! FreeCAD's SoShapeScale / SoAutoZoomTranslation, which sets
+  //! SoIRRenderAction::setCameraDependent).  Such a scene cannot be replayed
+  //! on a camera-only frame: the cached draw list holds the previous camera's
+  //! derived transform, so it must be re-recorded whenever the camera moves.
+  SbBool sceneCameraDependent = FALSE;
+  //! cameraVersion the retained list was recorded at; the replay below is
+  //! refused for a camera-dependent scene while cameraVersion differs.
+  uint32_t sceneCameraDependentVersion = 0;
   //! Viewing matrix (SoViewingMatrixElement bits) stamped into the commands
   //! of the last full traversal; the replay restamp key.
   SbMatrix lastFrameView;
@@ -1595,7 +1605,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     if (this->scene || this->camera || this->overlayScene
         || this->decorationScene) {
      if (irReplayEnabled() && this->graphFingerprintValid &&
-         graphFp == this->graphFingerprint) {
+         graphFp == this->graphFingerprint &&
+         (!this->sceneCameraDependent ||
+          this->cameraVersion == this->sceneCameraDependentVersion)) {
       // Camera-only frame: the main graph, the viewport, and the
       // caller-published revision are unchanged, so the retained main IR draw
       // list is exactly what a full traversal would produce -- keep it (and
@@ -1647,6 +1659,8 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
         }
        this->mainCommandCount =
          action.getDrawList().getNumCommands();
+       this->sceneCameraDependent = action.isCameraDependent();
+       this->sceneCameraDependentVersion = this->cameraVersion;
        this->graphFingerprint = graphFp;
        this->graphFingerprintValid = TRUE;
        this->lastFrameViewValid = FALSE;
@@ -1655,6 +1669,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   else {
     action.beginFrame();
     this->graphFingerprintValid = FALSE;
+    this->sceneCameraDependent = FALSE;
     this->rootChildrenValid = FALSE;
   }
    if (applyBcStart) {
