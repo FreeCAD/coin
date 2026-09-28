@@ -77,6 +77,9 @@ public:
 
   SoIRBuffer geometryPool;
   SbList<SoIRRenderAction::PrimitiveCollector *> collectorStack;
+  //! Set by a node whose recorded output depends on the camera pose (see
+  //! SoIRRenderAction::setCameraDependent); reset at the start of each frame.
+  SbBool cameraDependent = FALSE;
 };
 
 #define PRIVATE(obj) (obj->pimpl)
@@ -176,6 +179,18 @@ SoIRRenderAction::setViewportRegion(const SbViewportRegion & vp)
 }
 
 void
+SoIRRenderAction::setCameraDependent(SbBool on)
+{
+  PRIVATE(this)->cameraDependent = on;
+}
+
+SbBool
+SoIRRenderAction::isCameraDependent(void) const
+{
+  return PRIVATE(this)->cameraDependent;
+}
+
+void
 SoIRRenderAction::callDoAction(SoAction * action, SoNode * node)
 {
   node->doAction(action);
@@ -205,6 +220,7 @@ SoIRRenderAction::beginFrame()
 {
   this->drawlist.clear();
   this->resetFrameResources();
+  PRIVATE(this)->cameraDependent = FALSE;
 }
 
 void

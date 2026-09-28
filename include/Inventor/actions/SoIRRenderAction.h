@@ -68,6 +68,20 @@ public:
   void setViewportRegion(const SbViewportRegion & vp);
   const SbViewportRegion & getViewportRegion(void) const { return this->vpRegion; }
 
+  /*!
+    \brief Mark the current frame's traversal as camera-dependent.
+
+    A node whose retained output bakes in a camera-derived transform -- e.g.
+    FreeCAD's screen-constant-size SoShapeScale / SoAutoZoomTranslation, whose
+    doAction() writes a view-volume-derived scale into the draw list -- sets
+    this during an SoIRRenderAction traversal.  The Vulkan manager then refuses
+    to replay a cached main draw list on a camera-only frame, because replaying
+    would keep the stale camera-derived transform until some unrelated change
+    forced a re-traversal.  The manager re-records such scenes on camera moves.
+  */
+  void setCameraDependent(SbBool on);
+  SbBool isCameraDependent(void) const;
+
   // Standard entry points, mirroring SoGLRenderAction
   virtual void apply(SoNode * root) override;
   virtual void apply(SoPath * path) override;
