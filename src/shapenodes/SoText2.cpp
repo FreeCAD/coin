@@ -530,6 +530,9 @@ SoText2::IRRender(SoIRRenderAction * action)
     command.material.texture.wrapS = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
     command.material.texture.wrapT = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
     command.material.textureAlphaIncludesOpacity = true;
+#if defined(COIN_RENDER_LEGACY_API)
+    command.material.flags |= SO_MAT_HAS_TEXTURE | SO_MAT_IS_PIXEL_TEXT;
+#endif
     command.pixelRaster.enabled = TRUE;
     const SbVec2f & origin = binary
       ? raster.binaryOrigin : raster.antialiasedOrigin;

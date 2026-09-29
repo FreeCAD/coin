@@ -623,6 +623,9 @@ SoImage::IRRender(SoIRRenderAction * action)
   command.material.texture.hasTransparency = hasTransparency;
   command.material.texture.wrapS = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
   command.material.texture.wrapT = SO_TEXTURE_WRAP_CLAMP_TO_EDGE;
+#if defined(COIN_RENDER_LEGACY_API)
+  command.material.flags |= SO_MAT_HAS_TEXTURE | SO_MAT_IS_PIXEL_IMAGE;
+#endif
   command.pixelRaster.enabled = TRUE;
   command.pixelRaster.originX = originX;
   command.pixelRaster.originY = originY;

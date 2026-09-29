@@ -305,6 +305,9 @@ void
 SoDrawList::clear()
 {
   this->commands.clear();
+#if defined(COIN_RENDER_LEGACY_API)
+  this->sortedOrder.clear();
+#endif
   this->geometryResources.clear();
   this->lightingSetups.clear();
   this->depthClearEvents.clear();
@@ -320,6 +323,63 @@ SoDrawList::clear()
   this->pickLUTGeneration = 0;
   this->pickLUTValid = false;
 }
+
+#if defined(COIN_RENDER_LEGACY_API)
+// Legacy ordering helper: pass, then view-space depth (transparent
+// back-to-front). Leaves the command vector in place and returns an index
+// ordering, matching the pre-convergence API.
+void
+SoDrawList::buildSortedOrder(const SbMatrix & viewMatrix)
+{
+  const int n = static_cast<int>(this->commands.size());
+  this->sortedOrder.resize(static_cast<size_t>(n));
+  for (int i = 0; i < n; ++i) this->sortedOrder[static_cast<size_t>(i)] = i;
+  if (n <= 1) return;
+
+  SoRenderCommand * arr = this->commands.data();
+  std::vector<uint64_t> keys(static_cast<size_t>(n));
+  SbMat v;
+  viewMatrix.getValue(v);
+  for (int i = 0; i < n; ++i) {
+    SoRenderCommand & cmd = arr[i];
+    SbMat m;
+    cmd.modelMatrix.getValue(m);
+    const float wx = m[3][0];
+    const float wy = m[3][1];
+    const float wz = m[3][2];
+    const float eyeZ = v[0][2] * wx + v[1][2] * wy + v[2][2] * wz + v[3][2];
+    const float depth = -eyeZ;
+
+    uint32_t bits;
+    std::memcpy(&bits, &depth, sizeof(bits));
+    if (bits & 0x80000000u) {
+      bits = ~bits;
+    } else {
+      bits |= 0x80000000u;
+    }
+    uint32_t depthBucket = (bits >> 8) & 0x00FFFFFFu;
+
+    SoRenderPassType pass = cmd.pass;
+    if (pass == SO_RENDERPASS_OPAQUE &&
+        cmd.opacityClass == SO_OPACITY_TRANSPARENT) {
+      pass = SO_RENDERPASS_TRANSPARENT;
+    }
+    if (pass == SO_RENDERPASS_TRANSPARENT) {
+      depthBucket = 0x00FFFFFFu - depthBucket;
+    }
+    const uint64_t passbits =
+      (static_cast<uint64_t>(static_cast<uint32_t>(pass)) & 0xffu) << 56;
+    const uint64_t depthbits =
+      (static_cast<uint64_t>(depthBucket) & 0x00ffffffu) << 32;
+    keys[static_cast<size_t>(i)] = passbits | depthbits;
+  }
+
+  std::stable_sort(this->sortedOrder.begin(), this->sortedOrder.end(),
+    [&keys](int a, int b) {
+      return keys[static_cast<size_t>(a)] < keys[static_cast<size_t>(b)];
+    });
+}
+#endif
 
 void
 SoDrawList::truncate(int count)
@@ -1019,6 +1079,9 @@ fillTextureFromState(SoState * state, SoIRRenderAction * action,
                                        blendColor[2], 1.0f);
   textureFiltersFromQuality(SoTextureQualityElement::get(state),
                             material.texture);
+#if defined(COIN_RENDER_LEGACY_API)
+  material.flags |= SO_MAT_HAS_TEXTURE;
+#endif
 }
 
 static void

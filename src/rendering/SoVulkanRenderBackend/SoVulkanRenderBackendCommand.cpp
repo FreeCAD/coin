@@ -64,8 +64,15 @@ packPushConstants(const SoRenderCommand & command,
   push.texParams[0] = static_cast<float>(command.material.texture.model);
   push.texParams[1] = static_cast<float>(command.state.alphaTest.function);
   push.texParams[2] = command.state.alphaTest.reference;
+#if defined(COIN_RENDER_LEGACY_API)
+  push.texParams[3] =
+    (command.pixelRaster.enabled ||
+     (command.material.flags &
+      (SO_MAT_IS_PIXEL_TEXT | SO_MAT_IS_PIXEL_IMAGE)) != 0) ? 1.0f : 0.0f;
+#else
   push.texParams[3] =
     command.pixelRaster.enabled ? 1.0f : 0.0f;
+#endif
   const SbVec4f & blendColor = command.material.texture.blendColor;
   push.texBlend[0] = blendColor[0];
   push.texBlend[1] = blendColor[1];

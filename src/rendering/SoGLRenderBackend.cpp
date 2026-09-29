@@ -2536,7 +2536,8 @@ SoGLRenderBackend::selectRasterPath(const CachedCommand & entry,
     ? params.devicePixelRatio : 1.0f;
   path.pointSize = std::max(1.0f, command.state.raster.pointSize) * dpr;
   path.lineWidth = std::max(1.0f, command.state.raster.lineWidth) * dpr;
-  const SoRasterFillMode fillMode = command.state.raster.fillMode;
+  const SoRasterFillMode fillMode =
+    static_cast<SoRasterFillMode>(command.state.raster.fillMode);
   const bool triangleTopology = path.primitive == GL_TRIANGLES ||
     path.primitive == GL_TRIANGLE_STRIP;
   const bool lineTopology = path.primitive == GL_LINES ||
@@ -3504,7 +3505,8 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
     ? params.devicePixelRatio : 1.0f;
   const float pointSize = std::max(1.0f, command.state.raster.pointSize) * dpr;
   const float lineWidth = std::max(1.0f, command.state.raster.lineWidth) * dpr;
-  const SoRasterFillMode fillMode = command.state.raster.fillMode;
+  const SoRasterFillMode fillMode =
+    static_cast<SoRasterFillMode>(command.state.raster.fillMode);
   const bool triangleTopology = primitive == GL_TRIANGLES ||
     primitive == GL_TRIANGLE_STRIP;
   const bool lineTopology = primitive == GL_LINES ||

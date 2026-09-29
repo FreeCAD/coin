@@ -34,13 +34,22 @@ enum : int {
 
 inline int soVulkanCommandPass(const SoRenderCommand & command)
 {
+#if defined(COIN_RENDER_LEGACY_API)
+  if (command.pass == SO_RENDERPASS_OVERLAY) return SO_RENDERPASS_VK_OVERLAY;
+  if (command.pass == SO_RENDERPASS_TRANSPARENT) return SO_RENDERPASS_VK_TRANSPARENT;
+#endif
   if (command.stage != SoRenderStage::Main) return SO_RENDERPASS_VK_OVERLAY;
   return command.opacityClass == SO_OPACITY_TRANSPARENT
     ? SO_RENDERPASS_VK_TRANSPARENT : SO_RENDERPASS_VK_OPAQUE;
 }
 
 inline uint8_t soVulkanCullMode(const SoRasterState & raster)
-{ return raster.cullBackFaces ? 1u : 0u; }
+{
+#if defined(COIN_RENDER_LEGACY_API)
+  if (raster.cullMode != 0) return 1u;
+#endif
+  return raster.cullBackFaces ? 1u : 0u;
+}
 inline uint8_t soVulkanCcwFrontFace(const SoRasterState & raster)
 { return raster.frontFaceCCW ? 1u : 0u; }
 

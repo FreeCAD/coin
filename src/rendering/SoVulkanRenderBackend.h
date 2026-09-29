@@ -222,6 +222,11 @@ public:
                 const SoRenderParams & params,
                 const SoSelectionState * selection = nullptr) override;
 
+#if defined(COIN_RENDER_LEGACY_API)
+  //! Legacy convenience: build a plan from the draw list, then render it.
+  SbBool render(const SoDrawList & drawlist, const SoRenderParams & params);
+#endif
+
   /*!
     \brief Record the draw list into a caller-owned command buffer/render pass.
 

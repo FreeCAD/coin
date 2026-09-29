@@ -178,6 +178,15 @@ option(USE_EXTERNAL_VULKAN_MEMORY_ALLOCATOR
   "Use a system install of the Vulkan Memory Allocator."
   ON)
 
+# Opt-in source compatibility for the pre-convergence (fork) retained-render
+# API.  Default-off: the shipping IR is unchanged.  Enable to build Coin with
+# the legacy names the fork's out-of-tree tests were written against; the shim
+# forwards onto the canonical fields.  Intended to be dropped after the tests
+# migrate.  See include/Inventor/rendering/SoRenderLegacyCompat.h.
+option(COIN_BUILD_RENDER_LEGACY_API
+  "Build the opt-in legacy retained-render API compatibility layer."
+  OFF)
+
 # The Vulkan backend uses C++17 facilities (std::optional, structured
 # bindings); the rest of Coin stays on the C++11 baseline.
 if(COIN_BUILD_VULKAN_RENDERER AND CMAKE_CXX_STANDARD LESS 17)

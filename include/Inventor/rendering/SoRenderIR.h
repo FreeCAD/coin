@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <vector>
 
+#include <Inventor/rendering/SoRenderLegacyCompat.h>
+
 class SoState;
 class SoNode;
 
@@ -109,6 +111,12 @@ struct SoGeometryDesc {
   // unset when the backend should use its conservative origin fallback.
   SbVec3f             boundsCenter = SbVec3f(0.0f, 0.0f, 0.0f);
   SbBool              hasBounds = FALSE;
+
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy producer guarantee that the streams are stable, shape-retained
+  // data. The consumer forwards this to the cacheKey != 0 retained path.
+  bool                retained = false;
+#endif
 };
 
 //! Stable, draw-list-local reference to a geometry resource.
@@ -342,6 +350,12 @@ struct SoMaterialData {
   bool     vertexColorAlphaIncludesOpacity = false;
 
   bool     twoSidedLighting = false;
+
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy material flags (SO_MAT_*). The consumer maps these onto the
+  // canonical texture / pixel-raster fields.
+  uint32_t flags = 0;
+#endif
 };
 
 /*!
@@ -438,9 +452,20 @@ enum SoRasterFillMode : uint8_t {
 */
 struct SoRasterState {
   SbBool  visible = TRUE;
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy spelling: 0 = filled, 1 = lines (wireframe), 2 = points. The
+  // canonical SoRasterFillMode values are identical.
+  uint8_t fillMode = SO_RASTER_FILL;
+#else
   SoRasterFillMode fillMode = SO_RASTER_FILL;
+#endif
   SoPointShape pointShape = SO_POINT_SHAPE_SQUARE;
   SbBool  cullBackFaces = FALSE;
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy spelling: 1 = cull back faces. The consumer ORs this with
+  // cullBackFaces.
+  uint8_t cullMode = 0;
+#endif
   SbBool  frontFaceCCW = TRUE;
   SbBool  scissorEnabled = FALSE;
   int     scissorX = 0;
@@ -761,10 +786,22 @@ struct SoRenderCommand {
 
   SoOpacityClass   opacityClass = SO_OPACITY_OPAQUE;
   SoRenderStage    stage = SoRenderStage::Main;
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy pass classification. A non-opaque value is mapped onto the
+  // canonical opacity/stage classification by the consumer; the default
+  // falls back to opacityClass/stage.
+  SoRenderPassType pass = SO_RENDERPASS_OPAQUE;
+#endif
   SoLightingHandle lightingHandle = 0;
   int32_t          materialIndex = 0; //!< Effective Inventor material index.
   uint64_t         objectId = 0;   //!< Optional producer semantic identity.
   SoPixelRasterData pixelRaster;
+#if defined(COIN_RENDER_LEGACY_API)
+  // Legacy spelling of the same payload (SoPixelTextData). The consumer
+  // treats a command whose material carries SO_MAT_IS_PIXEL_TEXT or
+  // SO_MAT_IS_PIXEL_IMAGE as pixel-raster enabled.
+  SoPixelRasterData pixelText;
+#endif
   SoPickData       pick;
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
 };
@@ -870,6 +907,13 @@ public:
   SoRenderCommand & getCommand(int i);
   const SoRenderCommand & getCommand(int i) const;
 
+#if defined(COIN_RENDER_LEGACY_API)
+  //! Legacy: build a stable command-index ordering by pass then view-space
+  //! depth (transparent back-to-front), leaving the command vector in place.
+  void buildSortedOrder(const SbMatrix & viewMatrix);
+  const std::vector<int> & getSortedOrder() const { return this->sortedOrder; }
+#endif
+
   //! Add or reuse a lighting setup and return its stable 1-based handle.
   SoLightingHandle addLightingSetup(const SoLightingData & lighting);
 
@@ -912,6 +956,9 @@ public:
 
 private:
   std::vector<SoRenderCommand> commands;
+#if defined(COIN_RENDER_LEGACY_API)
+  std::vector<int> sortedOrder;
+#endif
   std::vector<SoGeometryResource> geometryResources;
   std::vector<SoLightingData> lightingSetups;
   std::vector<SoDepthClearEvent> depthClearEvents;
