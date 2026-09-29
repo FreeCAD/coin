@@ -1147,7 +1147,21 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     this->sceneFpMainCount = this->mainCommandCount;
     this->sceneFpValid = TRUE;
   }
-  if (!this->sceneBBoxCached) {
+  // A scene change (sceneGraphDirty) forces a fresh bbox when the cached box
+  // is empty.  computeSceneFingerprint() hashes the *retained* draw list,
+  // which lags the live graph by one frame (setClippingPlanes runs before the
+  // traversal re-records it), so a pure visibility toggle like
+  // SoSwitch::whichChild leaves sceneFp identical and would otherwise keep a
+  // stale bbox.  On an empty scene that stale bbox is the empty-box default
+  // (near=1/far=10), which clips GUI trackers added at the origin -- most
+  // visibly the Draft working-plane grid, whose z=0 plane sits on the near
+  // plane at the default camera (pos z=1) and stays invisible until a camera
+  // move happens to refresh the box.  Only the empty case needs the forced
+  // recompute: a non-empty stale box still brackets the origin, so scoping it
+  // here avoids re-running the O(scene) bbox walk on every selection/hover
+  // field write that dirties the graph.
+  if (!this->sceneBBoxCached ||
+      (this->sceneGraphDirty && this->sceneWorldBBox.isEmpty())) {
     SoGetBoundingBoxAction bboxaction(this->viewportRegion);
     bboxaction.apply(this->scene);
     this->sceneWorldBBox = bboxaction.getXfBoundingBox();
