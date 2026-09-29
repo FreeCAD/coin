@@ -1068,9 +1068,6 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
     // the feature edges are not double-painted.
     if (!transparent && (wireframeFillMode >= 0 || tessellationOverlay)) {
       const bool isEdgeOverlay = (wireframeFillMode == SoDrawStyleElement::LINES);
-      const int redrawFillMode = tessellationOverlay
-        ? SoDrawStyleElement::LINES
-        : wireframeFillMode;
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
         const int index = orderedIndex(i);
         const SoRenderCommand & command = drawlist.getCommand(index);
@@ -1079,35 +1076,34 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         if (!command.geometry.positions || command.geometry.vertexCount == 0)
           continue;
         const SoPrimitiveTopology topo = command.geometry.topology;
-        // For the edge overlay, restrict to commands that are themselves line
-        // primitives; skip triangles so tessellation edges never render.
-        if (isEdgeOverlay) {
-          if (topo != SO_TOPOLOGY_LINES &&
-              topo != SO_TOPOLOGY_LINE_STRIP) {
-            continue;
-          }
-        }
-        // For the debug tessellation overlay, restrict to triangle commands.
-        if (tessellationOverlay) {
-          if (topo != SO_TOPOLOGY_TRIANGLES &&
-              topo != SO_TOPOLOGY_TRIANGLE_STRIP) {
-            continue;
-          }
-        }
         if (!this->findCachedDrawable(command)) continue;
         const bool lineTopo = topo == SO_TOPOLOGY_LINES ||
           topo == SO_TOPOLOGY_LINE_STRIP;
         const bool triTopo = topo == SO_TOPOLOGY_TRIANGLES ||
           topo == SO_TOPOLOGY_TRIANGLE_STRIP;
-        const bool tessHit = tessellationOverlay && triTopo;
-        if (isEdgeOverlay && !lineTopo && !tessHit) continue;
-        if (wireframeFillMode < 0 && !tessHit) continue;
+        // The enabled overlays form a union: the edge overlay re-draws only
+        // real line commands (feature edges), the points overlay re-draws
+        // every command as points, and the tessellation overlay re-draws only
+        // triangle commands.  Filter each independently so enabling two
+        // overlays re-draws both sets instead of cancelling out -- a triangle
+        // is wanted by the tess overlay even while the edge overlay is active,
+        // and a line by the edge overlay even while the tess overlay is.
+        // The edge overlay re-draws only real B-Rep feature edges
+        // (SoBrepEdgeSet), not every line command: the Draft grid, dimensions
+        // and other annotation line sets keep their own per-part colors.
+        const bool wantEdge = isEdgeOverlay && lineTopo
+          && command.isFeatureEdge;
+        const bool wantPoints = wireframeFillMode == SoDrawStyleElement::POINTS;
+        const bool wantTess = tessellationOverlay && triTopo;
+        if (!wantEdge && !wantPoints && !wantTess) continue;
         VulkanWorkItem item;
         item.single = &command;
         item.count = 1;
-        item.fillModeOverride = redrawFillMode;
-        item.fillModeOverride =
-          tessHit ? SoDrawStyleElement::LINES : wireframeFillMode;
+        // The tessellation overlay re-draws triangles in polygon-LINES; the
+        // edge/points overlays keep their own fill mode.
+        item.fillModeOverride = wantTess
+          ? SoDrawStyleElement::LINES
+          : wireframeFillMode;
         item.uniformColorOverride = overlayColor;
         item.slotBase = nextSlot++;
         out.push_back(item);
