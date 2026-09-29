@@ -603,6 +603,10 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     command.lightingHandle = SoRenderIR::fillLightingFromState(
       state, action->getMutableDrawList());
     command.userData = shape;
+    // Tag real B-Rep feature edges so the Vulkan edge overlay can restrict
+    // itself to those instead of recoloring every line command in the scene
+    // (which caught the Draft grid and other annotations).
+    command.isFeatureEdge = shape->isFeatureEdgeSet();
     action->getMutableDrawList().addCommand(command);
   }
 }
@@ -978,6 +982,14 @@ SoShape::GLRender(SoGLRenderAction * action)
   if (vp) action->getState()->pop();
 }
 #endif
+
+bool
+SoShape::isFeatureEdgeSet() const
+{
+  // Only FreeCAD's SoBrepEdgeSet (and any future feature-edge producer)
+  // overrides this; every other shape is ordinary geometry.
+  return false;
+}
 
 void
 SoShape::IRRender(SoIRRenderAction * action)

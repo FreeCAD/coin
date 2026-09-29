@@ -635,6 +635,10 @@ struct SoRenderCommand {
   SoPixelTextData pixelText;
   uint64_t         sortKey = 0; //!< Backend-computed key used by sorting.
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
+  //! True when the producer reports this as the model's B-Rep feature-edge
+  //! line set (SoShape::isFeatureEdgeSet()).  The Vulkan edge overlay restricts
+  //! its uniform-color redraw to these commands.
+  bool             isFeatureEdge = false;
 };
 
 /*!
