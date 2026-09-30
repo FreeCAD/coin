@@ -51,7 +51,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoResetTransform.h>
-#include <Inventor/elements/SoModelMatrixElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>

@@ -111,8 +111,6 @@
 */
 
 #include <Inventor/nodes/SoTriangleStripSet.h>
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
 #include "coindefs.h"
 
 #ifdef HAVE_CONFIG_H
@@ -254,7 +252,6 @@ SoTriangleStripSet::findNormalBinding(SoState * const state) const
   return binding;
 }
 
-
 namespace { namespace SoGL { namespace TriStripSet {
 
   enum AttributeBinding {
@@ -380,7 +377,6 @@ namespace { namespace SoGL { namespace TriStripSet {
   }
 
 } } } // namespace
-
 
 /*!
   \copydetails SoEngine::initClass(void)
@@ -532,7 +528,6 @@ SoTriangleStripSet::GLRender(SoGLRenderAction * action)
                         (this->numVertices[0]-2)*numv : 0, FALSE);
 }
 
-  #undef SOGL_TRISTRIPSET_GLRENDER_CALL_FUNC
 #undef SOGL_TRISTRIPSET_GLRENDER_CALL_FUNC
 #undef SOGL_TRISTRIPSET_GLRENDER_RESOLVE_ARG1
 #undef SOGL_TRISTRIPSET_GLRENDER_RESOLVE_ARG2

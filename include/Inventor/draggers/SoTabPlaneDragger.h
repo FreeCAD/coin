@@ -42,7 +42,6 @@ class SoFieldSensor;
 class SbLineProjector;
 class SbPlaneProjector;
 class SoTabPlaneDraggerP;
-class SoGLRenderAction;
 
 class COIN_DLL_API SoTabPlaneDragger : public SoDragger {
   typedef SoDragger inherited;

@@ -34,8 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -98,9 +96,7 @@ class SoVRMLColorP {
     vbo(NULL) 
   { }
 
-  ~SoVRMLColorP() {
-    delete this->vbo;
-  }
+  ~SoVRMLColorP() { delete this->vbo; }
 
 #ifdef COIN_THREADSAFE
   SbStorage colorpacker_storage;

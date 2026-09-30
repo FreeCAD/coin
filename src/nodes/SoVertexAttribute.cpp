@@ -31,9 +31,6 @@
 \**************************************************************************/
 
 #include <Inventor/nodes/SoVertexAttribute.h>
-
-class SoVBO;
-#include <Inventor/elements/SoVertexAttributeElement.h>
 #include <Inventor/elements/SoGLVertexAttributeElement.h>
 
 #include <memory>
@@ -58,7 +55,6 @@ class SoVBO;
 #include "rendering/SoVBO.h"
 #include "nodes/SoSubNodeP.h"
 #include "elements/SoVertexAttributeData.h"
-#include "coindefs.h"
 
 /*!
   \class SoVertexAttribute SoVertexAttribute.h Inventor/nodes/SoVertexAttribute.h

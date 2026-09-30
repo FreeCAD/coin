@@ -127,8 +127,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoText3.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#include <Inventor/elements/SoShapeHintsElement.h>
 
 #include <cstring>
 #include <cfloat> // FLT_MAX, FLT_MIN

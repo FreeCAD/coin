@@ -573,9 +573,8 @@ SoAction::apply(SoNode * root)
       data.setActionStopTime(SbTime::getTimeOfDay());
     }
 
-    if (SoProfiler::isOverlayActive()
-        && !this->isOfType(SoGLRenderAction::getClassTypeId())
-        ) {
+    if (SoProfiler::isOverlayActive() &&
+        !this->isOfType(SoGLRenderAction::getClassTypeId())) {
       // update profiler stats node with the profiling data from the traversal
       SoNode * profilerstats = SoActionP::getProfilerStatsNode();
       SoProfiler::enable(FALSE);

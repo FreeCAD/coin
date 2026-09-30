@@ -34,10 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!

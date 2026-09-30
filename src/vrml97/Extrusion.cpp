@@ -34,8 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -360,9 +358,6 @@ class SoVBO;
 #endif // HAVE_THREADS
 
 #include "nodes/SoSubNodeP.h"
-
-#include "coindefs.h"
-class SoVertexArrayIndexer;
 #include "rendering/SoVBO.h"
 #include "rendering/SoVertexArrayIndexer.h"
 #include "rendering/SoGL.h"
@@ -427,8 +422,8 @@ public:
      tcoord(32),
      idx(32),
      gen(TRUE),
-     dirty(TRUE)
-     , vbocache(NULL)
+     dirty(TRUE),
+     vbocache(NULL)
 #ifdef COIN_THREADSAFE
      , rwmutex(SbRWMutex::READ_PRECEDENCE)
 #endif // COIN_THREADSAFE

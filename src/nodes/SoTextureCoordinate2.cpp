@@ -109,9 +109,6 @@ Separator {
 
 #include <Inventor/nodes/SoTextureCoordinate2.h>
 
-class SoVBO;
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
-
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
@@ -146,9 +143,7 @@ class SoVBO;
 class SoTextureCoordinate2P {
  public:
   SoTextureCoordinate2P() : vbo(NULL) { }
-  ~SoTextureCoordinate2P() {
-    delete this->vbo;
-  }
+  ~SoTextureCoordinate2P() { delete this->vbo; }
   SoVBO * vbo;
 };
 

@@ -64,7 +64,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTexture3Transform.h>
-#include <Inventor/elements/SoMultiTextureMatrixElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoPickAction.h>

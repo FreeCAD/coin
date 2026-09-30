@@ -83,7 +83,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoWWWInline.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 
 #include <cstddef>
 #include <cstdlib>

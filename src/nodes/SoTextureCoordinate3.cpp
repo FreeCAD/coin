@@ -67,9 +67,6 @@
 
 #include <Inventor/nodes/SoTextureCoordinate3.h>
 
-class SoVBO;
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
-
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
@@ -102,9 +99,7 @@ class SoVBO;
 class SoTextureCoordinate3P {
  public:
   SoTextureCoordinate3P() : vbo(NULL) { }
-  ~SoTextureCoordinate3P() {
-    delete this->vbo;
-  }
+  ~SoTextureCoordinate3P() { delete this->vbo; }
   SoVBO * vbo;
 };
 

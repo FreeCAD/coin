@@ -82,7 +82,6 @@
 */
 
 #include <Inventor/nodes/SoLineSet.h>
-#include <Inventor/elements/SoCoordinateElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -222,7 +221,6 @@ SoLineSet::findNormalBinding(SoState * const state) const
   }
   return binding;
 }
-
 
 namespace { namespace SoGL { namespace LineSet {
 
@@ -371,7 +369,6 @@ namespace { namespace SoGL { namespace LineSet {
   }
 
 } } } // namespace
-
 
 /*!
   \copydetails SoNode::initClass(void)

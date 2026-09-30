@@ -34,8 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -81,9 +79,7 @@ SO_NODE_SOURCE(SoVRMLCoordinate);
 class SoVRMLCoordinateP {
  public:
   SoVRMLCoordinateP() : vbo(NULL) { }
-  ~SoVRMLCoordinateP() {
-    delete this->vbo;
-  }
+  ~SoVRMLCoordinateP() { delete this->vbo; }
   SoVBO * vbo;
 };
 

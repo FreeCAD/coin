@@ -50,7 +50,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCoordinateReflectionMap.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include "coindefs.h"
 
 #include <cstdlib>

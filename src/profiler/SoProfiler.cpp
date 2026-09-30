@@ -268,8 +268,7 @@ SoProfilerP::setActionType(SoType actiontype)
   }
 
   IF_ACTION(SoGLRenderAction)
-  else
-  IF_ACTION(SoPickAction)
+  else IF_ACTION(SoPickAction)
   else IF_ACTION(SoCallbackAction)
   else IF_ACTION(SoGetBoundingBoxAction)
   else IF_ACTION(SoGetMatrixAction)

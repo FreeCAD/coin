@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -253,9 +250,6 @@ class SoVBO;
 #include "glue/glp.h"
 #include "rendering/SoGL.h"
 #include "nodes/SoSubNodeP.h"
-
-#include "coindefs.h"
-class SoVertexArrayIndexer;
 
 // *************************************************************************
 

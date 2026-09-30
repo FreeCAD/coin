@@ -56,9 +56,6 @@
 
 #include <Inventor/nodes/SoCoordinate3.h>
 
-class SoVBO;
-#include <Inventor/elements/SoCoordinateElement.h>
-
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
@@ -78,9 +75,7 @@ class SoVBO;
 class SoCoordinate3P {
  public:
   SoCoordinate3P() : vbo(NULL) { }
-  ~SoCoordinate3P() {
-    delete this->vbo;
-  }
+  ~SoCoordinate3P() { delete this->vbo; }
   SoVBO * vbo;
 };
 

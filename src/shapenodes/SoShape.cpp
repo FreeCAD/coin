@@ -868,28 +868,11 @@ void
 SoShape::IRRender(SoIRRenderAction * action)
 {
   if (!action) return;
-  static const bool irbreadcrumbs = coin_getenv("COIN_IR_BREADCRUMB") != nullptr;
-  if (irbreadcrumbs) {
-    static int n = 0;
-    if (n++ < 300) {
-      SoVulkanDebug::post("[BC-IR] IRRender shape=%p type=%s\n", (void *)this,
-              this->getTypeId().getName().getString());
-    }
-  }
 
   SoState * state = action->getState();
 
   const SoShapeStyleElement * shapestyle = SoShapeStyleElement::get(state);
   const unsigned int shapestyleflags = shapestyle->getFlags();
-  if (irbreadcrumbs) {
-    const char * tn = this->getTypeId().getName().getString();
-    static int m = 0;
-    if (m++ < 20000 && tn && std::strstr(tn, "SoBrep")) {
-      SoVulkanDebug::post("[BC-IR] IRRender flags shape=%p type=%s flags=0x%x invisible=%d\n",
-              (void *)this, tn, shapestyleflags,
-              (shapestyleflags & SoShapeStyleElement::INVISIBLE) ? 1 : 0);
-    }
-  }
   if (shapestyleflags & SoShapeStyleElement::INVISIBLE) return;
 
   // Draw style BOUNDS: record the local bbox as a solid cube instead of primitives, mirroring GLRenderBoundingBox().
@@ -1007,18 +990,6 @@ SoShape::IRRender(SoIRRenderAction * action)
   // Emitting writes the shape-owned batch scratch, so guard it with the same mutex as the cache:
   // notify()/IRRender may run on different threads, and a second IRRender (a shared shape from
   // another viewport) would race on irBatchScratch. Retained geometry itself is read unlocked.
-  static const bool irbreadcrumbs_emit = coin_getenv("COIN_IR_BREADCRUMB") != nullptr;
-  if (irbreadcrumbs_emit) {
-    size_t totalVerts = 0;
-    for (const SoIRRetainedGeometry & run : emitRuns) {
-      totalVerts += run.vertexCount;
-    }
-    if (totalVerts > 100000) {
-      SoVulkanDebug::post("[BC-IR] emit shape=%p type=%s action=%p runs=%zu verts=%zu\n",
-              (void *)this, this->getTypeId().getName().getString(),
-              (void *)action, emitRuns.size(), totalVerts);
-    }
-  }
   PRIVATE(this)->lock();
   for (const SoIRRetainedGeometry & run : emitRuns) {
     soshape_emit_ir_commands(action, this, state, run, true,
@@ -1453,7 +1424,7 @@ SoShape::shouldRayPick(SoRayPickAction * const action)
 
 /*!
   \COININTERNAL
- */
+*/
 void
 SoShape::beginSolidShape(SoGLRenderAction * action)
 {

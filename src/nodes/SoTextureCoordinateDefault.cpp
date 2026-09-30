@@ -50,7 +50,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCoordinateDefault.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>

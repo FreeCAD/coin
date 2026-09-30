@@ -61,10 +61,6 @@
 
 #include <Inventor/nodes/SoIndexedLineSet.h>
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-#include <Inventor/elements/SoShapeHintsElement.h>
-
 #include <cassert>
 
 #ifdef HAVE_CONFIG_H
@@ -101,9 +97,6 @@ class SoVBO;
 #endif // COIN_DEBUG
 
 #include "nodes/SoSubNodeP.h"
-
-#include "coindefs.h"
-class SoVertexArrayIndexer;
 #include "rendering/SoGL.h"
 #include "rendering/SoVertexArrayIndexer.h"
 #include "rendering/SoVBO.h"

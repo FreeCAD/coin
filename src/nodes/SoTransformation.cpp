@@ -85,7 +85,6 @@ Separator {
 
 
 #include <Inventor/actions/SoCallbackAction.h>
-#include <Inventor/elements/SoModelMatrixElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>

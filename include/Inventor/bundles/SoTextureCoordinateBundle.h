@@ -35,15 +35,12 @@
 
 #include <Inventor/bundles/SoBundle.h>
 #include <Inventor/SbBasic.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
-
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
 
 #include <Inventor/SbVec4f.h>
 
 class SoTextureCoordinateCache;
 class SoShape;
-class SoGLMultiTextureCoordinateElement;
 
 
 class COIN_DLL_API SoTextureCoordinateBundle : public SoBundle {

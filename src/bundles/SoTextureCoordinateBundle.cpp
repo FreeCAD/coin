@@ -43,10 +43,8 @@
 
 
 #include <Inventor/bundles/SoTextureCoordinateBundle.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
 #include <Inventor/misc/SoState.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoMultiTextureImageElement.h>
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>

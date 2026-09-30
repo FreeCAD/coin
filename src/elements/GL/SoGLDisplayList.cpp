@@ -48,7 +48,6 @@
 
 #include <Inventor/elements/SoGLDisplayList.h>
 
-
 #include <cstring>
 #include <cassert>
 
@@ -406,4 +405,3 @@ SoGLDisplayList::bindTexture(SoState * COIN_UNUSED_ARG(state))
 }
 
 #undef PRIVATE
-

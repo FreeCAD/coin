@@ -86,8 +86,6 @@
 */
 
 #include <Inventor/nodes/SoIndexedMarkerSet.h>
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

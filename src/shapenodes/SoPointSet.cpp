@@ -83,10 +83,6 @@
 
 #include <Inventor/nodes/SoPointSet.h>
 
-class SoVBO;
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif // HAVE_CONFIG_H
@@ -112,7 +108,6 @@ class SoVBO;
 #endif // COIN_DEBUG
 
 #include "nodes/SoSubNodeP.h"
-#include "coindefs.h"
 #include "rendering/SoGL.h"
 #include "rendering/SoVBO.h"
 

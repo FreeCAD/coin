@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#include <Inventor/elements/SoMultiTextureImageElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -120,8 +117,6 @@
 
 #include "nodes/SoSubNodeP.h"
 #include "elements/SoTextureScalePolicyElement.h"
-
-class SoGLImage;
 
 // *************************************************************************
 

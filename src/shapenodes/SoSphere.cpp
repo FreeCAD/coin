@@ -79,7 +79,6 @@
 */
 
 #include <Inventor/nodes/SoSphere.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include "coindefs.h"
 
 #include <Inventor/SbSphere.h>

@@ -59,7 +59,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureMatrixTransform.h>
-#include <Inventor/elements/SoMultiTextureMatrixElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoPickAction.h>

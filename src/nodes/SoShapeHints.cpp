@@ -146,7 +146,6 @@
 // *************************************************************************
 
 #include <Inventor/actions/SoCallbackAction.h>
-#include <Inventor/elements/SoShapeHintsElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>

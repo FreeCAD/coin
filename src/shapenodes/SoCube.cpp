@@ -67,7 +67,6 @@
 */
 
 #include <Inventor/nodes/SoCube.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include "coindefs.h"
 
 #include <Inventor/SbPlane.h>

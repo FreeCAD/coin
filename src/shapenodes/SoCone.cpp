@@ -74,7 +74,6 @@
 */
 
 #include <Inventor/nodes/SoCone.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include "coindefs.h"
 
 #include <cassert>

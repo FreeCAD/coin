@@ -60,9 +60,6 @@
 
 #include <Inventor/nodes/SoPackedColor.h>
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoOverrideElement.h>
@@ -93,9 +90,7 @@ class SoVBO;
 class SoPackedColorP {
  public:
   SoPackedColorP() : vbo(NULL) { }
-  ~SoPackedColorP() {
-    delete this->vbo;
-  }
+  ~SoPackedColorP() { delete this->vbo; }
   SbBool transparent;
   SbBool checktransparent;
   SoVBO * vbo;

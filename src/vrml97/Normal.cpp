@@ -34,8 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -79,9 +77,7 @@ SO_NODE_SOURCE(SoVRMLNormal);
 class SoVRMLNormalP {
  public:
   SoVRMLNormalP() : vbo(NULL) { }
-  ~SoVRMLNormalP() {
-    delete this->vbo;
-  }
+  ~SoVRMLNormalP() { delete this->vbo; }
   
   SoVBO * vbo;
 };

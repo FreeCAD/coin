@@ -51,7 +51,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCoordinateCube.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include "coindefs.h"
 
 #ifdef HAVE_CONFIG_H

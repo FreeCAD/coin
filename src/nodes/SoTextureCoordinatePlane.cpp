@@ -113,7 +113,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCoordinatePlane.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

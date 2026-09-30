@@ -70,7 +70,6 @@
 // FIXME: Can this somehow relate to 3D textures? (kintel 20020203)
 
 #include <Inventor/nodes/SoTextureCoordinateNormalMap.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include "coindefs.h"
 
 #include <cstdlib>

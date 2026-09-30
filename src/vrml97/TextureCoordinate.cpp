@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -106,9 +103,7 @@ class SoVBO;
 class SoVRMLTextureCoordinateP {
  public:
   SoVRMLTextureCoordinateP() : vbo(NULL) { }
-  ~SoVRMLTextureCoordinateP() {
-    delete this->vbo;
-  }
+  ~SoVRMLTextureCoordinateP() { delete this->vbo; }
   SoVBO * vbo;
 };
 

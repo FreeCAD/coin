@@ -153,9 +153,6 @@
 
 #include <Inventor/nodes/SoMaterial.h>
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-
 #include <cstdlib>
 
 #include <Inventor/C/tidbits.h>
@@ -297,9 +294,7 @@ public:
     colorpacker_storage(sizeof(void*), alloc_colorpacker, free_colorpacker),
 #endif // COIN_THREADSAFE
     vbo(NULL) { }
-  ~SoMaterialP() {
-    delete this->vbo;
-  }
+  ~SoMaterialP() { delete this->vbo; }
 
   int materialtype;
   int transparencyflag;

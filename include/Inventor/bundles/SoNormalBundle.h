@@ -35,12 +35,7 @@
 
 #include <Inventor/bundles/SoBundle.h>
 #include <Inventor/misc/SoNormalGenerator.h>
-#include <Inventor/elements/SoNormalElement.h>
-
 #include <Inventor/elements/SoGLNormalElement.h>
-
-class SoNormalElement;
-class SoGLNormalElement;
 
 class SoNormalBundleP;
 

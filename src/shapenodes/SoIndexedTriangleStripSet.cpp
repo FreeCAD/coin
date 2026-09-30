@@ -82,7 +82,6 @@
 */
 
 #include <Inventor/nodes/SoIndexedTriangleStripSet.h>
-#include <Inventor/elements/SoLazyElement.h>
 
 #include <cassert>
 
