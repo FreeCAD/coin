@@ -16,7 +16,12 @@
     )
 configure_file(setup.h.cmake.in setup.h)
 
-add_compile_options(-DHAVE_CONFIG_H -DCOIN_INTERNAL -DCOIN_DEBUG=$<CONFIG:Debug>)
+add_compile_definitions(
+  HAVE_CONFIG_H
+  COIN_INTERNAL
+  COIN_BUILDING_COIN
+  COIN_DEBUG=$<CONFIG:Debug>
+)
 
 include_directories(BEFORE
   "${PROJECT_BINARY_DIR}/include"
@@ -51,6 +56,14 @@ set(SUBDIRS
 foreach(_subdir ${SUBDIRS})
   add_subdirectory(${_subdir})
 endforeach()
+
+foreach(_coin_target ${SUBDIRS} glelements)
+  if(TARGET ${_coin_target})
+    target_compile_definitions(${_coin_target} PRIVATE
+      COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>)
+  endif()
+endforeach()
+
 add_subdirectory(doc)
 
 if(TARGET coin_generated_data_headers)
@@ -162,18 +175,12 @@ endif()
 
 set(ADDITIONAL_HDRS ${PROJECT_SOURCE_DIR}/include/SoWinEnterScope.h ${PROJECT_SOURCE_DIR}/include/SoWinLeaveScope.h ${PROJECT_SOURCE_DIR}/include/SoDebug.h ${PROJECT_BINARY_DIR}/src/config.h)
 
-set(COIN_GLELEMENTS_OBJECTS "")
-if(NOT COIN_BUILD_SINGLE_LIB)
+if(COIN_BUILD_LEGACY_GL_RENDERER)
   set(COIN_GLELEMENTS_OBJECTS $<TARGET_OBJECTS:glelements>)
 endif()
 
-set(COIN_SHADOWS_OBJECTS "")
-if(NOT COIN_BUILD_SINGLE_LIB AND COIN_BUILD_LEGACY_GL_RENDERER)
-  set(COIN_SHADOWS_OBJECTS $<TARGET_OBJECTS:shadows>)
-endif()
-
 set(COIN_VULKAN_OBJECTS "")
-if(NOT COIN_BUILD_SINGLE_LIB AND COIN_BUILD_VULKAN_RENDERER)
+if(COIN_BUILD_VULKAN_RENDERER)
   set(COIN_VULKAN_OBJECTS $<TARGET_OBJECTS:vulkanrendering>)
 endif()
 
@@ -221,7 +228,7 @@ else()
     $<TARGET_OBJECTS:scxml>
     $<TARGET_OBJECTS:sensors>
     $<TARGET_OBJECTS:shaders>
-    ${COIN_SHADOWS_OBJECTS}
+    $<TARGET_OBJECTS:shadows>
     $<TARGET_OBJECTS:shapenodes>
     $<TARGET_OBJECTS:soscxml>
     $<TARGET_OBJECTS:threads>
@@ -235,11 +242,8 @@ if(TARGET coin_generated_data_headers)
   add_dependencies(${PROJECT_NAME} coin_generated_data_headers)
 endif()
 
-# Keep the renderer selection attached to the final library target as well as
-# the directory scope.  This is important for single-library generators,
-# where all translation units are linked through this target.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  COIN_BUILD_LEGACY_GL_RENDERER=${COIN_BUILD_LEGACY_GL_RENDERER_VALUE}
+  COIN_BUILD_LEGACY_GL_RENDERER=$<BOOL:${COIN_BUILD_LEGACY_GL_RENDERER}>
   COIN_BUILD_VULKAN_RENDERER=${COIN_BUILD_VULKAN_RENDERER_VALUE}
 )
 
@@ -248,12 +252,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # dedicated vulkanrendering object library instead.
 if(COIN_BUILD_VULKAN_RENDERER AND COIN_BUILD_SINGLE_LIB)
   target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-endif()
-
-if(NOT COIN_BUILD_LEGACY_GL_RENDERER AND
-   CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND
-   CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  target_link_options(${PROJECT_NAME} PRIVATE LINKER:-z,defs)
 endif()
 
 # Export a Coin::Coin target when the library is built as a cmake subdirectory
