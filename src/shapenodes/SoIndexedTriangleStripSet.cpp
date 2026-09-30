@@ -103,9 +103,7 @@
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/elements/SoNormalBindingElement.h>
 #include <Inventor/elements/SoShapeHintsElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/elements/SoTextureCoordinateBindingElement.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/misc/SoState.h>
@@ -224,7 +222,6 @@ SoIndexedTriangleStripSet::findNormalBinding(SoState * const state) const
 }
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
 {
@@ -336,7 +333,6 @@ SoIndexedTriangleStripSet::GLRender(SoGLRenderAction * action)
   // send approx number of triangles for autocache handling
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, FALSE);
 }
-#endif
 
 // Documented in superclass.
 SbBool

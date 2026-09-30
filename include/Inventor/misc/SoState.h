@@ -88,11 +88,6 @@ SoState::isElementEnabled(const int stackindex) const
   return (stackindex < this->numstacks) && (this->stack[stackindex] != NULL);
 }
 
-// getElement() (the library's hottest call) is defined at the end of
-// SoElement.h: it dereferences SoElement, and SoElement.h is where SoElement
-// and SoState are both complete (it includes SoState.h).  The copy-on-write
-// push is out of line in SoState::getElementPush() (SoState.cpp).
-
 inline const SoElement *
 SoState::getConstElement(const int stackindex) const
 {

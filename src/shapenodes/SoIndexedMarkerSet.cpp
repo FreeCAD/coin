@@ -98,9 +98,7 @@
 #include <Inventor/system/gl.h>
 #include <Inventor/nodes/SoVertexProperty.h>
 #include <Inventor/nodes/SoMarkerSet.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
@@ -108,12 +106,8 @@
 #include <Inventor/elements/SoViewportRegionElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/elements/SoProjectionMatrixElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 #include <Inventor/elements/SoCullElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
 
@@ -155,7 +149,6 @@ SoIndexedMarkerSet::initClass(void)
 }
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
 {
@@ -329,4 +322,3 @@ SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
   // by three so that three points is the same as one triangle.
   sogl_autocache_update(state, numindices/3, FALSE);
 }
-#endif

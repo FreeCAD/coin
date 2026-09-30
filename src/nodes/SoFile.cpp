@@ -185,13 +185,11 @@ SoFile::getBoundingBox(SoGetBoundingBoxAction * action)
 }
 
 // Doc from superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoFile::GLRender(SoGLRenderAction * action)
 {
   SoFile::doAction((SoAction *)action);
 }
-#endif
 
 // Doc from superclass.
 SbBool

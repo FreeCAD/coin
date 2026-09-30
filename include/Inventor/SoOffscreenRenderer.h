@@ -46,6 +46,7 @@ class SoBase;
 class SoGLRenderAction;
 class SoNode;
 class SoPath;
+
 // This shouldn't strictly be necessary, but the OSF1/cxx compiler
 // complains if this is left out, while using the "friend class
 // SoExtSelectionP" statement in the class definition.

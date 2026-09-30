@@ -46,9 +46,7 @@
 #include <cstring>
 
 #include <Inventor/SbName.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLDisplayList.h>
-#endif
 #include <Inventor/lists/SbList.h>
 #include <Inventor/misc/SoState.h>
 #include <Inventor/misc/SoContextHandler.h>
@@ -86,9 +84,7 @@ typedef struct {
 } so_scheduledeletecb_info;
 
 static SbList <so_glext_info *> * extsupportlist;
-#if COIN_BUILD_LEGACY_GL_RENDERER
 static SbList <SoGLDisplayList*> * scheduledeletelist;
-#endif
 static SbList <so_scheduledeletecb_info*> * scheduledeletecblist;
 static void * glcache_mutex;
 
@@ -109,9 +105,7 @@ static void soglcachecontext_cleanup(void)
   }
 
   delete extsupportlist;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   delete scheduledeletelist;
-#endif
   delete scheduledeletecblist;
   CC_MUTEX_DESTRUCT(glcache_mutex);
 
@@ -136,7 +130,6 @@ SoGLCacheContextElement::cleanupContext(uint32_t contextid, void * COIN_UNUSED_A
 
   int i = 0;
   int n = 0;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   n = scheduledeletelist->getLength();
 
   while (i < n) {
@@ -148,7 +141,6 @@ SoGLCacheContextElement::cleanupContext(uint32_t contextid, void * COIN_UNUSED_A
     }
     else i++;
   }
-#endif
 
   i = 0;
   n = scheduledeletecblist->getLength();
@@ -179,9 +171,7 @@ SoGLCacheContextElement::initClass(void)
   SO_ELEMENT_INIT_CLASS(SoGLCacheContextElement, inherited);
 
   extsupportlist = new SbList <so_glext_info *>;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   scheduledeletelist = new SbList <SoGLDisplayList*>;
-#endif
   scheduledeletecblist = new SbList <so_scheduledeletecb_info*>;
   CC_MUTEX_CONSTRUCT(glcache_mutex);
   coin_atexit((coin_atexit_f *)soglcachecontext_cleanup, CC_ATEXIT_NORMAL);
@@ -488,7 +478,6 @@ SoGLCacheContextElement::getIsRemoteRendering(SoState * state)
   return !elem->isDirectRendering(state);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Internal: SoGLDisplayList deletes its list once the context is current again.
 void
 SoGLCacheContextElement::scheduleDelete(SoState * state, class SoGLDisplayList * dl)
@@ -502,7 +491,6 @@ SoGLCacheContextElement::scheduleDelete(SoState * state, class SoGLDisplayList *
     CC_MUTEX_UNLOCK(glcache_mutex);
   }
 }
-#endif
 
 /*!
   Can be used to receive a callback the next time Coin knows that the

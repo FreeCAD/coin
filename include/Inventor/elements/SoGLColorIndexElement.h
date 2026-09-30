@@ -62,5 +62,4 @@ private:
   SoState * state;
 };
 
-
 #endif // !COIN_SOGLCOLORINDEXELEMENT_H

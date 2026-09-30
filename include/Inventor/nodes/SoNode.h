@@ -123,10 +123,12 @@ public:
   void writeInstance(SoOutput * out) override;
   virtual SoNode * addToCopyDict(void) const;
 
-  //! Retained-IR hook.  Declared after every pre-existing virtual so the slot
-  //! order of the other virtuals is unchanged; placing it beside the action
-  //! methods above would shift every later vtable slot and break dispatch for
-  //! prebuilt consumers (Pivy, FreeCAD, third-party nodes) at run time.
+  //! Retained-IR hook.  Kept as SoNode's last new virtual (before the
+  //! inherited overrides below) so the slots of the pre-existing virtuals
+  //! above -- GLRender/.../addToCopyDict -- are unchanged.  Inserting it
+  //! among them would shift their slots; the declarations that follow
+  //! (copyContents, copyThroughConnection, ~SoNode) are overrides and keep
+  //! their base-class slots either way.
   virtual void IRRender(SoIRRenderAction * action);
 
   virtual void copyContents(const SoFieldContainer * from,

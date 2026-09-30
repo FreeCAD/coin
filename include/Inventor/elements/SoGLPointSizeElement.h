@@ -60,5 +60,4 @@ private:
   void updategl();
 };
 
-
 #endif // !COIN_SOGLPOINTSIZEELEMENT_H

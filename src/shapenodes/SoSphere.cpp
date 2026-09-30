@@ -88,9 +88,7 @@
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include <Inventor/misc/SoState.h>
 
@@ -139,7 +137,6 @@ SoSphere::initClass(void)
 }
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSphere::GLRender(SoGLRenderAction * action)
 {
@@ -176,7 +173,6 @@ SoSphere::GLRender(SoGLRenderAction * action)
                      &mb,
                      flags, state);
 }
-#endif
 
 // Documented in superclass.
 void

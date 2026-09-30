@@ -64,14 +64,10 @@ class SoVBO;
 #include <Inventor/actions/SoPickAction.h>
 #include <Inventor/elements/SoNormalElement.h>
 #include <Inventor/elements/SoOverrideElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 
 #include "nodes/SoSubNodeP.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 // *************************************************************************
 
@@ -86,9 +82,7 @@ class SoNormalP {
  public:
   SoNormalP() : vbo(NULL) { }
   ~SoNormalP() {
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vbo;
-#endif
   }
 
   SoVBO * vbo;
@@ -127,12 +121,11 @@ SoNormal::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoNormal, SO_FROM_INVENTOR_1|SoNode::VRML1);
 
   SO_ENABLE(SoCallbackAction, SoNormalElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoNormalElement);
+  SO_ENABLE(SoGLRenderAction, SoNormalElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoNormalElement);
   SO_ENABLE(SoPickAction, SoNormalElement);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc in superclass.
 void
 SoNormal::GLRender(SoGLRenderAction * action)
@@ -171,7 +164,6 @@ SoNormal::GLRender(SoGLRenderAction * action)
   SoBase::staticDataUnlock();
   SoGLVBOElement::setNormalVBO(state, setvbo? PRIVATE(this)->vbo : NULL);
 }
-#endif
 
 // Doc in superclass.
 void

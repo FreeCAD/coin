@@ -47,17 +47,14 @@
 
 #include "glue/glp.h"
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/errors/SoDebugError.h>
-#endif
 
 // Convenience function for access to OpenGL wrapper from an SoState
 // pointer.
 const cc_glglue *
 sogl_glue_instance(const SoState * state)
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   SoGLRenderAction * action = (SoGLRenderAction *)state->getAction();
   // FIXME: disabled until we figure out why this doesn't work on some
   // Linux systems (gcc 3.2 systems, it seems). pederb, 2003-11-24
@@ -80,11 +77,6 @@ sogl_glue_instance(const SoState * state)
   // that much unless multiple contexts on multiple displays are used.
   return cc_glglue_instance(1);
 #endif // workaround version
-#else
-  // Core-only build: no SoGLRenderAction to supply a context id; use glue 1.
-  (void)state;
-  return cc_glglue_instance(1);
-#endif
 }
 
 SbBool

@@ -348,7 +348,6 @@ SoVRMLLOD::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLLOD::GLRender(SoGLRenderAction * action)
 {
@@ -368,7 +367,6 @@ SoVRMLLOD::GLRender(SoGLRenderAction * action)
     break;
   }
 }
-#endif
 
 // Doc in parent
 void
@@ -420,7 +418,6 @@ SoVRMLLOD::audioRender(SoAudioRenderAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLLOD::GLRenderBelowPath(SoGLRenderAction * action)
 {
@@ -460,10 +457,8 @@ SoVRMLLOD::GLRenderBelowPath(SoGLRenderAction * action)
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 }
-#endif
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLLOD::GLRenderInPath(SoGLRenderAction * action)
 {
@@ -490,10 +485,8 @@ SoVRMLLOD::GLRenderInPath(SoGLRenderAction * action)
     SoVRMLLOD::GLRenderBelowPath(action);
   }
 }
-#endif
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLLOD::GLRenderOffPath(SoGLRenderAction * action)
 {
@@ -512,7 +505,6 @@ SoVRMLLOD::GLRenderOffPath(SoGLRenderAction * action)
     }
   }
 }
-#endif
 
 // Doc in parent
 void

@@ -58,5 +58,4 @@ private:
   void updategl(void);
 };
 
-
 #endif // !COIN_SOGLPOLYGONOFFSETELEMENT_H

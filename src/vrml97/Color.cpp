@@ -81,17 +81,13 @@ class SoVBO;
 #include <Inventor/actions/SoPickAction.h>
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/elements/SoOverrideElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 #ifdef COIN_THREADSAFE
 #include <Inventor/threads/SbStorage.h>
 #endif // COIN_THREADSAFE
 
 #include "nodes/SoSubNodeP.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 class SoVRMLColorP {
  public:
@@ -103,9 +99,7 @@ class SoVRMLColorP {
   { }
 
   ~SoVRMLColorP() {
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vbo;
-#endif
   }
 
 #ifdef COIN_THREADSAFE
@@ -186,7 +180,6 @@ SoVRMLColor::doAction(SoAction * action)
                               this->color.getValues(0),
                               PRIVATE(this)->getColorPacker());
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
     if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
       SbBool setvbo = FALSE;
       SoBase::staticDataLock();
@@ -206,7 +199,6 @@ SoVRMLColor::doAction(SoAction * action)
         SoGLVBOElement::setColorVBO(state, PRIVATE(this)->vbo);
       }
     }
-#endif
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }
@@ -214,13 +206,11 @@ SoVRMLColor::doAction(SoAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLColor::GLRender(SoGLRenderAction * action)
 {
   SoVRMLColor::doAction((SoAction*) action);
 }
-#endif
 
 // Doc in parent
 void

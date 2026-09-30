@@ -168,9 +168,7 @@
 #include <Inventor/elements/SoViewVolumeElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/errors/SoReadError.h>
 #include <Inventor/lists/SbStringList.h>
@@ -338,7 +336,6 @@ SoImage::computeBBox(SoAction * action,
 }
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoImage::GLRender(SoGLRenderAction * action)
 {
@@ -535,7 +532,6 @@ SoImage::GLRender(SoGLRenderAction * action)
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 }
-#endif
 
 void
 SoImage::IRRender(SoIRRenderAction * action)

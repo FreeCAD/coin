@@ -61,9 +61,7 @@
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/system/gl.h>
 #include <Inventor/C/glue/gl.h>
@@ -153,7 +151,6 @@ SoTextureCoordinateObject::doAction(SoAction * action)
                                                this);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateObject::GLRender(SoGLRenderAction * action)
@@ -172,7 +169,6 @@ SoTextureCoordinateObject::GLRender(SoGLRenderAction * action)
                                                  this);
   }
 }
-#endif
 
 // doc from parent
 void
@@ -189,7 +185,6 @@ SoTextureCoordinateObject::pick(SoPickAction * action)
 }
 
 // texgen callback. Turns on plane texgen in OpenGL
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureCoordinateObject::handleTexgen(void * data)
 {
@@ -211,4 +206,3 @@ SoTextureCoordinateObject::handleTexgen(void * data)
   const SbVec4f & q = thisp->factorQ.getValue();
   glTexGenfv(GL_Q, GL_OBJECT_PLANE, q.getValue());
 }
-#endif

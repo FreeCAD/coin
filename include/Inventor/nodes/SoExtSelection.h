@@ -53,6 +53,8 @@ class SoPrimitiveVertex;
 // complains if this is left out, while using the "friend class
 // SoExtSelectionP" statement in the class definition.
 class SoExtSelectionP;
+
+
 typedef SbBool SoExtSelectionTriangleCB(void * userdata,
                                         SoCallbackAction * action,
                                         const SoPrimitiveVertex * v1,

@@ -52,9 +52,7 @@
 #include "SoDrawStyle.cpp"
 #include "SoEnvironment.cpp"
 #include "SoEventCallback.cpp"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "SoExtSelection.cpp"
-#endif
 #include "SoFile.cpp"
 #include "SoFont.cpp"
 #include "SoFontStyle.cpp"
@@ -95,9 +93,7 @@
 #include "SoRotor.cpp"
 #include "SoScale.cpp"
 #include "SoSceneTexture2.cpp"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "SoSceneTextureCubeMap.cpp"
-#endif
 #include "SoSelection.cpp"
 #include "SoSeparator.cpp"
 #include "SoShapeHints.cpp"

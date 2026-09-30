@@ -232,7 +232,6 @@
 // pimpl-ptr) implemented for SoNode. (The class should be as slim as
 // possible.)
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 class SoGroupP {
 public:
   typedef void GLRenderFunc(SoGroup *, SoNode *, SoGLRenderAction *);
@@ -242,7 +241,6 @@ public:
 };
 
 SoGroupP::GLRenderFunc * SoGroupP::glrenderfunc = NULL;
-#endif
 
 // *************************************************************************
 
@@ -532,14 +530,12 @@ SoGroup::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoGroup, SO_FROM_INVENTOR_1);
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
   // for the built-in Coin profiler. set up the functionptr to use, so
   // we don't have any overhead when profiling is off:
   SoGroupP::glrenderfunc = SoGroupP::childGLRender;
   if (SoProfiler::isEnabled()) {
     SoGroupP::glrenderfunc = SoGroupP::childGLRenderProfiler;
   }
-#endif
 }
 
 // *************************************************************************
@@ -604,17 +600,14 @@ SoGroup::getBoundingBox(SoGetBoundingBoxAction * action)
 
 // *************************************************************************
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoGroupP::childGLRender(SoGroup * COIN_UNUSED_ARG(thisp), SoNode * child, SoGLRenderAction * action)
 {
   child->GLRender(action);
 }
-#endif
 
 // This function is called for each child to traverse, and
 // action->getCurPath() is already updated at this point.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoGroupP::childGLRenderProfiler(SoGroup * COIN_UNUSED_ARG(thisp), SoNode * child, SoGLRenderAction * action)
 {
@@ -623,9 +616,7 @@ SoGroupP::childGLRenderProfiler(SoGroup * COIN_UNUSED_ARG(thisp), SoNode * child
   child->GLRender(action);
   profiling.postTraversal(action);
 }
-#endif
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoGroup::GLRender(SoGLRenderAction * action)
@@ -698,7 +689,6 @@ SoGroup::GLRender(SoGLRenderAction * action)
     action->popCurPath();
   }
 }
-#endif
 
 // *************************************************************************
 

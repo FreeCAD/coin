@@ -57,5 +57,4 @@ protected:
   void addElt(SoVertexAttributeData * attribdata) override;
 };
 
-
 #endif // COIN_SOGLVERTEXATTRIBUTEELEMENT_H

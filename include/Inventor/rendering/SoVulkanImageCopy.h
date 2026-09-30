@@ -7,15 +7,19 @@
   \file SoVulkanImageCopy.h
   \brief Shared "copy a color image into a host-visible buffer" primitive.
 
-  Shared by both debug frame dumps -- the renderer's storage-image dump
-  (SoVulkanShared::dumpImageToHost) and the app's swapchain dump (FreeCAD's
-  VulkanFrameDumper).  They differ only in command-buffer ownership (the renderer
-  submits a one-shot buffer, the app records into the frame's own), so the copy
-  sequence lives here; uses raw entry points, both callers link the loader.
+  Used by the two debug frame dumps:
 
-  Compiles only when the installed Coin exports COIN_HAVE_VULKAN_RENDERER, so
-  an installed non-Vulkan Coin does not force a Vulkan SDK dependency on its
-  consumers.
+    - the renderer's storage-image dump (SoVulkanShared::dumpImageToHost), and
+    - the application's swapchain dump (FreeCAD's VulkanFrameDumper).
+
+  They differ only in who owns the command buffer: the renderer submits a
+  one-shot buffer, the app records into the frame's own.  The copy sequence is
+  therefore shared here.  The helpers call the raw Vulkan entry points, so both
+  callers must link a Vulkan loader.
+
+  The Vulkan declarations are compiled in only when the installed Coin exports
+  COIN_HAVE_VULKAN_RENDERER, so a non-Vulkan Coin does not force a Vulkan SDK
+  dependency on its consumers.
 */
 
 #include <Inventor/C/basic.h>
@@ -39,9 +43,14 @@
 
 namespace SoVulkanImageCopy {
 
-//! Record an image -> buffer copy wrapped in TRANSFER_SRC_OPTIMAL transitions.
-//! \a src* describe the image's current state, \a restore* the state to leave it
-//! in; \a restoreSrcAccess is the access the copy leaves pending (TRANSFER_READ).
+//! Record an image -> buffer copy, with the layout transitions it requires.
+//!
+//! The image is transitioned out of its current state
+//! (\a srcLayout / \a srcAccess / \a srcStage) into TRANSFER_SRC_OPTIMAL, copied,
+//! then transitioned into the caller's desired final state
+//! (\a restoreLayout / \a restoreAccess / \a restoreStage).
+//! \a restoreSrcAccess is the access the copy leaves pending on the image
+//! (TRANSFER_READ): the source access mask of that trailing transition.
 inline void recordToBuffer(VkCommandBuffer cmd, VkImage image, VkBuffer buffer,
                            VkImageLayout srcLayout, VkAccessFlags srcAccess,
                            VkPipelineStageFlags srcStage,

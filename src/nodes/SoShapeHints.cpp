@@ -152,9 +152,7 @@
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoPickAction.h>
 #include <Inventor/elements/SoCreaseAngleElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLShapeHintsElement.h>
-#endif
 #include <Inventor/elements/SoOverrideElement.h>
 
 #include "nodes/SoSubNodeP.h"
@@ -345,8 +343,8 @@ SoShapeHints::initClass(void)
 
   SO_ENABLE(SoCallbackAction, SoCreaseAngleElement);
   SO_ENABLE(SoCallbackAction, SoShapeHintsElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoCreaseAngleElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLShapeHintsElement);
+  SO_ENABLE(SoGLRenderAction, SoCreaseAngleElement);
+  SO_ENABLE(SoGLRenderAction, SoGLShapeHintsElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoCreaseAngleElement);
   SO_ENABLE(SoGetBoundingBoxAction, SoShapeHintsElement);
   SO_ENABLE(SoPickAction, SoCreaseAngleElement);
@@ -406,13 +404,11 @@ SoShapeHints::doAction(SoAction * action)
 #undef TEST_OVERRIDE
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShapeHints::GLRender(SoGLRenderAction * action)
 {
   SoShapeHints::doAction(action);
 }
-#endif
 
 void
 SoShapeHints::callback(SoCallbackAction * action)

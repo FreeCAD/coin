@@ -82,22 +82,14 @@
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoTextureOverrideElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoTextureUnitElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureImageElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/errors/SoReadError.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/misc/SoGLCubeMapImage.h>
-#endif
 #include <Inventor/sensors/SoFieldSensor.h>
 #include <Inventor/lists/SbStringList.h>
 #include <Inventor/errors/SoDebugError.h>
@@ -330,9 +322,7 @@ SoTextureCubeMap::SoTextureCubeMap(void)
 */
 SoTextureCubeMap::~SoTextureCubeMap()
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (PRIVATE(this)->glimage) PRIVATE(this)->glimage->unref(NULL);
-#endif
   delete PRIVATE(this)->filenames_sensor;
   delete PRIVATE(this);
 }
@@ -346,8 +336,8 @@ SoTextureCubeMap::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTextureCubeMap, SO_FROM_COIN_2_4);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureEnabledElement);
+  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureEnabledElement);
 
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureEnabledElement);
@@ -394,7 +384,6 @@ SoTextureCubeMap::readInstance(SoInput * in, unsigned short flags)
   return readOK;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoTextureCubeMap::GLRender(SoGLRenderAction * action)
@@ -476,7 +465,6 @@ SoTextureCubeMap::GLRender(SoGLRenderAction * action)
     // units will be ignored. pederb, 2003-11-04
   }
 }
-#endif
 
 // Documented in superclass.
 void

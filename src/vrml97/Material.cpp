@@ -138,9 +138,7 @@
 #include <Inventor/actions/SoPickAction.h>
 #include <Inventor/elements/SoOverrideElement.h>
 #include <Inventor/elements/SoShapeStyleElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/errors/SoDebugError.h>
 #ifdef COIN_THREADSAFE
 #include <Inventor/threads/SbStorage.h>
@@ -327,13 +325,11 @@ SoVRMLMaterial::doAction(SoAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLMaterial::GLRender(SoGLRenderAction * action)
 {
   SoVRMLMaterial::doAction(action);
 }
-#endif
 
 // Doc in parent
 void

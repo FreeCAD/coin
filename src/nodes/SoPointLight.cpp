@@ -65,9 +65,7 @@
 #include <Inventor/SbVec4f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoEnvironmentElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLightIdElement.h>
-#endif
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
 #include <Inventor/elements/SoLightElement.h>
@@ -116,7 +114,6 @@ SoPointLight::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoPointLight, SO_FROM_INVENTOR_1|SoNode::VRML1);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoPointLight::GLRender(SoGLRenderAction * action)
@@ -165,4 +162,3 @@ SoPointLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_SPOT_EXPONENT, 0.0);
   glLightf(light, GL_SPOT_CUTOFF, 180.0);
 }
-#endif

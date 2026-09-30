@@ -112,9 +112,7 @@
 #include <Inventor/elements/SoCoordinateElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
 #include <Inventor/elements/SoDrawStyleElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/misc/SoState.h>
 #include <Inventor/nodes/SoCallback.h>
@@ -235,7 +233,6 @@ SoNurbsSurface::initClass(void)
 }
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoNurbsSurface::GLRender(SoGLRenderAction * action)
 {
@@ -261,7 +258,6 @@ SoNurbsSurface::GLRender(SoGLRenderAction * action)
                                              SoGLCacheContextElement::DO_AUTO_CACHE);
   }
 }
-#endif
 
 /*!
   Calculates the bounding box of all control points, and sets the center to

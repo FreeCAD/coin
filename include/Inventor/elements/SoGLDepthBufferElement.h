@@ -57,5 +57,4 @@ private:
 
 }; // SoGLDepthBufferElement
 
-
 #endif // !COIN_SOGLDEPTHBUFFERELEMENT_H

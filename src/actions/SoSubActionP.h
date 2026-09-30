@@ -42,7 +42,6 @@
 // development system.
 
 #include <Inventor/actions/SoSubAction.h>
-#include "actions/SoActionGLP.h"
 #include "tidbitsp.h" // for coin_atexit()
 
 // Internally, we use this macro instead of SO_ACTION_ADD_METHOD(). It

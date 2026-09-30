@@ -75,5 +75,4 @@ private:
   SbVec2s screenorigin, screensize;  
 };
 
-
 #endif // !COIN_SOGLUPDATEAREAELEMENT_H

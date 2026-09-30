@@ -82,9 +82,7 @@
 
 #include <Inventor/SbVec3f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/system/gl.h>
@@ -160,7 +158,6 @@ SoTextureCoordinateNormalMap::doAction(SoAction * action)
                                                action->getState());
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateNormalMap::GLRender(SoGLRenderAction * action)
@@ -178,7 +175,6 @@ SoTextureCoordinateNormalMap::GLRender(SoGLRenderAction * action)
                                                action->getState());
   
 }
-#endif
 
 // doc from parent
 void
@@ -197,9 +193,7 @@ SoTextureCoordinateNormalMap::pick(SoPickAction * action)
 void
 SoTextureCoordinateNormalMap::handleTexgen(void * /* data */)
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP);
   glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP);  
   glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP);
-#endif
 }

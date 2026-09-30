@@ -247,7 +247,6 @@ SoLOD::audioRender(SoAudioRenderAction * action)
   PRIVATE(this)->postAudioRender(this, action);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Documented in superclass.
 void
 SoLOD::GLRender(SoGLRenderAction * action)
@@ -268,10 +267,8 @@ SoLOD::GLRender(SoGLRenderAction * action)
     break;
   }
 }
-#endif
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLOD::GLRenderBelowPath(SoGLRenderAction * action)
 {
@@ -291,10 +288,8 @@ SoLOD::GLRenderBelowPath(SoGLRenderAction * action)
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 }
-#endif
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLOD::GLRenderInPath(SoGLRenderAction * action)
 {
@@ -321,10 +316,8 @@ SoLOD::GLRenderInPath(SoGLRenderAction * action)
     SoLOD::GLRenderBelowPath(action);
   }
 }
-#endif
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLOD::GLRenderOffPath(SoGLRenderAction * action)
 {
@@ -343,7 +336,6 @@ SoLOD::GLRenderOffPath(SoGLRenderAction * action)
     }
   }
 }
-#endif
 
 // Documented in superclass.
 void

@@ -2546,12 +2546,8 @@ cc_glglue_instance(int contextid)
     gi->max_texture_size = gltmp;
 
     if (gi->context_supports_legacy_rendering) {
-#if COIN_BUILD_LEGACY_GL_RENDERER
       glGetIntegerv(GL_MAX_LIGHTS, &gltmp);
       gi->max_lights = (int) gltmp;
-#else
-      gi->max_lights = 0;
-#endif
     }
     else {
       gi->max_lights = 0;

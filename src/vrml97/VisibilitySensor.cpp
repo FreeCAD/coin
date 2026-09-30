@@ -194,7 +194,6 @@ SoVRMLVisibilitySensor::~SoVRMLVisibilitySensor()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLVisibilitySensor::GLRender(SoGLRenderAction * action)
 {
@@ -223,6 +222,5 @@ SoVRMLVisibilitySensor::GLRender(SoGLRenderAction * action)
     this->isActive = FALSE;
   }
 }
-#endif
 
 #endif // HAVE_VRML97

@@ -63,5 +63,4 @@ private:
   void updategl(SoState * const state);
 };
 
-
 #endif // !COIN_SOGLENVIRONMENTELEMENT_H

@@ -51,5 +51,4 @@ public:
 
 };
 
-
 #endif // !COIN_SOGLCOORDINATEELEMENT_H

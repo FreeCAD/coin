@@ -98,5 +98,4 @@ private:
   static int32_t getMaxGLTextureSize(void);
 };
 
-
 #endif // !COIN_SOGLMULTITEXTUREIMAGEELEMENT_H

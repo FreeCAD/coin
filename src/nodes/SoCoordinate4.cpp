@@ -69,17 +69,11 @@ class SoVBO;
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/actions/SoPickAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 
 #include "nodes/SoSubNodeP.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 /*!
   \var SoMFVec4f SoCoordinate4::point
@@ -92,9 +86,7 @@ class SoCoordinate4P {
  public:
   SoCoordinate4P() : vbo(NULL) { }
   ~SoCoordinate4P() {
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vbo;
-#endif
   }
   SoVBO * vbo;
 };
@@ -133,7 +125,7 @@ SoCoordinate4::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoCoordinate4, SO_FROM_INVENTOR_1);
 
   SO_ENABLE(SoGetBoundingBoxAction, SoCoordinateElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLCoordinateElement);
+  SO_ENABLE(SoGLRenderAction, SoGLCoordinateElement);
   SO_ENABLE(SoPickAction, SoCoordinateElement);
   SO_ENABLE(SoCallbackAction, SoCoordinateElement);
   SO_ENABLE(SoGetPrimitiveCountAction, SoCoordinateElement);
@@ -154,7 +146,6 @@ SoCoordinate4::doAction(SoAction * action)
                             point.getNum(), point.getValues(0));
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoCoordinate4::GLRender(SoGLRenderAction * action)
@@ -189,7 +180,6 @@ SoCoordinate4::GLRender(SoGLRenderAction * action)
     SoGLVBOElement::setVertexVBO(state, PRIVATE(this)->vbo);
   }
 }
-#endif
 
 // Doc from superclass.
 void

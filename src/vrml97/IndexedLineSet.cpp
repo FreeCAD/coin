@@ -136,18 +136,12 @@ class SoVBO;
 #include <Inventor/elements/SoTextureCoordinateBindingElement.h>
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoOverrideElement.h>
 #include <Inventor/elements/SoCacheElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/elements/SoGLCacheContextElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/bundles/SoTextureCoordinateBundle.h>
 #include <Inventor/details/SoLineDetail.h>
@@ -163,20 +157,14 @@ class SoVBO;
 class SoVertexArrayIndexer;
 #include "rendering/SoGL.h"
 #include "glue/glp.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVertexArrayIndexer.h"
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 class SoVRMLIndexedLineSetP {
  public:
   SoVRMLIndexedLineSetP() : vaindexer(NULL) { }
   ~SoVRMLIndexedLineSetP() {
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vaindexer;
-#endif
   }
 
   enum Binding {
@@ -269,7 +257,6 @@ SoVRMLIndexedLineSetP::findMaterialBinding(SoVRMLIndexedLineSet * node,
   return binding;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLIndexedLineSet::GLRender(SoGLRenderAction * action)
 {
@@ -436,7 +423,6 @@ SoVRMLIndexedLineSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, this->coordIndex.getNum() / 2, didrenderasvbo);
   state->pop();
 }
-#endif
 
 void
 SoVRMLIndexedLineSet::getPrimitiveCount(SoGetPrimitiveCountAction * action)
@@ -569,9 +555,7 @@ SoVRMLIndexedLineSet::notify(SoNotList * list)
   SoField *f = list->getLastField();
   if (f == &this->coordIndex) {
     LOCK_VAINDEXER(this);
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete PRIVATE(this)->vaindexer;
-#endif
     PRIVATE(this)->vaindexer = NULL;
     UNLOCK_VAINDEXER(this);
   }

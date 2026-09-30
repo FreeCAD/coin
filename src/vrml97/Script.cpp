@@ -432,13 +432,11 @@ SoVRMLScript::callback(SoCallbackAction * action)
 }
 
 // Doc in superclass
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLScript::GLRender(SoGLRenderAction * action)
 {
   SoVRMLScript::doAction((SoAction*) action);
 }
-#endif
 
 // Doc in superclass
 void

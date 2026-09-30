@@ -279,13 +279,11 @@ SoUnknownNode::search(SoSearchAction * action)
   PRIVATE(this)->alternate->traverse(action);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoUnknownNode::GLRender(SoGLRenderAction * action)
 {
   PRIVATE(this)->alternate->traverse(action);
 }
-#endif
 
 void
 SoUnknownNode::getBoundingBox(SoGetBoundingBoxAction * action)

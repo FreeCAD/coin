@@ -107,9 +107,7 @@
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbVec4f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLightIdElement.h>
-#endif
 #if COIN_DEBUG
 #include <Inventor/errors/SoDebugError.h>
 #endif // COIN_DEBUG
@@ -148,7 +146,6 @@ SoVRMLPointLight::~SoVRMLPointLight()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPointLight::GLRender(SoGLRenderAction * action)
 {
@@ -194,6 +191,5 @@ SoVRMLPointLight::GLRender(SoGLRenderAction * action)
 
   // FIXME: consider radius
 }
-#endif
 
 #endif // HAVE_VRML97

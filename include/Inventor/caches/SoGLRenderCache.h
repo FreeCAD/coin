@@ -39,6 +39,7 @@
 class SoGLDisplayList;
 class SoGLRenderCacheP;
 
+
 class COIN_DLL_API SoGLRenderCache : public SoCache {
   typedef SoCache inherited;
 

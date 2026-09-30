@@ -85,17 +85,13 @@
 #include <Inventor/VRMLnodes/SoVRMLMacros.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/misc/SoState.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/SoPickedPoint.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLShapeHintsElement.h>
-#endif
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
 #include "nodes/SoSubNodeP.h"
@@ -135,7 +131,6 @@ SoVRMLSphere::~SoVRMLSphere()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLSphere::GLRender(SoGLRenderAction * action)
 {
@@ -166,7 +161,6 @@ SoVRMLSphere::GLRender(SoGLRenderAction * action)
                      &mb,
                      flags, state);
 }
-#endif
 
 // Doc in parent
 void
