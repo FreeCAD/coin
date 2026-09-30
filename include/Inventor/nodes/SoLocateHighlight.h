@@ -40,7 +40,6 @@
 
 class SoFullPath;
 class SoLocateHighlightP;
-class SoGLRenderAction;
 
 class COIN_DLL_API SoLocateHighlight : public SoSeparator {
   typedef SoSeparator inherited;

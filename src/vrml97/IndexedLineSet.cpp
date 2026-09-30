@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -152,9 +149,6 @@ class SoVBO;
 #endif // COIN_DEBUG
 
 #include "nodes/SoSubNodeP.h"
-
-#include "coindefs.h"
-class SoVertexArrayIndexer;
 #include "rendering/SoGL.h"
 #include "glue/glp.h"
 #include "rendering/SoVertexArrayIndexer.h"
@@ -163,9 +157,7 @@ class SoVertexArrayIndexer;
 class SoVRMLIndexedLineSetP {
  public:
   SoVRMLIndexedLineSetP() : vaindexer(NULL) { }
-  ~SoVRMLIndexedLineSetP() {
-    delete this->vaindexer;
-  }
+  ~SoVRMLIndexedLineSetP() { delete this->vaindexer; }
 
   enum Binding {
     // Needs to be these specific values to match the rendering code

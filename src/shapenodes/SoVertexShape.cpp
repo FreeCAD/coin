@@ -45,7 +45,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoVertexShape.h>
-#include <Inventor/elements/SoShapeHintsElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

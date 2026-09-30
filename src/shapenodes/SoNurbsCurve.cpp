@@ -98,7 +98,6 @@
 */
 
 #include <Inventor/nodes/SoNurbsCurve.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

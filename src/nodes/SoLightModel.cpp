@@ -50,7 +50,6 @@
 // *************************************************************************
 
 #include <Inventor/actions/SoCallbackAction.h>
-#include <Inventor/elements/SoLazyElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoOverrideElement.h>

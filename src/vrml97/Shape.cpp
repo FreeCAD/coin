@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-#include <Inventor/elements/SoLazyElement.h>
-#include <Inventor/elements/SoShapeHintsElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!
@@ -145,8 +142,6 @@
 #include "nodes/SoSubNodeP.h"
 #include "tidbitsp.h"
 #include "profiler/SoNodeProfiling.h"
-
-class SoGLCacheList;
 
 // *************************************************************************
 

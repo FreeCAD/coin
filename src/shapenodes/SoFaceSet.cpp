@@ -66,10 +66,6 @@
 */
 
 #include <Inventor/nodes/SoFaceSet.h>
-
-class SoVBO;
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
 #include "coindefs.h"
 
 #ifdef HAVE_CONFIG_H
@@ -286,7 +282,6 @@ SoFaceSet::findNormalBinding(SoState * const state) const
   return binding;
 }
 
-
 namespace { namespace SoGL { namespace FaceSet {
 
   enum AttributeBinding {
@@ -408,7 +403,6 @@ namespace { namespace SoGL { namespace FaceSet {
   }
 
 } } } // namespace
-
 
 /*!
   \copydetails SoNode::initClass(void)

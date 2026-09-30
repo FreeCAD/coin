@@ -55,7 +55,6 @@
 // book on NURBS. 20011220 mortene.
 
 #include <Inventor/nodes/SoIndexedNurbsCurve.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

@@ -138,7 +138,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoAsciiText.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include "coindefs.h"
 
 #include <cstring>

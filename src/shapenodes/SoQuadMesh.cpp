@@ -164,8 +164,6 @@
 */
 
 #include <Inventor/nodes/SoQuadMesh.h>
-#include <Inventor/elements/SoCoordinateElement.h>
-#include <Inventor/elements/SoLazyElement.h>
 
 #include <cmath> // ilogb
 #include <cfloat> // _logb
@@ -347,7 +345,6 @@ static SbBool qmeshNormalize(SbVec3f & v, float toLength2)
   }
   return FALSE;
 }
-
 
 namespace { namespace SoGL { namespace QuadMesh {
 
@@ -786,7 +783,6 @@ namespace { namespace SoGL { namespace QuadMesh {
 
 } } } // namespace
 
-
 /*!
   \copydetails SoNode::initClass(void)
 */
@@ -985,7 +981,6 @@ SoQuadMesh::GLRender(SoGLRenderAction * action)
   if (didpush) state->pop();
 }
 
-  #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_RESOLVE_ARG3
 #undef SOGL_QUADMESH_GLRENDER_RESOLVE_ARG2

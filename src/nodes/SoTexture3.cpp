@@ -74,8 +74,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTexture3.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#include <Inventor/elements/SoMultiTextureImageElement.h>
 
 #include <cassert>
 #include <cstring>

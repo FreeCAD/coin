@@ -61,9 +61,6 @@
 
 #include <Inventor/nodes/SoCoordinate4.h>
 
-class SoVBO;
-#include <Inventor/elements/SoCoordinateElement.h>
-
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
@@ -85,9 +82,7 @@ class SoVBO;
 class SoCoordinate4P {
  public:
   SoCoordinate4P() : vbo(NULL) { }
-  ~SoCoordinate4P() {
-    delete this->vbo;
-  }
+  ~SoCoordinate4P() { delete this->vbo; }
   SoVBO * vbo;
 };
 

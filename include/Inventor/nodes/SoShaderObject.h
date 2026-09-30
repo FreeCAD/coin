@@ -44,7 +44,6 @@
 class SoGLShaderObject;
 class SoGLShaderProgram;
 class SoState;
-class SoGLRenderAction;
 
 // *************************************************************************
 

@@ -34,8 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-#include <Inventor/elements/SoLazyElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!

@@ -34,12 +34,9 @@
 \**************************************************************************/
 
 #include <Inventor/bundles/SoBundle.h>
-#include <Inventor/elements/SoVertexAttributeElement.h>
-
 #include <Inventor/elements/SoGLVertexAttributeElement.h>
 
 class SoVertexAttributeBundleP;
-class SoGLVertexAttributeElement;
 
 class COIN_DLL_API SoVertexAttributeBundle : public SoBundle {
 public:

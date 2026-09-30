@@ -182,9 +182,6 @@
 
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 
-class SoVBO;
-#include <Inventor/elements/SoLazyElement.h>
-
 #include <cassert>
 
 #ifdef HAVE_CONFIG_H
@@ -227,9 +224,6 @@ class SoVBO;
 #include <Inventor/threads/SbRWMutex.h>
 
 #include "nodes/SoSubNodeP.h"
-
-#include "coindefs.h"
-class SoVertexArrayIndexer;
 #include "tidbitsp.h"
 #include "threads/threadsutilp.h"
 #include "rendering/SoVertexArrayIndexer.h"

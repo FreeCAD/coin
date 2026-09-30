@@ -34,9 +34,6 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-#include <Inventor/elements/SoLazyElement.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-
 #ifdef HAVE_VRML97
 
 /*!

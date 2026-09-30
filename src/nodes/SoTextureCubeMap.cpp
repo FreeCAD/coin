@@ -66,9 +66,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCubeMap.h>
-#include <Inventor/elements/SoLazyElement.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#include <Inventor/elements/SoMultiTextureImageElement.h>
 
 #include <cassert>
 
@@ -103,8 +100,6 @@
 #include "coindefs.h" // COIN_OBSOLETED()
 #include "nodes/SoSubNodeP.h"
 #include "elements/SoTextureScalePolicyElement.h"
-
-class SoGLCubeMapImage;
 
 /*!
   \enum SoTextureCubeMap::Model

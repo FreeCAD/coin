@@ -56,8 +56,6 @@
 
 #include <Inventor/nodes/SoNormal.h>
 
-class SoVBO;
-
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
@@ -81,9 +79,7 @@ class SoVBO;
 class SoNormalP {
  public:
   SoNormalP() : vbo(NULL) { }
-  ~SoNormalP() {
-    delete this->vbo;
-  }
+  ~SoNormalP() { delete this->vbo; }
 
   SoVBO * vbo;
 };

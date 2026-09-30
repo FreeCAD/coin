@@ -91,7 +91,6 @@
 */
 
 #include <Inventor/nodes/SoCylinder.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include "coindefs.h"
 
 #include <cmath>

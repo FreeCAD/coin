@@ -55,7 +55,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoEnvironment.h>
-#include <Inventor/elements/SoEnvironmentElement.h>
 
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>

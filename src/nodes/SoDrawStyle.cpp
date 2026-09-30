@@ -76,10 +76,6 @@
 // *************************************************************************
 
 #include <Inventor/actions/SoCallbackAction.h>
-#include <Inventor/elements/SoDrawStyleElement.h>
-#include <Inventor/elements/SoLinePatternElement.h>
-#include <Inventor/elements/SoLineWidthElement.h>
-#include <Inventor/elements/SoPointSizeElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoGLDrawStyleElement.h>

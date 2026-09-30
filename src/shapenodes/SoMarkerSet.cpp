@@ -67,7 +67,6 @@
 // FIXME: change standard markers to use GL_UNPACK_ALIGNMENT 1, instead of 4, as it is now... skei 200009005
 
 #include <Inventor/nodes/SoMarkerSet.h>
-#include <Inventor/elements/SoCoordinateElement.h>
 
 #include <cmath>
 #include <cstring>

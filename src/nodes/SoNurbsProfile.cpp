@@ -439,8 +439,7 @@ SoNurbsProfile::getVertices(SoState * state, int32_t & numvertices,
     numvertices = coordListNurbsProfile->getLength() / 2;
     vertices = (SbVec2f*) coordListNurbsProfile->getArrayPtr();
   }
-  else
-  {
+  else {
     // just send the control points when GLU v1.3 is not available
     numvertices = numpoints;
     vertices = (SbVec2f*) nurbsProfileTempList->getArrayPtr();

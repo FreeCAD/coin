@@ -50,7 +50,6 @@
 */
 
 #include <Inventor/nodes/SoBaseColor.h>
-#include <Inventor/elements/SoLazyElement.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -70,8 +69,6 @@
 #include "rendering/SoVBO.h"
 #include "nodes/SoSubNodeP.h"
 
-class SoVBO;
-
 /*!
   \var SoMFColor SoBaseColor::rgb
 
@@ -87,9 +84,7 @@ class SoBaseColorP {
     colorpacker_storage(sizeof(void*), alloc_colorpacker, free_colorpacker),
 #endif // COIN_THREADSAFE
     vbo(NULL) { }
-  ~SoBaseColorP() {
-    delete this->vbo;
-  }
+  ~SoBaseColorP() { delete this->vbo; }
 
 #ifdef COIN_THREADSAFE
   SbStorage colorpacker_storage;

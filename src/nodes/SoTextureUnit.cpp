@@ -56,10 +56,6 @@
 */
 
 #include <Inventor/nodes/SoTextureUnit.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
-#include <Inventor/elements/SoMultiTextureEnabledElement.h>
-#include <Inventor/elements/SoMultiTextureImageElement.h>
-#include <Inventor/elements/SoMultiTextureMatrixElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoPickAction.h>

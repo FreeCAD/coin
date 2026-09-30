@@ -149,7 +149,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoPolygonOffset.h>
-#include <Inventor/elements/SoPolygonOffsetElement.h>
 
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>

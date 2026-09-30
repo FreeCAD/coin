@@ -52,7 +52,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoTextureCoordinateObject.h>
-#include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include "coindefs.h"
 
 #ifdef HAVE_CONFIG_H
