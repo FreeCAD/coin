@@ -36,6 +36,9 @@
 
 /* Installed-library capability; generated from the CMake decision, not overridable. */
 #define COIN_HAVE_LEGACY_GL_RENDERER @COIN_BUILD_LEGACY_GL_RENDERER_VALUE@
+/* Installed-library capability; consumers must key off this, not the build
+   flag COIN_BUILD_VULKAN_RENDERER (which is private to the Coin build). */
+#define COIN_HAVE_VULKAN_RENDERER @COIN_BUILD_VULKAN_RENDERER_VALUE@
 
 /*
   NOTE: basic.h is automatically generated from basic.h.in, so don't

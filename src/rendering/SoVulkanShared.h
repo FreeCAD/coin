@@ -6,6 +6,7 @@
 #define COIN_SOVULKANSHARED_H
 
 #include <chrono>
+#include "rendering/SoVulkanDebug.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -13,40 +14,42 @@
 #include <functional>
 #include <vector>
 
+#include <Inventor/C/tidbits.h>
 #include <Inventor/rendering/SoVulkanImageCopy.h>
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 namespace SoVulkanShared {
 
 // --- Environment access --------------------------------------------------
-// Single choke point for every FC_VULKAN_* / FC_GUI_* lookup (opt-out policy stays auditable/singular).
+// Single choke point for every COIN_VULKAN_* / COIN_GUI_* lookup (opt-out policy stays auditable/singular).
 
 // Raw value (or nullptr); any set value, including "0", counts as set. Use envFlagEnabled() for the "VAR=0"/"false"/"off" opt-out.
 inline const char *
 envString(const char * name)
 {
-  return std::getenv(name);
+  return coin_getenv(name);
 }
 
 // Presence-only test (any value, including "0"/"false"/"off").
 inline bool
 envSet(const char * name)
 {
-  return std::getenv(name) != nullptr;
+  return coin_getenv(name) != nullptr;
 }
 
 // Integer / float value with a default when the variable is unset or empty.
 inline int
 envInt(const char * name, int defaultValue = 0)
 {
-  const char * value = std::getenv(name);
+  const char * value = coin_getenv(name);
   return value ? std::atoi(value) : defaultValue;
 }
 
 inline float
 envFloat(const char * name, float defaultValue = 0.0f)
 {
-  const char * value = std::getenv(name);
+  const char * value = coin_getenv(name);
   return value ? static_cast<float>(std::atof(value)) : defaultValue;
 }
 
@@ -54,7 +57,7 @@ envFloat(const char * name, float defaultValue = 0.0f)
 inline bool
 envFlagEnabled(const char * name, bool defaultValue)
 {
-  const char * value = std::getenv(name);
+  const char * value = coin_getenv(name);
   if (value == nullptr) return defaultValue;
   return std::strcmp(value, "0") != 0 && std::strcmp(value, "false") != 0 &&
          std::strcmp(value, "off") != 0;
@@ -68,7 +71,7 @@ envFlagEnabled(const char * name)
 }
 
 // --- Breadcrumb / phase timing -------------------------------------------
-// fcprobe keys on the monotonic-microsecond clock and the FC_GUI_OPEN_BREADCRUMB gate;
+// fcprobe keys on the monotonic-microsecond clock and the COIN_GUI_OPEN_BREADCRUMB gate;
 // centralized so the time base and gating policy are singular across backends/manager.
 
 inline long
@@ -87,7 +90,7 @@ steadyNowMs()
 inline bool
 breadcrumbsEnabled()
 {
-  static const bool enabled = envFlagEnabled("FC_GUI_OPEN_BREADCRUMB");
+  static const bool enabled = envFlagEnabled("COIN_GUI_OPEN_BREADCRUMB");
   return enabled;
 }
 
@@ -100,9 +103,8 @@ breadcrumbSince(int & logged, const char * prefix, long startUs,
   const long now = steadyNowUs();
   if (logged < 30 && now - startUs >= thresholdUs) {
     ++logged;
-    std::fprintf(stderr, "%s %ld %s dur_us=%ld\n", prefix, startUs, phase,
+    SoVulkanDebug::post("%s %ld %s dur_us=%ld\n", prefix, startUs, phase,
                  now - startUs);
-    std::fflush(stderr);
   }
 }
 

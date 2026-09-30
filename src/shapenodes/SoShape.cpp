@@ -44,6 +44,7 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoShape.h>
+#include "rendering/SoVulkanDebug.h"
 
 class SoVBO;
 #include <Inventor/elements/SoLazyElement.h>
@@ -489,10 +490,6 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     }
   }
 
-  // Validate the clip-debug flag once (process-lifetime, and this is the per-command
-  // path): a per-command getenv() environ scan is pure overhead. Mirrors SoVulkanRenderManager's clipDebugEnabled().
-  static const bool clipDebug = std::getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
-
   for (size_t batchIndex = 0; batchIndex < mergedBatches.size(); ++batchIndex) {
     const SoIRBatch & batch = mergedBatches[batchIndex];
     SoRenderCommand command = {};
@@ -520,22 +517,6 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     command.modelMatrix = SoModelMatrixElement::get(state);
     command.viewMatrix = SoViewingMatrixElement::get(state);
     command.projMatrix = SoProjectionMatrixElement::get(state);
-    if (clipDebug) {
-      static int mmLog = 0;
-      if (mmLog++ < 6) {
-        SbBool isId = FALSE;
-        const SbMatrix & el = SoModelMatrixElement::get(state, isId);
-        SbMatrix mm = command.modelMatrix;
-        fprintf(stderr, "[SHAPE] cmd rec pass=%d verts=%u model00=%.3f m11=%.3f "
-                        "m22=%.3f trans=(%.3f,%.3f,%.3f) isIdentity=%d "
-                        "el00=%.3f eltrans=(%.3f,%.3f,%.3f)\n",
-                static_cast<int>(command.pass),
-                static_cast<unsigned>(command.geometry.vertexCount),
-                mm[0][0], mm[1][1], mm[2][2],
-                mm[3][0], mm[3][1], mm[3][2],
-                isId ? 1 : 0, el[0][0], el[3][0], el[3][1], el[3][2]);
-      }
-    }
     command.material = mergedMaterials[batchIndex];
     SoRenderIR::fillTextureFromState(state, action, command.material);
     SoRenderIR::fillRenderStateFromState(state, command.state);
@@ -943,11 +924,11 @@ void
 SoShape::IRRender(SoIRRenderAction * action)
 {
   if (!action) return;
-  static const bool irbreadcrumbs = getenv("FC_IR_BREADCRUMB") != nullptr;
+  static const bool irbreadcrumbs = coin_getenv("COIN_IR_BREADCRUMB") != nullptr;
   if (irbreadcrumbs) {
     static int n = 0;
     if (n++ < 300) {
-      fprintf(stderr, "[BC-IR] IRRender shape=%p type=%s\n", (void *)this,
+      SoVulkanDebug::post("[BC-IR] IRRender shape=%p type=%s\n", (void *)this,
               this->getTypeId().getName().getString());
     }
   }
@@ -960,8 +941,7 @@ SoShape::IRRender(SoIRRenderAction * action)
     const char * tn = this->getTypeId().getName().getString();
     static int m = 0;
     if (m++ < 20000 && tn && std::strstr(tn, "SoBrep")) {
-      fprintf(stderr,
-              "[BC-IR] IRRender flags shape=%p type=%s flags=0x%x invisible=%d\n",
+      SoVulkanDebug::post("[BC-IR] IRRender flags shape=%p type=%s flags=0x%x invisible=%d\n",
               (void *)this, tn, shapestyleflags,
               (shapestyleflags & SoShapeStyleElement::INVISIBLE) ? 1 : 0);
     }
@@ -1083,15 +1063,14 @@ SoShape::IRRender(SoIRRenderAction * action)
   // Emitting writes the shape-owned batch scratch, so guard it with the same mutex as the cache:
   // notify()/IRRender may run on different threads, and a second IRRender (a shared shape from
   // another viewport) would race on irBatchScratch. Retained geometry itself is read unlocked.
-  static const bool irbreadcrumbs_emit = getenv("FC_IR_BREADCRUMB") != nullptr;
+  static const bool irbreadcrumbs_emit = coin_getenv("COIN_IR_BREADCRUMB") != nullptr;
   if (irbreadcrumbs_emit) {
     size_t totalVerts = 0;
     for (const SoIRRetainedGeometry & run : emitRuns) {
       totalVerts += run.vertexCount;
     }
     if (totalVerts > 100000) {
-      fprintf(stderr,
-              "[BC-IR] emit shape=%p type=%s action=%p runs=%zu verts=%zu\n",
+      SoVulkanDebug::post("[BC-IR] emit shape=%p type=%s action=%p runs=%zu verts=%zu\n",
               (void *)this, this->getTypeId().getName().getString(),
               (void *)action, emitRuns.size(), totalVerts);
     }
@@ -2210,10 +2189,10 @@ SoShape::getBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
   }
   SbTime begin = SbTime::getTimeOfDay();
   // Reuse the IR walk's recorded local bounds instead of re-walking tens of millions of
-  // indexed coordinates for the clip query. FC_NO_IR_BBOX disables the shortcut (debug/parity);
-  // FC_IR_BBOX_CHECK recomputes the reference bbox and logs the delta (debug only).
-  static const bool noIrBBox = (getenv("FC_NO_IR_BBOX") != NULL);
-  static const bool checkIrBBox = (getenv("FC_IR_BBOX_CHECK") != NULL);
+  // indexed coordinates for the clip query. COIN_NO_IR_BBOX disables the shortcut (debug/parity);
+  // COIN_IR_BBOX_CHECK recomputes the reference bbox and logs the delta (debug only).
+  static const bool noIrBBox = (coin_getenv("COIN_NO_IR_BBOX") != NULL);
+  static const bool checkIrBBox = (coin_getenv("COIN_IR_BBOX_CHECK") != NULL);
   if (PRIVATE(this)->irBBoxValid && !noIrBBox && !checkIrBBox) {
     box = PRIVATE(this)->irBBox;
     center = PRIVATE(this)->irBBoxCenter;
@@ -2224,12 +2203,10 @@ SoShape::getBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
       const SbVec3f dmin = box.getMin() - PRIVATE(this)->irBBox.getMin();
       const SbVec3f dmax = box.getMax() - PRIVATE(this)->irBBox.getMax();
       const SbVec3f dc = center - PRIVATE(this)->irBBoxCenter;
-      fprintf(stderr,
-              "[IRBBOXCHK] dmin=(%.5f %.5f %.5f) dmax=(%.5f %.5f %.5f) "
+      SoVulkanDebug::post("[IRBBOXCHK] dmin=(%.5f %.5f %.5f) dmax=(%.5f %.5f %.5f) "
               "dc=(%.5f %.5f %.5f)\n",
               dmin[0], dmin[1], dmin[2], dmax[0], dmax[1], dmax[2],
               dc[0], dc[1], dc[2]);
-      fflush(stderr);
     }
   }
   SbTime end = SbTime::getTimeOfDay();

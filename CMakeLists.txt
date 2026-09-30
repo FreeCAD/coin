@@ -180,12 +180,10 @@ else()
   set(COIN_BUILD_VULKAN_RENDERER_VALUE 0)
 endif()
 
-# The Vulkan renderer uses C++17 features (std::optional, std::string_view,
-# structured bindings).  Coin's own default stays C++11 for the legacy path;
-# opting into the Vulkan renderer raises the standard for the whole build.
-if(COIN_BUILD_VULKAN_RENDERER)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+# The Vulkan renderer uses C++17 features (std::optional, std::clamp).  The
+# requirement is scoped to the Vulkan translation units in
+# src/rendering/CMakeLists.txt rather than raised for the whole build, so the
+# core and legacy-GL paths keep Coin's default standard.
 
 check_include_file_cxx(thread HAVE_STD_THREAD)
 cmake_dependent_option(COIN_DEBUG_CHECK_THREAD "Enable thread check in several central Coin functions." OFF "HAVE_STD_THREAD" OFF)
@@ -635,7 +633,7 @@ if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
 
   coin_msvc_link_static_crt(${COIN_BUILD_MSVC_STATIC_RUNTIME})
-  add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES -DNOMINMAX)
+  add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES)
 else()
   if(APPLE)
     add_definitions(-DGL_SILENCE_DEPRECATION)

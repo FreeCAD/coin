@@ -199,11 +199,14 @@ SbUniqueId is not really a class, just a \c typedef.
 #include "config.h"
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoVulkanDebug.h"
+
 #include <cassert>
 #include <cstdlib>
 
 #include <Inventor/SoInput.h>
 #include <Inventor/SoOutput.h>
+#include <Inventor/C/tidbits.h>
 #include <Inventor/actions/SoActions.h>
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/elements/SoCacheElement.h>
@@ -871,9 +874,9 @@ SoNode::IRRender(SoIRRenderAction * action)
 void
 SoNode::IRRenderS(SoAction * action, SoNode * node)
 {
-  static const bool ircrumb_enabled = (std::getenv("FC_IR_BREADCRUMB") != nullptr);
+  static const bool ircrumb_enabled = (coin_getenv("COIN_IR_BREADCRUMB") != nullptr);
   if (ircrumb_enabled)
-    fprintf(stderr, "[BC-IR] IRRenderS node=%p type=%s action=%p\n",
+    SoVulkanDebug::post("[BC-IR] IRRenderS node=%p type=%s action=%p\n",
             (void *)node, node->getTypeId().getName().getString(),
             (void *)action);
   assert(action != NULL);

@@ -6,6 +6,7 @@
 // draws the gradient.  Render-pass/framebuffer cache: SoVulkanRenderPassCache.
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanConfig.h"
 
@@ -98,8 +99,7 @@ SoVulkanRenderBackend::createGraphicsPipeline(
     const bool cacheHit =
       (feedback.flags &
        VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT_EXT) != 0;
-    std::fprintf(stderr,
-                 "[RTDBG] pipelineFeedback raster cacheHit=%d creation=%.3fus\n",
+    SoVulkanDebug::post("[RTDBG] pipelineFeedback raster cacheHit=%d creation=%.3fus\n",
                  cacheHit ? 1 : 0,
                  static_cast<double>(feedback.duration) * 1.0e-3);
   }
@@ -273,7 +273,7 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   // depth step differs (GL 24-bit fixed vs float D32 here), so a GL-sized offset
   // still Z-fights.  Scale the decal up; slope factor keeps grazing edges attached.
   constexpr float kDecalScale = 512.0f;
-  const float kUseDecal = COIN_VULKAN_ENV_FLAG("FC_VULKAN_RASTER_DECAL")
+  const float kUseDecal = COIN_VULKAN_ENV_FLAG("COIN_VULKAN_RASTER_DECAL")
     ? kDecalScale : 1.0f;
   const float depthBiasConstant = polygonOffset
     ? command.state.raster.polygonOffsetUnits * kUseDecal

@@ -528,10 +528,6 @@ public:
   //! Resolve a handle from addLightingSetup(); NULL for 0 or an invalid handle.
   const SoLightingData * getLighting(SoLightingHandle handle) const;
 
-  //! Compatibility no-op: setups are world-space/view-independent, so a camera-only
-  //! retained-drawlist replay needs no re-derivation. Kept exported for already-linked consumers (e.g. pivy).
-  void restrikeLighting(const SbMatrix & prevView, const SbMatrix & newView);
-
   SoRenderCommand * begin();
   SoRenderCommand * end();
   const SoRenderCommand * begin() const;

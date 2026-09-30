@@ -15,12 +15,13 @@
 //
 // Resources are per (command, in-flight frame): the compacted buffer is rewritten
 // every frame and must not alias a still-executing frame's read; built lazily and
-// kept until the content hash changes.  Commands over FC_VULKAN_GEOM_LOD_MAX_INDEX
+// kept until the content hash changes.  Commands over COIN_VULKAN_GEOM_LOD_MAX_INDEX
 // fall back to the full draw to bound memory.  Validation caveat: a nav-cube-only
 // run exercises neither the document geometry nor the indexed path;
 // tools/fcprobe/vk_geomlod_probe.py checks a real indexed Part.
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanConfig.h"
 
@@ -47,7 +48,7 @@ struct SubPixelPush {
 static_assert(sizeof(SubPixelPush) == 96, "push block must be 96 bytes");
 
 // Minimum projected triangle area (px^2) that survives; 1 px keeps the LOD
-// faithful while dropping sub-pixel filler.  From FC_VULKAN_GEOM_LOD_* config.
+// faithful while dropping sub-pixel filler.  From COIN_VULKAN_GEOM_LOD_* config.
 float geometryLodMinAreaPixels()
 {
   return SoVulkanConfig::get().geometryLod.minAreaPixels;
@@ -55,7 +56,7 @@ float geometryLodMinAreaPixels()
 
 // Largest index count that gets a compacted buffer (indexCount * 4 B per in-flight
 // slot).  Default tracks MAX_VERTEX_COUNT so huge meshes are compacted; the old 16M
-// default silently excluded e.g. a 23.3M-element Voron face set (FC_VULKAN_GEOM_LOD_MAX_INDEX).
+// default silently excluded e.g. a 23.3M-element Voron face set (COIN_VULKAN_GEOM_LOD_MAX_INDEX).
 uint32_t geometryLodMaxIndices()
 {
   return SoVulkanConfig::get().geometryLod.maxIndices;
@@ -63,7 +64,7 @@ uint32_t geometryLodMaxIndices()
 
 // Smallest triangle count worth compacting; below it the per-command fixed cost
 // (cursor fill, barrier, dispatch, descriptor bind) exceeds the saving.  Keeps many
-// small parts cheap.  FC_VULKAN_GEOM_LOD_MIN_PRIMS; 0 disables.
+// small parts cheap.  COIN_VULKAN_GEOM_LOD_MIN_PRIMS; 0 disables.
 uint32_t geometryLodMinPrims()
 {
   return SoVulkanConfig::get().geometryLod.minPrims;
@@ -81,7 +82,7 @@ bool geometryLodAlways()
 }
 
 // Print the previous frame's survivor count per compacted command -- the only proof
-// on a real mesh.  At FC_VULKAN_GEOM_LOD_PIXELS=0 all survive; otherwise cull heavily.
+// on a real mesh.  At COIN_VULKAN_GEOM_LOD_PIXELS=0 all survive; otherwise cull heavily.
 bool geometryLodStats()
 {
   return SoVulkanConfig::get().geometryLod.stats;
@@ -220,9 +221,8 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
     // Log once per command so an oversized mesh's silent LOD skip is visible.
     if (!entry.warnedGeomLodCap) {
       entry.warnedGeomLodCap = true;
-      fprintf(stderr,
-              "[GEOMLOD] command has %u elements > cap %u; geometry LOD "
-              "skipped for it (raise FC_VULKAN_GEOM_LOD_MAX_INDEX)\n",
+      SoVulkanDebug::post("[GEOMLOD] command has %u elements > cap %u; geometry LOD "
+              "skipped for it (raise COIN_VULKAN_GEOM_LOD_MAX_INDEX)\n",
               elementCount, geometryLodMaxIndices());
     }
     return false;
@@ -297,8 +297,7 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
     if (worst > this->subPixelMaxStorageRange) {
       if (!entry.warnedGeomLodRange) {
         entry.warnedGeomLodRange = true;
-        fprintf(stderr,
-                "[GEOMLOD] command needs a %llu-byte storage range but the "
+        SoVulkanDebug::post("[GEOMLOD] command needs a %llu-byte storage range but the "
                 "device limit is %llu; geometry LOD skipped for it\n",
                 static_cast<unsigned long long>(worst),
                 static_cast<unsigned long long>(this->subPixelMaxStorageRange));
@@ -344,15 +343,14 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
   const int num = drawlist.getNumCommands();
   if (num == 0) return 0;
 
-  const bool debug = COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG");
+  const bool debug = COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG");
 
   // Dump the command list once per process; atomic exchange keeps the latch race-free.
   static std::atomic<bool> dumpedCommands {false};
   if (debug && !dumpedCommands.exchange(true)) {
     for (int i = 0; i < num; ++i) {
       const SoRenderCommand & c = drawlist.getCommand(i);
-      fprintf(stderr,
-              "[GEOMLOD] cmd %d topo=%d vc=%u ic=%u pass=%d idx=%p\n",
+      SoVulkanDebug::post("[GEOMLOD] cmd %d topo=%d vc=%u ic=%u pass=%d idx=%p\n",
               i, static_cast<int>(c.geometry.topology),
               c.geometry.vertexCount, c.geometry.indexCount,
               static_cast<int>(c.pass),
@@ -414,14 +412,13 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
         std::memcpy(&survivors, mapped, sizeof(uint32_t));
         vmaUnmapMemory(this->vmaAllocator, s.indirectMemory);
         // The shader appends INDICES, so survivorPrims = indexCount / 3.  At
-        // FC_VULKAN_GEOM_LOD_PIXELS=0 all must survive; otherwise cull heavily.
+        // COIN_VULKAN_GEOM_LOD_PIXELS=0 all must survive; otherwise cull heavily.
         const uint32_t survivorPrims = survivors / 3u;
         const float culled = primCount
           ? 100.0f * (1.0f - static_cast<float>(survivorPrims) /
                                static_cast<float>(primCount))
           : 0.0f;
-        fprintf(stderr,
-                "[GEOMLOD] stats slot=%u prims=%u survivors=%u culled=%.1f%%\n",
+        SoVulkanDebug::post("[GEOMLOD] stats slot=%u prims=%u survivors=%u culled=%.1f%%\n",
                 slot, primCount, survivorPrims, culled);
       }
     }
@@ -478,7 +475,7 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
   }
 
   if (debug) {
-    fprintf(stderr, "[GEOMLOD] prepass slot=%u compacted=%u skipped=%u "
+    SoVulkanDebug::post("[GEOMLOD] prepass slot=%u compacted=%u skipped=%u "
                     "threshold=%.2fpx2 maxPrims=%u maxVc=%u maxIc=%u\n",
             slot, compacted, skipped, areaThreshold, maxPrims, maxVc, maxIc);
   }

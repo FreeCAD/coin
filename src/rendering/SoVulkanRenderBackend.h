@@ -198,7 +198,7 @@ public:
     \brief Reset the current frame's GPU-timestamp queries on the caller's
     command buffer.
 
-    Only meaningful under FC_VULKAN_GPU_TIMING; an external embedder must call
+    Only meaningful under COIN_VULKAN_GPU_TIMING; an external embedder must call
     this before vkCmdBeginRenderPass (vkCmdResetQueryPool is illegal inside a
     pass).  A no-op when timing is disabled.
   */
@@ -724,10 +724,10 @@ private:
   // SAMPLED_IMAGE support for R8_UNORM / R8G8_UNORM (R8G8B8A8_UNORM is required).
   bool sampledR8 = false;
   bool sampledR8G8 = false;
-  // VK_EXT_pipeline_creation_feedback; gates the FC_VULKAN_PIPELINE_FEEDBACK log.
+  // VK_EXT_pipeline_creation_feedback; gates the COIN_VULKAN_PIPELINE_FEEDBACK log.
   bool hasPipelineCreationFeedback = false;
 
-  // Per-pass GPU timestamps (FC_VULKAN_GPU_TIMING), lazily initialized.
+  // Per-pass GPU timestamps (COIN_VULKAN_GPU_TIMING), lazily initialized.
   SoVulkanGpuTimers gpuTimers;
 
   VkCommandPool commandPool = VK_NULL_HANDLE;

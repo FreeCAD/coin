@@ -14,19 +14,30 @@
   arrive per frame via SoRenderParams::renderTarget and are never retained past
   the current render() call.
 
-  Compiles only when COIN_BUILD_VULKAN_RENDERER is set, so an installed
-  non-Vulkan Coin does not force a Vulkan SDK dependency on its consumers.
+  Compiles only when the installed Coin exports COIN_HAVE_VULKAN_RENDERER, so
+  an installed non-Vulkan Coin does not force a Vulkan SDK dependency on its
+  consumers.
 */
 
-#ifndef COIN_BUILD_VULKAN_RENDERER
-#define COIN_BUILD_VULKAN_RENDERER 0
+#include <Inventor/C/basic.h>
+
+/* Honour the capability the installed header exports; fall back to off for a
+   pre-existing basic.h that predates it. */
+#ifndef COIN_HAVE_VULKAN_RENDERER
+#define COIN_HAVE_VULKAN_RENDERER 0
 #endif
 
-#if COIN_BUILD_VULKAN_RENDERER
+#if COIN_HAVE_VULKAN_RENDERER
 
 #include <cstdint>
 
-// Vulkan declarations; only compiled with COIN_BUILD_VULKAN_RENDERER.
+// On Windows <vulkan/vulkan.h> pulls in <windows.h>, whose min/max macros break
+// std::min/std::max; suppress them for this translation unit only.
+#if defined(_WIN32) && !defined(NOMINMAX)
+#  define NOMINMAX
+#endif
+
+// Vulkan declarations; only compiled with COIN_HAVE_VULKAN_RENDERER.
 #include <vulkan/vulkan.h>
 
 /*!
@@ -57,10 +68,10 @@ struct SoVulkanDeviceCaps {
   //! VK_EXT_descriptor_indexing update-after-bind, so a set may be updated while
   //! an in-flight command buffer references it (VUID-vkUpdateDescriptorSets-None-03047).
   bool descriptorIndexingUpdateAfterBind = false;
-  //! VK_EXT_pipeline_creation_feedback (FC_VULKAN_PIPELINE_FEEDBACK).
+  //! VK_EXT_pipeline_creation_feedback (COIN_VULKAN_PIPELINE_FEEDBACK).
   bool pipelineCreationFeedback = false;
   //! VK_EXT_debug_printf + VK_KHR_shader_non_semantic_info for COIN_ENABLE_DEBUG_PRINTF
-  //! shaders to emit via the validation layer (FC_VULKAN_DEBUG_PRINTF).
+  //! shaders to emit via the validation layer (COIN_VULKAN_DEBUG_PRINTF).
   bool debugPrintf = false;
 };
 
@@ -108,6 +119,6 @@ struct SoVulkanRenderTarget {
   VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT; //!< MSAA samples.
 };
 
-#endif // COIN_BUILD_VULKAN_RENDERER
+#endif // COIN_HAVE_VULKAN_RENDERER
 
 #endif // COIN_SOVULKANRENDERTARGET_H

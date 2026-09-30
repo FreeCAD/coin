@@ -352,34 +352,6 @@ SoDrawList::addLightingSetup(const SoLightingData & lighting,
   return static_cast<SoLightingHandle>(this->lightingSetups.size());
 }
 
-// Compatibility no-op kept exported for already-linked consumers (e.g. pivy): SoLightData is world-space, so retained setups need no camera-only re-derivation.
-void
-SoDrawList::restrikeLighting(const SbMatrix & prevView, const SbMatrix & newView)
-{
-  (void)prevView;
-  (void)newView;
-}
-
-namespace {
-bool lightFreshDbgEnabled()
-{
-  static const bool enabled = std::getenv("FC_VULKAN_LIGHTFRESH_DBG") != nullptr;
-  return enabled;
-}
-void lightFreshDbgMat(const char * name, const SbMatrix & m)
-{
-  SbMat a;
-  m.getValue(a);
-  fprintf(stderr,
-          "[LITFRESH]   %s = [%7.4f %7.4f %7.4f %7.4f] [%7.4f %7.4f %7.4f "
-          "%7.4f] [%7.4f %7.4f %7.4f %7.4f] [%7.4f %7.4f %7.4f %7.4f]\n",
-          name, a[0][0], a[0][1], a[0][2], a[0][3], a[1][0], a[1][1], a[1][2],
-          a[1][3], a[2][0], a[2][1], a[2][2], a[2][3], a[3][0], a[3][1],
-          a[3][2], a[3][3]);
-}
-
-} // namespace
-
 namespace {
 
 void packLightIntoBlock(SoLightingBlock & block, int slot,
@@ -957,21 +929,6 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
 
     lighting.lights.push_back(lightData);
     raw.lights.push_back(rawLight);
-
-    if (lightFreshDbgEnabled()) {
-      fprintf(stderr,
-              "[LITFRESH] light='%s' type=%d\n",
-              light->getName().getString(), (int)lightData.type);
-      lightFreshDbgMat("lightMatrix", lightMatrix);
-      fprintf(stderr,
-              "[LITFRESH]   dir(world)=(%.4f,%.4f,%.4f) pos(world)=(%.4f,%.4f,"
-              "%.4f) rawDir=(%.4f,%.4f,%.4f)\n",
-              lightData.direction[0], lightData.direction[1],
-              lightData.direction[2], lightData.position[0],
-              lightData.position[1], lightData.position[2],
-              rawLight.sceneDirection[0], rawLight.sceneDirection[1],
-              rawLight.sceneDirection[2]);
-    }
   }
 
   raw.ambient = lighting.ambient;

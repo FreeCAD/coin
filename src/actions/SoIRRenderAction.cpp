@@ -187,26 +187,6 @@ void
 SoIRRenderAction::callDoAction(SoAction * action, SoNode * node)
 {
   node->doAction(action);
-  static const bool clipdebug = getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
-  if (clipdebug) {
-    static int cdaCount = 0;
-    if (cdaCount++ < 40) {
-      SoState * st = action->getState();
-      SbBool isId = FALSE;
-      const SbMatrix & mm = SoModelMatrixElement::get(st, isId);
-      fprintf(stderr, "[IR] doAction %s -> model00=%.3f m11=%.3f m22=%.3f "
-                      "trans=(%.3f,%.3f,%.3f) isId=%d",
-              node->getTypeId().getName().getString(),
-              mm[0][0], mm[1][1], mm[2][2],
-              mm[3][0], mm[3][1], mm[3][2], isId ? 1 : 0);
-      if (node->getTypeId().isDerivedFrom(SoScale::getClassTypeId())) {
-        const SoScale * s = static_cast<const SoScale*>(node);
-        SbVec3f sf = s->scaleFactor.getValue();
-        fprintf(stderr, " scaleFactor=(%.3f,%.3f,%.3f)", sf[0], sf[1], sf[2]);
-      }
-      fprintf(stderr, "\n");
-    }
-  }
 }
 
 void
@@ -244,19 +224,6 @@ SoIRRenderAction::beginTraversal(SoNode * node)
   SoViewportRegionElement::set(this->state, this->vpRegion);
   // IR viewport is in device pixels, so dpr is 1.0 (GL uses logical pixels * dpr).
   SoDevicePixelRatioElement::set(this->state, this->vpRegion.getPixelsPerPoint());
-  static const bool clipdebug_bt = getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
-  if (clipdebug_bt) {
-    static bool btLogged = false;
-    if (!btLogged) {
-      btLogged = true;
-      SbBool isId = FALSE;
-      const SbMatrix & mm = SoModelMatrixElement::get(this->state, isId);
-      fprintf(stderr, "[IR] beginTraversal model00=%.3f m11=%.3f m22=%.3f "
-                      "trans=(%.3f,%.3f,%.3f) isIdentity=%d\n",
-              mm[0][0], mm[1][1], mm[2][2],
-              mm[3][0], mm[3][1], mm[3][2], isId ? 1 : 0);
-    }
-  }
   inherited::beginTraversal(node);
 }
 

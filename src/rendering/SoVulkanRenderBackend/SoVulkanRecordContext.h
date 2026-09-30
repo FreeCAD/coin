@@ -13,6 +13,7 @@
 
 #include <cstdint>
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 struct VulkanRecordContext {
