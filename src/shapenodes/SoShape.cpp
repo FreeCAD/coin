@@ -44,7 +44,6 @@
 // *************************************************************************
 
 #include <Inventor/nodes/SoShape.h>
-#include "rendering/SoVulkanDebug.h"
 
 class SoVBO;
 #include <Inventor/elements/SoLazyElement.h>
@@ -2090,25 +2089,13 @@ SoShape::getBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
   }
   SbTime begin = SbTime::getTimeOfDay();
   // Reuse the IR walk's recorded local bounds instead of re-walking tens of millions of
-  // indexed coordinates for the clip query. COIN_NO_IR_BBOX disables the shortcut (debug/parity);
-  // COIN_IR_BBOX_CHECK recomputes the reference bbox and logs the delta (debug only).
-  static const bool noIrBBox = (coin_getenv("COIN_NO_IR_BBOX") != NULL);
-  static const bool checkIrBBox = (coin_getenv("COIN_IR_BBOX_CHECK") != NULL);
-  if (PRIVATE(this)->irBBoxValid && !noIrBBox && !checkIrBBox) {
+  // indexed coordinates for the clip query.
+  if (PRIVATE(this)->irBBoxValid) {
     box = PRIVATE(this)->irBBox;
     center = PRIVATE(this)->irBBoxCenter;
   }
   else {
     this->computeBBox(action, box, center);
-    if (checkIrBBox && PRIVATE(this)->irBBoxValid) {
-      const SbVec3f dmin = box.getMin() - PRIVATE(this)->irBBox.getMin();
-      const SbVec3f dmax = box.getMax() - PRIVATE(this)->irBBox.getMax();
-      const SbVec3f dc = center - PRIVATE(this)->irBBoxCenter;
-      SoVulkanDebug::post("[IRBBOXCHK] dmin=(%.5f %.5f %.5f) dmax=(%.5f %.5f %.5f) "
-              "dc=(%.5f %.5f %.5f)\n",
-              dmin[0], dmin[1], dmin[2], dmax[0], dmax[1], dmax[2],
-              dc[0], dc[1], dc[2]);
-    }
   }
   SbTime end = SbTime::getTimeOfDay();
   if (shouldcache) {

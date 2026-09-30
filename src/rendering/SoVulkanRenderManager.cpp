@@ -56,15 +56,8 @@ namespace {
 // Cached env-var checks: on the per-frame path, and getenv() is not
 // thread-safe, so resolve once. All use SoVulkanShared::envFlagEnabled
 // (honors "0"/"false"/"off" opt-outs).
-bool breadcrumbsEnabled()
-{
-  static const bool enabled = SoVulkanShared::envFlagEnabled("COIN_VULKAN_BREADCRUMBS");
-  return enabled;
-}
-
 // Per-phase CPU timing for the fcprobe harness, gated by COIN_VULKAN_FRAME_TIMING.
-// Emits its own [RTDBG] cpuTiming (clip/apply/restamp/sort) so the frameTiming
-// regex in vk_profile_probe.check.py stays untouched.
+// Emits its own [RTDBG] cpuTiming (clip/apply/restamp/sort).
 bool frameTimingEnabled()
 {
   static const bool enabled = SoVulkanShared::envFlagEnabled("COIN_VULKAN_FRAME_TIMING");
@@ -76,29 +69,8 @@ long vkRenderBreadcrumbNowUs()
   return SoVulkanShared::steadyNowUs();
 }
 
-bool vkRenderBreadcrumbEnabled()
-{
-  return SoVulkanShared::breadcrumbsEnabled();
-}
-
 int vkLightFrameDbgBudget = 192;
 int vkLightFpDbgBudget = 192;
-
-[[maybe_unused]] void vkRenderBreadcrumb(const char* phase)
-{
-  if (!vkRenderBreadcrumbEnabled()) {
-    return;
-  }
-  SoVulkanDebug::post("[VKRENDER] %ld %s\n", vkRenderBreadcrumbNowUs(), phase);
-}
-
-int vkRenderBreadcrumbLogBudget = 0;
-
-void vkRenderBreadcrumbSince(long startUs, long thresholdUs, const char* phase)
-{
-  SoVulkanShared::breadcrumbSince(vkRenderBreadcrumbLogBudget, "[VKRENDER]",
-                                  startUs, thresholdUs, phase);
-}
 
 // Content fingerprint of the first \a mainCount commands: mixes model matrix,
 // geometry pointers and counts. The scene bbox/auto-clip planes depend on main
@@ -768,7 +740,6 @@ SoVulkanRenderManager::renderExternal(SbBool clearwindow,
                                       VkRenderPass renderPass,
                                       VkFramebuffer framebuffer)
 {
-  const long renderBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   SoRenderParams params;
   SoDrawList * drawlist = nullptr;
   if (!this->pimpl->prepareRenderParams(clearwindow, clearzbuffer,
@@ -776,19 +747,12 @@ SoVulkanRenderManager::renderExternal(SbBool clearwindow,
     return FALSE;
   }
   params.frame = ++this->pimpl->frameOrdinal;
-  if (renderBcStart) {
-    vkRenderBreadcrumbSince(renderBcStart, 5000, "renderExternal prepareRenderParams end");
-  }
-  const long backendBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   if (!this->pimpl->backend.renderExternal(*drawlist, params, commandBuffer,
                                            renderPass, framebuffer)) {
     SoDebugError::postWarning("SoVulkanRenderManager::renderExternal",
                               "backend render failed (%d draw commands)",
                               drawlist->getNumCommands());
     return FALSE;
-  }
-  if (backendBcStart) {
-    vkRenderBreadcrumbSince(backendBcStart, 5000, "renderExternal rasterBackend end");
   }
   return TRUE;
 }
@@ -1110,21 +1074,16 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     return FALSE;
   }
 
-  const long prepBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const bool wantCpuTiming = frameTimingEnabled();
   double cpuClipMs = 0.0, cpuApplyMs = 0.0, cpuReplayMs = 0.0, cpuSortMs = 0.0;
   // Scene graph is the camera authority: refresh the retained camera (and
   // generation counter) from it every frame so clipping and matrices track
   // the node navigation mutates, not a stale snapshot.
   this->refreshActiveCamera();
-  if (prepBcStart) {
-    vkRenderBreadcrumbSince(prepBcStart, 2000, "prepare refreshActiveCamera end");
-  }
 
   // Keep near/far tight so zooming/orbiting never clips geometry. The GL
   // SoRenderManager does this (VARIABLE_NEAR_PLANE), but FreeCAD's hidden GL
   // viewer never renders, so its auto-clipping never runs: do it here.
-  const long clipBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const long clipT0 = wantCpuTiming ? vkRenderBreadcrumbNowUs() : 0;
   if (this->autoClipping != SoVulkanRenderManager::NO_AUTO_CLIPPING) {
     this->setClippingPlanes();
@@ -1132,11 +1091,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   if (wantCpuTiming) {
     cpuClipMs = (vkRenderBreadcrumbNowUs() - clipT0) * 0.001;
   }
-  if (clipBcStart) {
-    vkRenderBreadcrumbSince(clipBcStart, 2000, "prepare setClippingPlanes end");
-  }
 
-  const long applyBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   SoIRRenderAction & action = this->irAction;
   action.setViewportRegion(this->viewportRegion);
   {
@@ -1156,38 +1111,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   params.devicePixelRatio = this->devicePixelRatio;
   params.viewMatrix.makeIdentity();
   params.projMatrix.makeIdentity();
-  {
-    static int camDiag = 0;
-    if (breadcrumbsEnabled() && camDiag++ < 8) {
-      const char * cname = this->camera
-        ? this->camera->getTypeId().getName().getString() : "NULL";
-      SbVec3f cpos(0.0f, 0.0f, 0.0f);
-      float cheight = 0.0f;
-      if (this->camera) {
-        cpos = this->camera->position.getValue();
-        if (this->camera->isOfType(SoOrthographicCamera::getClassTypeId())) {
-          cheight = static_cast<const SoOrthographicCamera*>(this->camera)->height.getValue();
-        }
-      }
-      SoVulkanDebug::post("[VK-TRACE] params cam=%s pos=(%.3f,%.3f,%.3f) height=%.3f "
-                      "vpAspect=%.3f autoClip=%d near=%.4f far=%.4f\n",
-              cname,
-              static_cast<double>(cpos[0]), static_cast<double>(cpos[1]),
-              static_cast<double>(cpos[2]), static_cast<double>(cheight),
-              static_cast<double>(this->viewportRegion.getViewportAspectRatio()),
-              static_cast<int>(this->autoClipping),
-              static_cast<double>(this->computedNear),
-              static_cast<double>(this->computedFar));
-    }
-  }
   params.clearColor = this->backgroundColor;
-  if (breadcrumbsEnabled()) {
-    static bool logged = false;
-    if (!logged) {
-      logged = true;
-      SoVulkanDebug::post("[VK-TRACE] prepareRenderParams backgroundGradient=%d\n", this->backgroundGradient ? 1 : 0);
-    }
-  }
   params.backgroundGradient = this->backgroundGradient;
   params.backgroundTopColor = this->backgroundTopColor;
   params.backgroundBottomColor = this->backgroundBottomColor;
@@ -1234,9 +1158,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       // Do NOT short-circuit with a hash of the retained draw list: it is the
       // PREVIOUS frame's output, so a visibility toggle has not changed it yet and
       // skipping the walk would replay stale output forever (show/hide lost).
-      const long fpBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
       graphFp = this->computeGraphFingerprint();
-      vkRenderBreadcrumbSince(fpBcStart, 1000, "prepare computeGraphFingerprint end");
       this->sceneGraphDirty = FALSE;
     }
    this->lastFpScene = this->scene;
@@ -1301,16 +1223,11 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     this->sceneCameraDependent = FALSE;
     this->rootChildrenValid = FALSE;
   }
-   if (applyBcStart) {
-    vkRenderBreadcrumbSince(applyBcStart, 2000, "prepare action.apply end");
-  }
-
   // On a replay no traversal ran, so the retained main geometry is bit-
   // identical to last frame: backends may skip re-hashing geometry whose
   // pointer identity matches. Fresh overlay/decoration commands are excluded.
   params.geometryContentUnchanged = irReplayed;
 
-  const long matricesBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   SoDrawList & list = action.getMutableDrawList();
 
   // ---- Always re-record the overlay/decoration (cheap) and merge ----------
@@ -1451,10 +1368,6 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     params.projMatrix = first.projMatrix;
   }
 
-  if (matricesBcStart) {
-    vkRenderBreadcrumbSince(matricesBcStart, 2000, "prepare matrix build end");
-  }
-
   int dbgRestamped = -1;
   if (irReplayed) {
     // Camera-only frame: restamp the frame view into every non-overlay command
@@ -1503,7 +1416,6 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       }
     }
   }
-  const long sortBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const long sortT0 = wantCpuTiming ? vkRenderBreadcrumbNowUs() : 0;
   if (irReplayed && this->lastSortValid &&
            list.getNumCommands() == this->lastSortCommandCount &&
@@ -1527,16 +1439,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
                  cpuClipMs, cpuApplyMs, cpuReplayMs, cpuSortMs,
                  list.getNumCommands());
   }
-  vkRenderBreadcrumbSince(sortBcStart, 2000, "prepare buildSortedOrder end");
   drawlist = &list;
-
-  // COIN_DEBUG_RENDER_IR: dump the draw list so highlight/selection overlay
-  // commands can be inspected (pass, depth, color, vertex count).
-  static int dumpCount = 0;
-  if (coin_render_ir_trace_enabled() && dumpCount++ < 300) {
-    SoIRDumpSummary(list);
-    SoIRDumpFirstN(list, list.getNumCommands());
-  }
 
   // Diagnostic: identity view/proj means no camera node (or no geometry) and a
   // blank view. Log the transition to non-identity (the first real camera

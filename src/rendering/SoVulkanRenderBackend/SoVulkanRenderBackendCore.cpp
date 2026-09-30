@@ -1458,9 +1458,6 @@ SoVulkanRenderBackend::createSubPixelCullPipeline()
 bool
 SoVulkanRenderBackend::createBackgroundResources()
 {
-  if (SoVulkanShared::envFlagEnabled("COIN_VULKAN_BREADCRUMBS")) {
-    SoVulkanDebug::post("[VK-TRACE] SoVulkanRenderBackend::createBackgroundResources enter\n");
-  }
   if (!this->createShaderModule(coin_vulkan_background_vertex_spirv,
                                 coin_vulkan_background_vertex_spirv_count,
                                 this->backgroundVertexModule)) {

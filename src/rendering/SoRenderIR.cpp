@@ -151,18 +151,6 @@ textureFiltersFromQuality(const float quality, SoTextureData & texture)
 
 } // namespace
 
-SbBool
-coin_render_ir_trace_enabled()
-{
-  static int initialized = 0;
-  static SbBool enabled = FALSE;
-  if (!initialized) {
-    enabled = coin_getenv("COIN_DEBUG_RENDER_IR") ? TRUE : FALSE;
-    initialized = 1;
-  }
-  return enabled;
-}
-
 SoIRBuffer::SoIRBuffer()
 {
 }
@@ -538,86 +526,6 @@ SoIRComputeSortKey(uint32_t passOrderBits,
   const uint64_t passbits = (static_cast<uint64_t>(passOrderBits) & 0xffULL) << 56;
   const uint64_t depthbits = (static_cast<uint64_t>(depthBucket) & 0x00ffffffULL) << 32;
   return passbits | depthbits;
-}
-
-static const char *
-renderpass_name(SoRenderPassType pass)
-{
-  switch (pass) {
-  case SO_RENDERPASS_OPAQUE: return "opaque";
-  case SO_RENDERPASS_TRANSPARENT: return "transparent";
-  case SO_RENDERPASS_OVERLAY: return "overlay";
-  default: return "unknown";
-  }
-}
-
-void
-SoIRDumpSummary(const SoDrawList & drawlist)
-{
-  if (!coin_render_ir_trace_enabled()) {
-    return;
-  }
-
-  int counts[SO_RENDERPASS_COUNT] = { 0 };
-  uint32_t minVerts = UINT32_MAX;
-  uint32_t maxVerts = 0;
-  const int num = drawlist.getNumCommands();
-  for (int i = 0; i < num; ++i) {
-    const SoRenderCommand & cmd = drawlist.getCommand(i);
-    const uint32_t vc = cmd.geometry.vertexCount;
-    minVerts = std::min(minVerts, vc);
-    maxVerts = std::max(maxVerts, vc);
-    if (cmd.pass < SO_RENDERPASS_COUNT) {
-      counts[cmd.pass]++;
-    }
-  }
-
-  SoDebugError::postInfo("SoDrawList",
-                         "commands=%d opaque=%d transparent=%d overlay=%d minVerts=%u maxVerts=%u",
-                         num,
-                         counts[SO_RENDERPASS_OPAQUE],
-                         counts[SO_RENDERPASS_TRANSPARENT],
-                         counts[SO_RENDERPASS_OVERLAY],
-                         minVerts == UINT32_MAX ? 0 : minVerts,
-                         maxVerts);
-}
-
-void
-SoIRDumpFirstN(const SoDrawList & drawlist, int count)
-{
-  if (!coin_render_ir_trace_enabled()) {
-    return;
-  }
-
-  const int num = drawlist.getNumCommands();
-  const int limit = std::min(num, count);
-  for (int i = 0; i < limit; ++i) {
-    const SoRenderCommand & cmd = drawlist.getCommand(i);
-    const SbVec4f & diffuse = cmd.material.diffuse;
-    const SoLightingData * lighting = drawlist.getLighting(cmd.lightingHandle);
-    int numlights = lighting ? static_cast<int>(lighting->lights.size()) : -1;
-    SbVec3f ambient(0.0f, 0.0f, 0.0f);
-    if (lighting) {
-      ambient = lighting->ambient;
-    }
-    SoDebugError::postInfo("SoDrawList",
-                           "[%d] pass=%s depth=%d topo=%d verts=%u idx=%u colors=%p diffuse=(%.3f, %.3f, %.3f, %.3f) lights=%d ambient=(%.3f, %.3f, %.3f)",
-                           i,
-                           renderpass_name(cmd.pass),
-                           cmd.state.depth.enabled,
-                           static_cast<int>(cmd.geometry.topology),
-                           cmd.geometry.vertexCount,
-                           cmd.geometry.indexCount,
-                           cmd.geometry.colors,
-                           diffuse[0],
-                           diffuse[1],
-                           diffuse[2],
-                           diffuse[3],
-                           numlights,
-                           ambient[0],
-                           ambient[1],
-                           ambient[2]);
-  }
 }
 
 namespace SoRenderIR {

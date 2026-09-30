@@ -70,9 +70,8 @@ envFlagEnabled(const char * name)
   return envFlagEnabled(name, false);
 }
 
-// --- Breadcrumb / phase timing -------------------------------------------
-// fcprobe keys on the monotonic-microsecond clock and the COIN_GUI_OPEN_BREADCRUMB gate;
-// centralized so the time base and gating policy are singular across backends/manager.
+// --- Phase timing ---------------------------------------------------------
+// Monotonic clock shared by the manager and the backends.
 
 inline long
 steadyNowUs()
@@ -85,27 +84,6 @@ inline double
 steadyNowMs()
 {
   return steadyNowUs() * 0.001;
-}
-
-inline bool
-breadcrumbsEnabled()
-{
-  static const bool enabled = envFlagEnabled("COIN_GUI_OPEN_BREADCRUMB");
-  return enabled;
-}
-
-// Emit "PREFIX <startUs> <phase> dur_us=<elapsed>" once a phase exceeds thresholdUs, up to `logged` (caller-owned budget).
-inline void
-breadcrumbSince(int & logged, const char * prefix, long startUs,
-                long thresholdUs, const char * phase)
-{
-  if (!breadcrumbsEnabled()) return;
-  const long now = steadyNowUs();
-  if (logged < 30 && now - startUs >= thresholdUs) {
-    ++logged;
-    SoVulkanDebug::post("%s %ld %s dur_us=%ld\n", prefix, startUs, phase,
-                 now - startUs);
-  }
 }
 
 // Literal-name fast path: a per-call-site static resolves the flag once, so hot paths pay no getenv(); shared by both backends.

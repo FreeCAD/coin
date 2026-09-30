@@ -41,11 +41,6 @@ private:
 uint64_t SoIRComputeSortKey(uint32_t passOrderBits,
                             uint32_t depthBucket);
 
-//! Dump a compact summary (or the first \a count commands) of the draw list to Coin's debug output.
-void SoIRDumpSummary(const SoDrawList & drawlist);
-void SoIRDumpFirstN(const SoDrawList & drawlist, int count);
-SbBool coin_render_ir_trace_enabled();
-
 /*! \namespace SoRenderIR \brief Helpers converting Coin state and caches into render IR. */
 namespace SoRenderIR {
 //! Fill a material snapshot from the current Inventor traversal state.
