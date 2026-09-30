@@ -157,6 +157,31 @@ if(COIN_BUILD_VULKAN_RENDERER)
 		LABELS requires-vulkan)
 endif()
 
+function(coin_add_legacy_test)
+	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
+	if(NOT ARG_NAME OR NOT ARG_SOURCES)
+		message(FATAL_ERROR "coin_add_legacy_test requires NAME and SOURCES")
+	endif()
+	add_executable(${ARG_NAME} ${ARG_SOURCES})
+	target_link_libraries(${ARG_NAME} PRIVATE Coin)
+	target_include_directories(${ARG_NAME} PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include)
+	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+	set(test_labels "legacy-gl")
+	if(ARG_LABELS)
+		list(APPEND test_labels ${ARG_LABELS})
+	endif()
+	set_tests_properties(${ARG_NAME} PROPERTIES LABELS "${test_labels}")
+endfunction()
+
+# The legacy fixed-function renderer is always built; this asserts the capability
+# and class registration, and renders offscreen where a GL context is available.
+if(COIN_HAVE_LEGACY_GL_RENDERER)
+	coin_add_legacy_test(NAME LegacyRendererTest SOURCES LegacyRendererTest.cpp
+		LABELS requires-legacy-gl)
+endif()
+
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG(-Wtautological-compare DISABLE_WARNING_TAUTOLOGCOMPARE)
