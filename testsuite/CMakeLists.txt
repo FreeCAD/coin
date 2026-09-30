@@ -125,6 +125,38 @@ if(HAVE_EGL AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		LABELS requires-egl)
 endif()
 
+function(coin_add_vulkan_test)
+	cmake_parse_arguments(ARG "" "NAME" "SOURCES;LABELS" ${ARGN})
+	if(NOT ARG_NAME OR NOT ARG_SOURCES)
+		message(FATAL_ERROR "coin_add_vulkan_test requires NAME and SOURCES")
+	endif()
+	add_executable(${ARG_NAME} ${ARG_SOURCES})
+	target_link_libraries(${ARG_NAME} PRIVATE Coin Vulkan::Vulkan)
+	target_compile_definitions(${ARG_NAME} PRIVATE
+		COIN_INTERNAL
+		COIN_TEST_SKIP_RETURN_CODE=${COIN_TEST_SKIP_RETURN_CODE})
+	target_include_directories(${ARG_NAME} PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_BINARY_DIR}/src)
+	add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
+	set(test_labels "vulkan")
+	if(ARG_LABELS)
+		list(APPEND test_labels ${ARG_LABELS})
+	endif()
+	set_tests_properties(${ARG_NAME} PROPERTIES
+		SKIP_RETURN_CODE ${COIN_TEST_SKIP_RETURN_CODE}
+		LABELS "${test_labels}")
+endfunction()
+
+# Headless retained-renderer smoke test; only built when the Vulkan backend is
+# enabled.  Skips itself (via SKIP_RETURN_CODE) when no Vulkan driver is present.
+if(COIN_BUILD_VULKAN_RENDERER)
+	coin_add_vulkan_test(NAME VulkanSmokeTest SOURCES VulkanSmokeTest.cpp
+		LABELS requires-vulkan)
+endif()
+
 # Many warnings are generated from test macros on macOS with Xcode.
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG(-Wtautological-compare DISABLE_WARNING_TAUTOLOGCOMPARE)
