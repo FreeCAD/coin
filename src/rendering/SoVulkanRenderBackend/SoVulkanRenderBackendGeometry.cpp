@@ -720,9 +720,10 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
 
   const uint32_t generation = drawlist.getGeneration();
 
-  // Overlay-composite mode (RT active): the sweep must release traced triangle
-  // commands this backend no longer visits, but replayed (camera-only) frames do
-  // not advance the retained list's generation, so use a dedicated epoch.
+  // Overlay-composite mode (another renderer owns the scene): the sweep must
+  // release triangle commands this backend no longer visits, but replayed
+  // (camera-only) frames do not advance the retained list's generation, so use a
+  // dedicated epoch.
   const bool compositeSweep = overlaysOnly && this->overlayCompositeMode;
   if (compositeSweep) {
     ++this->overlayCompositeEpoch;
@@ -891,7 +892,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
   // longer in this frame); survivors keep index identity, so rebuild the pointer
   // maps from commandKey.  Destruction is deferred.  A transient overlay-only
   // render skips the sweep (it would evict the whole cache); overlay-composite
-  // mode (RT active) runs it to release geometry the RT backend already owns.
+  // mode (another renderer owns the scene) runs it to release geometry that
+  // renderer already owns.
   if (!overlaysOnly || this->overlayCompositeMode) {
     // `stale` decides whether to drop an entry: full/transient-overlay renders key
     // on the draw-list generation, an overlay-composite pass on the composite epoch.
@@ -919,8 +921,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       }
     };
     if (compositeSweep) {
-      // Release traced triangle entries not visited this pass (only overlays and
-      // residue are stamped), so the RT backend's copy is the only resident one.
+      // Release triangle entries not visited this pass (only overlays and
+      // residue are stamped), so the owning renderer's copy is the only one.
       evictStale(this->gpuCache,
                  [this](VulkanCachedCommand & entry) {
                    this->deferDestroyCacheEntry(entry);

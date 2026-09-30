@@ -374,7 +374,7 @@ enum SoLightType : uint8_t {
 };
 
 /*! \brief Maximum number of lights a retained render-backend shader evaluates.
-  All backends (GL visual program, Vulkan LightingBlock, RTX RTMaterial) evaluate at
+  All backends (the GL visual program and the Vulkan LightingBlock) evaluate at
   most this many; larger setups are truncated with a one-time consumer warning. */
 constexpr int SO_MAX_SHADER_LIGHTS = 8;
 
@@ -382,7 +382,7 @@ constexpr int SO_MAX_SHADER_LIGHTS = 8;
   `direction` is the normalized travel-toward direction (directional: negated node
   direction rotated by its model matrix); `position` is world-space for point/spot.
   View-independent, so a camera-only frame needs no re-derivation: eye-space consumers
-  use SoRenderIR::lightToEye(), the path tracer consumes the world fields directly. */
+  use SoRenderIR::lightToEye(), world-space consumers use the fields directly. */
 struct SoLightData {
   SoLightType type = SO_LIGHT_DIRECTIONAL;
   SbVec3f     color = SbVec3f(1.0f, 1.0f, 1.0f);
@@ -446,7 +446,7 @@ namespace SoRenderIR {
 
 /*! \brief Fill a SoLightingBlock from a world-space SoLightingData.
   `toEye` non-NULL transforms each light to eye space (raster/preview), NULL copies
-  world fields verbatim (path tracer); ambient passes unchanged. Returns lights written. */
+  world fields verbatim; ambient passes unchanged. Returns lights written. */
 COIN_DLL_API int fillLightingBlock(SoLightingBlock & block,
                                    const SoLightingData & world,
                                    const SbMatrix * toEye);

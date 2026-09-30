@@ -121,7 +121,7 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
   inline uint32_t
 countCompositeCommands(const SoDrawList & drawlist)
 {
-  // Ray-tracing composite: every OVERLAY command plus every non-triangle
+  // Overlay composite: every OVERLAY command plus every non-triangle
   // OPAQUE/TRANSPARENT command (BRep edge/point residue); one draw + one slot each.
   uint32_t draws = 0;
   const int num = drawlist.getNumCommands();

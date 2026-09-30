@@ -1425,13 +1425,13 @@ SoVulkanRenderBackend::recordTracedComposite(const SoDrawList & drawlist,
                                              VkRenderPass renderPass,
                                              VulkanRecordContext & ctx)
 {
-  // Same parallel wide-line expansion as recordFrame(): the RT composite draws the residue.
+  // Same parallel wide-line expansion as recordFrame(): the composite pass draws the residue.
   this->prepareWideLineBuffers(drawlist);
   this->expandWideLinesParallel(drawlist, params);
 
-  // Ray-tracing compositing residue: the RT backend traces only triangles, so
+  // Composite residue: an external renderer may draw only triangles, so
   // LINES/POINTS/LINE_STRIP commands (BRep edges, point markers, polylines) are drawn
-  // as a raster layer over the traced image, depth-tested (LESS_OR_EQUAL) against the
+  // as a raster layer over that image, depth-tested (LESS_OR_EQUAL) against the
   // present pass's scene depth so hidden back edges are culled.  No depth clear/write.
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);

@@ -219,7 +219,7 @@ public:
     b.clear();
   }
 
-  // Current-slot style (RT backend double-buffer).
+  // Current-slot style: append to this slot's deferred-destroy batch.
   void defer(std::function<void()> && fn)
   {
     m_batches[m_index].push_back(std::move(fn));
