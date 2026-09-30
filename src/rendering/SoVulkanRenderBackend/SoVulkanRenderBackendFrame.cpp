@@ -7,6 +7,7 @@
 //   - recordFrame() / recordOverlayBlock() / recordTracedComposite()
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanConfig.h"
 #include "rendering/SoVulkanDebugUtils.h"
@@ -45,11 +46,11 @@ double vkBackendRenderNowMs()
   return SoVulkanShared::steadyNowMs();
 }
 
-// Phase timing for the fcprobe harness ([RTDBG] cpuTimingRaster); gated by FC_VULKAN_FRAME_TIMING.
+// Phase timing for the fcprobe harness ([RTDBG] cpuTimingRaster); gated by COIN_VULKAN_FRAME_TIMING.
 bool vkBackendFrameTimingEnabled()
 {
   static const bool enabled =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_FRAME_TIMING");
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_FRAME_TIMING");
   return enabled;
 }
 
@@ -488,12 +489,6 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
                  "overlaysOnly=%d cmds=%d",
                  static_cast<int>(overlaysOnly), drawlist.getNumCommands());
 
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG")) {
-    static int blackFrame = 0;
-    logBlackFrameStats(drawlist, params, blackFrame++,
-                       overlaysOnly ? 1 : 0);
-  }
-
   const SoVulkanRenderTarget * target = this->validateRenderTarget(params);
   if (target == nullptr) return FALSE;
 
@@ -518,8 +513,8 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
 
   // Render passes are cached by attachment identity (formats, samples, layouts, load ops),
   // not the target images: swapchain images cycle and pipelines key on the pass handle, so
-  // reuse keeps the cache warm.  FC_VULKAN_RP_CLEAR clears via loadOp, cheaper than clear-cmds.
-  const bool wantRpClear = COIN_VULKAN_ENV_FLAG("FC_VULKAN_RP_CLEAR");
+  // reuse keeps the cache warm.  COIN_VULKAN_RP_CLEAR clears via loadOp, cheaper than clear-cmds.
+  const bool wantRpClear = COIN_VULKAN_ENV_FLAG("COIN_VULKAN_RP_CLEAR");
   const bool fullTargetClear =
     wantRpClear && this->isFullTargetClear(params, *target);
   const bool clearWindow = (params.flags & SO_PARAM_CLEAR_WINDOW) != 0;
@@ -700,10 +695,6 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
 {
   const long externalBcStart = vkBackendRenderBreadcrumbEnabled() ? vkBackendRenderNowUs() : 0;
 
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG"))
-    fprintf(stderr, "[BLACK] renderExternal ENTER frame=%d cmds=%d\n",
-            this->uboFrameIndex, drawlist.getNumCommands());
-
   this->debugValidateDrawList(drawlist);
 
   // GPU timestamps on the caller-owned pass: the caller must have recorded the
@@ -781,18 +772,15 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
     const double lodMs = timing.lodRecordMs + timing.lodMs;
     const double totalMs = recordMs + timing.texMs + timing.geomMs +
                            timing.setupMs + lodMs;
-    std::fprintf(stderr,
-                 "[RTDBG] cpuTimingRaster mode=full setup=%.2f geom=%.2f "
+    SoVulkanDebug::post("[RTDBG] cpuTimingRaster mode=full setup=%.2f geom=%.2f "
                  "tex=%.2f lod=%.2f record=%.2f total=%.2f\n",
                  timing.setupMs, timing.geomMs, timing.texMs, lodMs,
                  recordMs, totalMs);
-    std::fprintf(stderr,
-                 "[RTDBG] extPhase prepare=%.2f prepassRecord=%.2f "
+    SoVulkanDebug::post("[RTDBG] extPhase prepare=%.2f prepassRecord=%.2f "
                  "record=%.2f prepassSubmit=%.2f wall=%.2f\n",
                  extPrepareEnd - extT0, extPreRecEnd - extPrepareEnd,
                  recordEnd - recordT0, extSubmitEnd - extPreRecEnd,
                  extSubmitEnd - extT0);
-    std::fflush(stderr);
   }
   vkBackendRenderBreadcrumbSince(externalBcStart, 5000, "renderExternal end");
   return recorded ? TRUE : FALSE;
@@ -804,10 +792,6 @@ SoVulkanRenderBackend::renderExternalOverlay(const SoDrawList & drawlist,
                                              VkCommandBuffer commandBuffer,
                                              VkRenderPass renderPass)
 {
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG"))
-    fprintf(stderr, "[BLACK] renderExternalOverlay ENTER frame=%d cmds=%d\n",
-            this->uboFrameIndex, drawlist.getNumCommands());
-
   const bool wantCpuTiming = vkBackendFrameTimingEnabled();
   ExternalFrameTiming timing;
   const SoVulkanRenderTarget * target = this->prepareExternalFrame(
@@ -844,12 +828,10 @@ SoVulkanRenderBackend::renderExternalOverlay(const SoDrawList & drawlist,
     const double recordMs = recordEnd - recordT0;
     const double totalMs = recordMs + timing.texMs + timing.geomMs +
                            timing.setupMs + timing.lodMs;
-    std::fprintf(stderr,
-                 "[RTDBG] cpuTimingRaster mode=overlay setup=%.2f geom=%.2f "
+    SoVulkanDebug::post("[RTDBG] cpuTimingRaster mode=overlay setup=%.2f geom=%.2f "
                  "tex=%.2f record=%.2f total=%.2f\n",
                  timing.setupMs, timing.geomMs, timing.texMs, recordMs,
                  totalMs);
-    std::fflush(stderr);
   }
   return TRUE;
 }
@@ -1093,8 +1075,8 @@ SoVulkanRenderBackend::recordSecondaryChunk(VulkanRecordContext & ctx,
   vkBackendTrace(this->uboFrameIndex, "recordSecondaryChunk.enter",
                  "secondary=%p items=%zu",
                  reinterpret_cast<const void *>(secondary), items.size());
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
-    fprintf(stderr, "[SEC] begin chunk items=%zu secondary=%p frame=%u\n",
+  if (COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")) {
+    SoVulkanDebug::post("[SEC] begin chunk items=%zu secondary=%p frame=%u\n",
             items.size(), (const void*)secondary, this->uboFrameIndex);
   }
   vkResetCommandBuffer(secondary, 0);
@@ -1149,14 +1131,6 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   // expansion is the CPU-heavy, parallel part, recording stays single-threaded.
   this->prepareWideLineBuffers(drawlist);
   this->expandWideLinesParallel(drawlist, params);
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_MATRIX_DUMP")) {
-    s_debugFrame++;
-    s_dumpCmdCount = 0;
-  }
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG")) {
-    static int blackFrame = 0;
-    logBlackFrameStats(drawlist, params, blackFrame++, -1);
-  }
   this->applyViewport(params, target, ctx);
   this->recordClear(params, target, this->renderPasses.colorClearedByLoad(),
                     this->renderPasses.depthClearedByLoad(), ctx);
@@ -1166,20 +1140,20 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
 
   // Vulkan-only display options (setWireframeOverlay()/setPointsOverlay()/setTessellationOverlay()/setEdgeColor()).
   const bool wireframeOverlay =
-    this->wireframeOverlay || COIN_VULKAN_ENV_FLAG("FC_VULKAN_WIREFRAME");
+    this->wireframeOverlay || COIN_VULKAN_ENV_FLAG("COIN_VULKAN_WIREFRAME");
   const bool pointsOverlay =
-    this->pointsOverlay || COIN_VULKAN_ENV_FLAG("FC_VULKAN_POINTS");
+    this->pointsOverlay || COIN_VULKAN_ENV_FLAG("COIN_VULKAN_POINTS");
   const bool tessellationOverlay =
-    this->tessellationOverlay || COIN_VULKAN_ENV_FLAG("FC_VULKAN_TESS");
+    this->tessellationOverlay || COIN_VULKAN_ENV_FLAG("COIN_VULKAN_TESS");
   float overlayColor[4] = {
     this->edgeColor[0], this->edgeColor[1], this->edgeColor[2],
     this->edgeColor[3]
   };
-  // Parse the FC_VULKAN_EDGE_COLOR diagnostic override once; RGB from hex, alpha kept from edgeColor.
+  // Parse the COIN_VULKAN_EDGE_COLOR diagnostic override once; RGB from hex, alpha kept from edgeColor.
   struct EdgeColorOverride { bool present; float rgb[3]; };
   static const EdgeColorOverride edgeOverride = []() {
     EdgeColorOverride o{false, {0.0f, 0.0f, 0.0f}};
-    const char * hex = SoVulkanShared::envString("FC_VULKAN_EDGE_COLOR");
+    const char * hex = SoVulkanShared::envString("COIN_VULKAN_EDGE_COLOR");
     if (hex) {
       unsigned int value = 0;
       if (sscanf(hex, "%x", &value) == 1) {
@@ -1200,11 +1174,10 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   const int wireframeFillMode = wireframeOverlay
     ? SoDrawStyleElement::LINES
     : (pointsOverlay ? SoDrawStyleElement::POINTS : -1);
-  if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
+  if (COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")) {
     static int overlayLog = 0;
     if (overlayLog++ < 3) {
-      fprintf(stderr,
-              "[OVL] wireframe=%d points=%d tess=%d fillMode=%d edgeColor=(%.2f,%.2f,%.2f,%.2f)\n",
+      SoVulkanDebug::post("[OVL] wireframe=%d points=%d tess=%d fillMode=%d edgeColor=(%.2f,%.2f,%.2f,%.2f)\n",
               wireframeOverlay ? 1 : 0, pointsOverlay ? 1 : 0,
               tessellationOverlay ? 1 : 0, wireframeFillMode,
               overlayColor[0], overlayColor[1], overlayColor[2], overlayColor[3]);
@@ -1238,17 +1211,13 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     !this->secondaryCommandBuffers.empty() &&
     inheritFramebuffer != VK_NULL_HANDLE &&
     (!externalPass || SoVulkanConfig::get().concurrency.externalSecondary);
-  const bool debugFlags =
-    COIN_VULKAN_ENV_FLAG("FC_VULKAN_MATRIX_DUMP") ||
-    COIN_VULKAN_ENV_FLAG("FC_VULKAN_BLACK_DEBUG");
-
   // Count the render-order-independent opaque items that live in a secondary.
   uint64_t secondaryItemCount = 0;
   for (const VulkanWorkItem & item : workItems) {
     if (item.recordToSecondary) ++secondaryItemCount;
   }
   const bool wantParallel =
-    canUseSecondary && this->parallelRecordEnabled && !debugFlags &&
+    canUseSecondary && this->parallelRecordEnabled &&
     secondaryItemCount >= 64 && this->maxRecordWorkers > 1;
   vkBackendTrace(this->uboFrameIndex, "recordFrame.mode",
                  "secondary=%u canSec=%d parEnabled=%d W=%u wantPar=%d",
@@ -1292,11 +1261,10 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     // M1d parallel: partition opaque items into disjoint chunks (greedy
     // longest-first for load balance), record each into its own worker secondary,
     // replay all in order, then inline the painter-order / overlay / annotation items.
-    if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
+    if (COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")) {
       static int parLog = 0;
       if (parLog++ < 3) {
-        fprintf(stderr,
-                "[PAR] parallel record: %u opaque items across %u workers\n",
+        SoVulkanDebug::post("[PAR] parallel record: %u opaque items across %u workers\n",
                 static_cast<unsigned>(secondaryItemCount),
                 static_cast<unsigned>(this->maxRecordWorkers));
       }

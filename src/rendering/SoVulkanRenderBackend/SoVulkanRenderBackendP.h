@@ -19,6 +19,7 @@
 #include <functional>
 #include <thread>
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 #include <Inventor/rendering/SoRenderIR.h>
 #include <rendering/SoFnv1a.h>
@@ -34,12 +35,12 @@ struct SoRenderParams;
 
 namespace CoinVulkanDetail {
 
-  // ---- [TRC] per-step recording traces (FC_VULKAN_TRACE) ----
+  // ---- [TRC] per-step recording traces (COIN_VULKAN_TRACE) ----
   // One line per pipeline step, tagged with sequence, frame and thread id so an
-  // interleaved multi-thread log reads in order.  Gated by FC_VULKAN_TRACE, cached.
+  // interleaved multi-thread log reads in order.  Gated by COIN_VULKAN_TRACE, cached.
   inline bool vkBackendTraceEnabled()
   {
-    static const bool enabled = SoVulkanShared::envString("FC_VULKAN_TRACE") != nullptr;
+    static const bool enabled = SoVulkanShared::envString("COIN_VULKAN_TRACE") != nullptr;
     return enabled;
   }
 
@@ -66,7 +67,6 @@ namespace CoinVulkanDetail {
     // minimally and the last pre-crash line survives.  (fprintf+fflush on Windows.)
 #ifdef _WIN32
     std::fwrite(buf, 1, static_cast<size_t>(len), stderr);
-    std::fflush(stderr);
 #else
     const ssize_t written = ::write(2, buf, static_cast<size_t>(len));
     (void)written;
@@ -74,9 +74,7 @@ namespace CoinVulkanDetail {
   }
 
 
-  inline int s_debugFrame = 0;
   inline uint32_t s_debugPushCount = 0;
-  inline int s_dumpCmdCount = 0;
   inline int s_lightLog = 0;
 
 // Number of per-draw lighting UBO slots a frame will consume: each non-overlay
@@ -208,7 +206,7 @@ isWideLine(const SoRenderCommand & command, const int fillModeOverride,
   inline bool
 instancedWideLineForceCpu()
 {
-  // FC_VULKAN_WLINE_CPU forces CPU quad expansion for A/B and as a driver escape hatch.
+  // COIN_VULKAN_WLINE_CPU forces CPU quad expansion for A/B and as a driver escape hatch.
   return SoVulkanConfig::get().raster.wideLineCpu;
 }
 
@@ -231,70 +229,6 @@ isFrameCameraOverlay(const SoRenderCommand & command,
   const SbVec2s frameSize = params.viewport.getViewportSizePixels();
   return command.state.raster.viewportWidth == frameSize[0] &&
     command.state.raster.viewportHeight == frameSize[1];
-}
-
-// --- [BLACK] frame diagnostic ---------------------------------------------
-// Gated by FC_VULKAN_BLACK_DEBUG, counts the draw list by pass/topology and prints
-// one line (shared by renderInternal() and recordFrame()).
-
-struct VulkanFrameStats {
-  int tri = 0;
-  int triLit = 0;
-  int triUnlit = 0;
-  int line = 0;
-  int overlay = 0;
-  int trans = 0;
-};
-
-  inline VulkanFrameStats
-collectFrameStats(const SoDrawList & drawlist)
-{
-  VulkanFrameStats s;
-  for (int i = 0; i < drawlist.getNumCommands(); ++i) {
-    const SoRenderCommand & c = drawlist.getCommand(i);
-    if (c.pass == SO_RENDERPASS_OVERLAY) s.overlay++;
-    else if (c.pass == SO_RENDERPASS_TRANSPARENT) s.trans++;
-    if (c.geometry.topology == SO_TOPOLOGY_TRIANGLES) {
-      s.tri++;
-      if (c.material.shadingModel == SO_SHADING_LEGACY_GOURAUD) s.triLit++;
-      else s.triUnlit++;
-    }
-    if (c.geometry.topology == SO_TOPOLOGY_LINES ||
-        c.geometry.topology == SO_TOPOLOGY_LINE_STRIP) {
-      s.line++;
-    }
-  }
-  return s;
-}
-
-// `overlaysOnly` is printed when >= 0 (renderInternal); pass -1 to omit (recordFrame).
-  inline void
-logBlackFrameStats(const SoDrawList & drawlist, const SoRenderParams & params,
-                   const int frame, const int overlaysOnly)
-{
-  const VulkanFrameStats s = collectFrameStats(drawlist);
-  if (overlaysOnly >= 0) {
-    std::fprintf(stderr,
-                 "[BLACK] frame=%d overlaysOnly=%d flags=0x%x "
-                 "clear=(%.2f,%.2f,%.2f,%.2f) "
-                 "cmds=%d tri=%d(lit=%d unlit=%d) line=%d overlay=%d trans=%d\n",
-                 frame, overlaysOnly, static_cast<unsigned>(params.flags),
-                 params.clearColor[0], params.clearColor[1],
-                 params.clearColor[2], params.clearColor[3],
-                 drawlist.getNumCommands(), s.tri, s.triLit, s.triUnlit,
-                 s.line, s.overlay, s.trans);
-  }
-  else {
-    std::fprintf(stderr,
-                 "[BLACK] recordFrame frame=%d flags=0x%x "
-                 "clear=(%.2f,%.2f,%.2f,%.2f) "
-                 "cmds=%d tri=%d(lit=%d unlit=%d) line=%d overlay=%d trans=%d\n",
-                 frame, static_cast<unsigned>(params.flags),
-                 params.clearColor[0], params.clearColor[1],
-                 params.clearColor[2], params.clearColor[3],
-                 drawlist.getNumCommands(), s.tri, s.triLit, s.triUnlit,
-                 s.line, s.overlay, s.trans);
-  }
 }
 
 // FNV-1a over `sampleCount` elements spread uniformly across a buffer (first and last
@@ -417,7 +351,7 @@ hashTextureContent(const SoTextureData & texture)
 constexpr uint32_t VULKAN_VERTEX_STRIDE = 32;
 // Largest vertex count a single command may upload.  Flat-shaded CAD expands to 3 unique
 // vertices per triangle, so a Voron-class assembly reaches tens of millions in one command;
-// the old 10M ceiling silently dropped such objects.  Override FC_VULKAN_MAX_VERTEX_COUNT.
+// the old 10M ceiling silently dropped such objects.  Override COIN_VULKAN_MAX_VERTEX_COUNT.
 constexpr int MAX_VERTEX_COUNT = 64000000;
 
 // The projection matrix lives in the per-draw DrawBlock UBO, not here, so the push block
@@ -649,7 +583,13 @@ createImageView(VkDevice device,
   ci.subresourceRange.baseArrayLayer = 0;
   ci.subresourceRange.layerCount = 1;
   VkImageView view = VK_NULL_HANDLE;
-  vkCreateImageView(device, &ci, allocator, &view);
+  const VkResult result = vkCreateImageView(device, &ci, allocator, &view);
+  if (result != VK_SUCCESS) {
+    SoDebugError::postWarning("CoinVulkanDetail::createImageView",
+                              "vkCreateImageView failed (VkResult=%d)",
+                              static_cast<int>(result));
+    return VK_NULL_HANDLE;
+  }
   return view;
 }
 

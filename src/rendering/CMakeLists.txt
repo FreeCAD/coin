@@ -17,7 +17,7 @@ set(COIN_RENDERING_FILES
 )
 
 if(COIN_BUILD_VULKAN_RENDERER)
-	list(APPEND COIN_RENDERING_FILES
+	set(COIN_VULKAN_RENDERING_FILES
 		SoVulkanConfig.cpp
 		SoVulkanGpuTimers.cpp
 		SoVulkanRenderBackend/SoVulkanRenderBackendCore.cpp
@@ -87,15 +87,22 @@ set(COIN_RENDERING_INTERNAL_FILES
 
 # build library
 if(COIN_BUILD_SINGLE_LIB)
-	foreach(SRCFILE ${COIN_RENDERING_FILES})
+	foreach(SRCFILE ${COIN_RENDERING_FILES} ${COIN_VULKAN_RENDERING_FILES})
 		set(COIN_SOURCE ${COIN_SOURCE} rendering/${SRCFILE} CACHE INTERNAL "COIN_SOURCE")
 	endforeach(SRCFILE)
 else()
 	add_library(rendering OBJECT ${COIN_RENDERING_FILES})
+	if(COIN_BUILD_VULKAN_RENDERER)
+		# Dedicated object library so C++17 (std::optional, std::clamp) is
+		# requested only for the Vulkan sources, leaving the core and legacy-GL
+		# sources (and every other Coin target) at Coin's default standard.
+		add_library(vulkanrendering OBJECT ${COIN_VULKAN_RENDERING_FILES})
+		target_compile_features(vulkanrendering PRIVATE cxx_std_17)
+	endif()
 endif()
 
 # define documentation
-foreach(SRCFILE ${COIN_RENDERING_FILES})
+foreach(SRCFILE ${COIN_RENDERING_FILES} ${COIN_VULKAN_RENDERING_FILES})
 	set(COIN_DOCUMENTATION_FILES ${COIN_DOCUMENTATION_FILES} ${PROJECT_SOURCE_DIR}/src/rendering/${SRCFILE} CACHE INTERNAL "COIN_DOCUMENTATION_FILES")
 endforeach(SRCFILE)
 foreach(SRCFILE ${COIN_RENDERING_INTERNAL_FILES})

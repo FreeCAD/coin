@@ -172,6 +172,11 @@ if(NOT COIN_BUILD_SINGLE_LIB AND COIN_BUILD_LEGACY_GL_RENDERER)
   set(COIN_SHADOWS_OBJECTS $<TARGET_OBJECTS:shadows>)
 endif()
 
+set(COIN_VULKAN_OBJECTS "")
+if(NOT COIN_BUILD_SINGLE_LIB AND COIN_BUILD_VULKAN_RENDERER)
+  set(COIN_VULKAN_OBJECTS $<TARGET_OBJECTS:vulkanrendering>)
+endif()
+
 # Create the library target
 if(COIN_BUILD_SINGLE_LIB)
   add_library(${PROJECT_NAME} ${COIN_LIBRARY_TYPE} ${COIN_SOURCE} ${COMMON_HDRS} ${ADDITIONAL_HDRS} ${COMMON_RESOURCES}
@@ -212,6 +217,7 @@ else()
     $<TARGET_OBJECTS:profiler>
     $<TARGET_OBJECTS:projectors>
     $<TARGET_OBJECTS:rendering>
+    ${COIN_VULKAN_OBJECTS}
     $<TARGET_OBJECTS:scxml>
     $<TARGET_OBJECTS:sensors>
     $<TARGET_OBJECTS:shaders>
@@ -236,6 +242,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   COIN_BUILD_LEGACY_GL_RENDERER=${COIN_BUILD_LEGACY_GL_RENDERER_VALUE}
   COIN_BUILD_VULKAN_RENDERER=${COIN_BUILD_VULKAN_RENDERER_VALUE}
 )
+
+# Single-library builds compile the Vulkan sources through this target, so the
+# C++17 they need is requested here; the multi-library path asks for it on the
+# dedicated vulkanrendering object library instead.
+if(COIN_BUILD_VULKAN_RENDERER AND COIN_BUILD_SINGLE_LIB)
+  target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+endif()
 
 if(NOT COIN_BUILD_LEGACY_GL_RENDERER AND
    CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND

@@ -1,5 +1,6 @@
 // src/rendering/SoVulkanConfig.cpp
 #include "rendering/SoVulkanConfig.h"
+#include "rendering/SoVulkanDebug.h"
 
 #include "rendering/SoVulkanShared.h"
 
@@ -63,43 +64,43 @@ Config load()
 
   // GPU sub-pixel geometry LOD.
   c.geometryLod.enabled =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD", true);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_GEOM_LOD", true);
   c.geometryLod.always =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD_ALWAYS", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_GEOM_LOD_ALWAYS", false);
   c.geometryLod.stats =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_GEOM_LOD_STATS", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_GEOM_LOD_STATS", false);
   c.geometryLod.minAreaPixels =
-    readNonNegativeFloat("FC_VULKAN_GEOM_LOD_PIXELS", 1.0f);
+    readNonNegativeFloat("COIN_VULKAN_GEOM_LOD_PIXELS", 1.0f);
   c.geometryLod.maxIndices =
-    readPositiveUint("FC_VULKAN_GEOM_LOD_MAX_INDEX", 64000000u);
+    readPositiveUint("COIN_VULKAN_GEOM_LOD_MAX_INDEX", 64000000u);
   c.geometryLod.minPrims =
-    readNonNegativeUint("FC_VULKAN_GEOM_LOD_MIN_PRIMS", 256u);
+    readNonNegativeUint("COIN_VULKAN_GEOM_LOD_MIN_PRIMS", 256u);
 
   // Command recording / queue concurrency.
   c.concurrency.parallelRecord =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_PARALLEL_RECORD", false);
-  if (SoVulkanShared::envSet("FC_VULKAN_RECORD_WORKERS")) {
-    const int v = SoVulkanShared::envInt("FC_VULKAN_RECORD_WORKERS", 0);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_PARALLEL_RECORD", false);
+  if (SoVulkanShared::envSet("COIN_VULKAN_RECORD_WORKERS")) {
+    const int v = SoVulkanShared::envInt("COIN_VULKAN_RECORD_WORKERS", 0);
     if (v >= 1) {
       c.concurrency.recordWorkerCap = static_cast<unsigned int>(v);
     }
   }
   c.concurrency.externalSecondary =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_EXTERNAL_SECONDARY", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_EXTERNAL_SECONDARY", false);
 
   // Raster-path options.
   c.raster.wideLineCpu =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_WLINE_CPU", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_WLINE_CPU", false);
 
   // Diagnostic tooling.
   c.diagnostics.debugUtils =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_DEBUG_UTILS", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_DEBUG_UTILS", false);
   c.diagnostics.debugPrintf =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_DEBUG_PRINTF", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_DEBUG_PRINTF", false);
   c.diagnostics.gpuTimestamps =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_GPU_TIMING", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_GPU_TIMING", false);
   c.diagnostics.pipelineFeedback =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_PIPELINE_FEEDBACK", false);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_PIPELINE_FEEDBACK", false);
 
   return c;
 }
@@ -117,8 +118,7 @@ const Config & get()
 void dump()
 {
   const Config & c = get();
-  std::fprintf(stderr,
-               "[VKCONFIG] geomLod enabled=%d always=%d stats=%d "
+  SoVulkanDebug::post("[VKCONFIG] geomLod enabled=%d always=%d stats=%d "
                "pixels=%.3f maxIndex=%u minPrims=%u\n",
                c.geometryLod.enabled ? 1 : 0,
                c.geometryLod.always ? 1 : 0,
@@ -134,14 +134,12 @@ void dump()
   else {
     std::snprintf(sWorkerCap, sizeof(sWorkerCap), "-");
   }
-  std::fprintf(stderr,
-               "[VKCONFIG] parallel=%d workerCap=%s extSec=%d wlineCpu=%d\n",
+  SoVulkanDebug::post("[VKCONFIG] parallel=%d workerCap=%s extSec=%d wlineCpu=%d\n",
                c.concurrency.parallelRecord ? 1 : 0,
                sWorkerCap,
                c.concurrency.externalSecondary ? 1 : 0,
                c.raster.wideLineCpu ? 1 : 0);
-  std::fprintf(stderr,
-               "[VKCONFIG] diagnostics debugUtils=%d debugPrintf=%d "
+  SoVulkanDebug::post("[VKCONFIG] diagnostics debugUtils=%d debugPrintf=%d "
                "gpuTiming=%d pipelineFeedback=%d\n",
                c.diagnostics.debugUtils ? 1 : 0,
                c.diagnostics.debugPrintf ? 1 : 0,

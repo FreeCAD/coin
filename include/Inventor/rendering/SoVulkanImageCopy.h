@@ -3,8 +3,6 @@
 #ifndef COIN_SOVULKANIMAGECOPY_H
 #define COIN_SOVULKANIMAGECOPY_H
 
-#include <vulkan/vulkan.h>
-
 /*!
   \file SoVulkanImageCopy.h
   \brief Shared "copy a color image into a host-visible buffer" primitive.
@@ -14,7 +12,31 @@
   VulkanFrameDumper).  They differ only in command-buffer ownership (the renderer
   submits a one-shot buffer, the app records into the frame's own), so the copy
   sequence lives here; uses raw entry points, both callers link the loader.
+
+  Compiles only when the installed Coin exports COIN_HAVE_VULKAN_RENDERER, so
+  an installed non-Vulkan Coin does not force a Vulkan SDK dependency on its
+  consumers.
 */
+
+#include <Inventor/C/basic.h>
+
+/* Honour the capability the installed header exports; fall back to off for a
+   pre-existing basic.h that predates it. */
+#ifndef COIN_HAVE_VULKAN_RENDERER
+#define COIN_HAVE_VULKAN_RENDERER 0
+#endif
+
+#if COIN_HAVE_VULKAN_RENDERER
+
+// On Windows <vulkan/vulkan.h> pulls in <windows.h>, whose min/max macros break
+// std::min/std::max; suppress them for this translation unit only.
+#if defined(_WIN32) && !defined(NOMINMAX)
+#  define NOMINMAX
+#endif
+
+// Vulkan declarations; only compiled with COIN_HAVE_VULKAN_RENDERER.
+#include <vulkan/vulkan.h>
+
 namespace SoVulkanImageCopy {
 
 //! Record an image -> buffer copy wrapped in TRANSFER_SRC_OPTIMAL transitions.
@@ -63,5 +85,7 @@ inline void recordToBuffer(VkCommandBuffer cmd, VkImage image, VkBuffer buffer,
 }
 
 } // namespace SoVulkanImageCopy
+
+#endif // COIN_HAVE_VULKAN_RENDERER
 
 #endif // COIN_SOVULKANIMAGECOPY_H

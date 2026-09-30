@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 // Shared combine step for the hand-rolled hash functors (keeps == and hash in sync).

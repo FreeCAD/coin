@@ -16,6 +16,7 @@
 #include <functional>
 #include <unordered_map>
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 #include <Inventor/rendering/SoVulkanRenderTarget.h>

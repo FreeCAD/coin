@@ -1,5 +1,6 @@
 // src/rendering/SoVulkanGpuTimers.cpp
 #include "rendering/SoVulkanGpuTimers.h"
+#include "rendering/SoVulkanDebug.h"
 
 #include <cstdio>
 #include <vector>
@@ -32,8 +33,7 @@ SoVulkanGpuTimers::initialize(VkDevice device, VkPhysicalDevice physicalDevice,
   VkPhysicalDeviceProperties props {};
   vkGetPhysicalDeviceProperties(physicalDevice, &props);
   if (props.limits.timestampPeriod <= 0.0f) {
-    std::fprintf(stderr,
-                 "[RTDBG] gpuTiming disabled (device has no usable timestamps)\n");
+    SoVulkanDebug::post("[RTDBG] gpuTiming disabled (device has no usable timestamps)\n");
     return false;
   }
 
@@ -47,8 +47,7 @@ SoVulkanGpuTimers::initialize(VkDevice device, VkPhysicalDevice physicalDevice,
   vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount,
                                            families.data());
   if (families[queueFamilyIndex].timestampValidBits == 0) {
-    std::fprintf(stderr,
-                 "[RTDBG] gpuTiming disabled (queue family %u has no timestamps)\n",
+    SoVulkanDebug::post("[RTDBG] gpuTiming disabled (queue family %u has no timestamps)\n",
                  queueFamilyIndex);
     return false;
   }
@@ -163,10 +162,9 @@ SoVulkanGpuTimers::endFrame()
       ? static_cast<double>(end - begin) *
           static_cast<double>(this->timestampPeriod) / 1.0e6
       : 0.0;
-    std::fprintf(stderr, "[RTDBG] gpuTiming %s=%.3fms\n",
+    SoVulkanDebug::post("[RTDBG] gpuTiming %s=%.3fms\n",
                  this->scopeNames[readSlot][i] ? this->scopeNames[readSlot][i]
                                                : "scope",
                  ms);
   }
-  std::fflush(stderr);
 }

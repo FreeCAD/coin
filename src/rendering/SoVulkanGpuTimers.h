@@ -3,7 +3,7 @@
 // Per-pass GPU timestamps for the Vulkan renderer.  Internal, not public API.
 // A VkQueryPool of VK_QUERY_TYPE_TIMESTAMP queries ringed over kRingFrames, so
 // results are read only once complete (no pipeline stall).  Gated by
-// diagnostics.gpuTimestamps (FC_VULKAN_GPU_TIMING); disabled, or without device/
+// diagnostics.gpuTimestamps (COIN_VULKAN_GPU_TIMING); disabled, or without device/
 // queue-family timestamp support, every method is a no-op.  Callers bracket passes
 // with beginScope()/endScope(), then endFrame(): it reads back the frame
 // kRingFrames-1 old and prints "[RTDBG] gpuTiming <scope>=<ms>" (cf. cpuTimingRaster).
@@ -13,6 +13,7 @@
 
 #include <cstdint>
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 class SoVulkanGpuTimers {

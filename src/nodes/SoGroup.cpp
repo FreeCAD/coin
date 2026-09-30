@@ -192,10 +192,13 @@
 #include "config.h"
 #endif // HAVE_CONFIG_H
 
+#include "rendering/SoVulkanDebug.h"
+
 #include <cassert>
 
 #include <Inventor/SoInput.h>
 #include <Inventor/SoOutput.h>
+#include <Inventor/C/tidbits.h>
 #include <Inventor/misc/SoChildList.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoGetMatrixAction.h>
@@ -545,9 +548,9 @@ SoGroup::initClass(void)
 void
 SoGroup::doAction(SoAction * action)
 {
-  static const bool irbreadcrumbs = getenv("FC_IR_BREADCRUMB") != nullptr;
+  static const bool irbreadcrumbs = coin_getenv("COIN_IR_BREADCRUMB") != nullptr;
   if (irbreadcrumbs)
-    fprintf(stderr, "[BC-IR] SoGroup::doAction group=%p type=%s children=%d\n",
+    SoVulkanDebug::post("[BC-IR] SoGroup::doAction group=%p type=%s children=%d\n",
             (void *)this, this->getTypeId().getName().getString(),
             this->getChildren()->getLength());
   int numindices;

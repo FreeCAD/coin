@@ -4,14 +4,16 @@
 // Plain wide lines normally expand on the GPU via the instanced vertex shader
 // (buildInstancedLineBuffer() / WideLineInstancedVertex.glsl); this path handles
 // stippled lines (order-dependent distance), line strips, a missing instance
-// buffer, and the FC_VULKAN_WLINE_CPU override.  Per segment it clip-transforms
+// buffer, and the COIN_VULKAN_WLINE_CPU override.  Per segment it clip-transforms
 // the endpoints, near-plane clips (interpolating the hidden end onto the plane),
 // accumulates screen-space pixel distance for glLineStipple, and emits 2 triangles
 // into a per-frame host-visible quad buffer.
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 
+#include <Inventor/SbString.h>
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/errors/SoDebugError.h>
 
@@ -129,11 +131,11 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   static thread_local int wlineDiag = 0;
   const bool isSketchCmd = vertexCount >= 900;
   const bool wdiag = onOwnerThread &&
-    COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")
+    COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")
     && (isSketchCmd || wlineDiag < 40) && wlineDiag < 200;
   if (wdiag) {
     ++wlineDiag;
-    fprintf(stderr, "[WLINE2] enter frame=%u cmd=%p verts=%u idx=%u strip=%d segs=%u lw=%.2f\n",
+    SoVulkanDebug::post("[WLINE2] enter frame=%u cmd=%p verts=%u idx=%u strip=%d segs=%u lw=%.2f\n",
             this->uboFrameIndex, (const void*)&command, vertexCount, count, strip ? 1 : 0,
             static_cast<unsigned>(segmentCount),
             static_cast<double>(lineWidth));
@@ -220,10 +222,10 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   if (slot.buffer != VK_NULL_HANDLE && slot.size > 0 &&
       slot.expandFingerprint == wfp) {
     entry.wideLineVertexCount = slot.expandVertexCount;
-    if (onOwnerThread && COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
+    if (onOwnerThread && COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")) {
       static thread_local uint64_t wlineHits = 0;
       if (++wlineHits % 200 == 0) {
-        fprintf(stderr, "[WLINE-cache] hits=%llu cmd=%p\n",
+        SoVulkanDebug::post("[WLINE-cache] hits=%llu cmd=%p\n",
                 (unsigned long long)wlineHits, (const void*)&command);
       }
     }
@@ -450,7 +452,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   }
   if (outIndex < 9) {
     if (wdiag) {
-      fprintf(stderr, "[WLINE2] FAIL cmd=%p verts=%u segs=%u outIndex=%zu "
+      SoVulkanDebug::post("[WLINE2] FAIL cmd=%p verts=%u segs=%u outIndex=%zu "
                       "skippedW=%zu skippedDeg=%zu\n",
               (const void*)&command, vertexCount,
               static_cast<unsigned>(segmentCount), outIndex,
@@ -461,7 +463,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   if (wdiag) {
     const SbMatrix vwd = params.viewMatrix;
     const SbMatrix pwd(proj);
-    fprintf(stderr, "[WLINE2] OK cmd=%p verts=%u segs=%u quads=%zu "
+    SoVulkanDebug::post("[WLINE2] OK cmd=%p verts=%u segs=%u quads=%zu "
                     "skippedW=%zu skippedDeg=%zu firstSegNDC=(%.3f,%.3f)->(%.3f,%.3f)\n",
             (const void*)&command, vertexCount, static_cast<unsigned>(segmentCount),
             outIndex / 9, diagSkippedW, diagSkippedDeg,
@@ -469,7 +471,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
             static_cast<double>(clipCache[1] / clipCache[3]),
             static_cast<double>(clipCache[4] / clipCache[7]),
             static_cast<double>(clipCache[5] / clipCache[7]));
-    fprintf(stderr, "[WLINE2]   viewT=(%.3f,%.3f,%.3f) v11=%.4f v00=%.4f "
+    SoVulkanDebug::post("[WLINE2]   viewT=(%.3f,%.3f,%.3f) v11=%.4f v00=%.4f "
                     "isId=%d proj00=%.4f proj11=%.4f proj33=%.4f "
                     "cmdViewT=(%.3f,%.3f,%.3f)\n",
             static_cast<double>(vwd[3][0]), static_cast<double>(vwd[3][1]),
@@ -483,15 +485,16 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
             static_cast<double>(command.viewMatrix[3][2]));
   }
 
-  if (onOwnerThread && COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
+  if (onOwnerThread && COIN_VULKAN_ENV_FLAG("COIN_VULKAN_BACKEND_DEBUG")) {
     static thread_local int distLog = 0;
     if (distLog++ < 3) {
-      fprintf(stderr, "[WLINE] verts=%u segs=%u quads=%zu dists:",
-              vertexCount, segmentCount, outIndex / 9);
+      SbString msg;
+      msg.sprintf("[WLINE] verts=%u segs=%u quads=%zu dists:",
+                  vertexCount, segmentCount, outIndex / 9);
       for (size_t q = 0; q < outIndex && q < 60; q += 9) {
-        fprintf(stderr, " %.1f", static_cast<double>(quads[q + 8]));
+        msg += SbString().sprintf(" %.1f", static_cast<double>(quads[q + 8]));
       }
-      fprintf(stderr, "\n");
+      SoVulkanDebug::post("%s", msg.getString());
     }
   }
 
@@ -707,7 +710,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
   splitCmds.clear();
   const uint32_t W = this->maxRecordWorkers;
   const bool canSplit = W > 1 && !this->recordWorkers.empty() &&
-    !COIN_VULKAN_ENV_FLAG("FC_VULKAN_WLINE_SERIAL");
+    !COIN_VULKAN_ENV_FLAG("COIN_VULKAN_WLINE_SERIAL");
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
     if (!isWideLine(command, -1, this->interactionLodActive)) continue;

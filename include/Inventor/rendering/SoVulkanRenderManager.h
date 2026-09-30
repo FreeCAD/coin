@@ -3,16 +3,21 @@
 #ifndef COIN_SOVULKANRENDERMANAGER_H
 #define COIN_SOVULKANRENDERMANAGER_H
 
-// Compiled only with COIN_BUILD_VULKAN_RENDERER; otherwise expands to nothing.
+#include <Inventor/C/basic.h>
 
-#ifndef COIN_BUILD_VULKAN_RENDERER
-#define COIN_BUILD_VULKAN_RENDERER 0
+// Compiled only with the capability the installed Coin exports
+// (COIN_HAVE_VULKAN_RENDERER); otherwise expands to nothing.
+
+/* Honour the installed capability; fall back to off for a pre-existing
+   basic.h that predates it. */
+#ifndef COIN_HAVE_VULKAN_RENDERER
+#define COIN_HAVE_VULKAN_RENDERER 0
 #endif
 
 // Public settings blob; always available (no Vulkan dependency).
 #include <Inventor/rendering/SoVulkanViewSettings.h>
 
-#if COIN_BUILD_VULKAN_RENDERER
+#if COIN_HAVE_VULKAN_RENDERER
 
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbVec2s.h>
@@ -22,13 +27,17 @@
 #include <vector>
 
 // Vulkan handle types for renderExternal(); only compiled with the renderer.
+// On Windows <vulkan/vulkan.h> pulls in <windows.h>, whose min/max macros break
+// std::min/std::max; suppress them for this translation unit only.
+#if defined(_WIN32) && !defined(NOMINMAX)
+#  define NOMINMAX
+#endif
 #include <vulkan/vulkan.h>
 
 class SbViewportRegion;
 class SoCamera;
 class SoNode;
 class SoIRRenderAction;
-class SoVulkanRenderBackend;
 
 struct SoVulkanDeviceContext;
 
@@ -138,7 +147,7 @@ public:
 
   //! Record the frame's GPU-timestamp query reset on the caller's buffer,
   //! immediately before vkCmdBeginRenderPass (vkCmdResetQueryPool is illegal
-  //! inside a pass).  No-op unless FC_VULKAN_GPU_TIMING is active.
+  //! inside a pass).  No-op unless COIN_VULKAN_GPU_TIMING is active.
   void resetExternalGpuQueries(VkCommandBuffer commandBuffer);
 
   //! Host's camera-anchored lights + ambient for both backends (empty list restores per-command IR lighting).
@@ -147,9 +156,6 @@ public:
   //! Interaction LOD while moving: drop motion-invisible work, restore quality when stopped.
   void setInteractionLod(SbBool active);
 
-  SoVulkanRenderBackend * getBackend(void) const;
-
-
   //! Ordinal of the last presented frame (1-based; 0 before first render), bumped once per render.
   uint32_t getRenderFrameCount(void) const;
 
@@ -157,6 +163,6 @@ private:
   class SoVulkanRenderManagerP * pimpl;
 };
 
-#endif // COIN_BUILD_VULKAN_RENDERER
+#endif // COIN_HAVE_VULKAN_RENDERER
 
 #endif // COIN_SOVULKANRENDERMANAGER_H

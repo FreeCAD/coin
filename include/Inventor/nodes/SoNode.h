@@ -96,7 +96,6 @@ public:
   virtual SbBool affectsState(void) const;
 
   virtual void doAction(SoAction * action);
-  virtual void IRRender(SoIRRenderAction * action);
   virtual void GLRender(SoGLRenderAction * action);
   virtual void GLRenderBelowPath(SoGLRenderAction * action);
   virtual void GLRenderInPath(SoGLRenderAction * action);
@@ -123,6 +122,13 @@ public:
 
   void writeInstance(SoOutput * out) override;
   virtual SoNode * addToCopyDict(void) const;
+
+  //! Retained-IR hook.  Declared after every pre-existing virtual so the slot
+  //! order of the other virtuals is unchanged; placing it beside the action
+  //! methods above would shift every later vtable slot and break dispatch for
+  //! prebuilt consumers (Pivy, FreeCAD, third-party nodes) at run time.
+  virtual void IRRender(SoIRRenderAction * action);
+
   virtual void copyContents(const SoFieldContainer * from,
                             SbBool copyconnections) override;
   SoFieldContainer * copyThroughConnection(void) const override;

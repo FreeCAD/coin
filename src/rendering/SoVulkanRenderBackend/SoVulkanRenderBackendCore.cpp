@@ -7,6 +7,7 @@
 // frame-slot and deferred-destroy bookkeeping.
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanShared.h"
 #include "rendering/SoVulkanConfig.h"
@@ -658,8 +659,14 @@ SoVulkanRenderBackend::waitForInFlightFrames()
     }
   }
   if (pending.empty()) return;
-  vkWaitForFences(this->device, static_cast<uint32_t>(pending.size()),
-                  pending.data(), VK_TRUE, UINT64_MAX);
+  const VkResult result = vkWaitForFences(
+      this->device, static_cast<uint32_t>(pending.size()), pending.data(), VK_TRUE,
+      UINT64_MAX);
+  if (result != VK_SUCCESS) {
+    SoDebugError::postWarning("SoVulkanRenderBackend::waitForInFlightFrames",
+                              "vkWaitForFences failed (VkResult=%d)",
+                              static_cast<int>(result));
+  }
 }
 
 bool
@@ -988,9 +995,20 @@ SoVulkanRenderBackend::beginFrame()
   if (slot < this->frameFencePending.size() &&
       this->frameFencePending[slot] &&
       this->frameFences[slot] != VK_NULL_HANDLE) {
-    vkWaitForFences(this->device, 1, &this->frameFences[slot], VK_TRUE,
-                    UINT64_MAX);
-    vkResetFences(this->device, 1, &this->frameFences[slot]);
+    const VkResult waitResult = vkWaitForFences(
+        this->device, 1, &this->frameFences[slot], VK_TRUE, UINT64_MAX);
+    if (waitResult != VK_SUCCESS) {
+      SoDebugError::postWarning("SoVulkanRenderBackend::beginFrame",
+                                "vkWaitForFences failed (VkResult=%d)",
+                                static_cast<int>(waitResult));
+    }
+    const VkResult resetResult =
+        vkResetFences(this->device, 1, &this->frameFences[slot]);
+    if (resetResult != VK_SUCCESS) {
+      SoDebugError::postWarning("SoVulkanRenderBackend::beginFrame",
+                                "vkResetFences failed (VkResult=%d)",
+                                static_cast<int>(resetResult));
+    }
     this->frameFencePending[slot] = 0;
   }
   // Dynamic state is per-recording: the previous frame's buffer may have left a different
@@ -1432,8 +1450,8 @@ SoVulkanRenderBackend::createSubPixelCullPipeline()
 bool
 SoVulkanRenderBackend::createBackgroundResources()
 {
-  if (SoVulkanShared::envFlagEnabled("FC_VULKAN_BREADCRUMBS")) {
-    fprintf(stderr, "[VK-TRACE] SoVulkanRenderBackend::createBackgroundResources enter\n");
+  if (SoVulkanShared::envFlagEnabled("COIN_VULKAN_BREADCRUMBS")) {
+    SoVulkanDebug::post("[VK-TRACE] SoVulkanRenderBackend::createBackgroundResources enter\n");
   }
   if (!this->createShaderModule(coin_vulkan_background_vertex_spirv,
                                 coin_vulkan_background_vertex_spirv_count,

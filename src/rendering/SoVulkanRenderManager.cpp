@@ -1,6 +1,7 @@
 // src/rendering/SoVulkanRenderManager.cpp
 
 #include <Inventor/rendering/SoVulkanRenderManager.h>
+#include "rendering/SoVulkanDebug.h"
 
 #include <Inventor/SoPath.h>
 #include <Inventor/SbViewportRegion.h>
@@ -55,24 +56,18 @@ namespace {
 // Cached env-var checks: on the per-frame path, and getenv() is not
 // thread-safe, so resolve once. All use SoVulkanShared::envFlagEnabled
 // (honors "0"/"false"/"off" opt-outs).
-bool clipDebugEnabled()
-{
-  static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_CLIP_DEBUG");
-  return enabled;
-}
-
 bool breadcrumbsEnabled()
 {
-  static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_BREADCRUMBS");
+  static const bool enabled = SoVulkanShared::envFlagEnabled("COIN_VULKAN_BREADCRUMBS");
   return enabled;
 }
 
-// Per-phase CPU timing for the fcprobe harness, gated by FC_VULKAN_FRAME_TIMING.
+// Per-phase CPU timing for the fcprobe harness, gated by COIN_VULKAN_FRAME_TIMING.
 // Emits its own [RTDBG] cpuTiming (clip/apply/restamp/sort) so the frameTiming
 // regex in vk_profile_probe.check.py stays untouched.
 bool frameTimingEnabled()
 {
-  static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_FRAME_TIMING");
+  static const bool enabled = SoVulkanShared::envFlagEnabled("COIN_VULKAN_FRAME_TIMING");
   return enabled;
 }
 
@@ -94,8 +89,7 @@ int vkLightFpDbgBudget = 192;
   if (!vkRenderBreadcrumbEnabled()) {
     return;
   }
-  std::fprintf(stderr, "[VKRENDER] %ld %s\n", vkRenderBreadcrumbNowUs(), phase);
-  std::fflush(stderr);
+  SoVulkanDebug::post("[VKRENDER] %ld %s\n", vkRenderBreadcrumbNowUs(), phase);
 }
 
 int vkRenderBreadcrumbLogBudget = 0;
@@ -104,15 +98,6 @@ void vkRenderBreadcrumbSince(long startUs, long thresholdUs, const char* phase)
 {
   SoVulkanShared::breadcrumbSince(vkRenderBreadcrumbLogBudget, "[VKRENDER]",
                                   startUs, thresholdUs, phase);
-}
-
-// FC_VULKAN_CLIP_VERBOSE: log near/far every frame instead of the sparse
-// sampler, so a probe can assert the auto-clip planes recompute after a scene
-// transform change (cached-bbox correctness case).
-bool clipVerboseEnabled()
-{
-  static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_CLIP_VERBOSE");
-  return enabled;
 }
 
 // Content fingerprint of the first \a mainCount commands: mixes model matrix,
@@ -155,12 +140,12 @@ uint64_t computeSceneFingerprint(const SoIRRenderAction & action, int mainCount)
   return h;
 }
 
-// FC_VULKAN_IR_REPLAY=0 forces a full scene re-traversal every frame.
+// COIN_VULKAN_IR_REPLAY=0 forces a full scene re-traversal every frame.
 bool irReplayEnabled()
 {
   // Default on; shared helper honors the full 0/false/off opt-out set.
   static const bool enabled =
-    SoVulkanShared::envFlagEnabled("FC_VULKAN_IR_REPLAY", true);
+    SoVulkanShared::envFlagEnabled("COIN_VULKAN_IR_REPLAY", true);
   return enabled;
 }
 
@@ -379,10 +364,6 @@ public:
                              SbBool clearzbuffer,
                              SoDrawList *& drawlist,
                              SoRenderParams & params);
-
-  // Dump the [CLIP] trace (FC_VULKAN_CLIP_DEBUG; CLIP_VERBOSE adds the
-  // per-25-frame lines). Extracted from the hot path; inert unless enabled.
-  void dumpClipDebug(SoDrawList & list, const SoRenderParams & params);
 
 };
 
@@ -699,8 +680,8 @@ SoVulkanRenderManager::initialize(SoVulkanDeviceContext * context)
     return FALSE;
   }
   this->pimpl->backendInitialized = TRUE;
-  // One-shot after successful init; FC_VULKAN_BACKEND_DEBUG gets a config dump.
-  if (SoVulkanShared::envFlagEnabled("FC_VULKAN_BACKEND_DEBUG")) {
+  // One-shot after successful init; COIN_VULKAN_BACKEND_DEBUG gets a config dump.
+  if (SoVulkanShared::envFlagEnabled("COIN_VULKAN_BACKEND_DEBUG")) {
     SoVulkanConfig::dump();
   }
   // Retain the borrowed context (used by the same-device early return); cleared in shutdown().
@@ -819,24 +800,6 @@ SoVulkanRenderManagerP::computeGraphFingerprint() const
   mixHash(h, reinterpret_cast<uintptr_t>(this->scene));
   mixHash(h, reinterpret_cast<uintptr_t>(this->overlayScene));
   mixHash(h, reinterpret_cast<uintptr_t>(this->decorationScene));
-  if (SoVulkanShared::envString("FC_VULKAN_LIGHTREPLAY_DBG")) {
-    uint64_t hScene = 0xcbf29ce484222325ULL;
-    uint64_t hOverlay = 0xcbf29ce484222325ULL;
-    uint64_t hDecor = 0xcbf29ce484222325ULL;
-    graphFingerprintWalk(this->scene, this->camera, hScene);
-    graphFingerprintWalk(this->overlayScene, this->camera, hOverlay);
-    graphFingerprintWalk(this->decorationScene, this->camera, hDecor);
-    if (vkLightFpDbgBudget-- > 0) {
-      fprintf(stderr,
-              "[FP] scene=%016lx overlay=%016lx decor=%016lx extRev=%llu"
-              " size=%dx%d\n",
-              (unsigned long)hScene, (unsigned long)hOverlay,
-              (unsigned long)hDecor,
-              (unsigned long long)this->externalRevision,
-              (int)this->viewportRegion.getViewportSizePixels()[0],
-              (int)this->viewportRegion.getViewportSizePixels()[1]);
-    }
-  }
   // The replay gate keys on the MAIN scene only (plus viewport and external
   // revision). Overlay/decoration node-ids churn every frame (the nav cube/axis
   // cross mirror the camera), so folding them in forced a re-traversal every
@@ -1073,26 +1036,6 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   // meaningful (ortho extends behind the projection point), matching
   // SoRenderManagerP::setClippingPlanes; bailing would blank a fresh document.
 
-  if (clipDebugEnabled()) {
-    static float lastNear = -1.0f, lastFar = -1.0f;
-    const bool empty = box.isEmpty();
-    if (empty || SbAbs(nearval - lastNear) > 0.05f * SbMax(SbAbs(nearval), 1.0f)
-        || SbAbs(farval - lastFar) > 0.05f * SbMax(SbAbs(farval), 1.0f)) {
-      lastNear = nearval;
-      lastFar = farval;
-      SbVec3f p = camera->position.getValue();
-      SbRotation o = camera->orientation.getValue();
-      float q0, q1, q2, q3;
-      o.getValue(q0, q1, q2, q3);
-      float x0, y0, z0, x1, y1, z1;
-      box.getBounds(x0, y0, z0, x1, y1, z1);
-      fprintf(stderr, "[CLIP] pos=(%.3f,%.3f,%.3f) quat=(%.3f,%.3f,%.3f,%.3f) "
-                      "boxz=[%.3f,%.3f] empty=%d nearval=%.6f farval=%.6f closest=%.6f shiftZ=%.6f\n",
-              p[0], p[1], p[2], q0, q1, q2, q3,
-              z0, z1, empty ? 1 : 0, nearval, farval, -zmax, this->cameraShiftZ);
-    }
-  }
-
   // Never let the near plane fall beyond the closest geometry in front: zoomed
   // in the 1% offset and VARIABLE_NEAR_PLANE floor can push it past surfaces.
   // Clamp only while the camera is outside the box (closest > 0); closest is from
@@ -1197,10 +1140,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   action.setViewportRegion(this->viewportRegion);
   {
     static bool loggedAction = false;
-    if (!loggedAction && SoVulkanShared::envFlagEnabled("FC_VULKAN_BACKEND_DEBUG")) {
+    if (!loggedAction && SoVulkanShared::envFlagEnabled("COIN_VULKAN_BACKEND_DEBUG")) {
       loggedAction = true;
-      fprintf(stderr,
-              "[DRAWLIST] manager irAction=%p overlayAction=%p scene=%p\n",
+      SoVulkanDebug::post("[DRAWLIST] manager irAction=%p overlayAction=%p scene=%p\n",
               (void *)&this->irAction, (void *)&this->overlayIrAction,
               (void *)this->scene);
     }
@@ -1226,7 +1168,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
           cheight = static_cast<const SoOrthographicCamera*>(this->camera)->height.getValue();
         }
       }
-      fprintf(stderr, "[VK-TRACE] params cam=%s pos=(%.3f,%.3f,%.3f) height=%.3f "
+      SoVulkanDebug::post("[VK-TRACE] params cam=%s pos=(%.3f,%.3f,%.3f) height=%.3f "
                       "vpAspect=%.3f autoClip=%d near=%.4f far=%.4f\n",
               cname,
               static_cast<double>(cpos[0]), static_cast<double>(cpos[1]),
@@ -1242,7 +1184,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     static bool logged = false;
     if (!logged) {
       logged = true;
-      fprintf(stderr, "[VK-TRACE] prepareRenderParams backgroundGradient=%d\n", this->backgroundGradient ? 1 : 0);
+      SoVulkanDebug::post("[VK-TRACE] prepareRenderParams backgroundGradient=%d\n", this->backgroundGradient ? 1 : 0);
     }
   }
   params.backgroundGradient = this->backgroundGradient;
@@ -1425,7 +1367,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
         list.addCommand(ovl.getCommand(i));
       }
     }
-    if (SoVulkanShared::envFlagEnabled("FC_VULKAN_BACKEND_DEBUG")) {
+    if (SoVulkanShared::envFlagEnabled("COIN_VULKAN_BACKEND_DEBUG")) {
       int mainMax = 0;
       int totalMax = 0;
       for (int i = 0; i < list.getNumCommands(); ++i) {
@@ -1433,8 +1375,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
         if (i < numMain && vc > mainMax) mainMax = vc;
         if (vc > totalMax) totalMax = vc;
       }
-      fprintf(stderr,
-              "[DRAWLIST] main=%d total=%d replayed=%d mainMaxVc=%d totalMaxVc=%d\n",
+      SoVulkanDebug::post("[DRAWLIST] main=%d total=%d replayed=%d mainMaxVc=%d totalMaxVc=%d\n",
               numMain, list.getNumCommands(), irReplayed ? 1 : 0, mainMax,
               totalMax);
     }
@@ -1509,114 +1450,6 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     params.projMatrix = first.projMatrix;
   }
 
-  // Diagnose a manager-vs-scene camera mismatch: an in-scene camera's
-  // doAction() state overrides the manager camera for later geometry, so the
-  // rendered view/projection comes from a different camera.
-  if (clipDebugEnabled()) {
-    static bool sceneCamLogged = false;
-    static int sceneDumpCount = 0;
-    if ((!sceneCamLogged || sceneDumpCount < 3) && this->scene) {
-      sceneCamLogged = true;
-      sceneDumpCount += 1;
-      if (this->scene->getTypeId().isDerivedFrom(SoSeparator::getClassTypeId())) {
-        SoSeparator * sep = static_cast<SoSeparator*>(this->scene);
-        for (int i = 0; i < sep->getNumChildren(); ++i) {
-          SoNode * child = sep->getChild(i);
-          const char * extra = "";
-          if (child->isOfType(SoCamera::getClassTypeId())) {
-            static char buf[160];
-            std::snprintf(buf, sizeof(buf),
-                          " ptr=%p (manager-camera=%p %s)",
-                          (void*)child, (void*)this->camera,
-                          this->camera
-                            ? this->camera->getTypeId().getName().getString()
-                            : "null");
-            extra = buf;
-          }
-          fprintf(stderr, "[CLIP] SCENECHILD[%d] %s%s\n", i,
-                  child->getTypeId().getName().getString(), extra);
-        }
-      }
-      {
-        // Recursive type-only dump (up to depth 7) to spot stray camera/matrix nodes.
-        std::function<void(SoNode*, int, int*)> dumpLevel =
-            [&dumpLevel](SoNode * n, int depth, int * counter) {
-          if (!n) return;
-          bool isGroup = n->getTypeId().isDerivedFrom(SoGroup::getClassTypeId());
-          SoGroup * g = isGroup ? static_cast<SoGroup*>(n) : nullptr;
-          if (g) {
-            fprintf(stderr, "[CLIP] TREE%*s%s (%d children)\n", depth * 2, "",
-                    n->getTypeId().getName().getString(), g->getNumChildren());
-            if (depth < 7) {
-              for (int i = 0; i < g->getNumChildren(); ++i) {
-                *counter += 1;
-                if (*counter > 120) break;
-                SoNode * c = g->getChild(i);
-                if (c->getTypeId().isDerivedFrom(SoGroup::getClassTypeId())) {
-                  dumpLevel(c, depth + 1, counter);
-                }
-                else {
-                  const char * extra = "";
-                  if (c->getTypeId().isDerivedFrom(SoScale::getClassTypeId())) {
-                    static char sbuf[128];
-                    const SoScale * s = static_cast<const SoScale*>(c);
-                    SbVec3f sf = s->scaleFactor.getValue();
-                    std::snprintf(sbuf, sizeof(sbuf), " scaleFactor=(%.3f,%.3f,%.3f)",
-                                  sf[0], sf[1], sf[2]);
-                    extra = sbuf;
-                  }
-                  fprintf(stderr, "[CLIP] TREE%*s%s%s\n", (depth + 1) * 2, "",
-                          c->getTypeId().getName().getString(), extra);
-                }
-              }
-            }
-          }
-          else {
-            fprintf(stderr, "[CLIP] TREE%*s%s\n", depth * 2, "",
-                    n->getTypeId().getName().getString());
-          }
-        };
-        int counter = 0;
-        dumpLevel(this->scene, 0, &counter);
-      }
-      SoSearchAction search;
-      search.setType(SoCamera::getClassTypeId());
-      search.setSearchingAll(TRUE);
-      search.apply(this->scene);
-      const SoPathList & paths = search.getPaths();
-      for (int i = 0; i < paths.getLength(); ++i) {
-        SoCamera * c = static_cast<SoCamera*>(paths[i]->getTail());
-        fprintf(stderr, "[CLIP] SCENE-CAMERA #%d ptr=%p %s pos=(%.2f,%.2f,%.2f) "
-                        "near=%.4f far=%.4f\n",
-                i, (void*)c, c->getTypeId().getName().getString(),
-                c->position.getValue()[0], c->position.getValue()[1],
-                c->position.getValue()[2],
-                c->nearDistance.getValue(), c->farDistance.getValue());
-      }
-      if (paths.getLength() > 0) {
-        fprintf(stderr, "[CLIP] SCENE-CAMERAS=%d manager-camera=%p %s\n",
-                paths.getLength(), (void*)this->camera,
-                this->camera ? this->camera->getTypeId().getName().getString() : "null");
-      }
-      SoType brepType = SoType::fromName("SoBrepFaceSet");
-      if (brepType != SoType::badType()) {
-        SoSearchAction bs;
-        bs.setType(brepType);
-        bs.setSearchingAll(TRUE);
-        bs.apply(this->scene);
-        fprintf(stderr, "[CLIP] SCENE-BREPFACESETS=%d\n", bs.getPaths().getLength());
-      }
-      SoType cubeType = SoType::fromName("Cube");
-      if (cubeType != SoType::badType()) {
-        SoSearchAction cs;
-        cs.setType(cubeType);
-        cs.setSearchingAll(TRUE);
-        cs.apply(this->scene);
-        fprintf(stderr, "[CLIP] SCENE-CUBES=%d\n", cs.getPaths().getLength());
-      }
-    }
-  }
-
   if (matricesBcStart) {
     vkRenderBreadcrumbSince(matricesBcStart, 2000, "prepare matrix build end");
   }
@@ -1669,26 +1502,6 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       }
     }
   }
-  if (SoVulkanShared::envString("FC_VULKAN_LIGHTREPLAY_DBG") && vkLightFrameDbgBudget-- > 0) {
-    const SbMatrix & v = params.viewMatrix;
-    float qx = 0, qy = 0, qz = 0, qw = 1;
-    SbVec3f camPos(0.0f, 0.0f, 0.0f);
-    if (this->camera) {
-      const SbRotation camRot = this->camera->orientation.getValue();
-      camRot.getValue(qx, qy, qz, qw);
-      camPos = this->camera->position.getValue();
-    }
-    fprintf(stderr,
-            "[VKS] fp=%016lx replayed=%d lastViewValid=%d restamped=%d"
-            " viewT=(%.2f,%.2f,%.2f) viewM00=%.3f camPos=(%.1f,%.1f,%.1f)"
-            " camQ=(%.3f,%.3f,%.3f,%.3f) scene=%p\n",
-            (unsigned long)graphFp,
-            (int)irReplayed, (int)this->lastFrameViewValid, dbgRestamped,
-            v[0][3], v[1][3], v[2][3], v[0][0],
-            camPos[0], camPos[1], camPos[2],
-            qx, qy, qz, qw,
-            reinterpret_cast<const void *>(this->scene));
-  }
   const long sortBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const long sortT0 = wantCpuTiming ? vkRenderBreadcrumbNowUs() : 0;
   if (irReplayed && this->lastSortValid &&
@@ -1708,12 +1521,10 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   }
   if (wantCpuTiming) {
     cpuSortMs = (vkRenderBreadcrumbNowUs() - sortT0) * 0.001;
-    std::fprintf(stderr,
-                 "[RTDBG] cpuTiming clip=%.2f apply=%.2f restamp=%.2f "
+    SoVulkanDebug::post("[RTDBG] cpuTiming clip=%.2f apply=%.2f restamp=%.2f "
                  "sort=%.2f cmds=%d\n",
                  cpuClipMs, cpuApplyMs, cpuReplayMs, cpuSortMs,
                  list.getNumCommands());
-    std::fflush(stderr);
   }
   vkRenderBreadcrumbSince(sortBcStart, 2000, "prepare buildSortedOrder end");
   drawlist = &list;
@@ -1749,212 +1560,14 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       params.viewMatrix[3][3], params.projMatrix[3][3], params.projMatrix[2][3]);
   }
 
-  // Reconstruct near/far from the projection matrix and compare with the auto-
-  // clipped values. Diagnostic: the [CLIP] traces walk draw-list vertices (seconds
-  // per dump on a large mesh), so it MUST stay behind FC_VULKAN_CLIP_DEBUG.
-  if (clipDebugEnabled()) {
-    this->dumpClipDebug(list, params);
-  }
-
   return TRUE;
 }
 
-
-// [CLIP] trace, gated by FC_VULKAN_CLIP_DEBUG (CLIP_VERBOSE adds lines). Kept
-// out of prepareRenderParams() so the print-only branch does not dominate.
-void
-SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
-                                      const SoRenderParams & params)
-{
-  static int frames = 0;
-  ++frames;
-  if (clipVerboseEnabled() || frames == 10 || frames == 50 ||
-      frames % 25 == 0) {
-    SbMatrix m = params.projMatrix;
-    SbMatrix v = params.viewMatrix;
-    // Perspective: col2=(0,0,a,-1), col3=(0,0,b,0), a=-(f+n)/(f-n),
-    // b=-2fn/(f-n) -> n=b/(a-1), f=b/(a+1). Ortho: m22=-2/(f-n),
-    // m32=-(f+n)/(f-n) -> n=(m32+1)/m22, f=(m32-1)/m22.
-    float nearf = -1.0f, farf = -1.0f;
-    if (m[2][3] == -1.0f && m[3][3] == 0.0f) {
-      const float a = m[2][2];
-      const float b = m[3][2];
-      nearf = b / (a - 1.0f);
-      farf = b / (a + 1.0f);
-    }
-    else {
-      const float m22 = m[2][2];
-      const float m32 = m[3][2];
-      if (m22 != 0.0f) {
-        nearf = (m32 + 1.0f) / m22;
-        farf = (m32 - 1.0f) / m22;
-      }
-    }
-    fprintf(stderr,
-            "[CLIP] cmd0 cam-near=%.4f cam-far=%.4f use-near=%.4f use-far=%.4f "
-            "focal=%.4f pos=(%.2f,%.2f,%.2f) "
-            "ncd=%.4f fcd=%.4f cmds=%d m00=%.3f m11=%.3f m22=%.4f m32=%.4f m23=%.4f\n",
-            this->camera ? this->camera->nearDistance.getValue() : -1.0f,
-            this->camera ? this->camera->farDistance.getValue() : -1.0f,
-            this->computedNear, this->computedFar,
-            this->camera ? this->camera->focalDistance.getValue() : -1.0f,
-            this->camera ? this->camera->position.getValue()[0] : 0.0f,
-            this->camera ? this->camera->position.getValue()[1] : 0.0f,
-            this->camera ? this->camera->position.getValue()[2] : 0.0f,
-            nearf, farf,
-            list.getNumCommands(), m[0][0], m[1][1], m[2][2], m[3][2], m[2][3]);
-    if (list.getNumCommands() > 0) {
-      const int show = std::min(4, static_cast<int>(list.getNumCommands()));
-      for (int ci = 0; ci < show; ++ci) {
-        const SoRenderCommand & c0 = list.getCommand(ci);
-        SbMatrix cm;
-        c0.modelMatrix.getValue(cm);
-        fprintf(stderr,
-                "[CLIP] cmd%d pass=%d verts=%u model00=%.3f trans=(%.3f,%.3f,%.3f) "
-                "m11=%.3f m22=%.3f\n",
-                ci, static_cast<int>(c0.pass),
-                c0.geometry.vertexCount,
-                cm[0][0], cm[3][0], cm[3][1], cm[3][2],
-                cm[1][1], cm[2][2]);
-        if (ci == 0 && c0.geometry.positions && c0.geometry.vertexCount >= 3) {
-          const float * p = c0.geometry.positions;
-          float mnx = 1e30f, mny = 1e30f, mnz = 1e30f, mxx = -1e30f, myy = -1e30f, mzz = -1e30f;
-          const unsigned nv = c0.geometry.vertexCount;
-          for (unsigned v = 0; v < nv; ++v) {
-            mnx = std::min(mnx, p[v*3+0]); mny = std::min(mny, p[v*3+1]); mnz = std::min(mnz, p[v*3+2]);
-            mxx = std::max(mxx, p[v*3+0]); myy = std::max(myy, p[v*3+1]); mzz = std::max(mzz, p[v*3+2]);
-          }
-          fprintf(stderr, "[CLIP] cmd0 verts0=(%.2f,%.2f,%.2f) bbox=[%.2f,%.2f]x[%.2f,%.2f]x[%.2f,%.2f]\n",
-                  p[0], p[1], p[2], mnx, mxx, mny, myy, mnz, mzz);
-        }
-        if (ci == 2 && c0.geometry.positions && c0.geometry.vertexCount >= 3) {
-          const float * p = c0.geometry.positions;
-          float mnx = 1e30f, mny = 1e30f, mnz = 1e30f, mxx = -1e30f, myy = -1e30f, mzz = -1e30f;
-          const unsigned nv = c0.geometry.vertexCount;
-          for (unsigned v = 0; v < nv; ++v) {
-            mnx = std::min(mnx, p[v*3+0]); mny = std::min(mny, p[v*3+1]); mnz = std::min(mnz, p[v*3+2]);
-            mxx = std::max(mxx, p[v*3+0]); myy = std::max(myy, p[v*3+1]); mzz = std::max(mzz, p[v*3+2]);
-          }
-          fprintf(stderr, "[CLIP] cmd2 verts0=(%.2f,%.2f,%.2f) bbox=[%.2f,%.2f]x[%.2f,%.2f]x[%.2f,%.2f]\n",
-                  p[0], p[1], p[2], mnx, mxx, mny, myy, mnz, mzz);
-        }
-      }
-    }
-    // Compare box-center in camera space from the camera NODE's fields vs
-    // params.viewMatrix; disagreement means the GPU matrix is not from this node.
-    if (this->camera && this->scene) {
-      SoGetBoundingBoxAction bba(this->viewportRegion);
-      bba.apply(this->scene);
-      SbBox3f wbox = bba.getBoundingBox();
-      if (!wbox.isEmpty()) {
-        SbVec3f center = wbox.getCenter();
-        SbVec3f camBased, mtxBased;
-        SbMatrix camMat, rotMat;
-        camMat.setTranslate(-this->camera->position.getValue());
-        rotMat = this->camera->orientation.getValue().inverse();
-        camMat.multRight(rotMat);
-        camMat.multVecMatrix(center, camBased);
-        params.viewMatrix.multVecMatrix(center, mtxBased);
-        float q0, q1, q2, q3;
-        this->camera->orientation.getValue().getValue(q0, q1, q2, q3);
-        fprintf(stderr,
-                "[CLIP] centerCam cam=(%.2f,%.2f,%.2f) mtx=(%.2f,%.2f,%.2f) "
-                "quat=(%.3f,%.3f,%.3f,%.3f) dist=%.2f\n",
-                camBased[0], camBased[1], camBased[2],
-                mtxBased[0], mtxBased[1], mtxBased[2],
-                q0, q1, q2, q3,
-                (this->camera->position.getValue() - center).length());
-      }
-    }
-  }
-  static int typeLogged = 0;
-  if (typeLogged++ < 3 && this->camera && list.getNumCommands() > 0) {
-    fprintf(stderr, "[CLIP] camera-type=%s pos=(%.3f,%.3f,%.3f) ortho=%d persp=%d camptr=%p\n",
-            this->camera->getTypeId().getName().getString(),
-            this->camera->position.getValue()[0],
-            this->camera->position.getValue()[1],
-            this->camera->position.getValue()[2],
-            this->camera->isOfType(SoOrthographicCamera::getClassTypeId()) ? 1 : 0,
-            this->camera->isOfType(SoPerspectiveCamera::getClassTypeId()) ? 1 : 0,
-            (void*)this->camera);
-  }
-
-  // Cross-check near/far: transform the scene bbox by the ACTUAL view matrix
-  // and print the z-range; a mismatch with [CLIP] boxz isolates whether the
-  // near plane cuts geometry due to a wrong camera-space box.
-  if (frames % 250 == 0 && this->scene) {
-    SoGetBoundingBoxAction bboxAction(this->viewportRegion);
-    bboxAction.apply(this->scene);
-    SbBox3f wbox = bboxAction.getBoundingBox();
-    if (!wbox.isEmpty()) {
-      float zmin = 1e30f, zmax = -1e30f;
-      const SbVec3f & mn = wbox.getMin();
-      const SbVec3f & mx = wbox.getMax();
-      for (int ix = 0; ix < 2; ++ix) {
-        for (int iy = 0; iy < 2; ++iy) {
-          for (int iz = 0; iz < 2; ++iz) {
-            SbVec3f c(ix ? mx[0] : mn[0],
-                      iy ? mx[1] : mn[1],
-                      iz ? mx[2] : mn[2]);
-            SbVec3f v;
-            params.viewMatrix.multVecMatrix(c, v);
-            zmin = std::min(zmin, v[2]);
-            zmax = std::max(zmax, v[2]);
-          }
-        }
-      }
-      SbVec3f center = wbox.getCenter();
-      fprintf(stderr,
-              "[CLIP] viewbox worldCenter=(%.2f,%.2f,%.2f) "
-              "worldSize=(%.2f,%.2f,%.2f) viewZ=[%.3f,%.3f]\n",
-              center[0], center[1], center[2],
-              wbox.getSize()[0], wbox.getSize()[1], wbox.getSize()[2],
-              zmin, zmax);
-    }
-  }
-
-  // Project the first commands' vertices into NDC as the backend shader does
-  // (gl_Position = proj * view * model * pos) to check they land in the clip volume.
-  if (frames % 250 == 0 && list.getNumCommands() > 0) {
-    auto mv = [](const SbMatrix & M, float x, float y, float z,
-                 float * ox, float * oy, float * oz, float * ow) {
-      *ox = M[0][0] * x + M[1][0] * y + M[2][0] * z + M[3][0];
-      *oy = M[0][1] * x + M[1][1] * y + M[2][1] * z + M[3][1];
-      *oz = M[0][2] * x + M[1][2] * y + M[2][2] * z + M[3][2];
-      *ow = M[0][3] * x + M[1][3] * y + M[2][3] * z + M[3][3];
-    };
-    const int show = std::min(4, static_cast<int>(list.getNumCommands()));
-    for (int i = 0; i < show; ++i) {
-      const SoRenderCommand & cmd = list.getCommand(i);
-      const SoGeometryDesc & geo = cmd.geometry;
-      if (!geo.positions || geo.vertexCount == 0) continue;
-      float x = geo.positions[0], y = geo.positions[1], z = geo.positions[2];
-      float wx, wy, wz, ww;
-      mv(cmd.modelMatrix, x, y, z, &wx, &wy, &wz, &ww);
-      float vx, vy, vz, vw;
-      mv(params.viewMatrix, wx, wy, wz, &vx, &vy, &vz, &vw);
-      float nx, ny, nz, nw;
-      mv(params.projMatrix, vx, vy, vz, &nx, &ny, &nz, &nw);
-      fprintf(stderr,
-              "[CLIP] cmd%d pass=%d verts=%d cull=%d "
-              "world=(%.3f,%.3f,%.3f) viewz=%.3f ndc=(%.3f,%.3f,%.3f,%.3f)\n",
-              i, static_cast<int>(cmd.pass), static_cast<int>(geo.vertexCount),
-              static_cast<int>(cmd.state.raster.cullMode),
-              wx, wy, wz, vz, nx, ny, nz, nw);
-    }
-  }
-}
 
 void
 SoVulkanRenderManager::resetExternalGpuQueries(VkCommandBuffer commandBuffer)
 {
   this->pimpl->backend.resetExternalGpuQueries(commandBuffer);
-}
-
-SoVulkanRenderBackend *
-SoVulkanRenderManager::getBackend(void) const
-{
-  return &this->pimpl->backend;
 }
 
 uint32_t

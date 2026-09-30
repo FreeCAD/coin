@@ -3,13 +3,14 @@
 // Internal VK_EXT_debug_utils helpers (object names + command-buffer labels) for
 // readable RenderDoc/Nsight captures.  Not public API.
 //
-// Gated by diagnostics.debugUtils (FC_VULKAN_DEBUG_UTILS); when unavailable the
+// Gated by diagnostics.debugUtils (COIN_VULKAN_DEBUG_UTILS); when unavailable the
 // vkGetDeviceProcAddr-resolved entry points stay null and every helper is a no-op.
 // Cached once for the shared VkDevice; call setDevice() for a second device.
 
 #ifndef COIN_SOVULKANDEBUGUTILS_H
 #define COIN_SOVULKANDEBUGUTILS_H
 
+#include "rendering/SoVulkanPlatform.h"
 #include <vulkan/vulkan.h>
 
 #include "rendering/SoVulkanConfig.h"

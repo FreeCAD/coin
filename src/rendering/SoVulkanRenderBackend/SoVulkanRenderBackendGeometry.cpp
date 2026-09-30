@@ -7,6 +7,7 @@
 // per-frame eviction).
 
 #include "rendering/SoVulkanRenderBackend.h"
+#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanShared.h"
 
@@ -967,12 +968,10 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     const long dur = now - cacheBcStart;
     if (logged < 20 && (dur >= 5000 || bcGeometryUploads > 0)) {
       ++logged;
-      std::fprintf(stderr,
-                   "[VKGEOMCACHE] %ld updateGeometryCache dur_us=%ld commands=%d "
+      SoVulkanDebug::post("[VKGEOMCACHE] %ld updateGeometryCache dur_us=%ld commands=%d "
                    "uploads=%d textures=%d vertices=%zu indices=%zu\n",
                    cacheBcStart, dur, bcCommands, bcGeometryUploads,
                    bcTexturePrepares, bcVertices, bcIndices);
-      std::fflush(stderr);
     }
   }
 }
