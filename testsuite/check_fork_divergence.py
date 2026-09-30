@@ -40,6 +40,12 @@ FORBIDDEN_TOKENS = (
 
 MACRO = "COIN_BUILD_LEGACY_GL_RENDERER"
 
+# Files that legitimately name these tokens: the lint tooling itself.
+IGNORE = {
+    "testsuite/check_fork_divergence.py",
+    "testsuite/check_generated_headers.cmake",
+}
+
 # Files that upstream owns and that the fork must keep byte-identical.
 PARITY_FILES = (
     "include/Inventor/system/gl.h",
@@ -55,7 +61,7 @@ def grep(repo, token):
         ["git", "-C", repo, "grep", "-l", token, "--", "."],
         capture_output=True, text=True,
     )
-    return [line for line in proc.stdout.splitlines() if line]
+    return [line for line in proc.stdout.splitlines() if line and line not in IGNORE]
 
 
 def ref_exists(repo, ref):

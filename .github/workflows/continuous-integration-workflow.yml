@@ -20,7 +20,7 @@ jobs:
       - name: Check renderer-selection parity
         run: |
           git remote add upstream https://github.com/FreeCAD/coin.git 2>/dev/null || true
-          git fetch --depth 1 upstream master 2>/dev/null || true
+          git fetch --depth 1 upstream HEAD 2>/dev/null || true
           python3 testsuite/check_fork_divergence.py --upstream FETCH_HEAD
 
   ubuntu-build:
