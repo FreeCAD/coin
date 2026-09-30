@@ -439,9 +439,7 @@ SoText2::IRRender(SoIRRenderAction * action)
   command.viewMatrix = SoViewingMatrixElement::get(state);
   command.projMatrix = SoProjectionMatrixElement::get(state);
   SoRenderIR::fillMaterialFromState(state, command.material);
-  // getQuad() already converts the text bounds into camera-facing geometry.
-  // Keep the exact generated quad instead of asking the backend to recenter
-  // it through the generic billboard path.
+  // getQuad() already produced camera-facing geometry; keep it as-is.
   command.material.flags |= SO_MAT_HAS_TEXTURE | SO_MAT_IS_PIXEL_TEXT;
   command.material.texture.pixels = pixels;
   command.material.texture.width = pixelSize[0];
@@ -471,8 +469,7 @@ SoText2::IRRender(SoIRRenderAction * action)
 SbBool
 SoText2::canRenderSortedTriangles(void) const
 {
-  // SoText2 is rasterized directly and intentionally has no generated
-  // primitives for the primitive-cache transparency path.
+  // SoText2 rasterizes directly; no generated primitives for the sorted path.
   return FALSE;
 }
 
@@ -566,7 +563,6 @@ SoText2::GLRender(SoGLRenderAction * action)
 }
 #endif
 
-  // **************************************************************************
 // **************************************************************************
 
 // doc in super
@@ -610,8 +606,7 @@ SoText2P::getPixelBounds(SoState * state, SbVec2s & origin, SbVec2s & size,
     break;
   }
 
-  // Match the legacy glDrawPixels raster origin, including its half-pixel
-  // rounding and the glyph bitmap's baseline-relative vertical placement.
+  // Match the legacy glDrawPixels origin (half-pixel rounding, baseline).
   origin[0] = static_cast<short>(std::floor(textscreenoffsetx + 0.5f));
   origin[1] = static_cast<short>(std::floor(screeny + 0.5f)) - size[1] + bbmax[1];
   depth = -nilpoint[2];
@@ -937,13 +932,9 @@ SoText2P::shouldBuildGlyphCache(SoState * state)
   if (this->cache == NULL) return TRUE;
   if (!this->cache->isValid(state)) return TRUE;
 
-  // SoGlyphCache::isValid relies on the SoCacheElement stack, which does not
-  // track this node's own expression/string content.  A cache that was built
-  // while the string was empty therefore stays "valid" forever: once a string
-  // is later set the glyphs are never re-fetched and the bounding box is never
-  // computed, so the text produces no quad and silently disappears in the IR
-  // (Vulkan) renderer.  Force a rebuild whenever a non-empty string is present
-  // but was never laid out (empty bbox).
+  // SoGlyphCache::isValid ignores string content: a cache built empty stays
+  // valid, glyphs are never re-fetched, and text silently disappears in IR.
+  // Force a rebuild when a non-empty string has an empty (never laid out) bbox.
   if (PUBLIC(this)->string.getNum() > 0
       && PUBLIC(this)->string[0].getLength() > 0
       && this->bbox.isEmpty()) {

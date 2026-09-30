@@ -1,11 +1,8 @@
 // data/shaders/vulkan/wide-line/WideLineFragment.glsl
 // Vulkan wide-line fragment shader for the retained render backend.
 //
-// Line stipple mirroring classic GL (glLineStipple): each bit of the
-// 16-bit pattern covers linePatternScaleFactor PIXELS in screen space.
-// The vertex attribute carries the polyline distance in window pixels;
-// the fragment selects bit floor(distance / factor) % 16 and discards
-// pixels whose bit is not set.
+// Stipple mirrors glLineStipple: each of the 16 pattern bits covers
+// linePatternScaleFactor pixels; select bit floor(distance/factor) % 16.
 
 #version 450
 

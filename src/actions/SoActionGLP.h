@@ -6,9 +6,9 @@
 #error this is a private header file
 #endif
 
-/* Core builds retain the action and node APIs, but do not register or call
-   legacy fixed-function GL elements.  Keep this switch out of public
-   headers so platform GL headers cannot leak into application code. */
+/* Core builds keep the action/node APIs but do not register legacy
+   fixed-function GL elements.  Kept out of public headers so platform GL
+   headers cannot leak into application code. */
 #if COIN_BUILD_LEGACY_GL_RENDERER
 #define SO_ENABLE_LEGACY_GL(action, element) SO_ENABLE(action, element)
 #else

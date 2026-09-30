@@ -1,17 +1,10 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendCore.cpp
 //
-// SoVulkanRenderBackend initialization and lifecycle.  Provides:
-//
-//   - Constructor/destructor, getName() and the overlay setters
-//   - setMaxFramesInFlight(): ring + lighting-UBO resize with a queue-wide
-//     wait
-//   - initialize() and its resource-create helpers: command pool, descriptor
-//     set layout/pool, per-frame command buffers/fences, the lighting uniform
-//     ring buffer (create/grow/swap), the white fallback texture, the
-//     pipeline layout, and the visual / wide-line / background shader modules
-//   - Frame-slot + deferred-destroy bookkeeping (beginFrame,
-//     flushPendingDestroys, flushAllPendingDestroys,
-//     deferDestroy[Cache|Texture]Entry, waitForInFlightFrames)
+// Initialization and lifecycle: ctor/dtor, getName() and overlay setters;
+// setMaxFramesInFlight() ring resize; initialize() and its resource-create helpers
+// (command pool, descriptor layouts/pool, frame buffers/fences, lighting and
+// instance-model rings, white texture, pipeline layout, shader modules);
+// frame-slot and deferred-destroy bookkeeping.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -64,9 +57,7 @@ SoVulkanRenderBackend::setMaxFramesInFlight(const uint32_t count)
   if (count == 0) return;
   if (count == this->maxFramesInFlight) return;
 
-  // Resizing while submissions are still in flight would free command
-  // buffers/fences that a pending submission references and orphan the ring
-  // batches below the new size; wait for every pending submission first.
+  // Resizing frees referenced command buffers/fences and orphans lower ring batches; wait first.
   if (this->isInitialized()) {
     this->waitForInFlightFrames();
   }
@@ -74,18 +65,15 @@ SoVulkanRenderBackend::setMaxFramesInFlight(const uint32_t count)
   this->maxFramesInFlight = count;
   this->pendingDestroys.setBatchCount(count);
 
-  // Re-allocate the per-frame-slot command buffers/fences at the new count.
-  // Only valid while the queue is idle (guaranteed by the wait above).
+  // Re-allocate per-frame-slot command buffers/fences (only valid while the queue is idle).
   if (this->isInitialized()) {
     this->releaseFrameResources();
     if (!this->allocateFrameResources()) {
       this->emitError(
         "setMaxFramesInFlight: failed to reallocate frame resources");
     }
-    // The lighting UBO ring is sized maxFramesInFlight * slotsPerFrame; grow
-    // it to match the new in-flight count or the ring-offset math would run
-    // past the allocation.  swapLightingBuffer() waits the (already idle)
-    // in-flight frames and repoints every descriptor set at the new buffer.
+    // The lighting UBO ring is sized maxFramesInFlight * slotsPerFrame; grow it to match
+    // or the ring-offset math runs past the allocation.  swapLightingBuffer() waits and repoints.
     if (this->lightingBuffer != VK_NULL_HANDLE) {
       const VkDeviceSize totalBytes =
         static_cast<VkDeviceSize>(this->maxFramesInFlight) *
@@ -173,9 +161,7 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
   }
   this->memProps.setDevice(this->physicalDevice);
 
-  // Resolve the synchronization2 entry points once for this device.  A null
-  // pointer means the extension was not enabled; the shared barrier/submit
-  // helpers then fall back to the legacy entry points.
+  // Resolve synchronization2 once; null means not enabled, and helpers fall back to legacy.
   {
     SoVulkanShared::Sync2Dispatch & sync2 = SoVulkanShared::sync2Dispatch();
     sync2.cmdPipelineBarrier2 =
@@ -188,18 +174,13 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
                     : "synchronization2: unavailable (legacy barriers)");
   }
 
-  // Bind the render-pass/framebuffer cache to this device and hook its
-  // deferred resource release into the frame ring: an old framebuffer is
-  // destroyed a few frames after the submission that referenced it completes,
-  // rather than synchronously (which would race a still-executing frame).
+  // Bind the render-pass/framebuffer cache; its deferred release goes into the frame ring.
   this->renderPasses.setDevice(this->device, this->allocator);
   this->renderPasses.setDeferredDestroy([this](std::function<void()> && fn) {
     this->deferDestroy(std::move(fn));
   });
 
-  // Vulkan Memory Allocator: owns the texture-image device memory.  The
-  // allocator sub-allocates from large blocks, so per-texture creation does
-  // not hit the driver (and maxMemoryAllocationCount) once per upload.
+  // VMA owns texture-image memory and sub-allocates from blocks, avoiding per-upload driver calls.
   {
     VmaAllocatorCreateInfo allocatorInfo {};
     allocatorInfo.physicalDevice = this->physicalDevice;
@@ -213,11 +194,9 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
     }
   }
 
-  // Worker count for the persistent record pool.  The pool is also used by the
-  // parallel wide-line expansion pre-pass, so it is sized whenever the machine
-  // has cores; parallel *recording* (M1d) stays opt-in so command-buffer
-  // output is identical to the serial path unless enabled.  Worker 0 is the
-  // recording thread, workers 1..N-1 are spawned.
+  // Worker count for the persistent record pool (also used by wide-line expansion, so
+  // sized whenever cores exist); parallel recording (M1d) stays opt-in for identical output.
+  // Worker 0 is the recording thread, 1..N-1 are spawned; capped at 8 (or config).
   {
     unsigned int hw = std::thread::hardware_concurrency();
     this->maxRecordWorkers = hw == 0 ? 1 : hw;
@@ -234,13 +213,9 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
   vkBackendTrace(0, "init.parallelConfig", "parallel=%d W=%u",
                  this->parallelRecordEnabled ? 1 : 0, this->maxRecordWorkers);
 
-  // Cache the device capabilities the backend relies on.  Vulkan has no API
-  // to read back which features an already-created device enabled, so query
-  // what the physical device *supports* and rely on the embedding
-  // application enabling exactly the supported ones (see
-  // QuarterVulkanWidget::configureDeviceFeatures).  This gates the
-  // VK_POLYGON_MODE_LINE/POINT pipelines (fillModeNonSolid) and the 1/2-
-  // component texture upload formats (optional sampled formats).
+  // Vulkan cannot read back which features a created device enabled, so query what it
+  // supports and rely on the app enabling exactly those (QuarterVulkanWidget::configureDeviceFeatures):
+  // gates VK_POLYGON_MODE_LINE/POINT pipelines and 1/2-component upload formats.
   VkPhysicalDeviceFeatures supportedFeatures {};
   vkGetPhysicalDeviceFeatures(this->physicalDevice, &supportedFeatures);
   this->fillModeNonSolid = supportedFeatures.fillModeNonSolid ? true : false;
@@ -254,9 +229,7 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
   this->sampledR8 = sampledOptimal(VK_FORMAT_R8_UNORM);
   this->sampledR8G8 = sampledOptimal(VK_FORMAT_R8G8_UNORM);
 
-  // Mark initialized before creating resources so that a failure in any
-  // create*() below runs the full (null-tolerant) shutdown() cleanup
-  // instead of leaking every handle created so far.
+  // Mark initialized BEFORE creating resources so a create*() failure still runs full shutdown().
   this->setInitialized(TRUE);
 
   if (!this->createCommandPool()) {
@@ -332,9 +305,7 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
   }
 
   if (!this->createSubPixelCullPipeline()) {
-    // Geometry LOD is an optional acceleration: a device without compute (or
-    // with too small a push-constant budget) simply keeps the full-draw path.
-    // The pipeline stays null and the pre-pass no-ops.
+    // Geometry LOD is optional: without compute the pipeline stays null and the pre-pass no-ops.
     this->emitLog("geometry-LOD compute pipeline unavailable; full draws only");
   }
 
@@ -345,9 +316,7 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
 bool
 SoVulkanRenderBackend::createPipelineCache()
 {
-  // The pipeline store owns the VkPipelineCache handle and its persistence;
-  // bind the device/allocator and route its messages through this backend's
-  // log callback before creating the handle.
+  // The pipeline store owns the VkPipelineCache; bind device/allocator and route its logs.
   this->pipelines.setDevice(this->device, this->allocator);
   this->pipelines.setLogger(
     [this](const char * message) { this->emitLog(message); });
@@ -357,12 +326,9 @@ SoVulkanRenderBackend::createPipelineCache()
 void
 SoVulkanRenderBackend::setPipelineCachePath(const std::string & path)
 {
-  // Key the persisted cache to the compiled shaders.  The pipeline-state key
-  // (PipelineKey) does not capture shader code, so without this a rebuilt
-  // shader would be served a pipeline compiled from the previous one -- e.g.
-  // a stale projection/push-constant layout, which shows up as displaced
-  // edges on the first frame.  A shader change yields a new key and the old
-  // blob is rejected.
+  // Key the persisted cache to the compiled shaders: PipelineKey omits shader code, so a
+  // rebuilt shader could otherwise be served a stale projection/push layout; a shader
+  // change yields a new key and rejects the old blob.
   uint64_t shaderKey = 1469598103934665603ull; // FNV-1a offset basis
   const auto mix = [&shaderKey](const uint32_t * code, const size_t count) {
     const auto * bytes = reinterpret_cast<const unsigned char *>(code);
@@ -408,11 +374,7 @@ SoVulkanRenderBackend::createCommandPool()
   SoVulkanDebugUtils::nameObject(this->device, VK_OBJECT_TYPE_COMMAND_POOL,
                                  reinterpret_cast<uint64_t>(this->commandPool),
                                  "Coin raster primary command pool");
-  // Secondary pools for the M1c/M1d opaque-pass re-record: same
-  // transient/reset flags as the primary pool, secondary-level buffers.  One
-  // pool per worker (worker 0 = the recording thread): VkCommandPool host
-  // access is externally synchronized, so concurrent reset/begin/end of
-  // buffers from a SHARED pool would race its internal allocator.
+  // Secondary pools for M1c/M1d: one per worker (a shared pool would race its allocator).
   this->secondaryCommandPools.assign(this->maxRecordWorkers, VK_NULL_HANDLE);
   for (size_t i = 0; i < this->secondaryCommandPools.size(); ++i) {
     VkCommandPool & pool = this->secondaryCommandPools[i];
@@ -440,8 +402,7 @@ SoVulkanRenderBackend::buildRecordPool()
   }
   vkBackendTrace(0, "buildRecordPool.enter", "W=%u",
                  this->maxRecordWorkers);
-  // Resume from the current pool size so a partially-built pool (spawn failed
-  // midway) tops up rather than spawning duplicate worker indices.
+  // Resume from the current pool size so a partially-built pool tops up, not duplicates.
   for (uint32_t w = static_cast<uint32_t>(this->recordWorkers.size()) + 1;
        w < this->maxRecordWorkers; ++w) {
     try {
@@ -449,8 +410,7 @@ SoVulkanRenderBackend::buildRecordPool()
         &SoVulkanRenderBackend::recordJobWorker, this, static_cast<size_t>(w));
     }
     catch (const std::exception &) {
-      // Could not spawn: fall back to serial recording (worker 0 only) and
-      // retire any threads already spawned.
+      // Spawn failed: fall back to serial recording and retire any spawned threads.
       this->shutdownRecordPool();
       this->parallelRecordEnabled = false;
       this->maxRecordWorkers = 1;
@@ -500,12 +460,10 @@ SoVulkanRenderBackend::recordJobWorker(const size_t workerIndex)
                    reinterpret_cast<const void *>(job.secondary),
                    job.items.size());
     if (job.expandWideLines) {
-      // Wide-line CPU expansion: no command buffer, just the per-command quad
-      // computation.  Each command's cache entry is touched by exactly one
-      // worker, and the scratch is thread-local, so this is race-free.
+      // Wide-line CPU expansion: no command buffer, just the quad computation; per-worker
+      // cache entries and thread-local scratch make it race-free.
       if (job.wlineSplitPhase != 0) {
-        // One command partitioned by segment range: the shared scratch is
-        // owner-sized and every range writes disjoint slots.
+        // One command partitioned by segment range: owner-sized shared scratch, disjoint writes.
         this->expandWideLinesSplitRange(job.wlineSplitPhase,
                                         job.wlineSplitBegin, job.wlineSplitEnd);
         job.ok = true;
@@ -535,17 +493,10 @@ SoVulkanRenderBackend::recordJobWorker(const size_t workerIndex)
     }
     vkBackendTrace(this->uboFrameIndex, "recordJobWorker.done",
                    "w=%zu ok=%d", workerIndex, job.ok ? 1 : 0);
-    // The done count is the condition the recording thread waits on
-    // (recordCvDone.wait), so it must be published under recordMutex together
-    // with the notify.  Incrementing/notifying outside the lock races the
-    // waiter's final predicate check: the notify can fire after the waiter
-    // evaluated the predicate but before it blocks, and is lost, leaving the
-    // recording thread asleep forever with the count already satisfied.
-    //
-    // Publish only while this worker's generation is still current.  If the
-    // recording thread already dispatched the next job while this one ran, this
-    // completion belongs to a superseded generation; counting it would let the
-    // next join see a spurious done and proceed before every worker has run.
+    // The done count is the condition recordCvDone.wait() checks, so publish it under
+    // recordMutex with the notify: incrementing outside can lose a notify after the
+    // waiter's final predicate check (sleep forever).  Publish only for the current
+    // generation, else a superseded completion makes the next join proceed early.
     {
       std::lock_guard<std::mutex> lk(this->recordMutex);
       if (this->recordJobGeneration == generation) {
@@ -577,12 +528,9 @@ SoVulkanRenderBackend::allocateFrameResources()
     return false;
   }
 
-  // One secondary command buffer per in-flight slot per worker (M1c/M1d),
-  // each allocated from that worker's own pool.  Recorded once per slot and
-  // executed into that slot's primary, then re-recorded only after the slot's
-  // fence is waited.  Indexed [slot * maxRecordWorkers + worker] (the layout
-  // workerSecondary() reads), so allocate worker w's buffer into every
-  // [slot][w] position.
+  // One secondary per in-flight slot per worker (M1c/M1d), from that worker's own pool,
+  // indexed [slot * maxRecordWorkers + worker] (workerSecondary()'s layout); re-recorded
+  // only after the slot fence is waited.
   const uint32_t secondaryCount =
     this->maxFramesInFlight * this->maxRecordWorkers;
   this->secondaryCommandBuffers.assign(secondaryCount, VK_NULL_HANDLE);
@@ -611,8 +559,7 @@ SoVulkanRenderBackend::allocateFrameResources()
   // Per-worker record contexts + job slots, sized by maxRecordWorkers.
   this->workerRecordContexts.assign(this->maxRecordWorkers, VulkanRecordContext{});
   this->recordJobs.assign(this->maxRecordWorkers, ParallelRecordJob{});
-  // The pool serves both parallel recording and the wide-line expansion
-  // pre-pass, so build it whenever there is more than one worker.
+  // The pool serves parallel recording and wide-line expansion, so build it if >1 worker.
   if (this->maxRecordWorkers > 1) {
     if (!this->buildRecordPool()) return false;
   }
@@ -631,8 +578,7 @@ SoVulkanRenderBackend::allocateFrameResources()
 void
 SoVulkanRenderBackend::releaseFrameResources()
 {
-  // The caller must have made the queue idle (shutdown waits) or have waited
-  // the pending fences (setMaxFramesInFlight) before this runs.
+  // Caller must have made the queue idle, or waited pending fences, before this runs.
   for (VkCommandBuffer buffer : this->frameCommandBuffers) {
     if (buffer != VK_NULL_HANDLE) {
       vkFreeCommandBuffers(this->device, this->commandPool, 1, &buffer);
@@ -700,15 +646,10 @@ SoVulkanRenderBackend::parallelCurrentSecondary(const uint32_t worker)
 void
 SoVulkanRenderBackend::waitForInFlightFrames()
 {
-  // Wait every fence that is actually pending.  Fences are only signaled by
-  // endAndSubmit() on the own-queue path; the external path never submits
-  // through this backend, so its fences are never signaled and must never be
-  // waited on (waiting an unsignaled fence would block forever).  The
-  // current frame's slot is never pending here (beginFrame() cleared it),
-  // so growLightingUbo() cannot deadlock on the frame it is recording.
-  // Called from growLightingUbo() and setMaxFramesInFlight(), both of which
-  // must rewrite/teardown resources bound in submitted command buffers, so
-  // this is a deliberately rare, synchronized event.
+  // Wait only fences that are actually pending: the external path never submits here, so
+  // its fences are never signaled and waiting would block forever.  The current slot is
+  // never pending (beginFrame() cleared it), so growLightingUbo() cannot deadlock.  Called
+  // from growLightingUbo()/setMaxFramesInFlight(), both rewriting submitted-buffer resources.
   std::vector<VkFence> pending;
   for (size_t i = 0; i < this->frameFences.size(); ++i) {
     if (i < this->frameFencePending.size() && this->frameFencePending[i] &&
@@ -724,8 +665,7 @@ SoVulkanRenderBackend::waitForInFlightFrames()
 bool
 SoVulkanRenderBackend::createDescriptorSetLayout()
 {
-  // Set 0: lighting constant ring (binding 0, UBO dynamic).  Visible to both
-  // stages because lighting is evaluated per fragment (Phong).
+  // Set 0: lighting constant ring (binding 0, UBO dynamic); both stages (Phong per fragment).
   VkDescriptorSetLayoutBinding lightingBinding {};
   lightingBinding.binding = 0;
   lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -743,8 +683,7 @@ SoVulkanRenderBackend::createDescriptorSetLayout()
     return false;
   }
 
-  // Set 1: per-draw view/model/material UBO (binding 0, dynamic) plus the
-  // embedded texture (binding 1).
+  // Set 1: per-draw view/model/material UBO (binding 0, dynamic) + texture (binding 1).
   VkDescriptorSetLayoutBinding bindings[2] {};
   bindings[0].binding = 0;
   bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -845,10 +784,8 @@ SoVulkanRenderBackend::allocateTextureDescriptorSet(VkImageView view,
 bool
 SoVulkanRenderBackend::createLightingUniformBuffer()
 {
-  // Per-command slots in a ring buffer sized for maxFramesInFlight frames.
-  // Each draw binds its slot with a dynamic offset, so the GPU reads the
-  // uniform block that was recorded for that specific draw instead of a
-  // shared buffer that later commands overwrite.
+  // Per-command slots in a ring sized for maxFramesInFlight frames: each draw binds its
+  // slot with a dynamic offset, so the GPU reads that draw's block, not a shared one.
   VkPhysicalDeviceProperties deviceProps;
   vkGetPhysicalDeviceProperties(this->physicalDevice, &deviceProps);
   const VkDeviceSize alignment = std::max<VkDeviceSize>(
@@ -868,9 +805,8 @@ SoVulkanRenderBackend::createLightingUniformBuffer()
   SoVulkanDebugUtils::nameObject(
     this->device, VK_OBJECT_TYPE_BUFFER,
     reinterpret_cast<uint64_t>(this->lightingBuffer), "draw UBO ring");
-  // The per-instance model-matrix ring parallels the lighting UBO ring
-  // (same slot layout), so pre-size it here; the per-draw path must never
-  // grow (re-create) this buffer, which would race under parallel recording.
+  // The per-instance model-matrix ring parallels the lighting ring (same layout), so
+  // pre-size it here; the per-draw path must never grow it (races parallel recording).
   if (!this->ensureInstanceModelRingCapacity()) {
     this->emitError("createLightingUniformBuffer: failed to size instance buffer");
     return false;
@@ -881,21 +817,17 @@ SoVulkanRenderBackend::createLightingUniformBuffer()
 bool
 SoVulkanRenderBackend::createLightingConstBuffer()
 {
-  // A few slots per in-flight frame, one per distinct lighting handle the
-  // frame references (typically one).  Each slot holds one VulkanLightingUbo
-  // (ambient + 8 lights); writing it once per handle per frame is what makes
-  // the shared lighting setup cost O(#handles) instead of O(#draws).
+  // A few slots per in-flight frame, one per distinct lighting handle (typically one),
+  // each holding one VulkanLightingUbo (ambient + 8 lights): writing once per handle per
+  // frame makes shared lighting O(#handles), not O(#draws).
   VkPhysicalDeviceProperties deviceProps;
   vkGetPhysicalDeviceProperties(this->physicalDevice, &deviceProps);
   const VkDeviceSize alignment = std::max<VkDeviceSize>(
     1, deviceProps.limits.minUniformBufferOffsetAlignment);
   this->lightingConstStride =
     (sizeof(VulkanLightingUbo) + alignment - 1) / alignment * alignment;
-  // Fixed 8-frame ring with 8 unique-handle slots per frame.  This is
-  // independent of maxFramesInFlight (which can change after init in
-  // initSwapChainResources) so no resize path is needed; it is safe as long
-  // as the in-flight frame count stays <= 8 (QVulkanWindow swapchains are
-  // 2-3 images, +1 margin).
+  // Fixed 8-frame ring, 8 unique-handle slots per frame, independent of maxFramesInFlight
+  // (so no resize path); safe while in-flight frames <= 8 (swapchains are 2-3 images).
   this->lightingConstMaxSlots = 8u * 8u;
   const VkDeviceSize totalBytes =
     static_cast<VkDeviceSize>(this->lightingConstMaxSlots) *
@@ -980,33 +912,24 @@ SoVulkanRenderBackend::swapLightingBuffer(VkBuffer newBuffer,
   this->lightingMapped = newMapped;
   this->uboSlotsPerFrame = newSlotsPerFrame;
 
-  // The ring was (re)sized to a new slot count or a new in-flight frame count;
-  // grow the per-instance model-matrix ring to the same geometry so the
-  // per-draw path never grows it (see ensureInstanceModelRingCapacity()).
+  // Grow the model-matrix ring to the same geometry so the per-draw path never grows it.
   if (!this->ensureInstanceModelRingCapacity()) {
     this->emitError("swapLightingBuffer: failed to size instance buffer");
   }
 
-  // The old buffer may still be referenced by a pending frame; destroy it
-  // only after the batch ring wraps back around (flushPendingDestroys()).
-  // Freeing the memory implicitly unmaps it, so no explicit unmap is needed.
+  // The old buffer may still be referenced by a pending frame: destroy it after the ring
+  // wraps (flushPendingDestroys()); freeing the memory unmaps it, so no explicit unmap.
   this->deferDestroyBufferMemory(oldBuffer, oldMemory);
 
-  // Every descriptor set captured the old buffer handle at allocation time
-  // (binding 0 is the lighting UBO).  Rewriting the binding of a set that is
-  // bound in an already-submitted command buffer is a spec violation, so
-  // first wait for every in-flight submission to complete.  This is a rare
-  // event (ring growth or a maxFramesInFlight change), so the stall is
-  // acceptable; the current frame's buffer has not been submitted yet, so
-  // updating sets bound only in the recording buffer is safe.
+  // Every descriptor set captured the old buffer (binding 0).  Rewriting a set bound in an
+  // already-submitted command buffer is a violation, so wait for all in-flight submissions
+  // first (rare: ring growth or frame-count change); the current frame is not yet submitted.
   this->waitForInFlightFrames();
   std::vector<VkWriteDescriptorSet> writes;
   std::vector<VkDescriptorBufferInfo> bufferInfos;
-  // Reserve up front: collect() stores &bufferInfos.back() into each write's
-  // pBufferInfo.  Without a reservation a later push_back reallocates the
-  // vector and turns those earlier pointers into dangling memory, so
-  // vkUpdateDescriptorSets would read a garbage VkBuffer handle and fault in
-  // the driver.  The max set count is the white set plus one per texture.
+  // Reserve up front: collect() stores &bufferInfos.back() in each write, and a later
+  // push_back reallocation would dangle it (garbage VkBuffer -> driver fault).  Max set
+  // count is the white set plus one per texture.
   const size_t maxSets = this->textureCache.size() + 1;
   writes.reserve(maxSets);
   bufferInfos.reserve(maxSets);
@@ -1045,9 +968,8 @@ SoVulkanRenderBackend::prepareLightingSlots(const uint32_t neededDraws)
   if (neededDraws > this->uboSlotsPerFrame) {
     if (!this->growLightingUbo(neededDraws)) return false;
   }
-  // The frame index was advanced by beginFrame(); every render starts from
-  // slot zero of its own ring half.  The slot cursor now lives in the
-  // per-recording VulkanRecordContext (reset by its frame-start reset()).
+  // beginFrame() advanced the frame index; every render starts at slot zero of its ring
+  // half, and the slot cursor lives in the per-recording VulkanRecordContext.
   return true;
 }
 
@@ -1056,14 +978,11 @@ SoVulkanRenderBackend::beginFrame()
 {
   vkBackendTrace(this->uboFrameIndex, "beginFrame.enter",
                  "nextFrame=%u", this->uboFrameIndex + 1);
-  // One frame boundary: advance the ring cursor, then, on the own-queue
-  // path, wait the slot's fence.  The slot we are about to record into was
-  // last used maxFramesInFlight frames ago; its fence covers that
-  // submission, so the slot's UBO ring half, command buffer, and deferred
-  // resources are all safe to reuse.  The external path never signals these
-  // fences (the caller owns submission), so frameFencePending stays false
-  // there and no wait occurs -- external correctness rests on the caller
-  // honoring setMaxFramesInFlight().
+  // One frame boundary: advance the ring cursor, then on the own-queue path wait the slot
+  // fence.  The slot was last used maxFramesInFlight frames ago, so its fence covers that
+  // submission and the UBO half, command buffer and deferred resources are safe to reuse.
+  // The external path never signals these fences (the caller owns submission), so no wait
+  // occurs -- external correctness rests on the caller honoring setMaxFramesInFlight().
   this->uboFrameIndex++;
   const uint32_t slot = this->uboFrameIndex % this->maxFramesInFlight;
   if (slot < this->frameFencePending.size() &&
@@ -1074,10 +993,8 @@ SoVulkanRenderBackend::beginFrame()
     vkResetFences(this->device, 1, &this->frameFences[slot]);
     this->frameFencePending[slot] = 0;
   }
-  // Dynamic state is per-recording: the previous frame's command buffer (the
-  // other slot) may have left a different pipeline/viewport/scissor bound.
-  // Forget it so this frame's first apply* emits, and so accidental reuse
-  // from the slot's prior content cannot wrongly skip a needed change.
+  // Dynamic state is per-recording: the previous frame's buffer may have left a different
+  // pipeline/viewport/scissor bound, so forget it to force this frame's first apply*.
   this->resetBoundState(this->recordContext);
   this->flushPendingDestroys();
 }
@@ -1085,9 +1002,7 @@ SoVulkanRenderBackend::beginFrame()
 void
 SoVulkanRenderBackend::cacheFrameMatrices(const SoRenderParams & params)
 {
-  // SbMatrix stores exactly float[4][4], so the raw storage IS the float
-  // matrix: copying the 16 floats once per render lets every draw reuse the
-  // result instead of re-converting per draw.
+  // SbMatrix is exactly float[4][4]: copy the 16 floats once so every draw reuses them.
   std::memcpy(this->frameViewFloats, &params.viewMatrix[0][0],
               sizeof(float) * 16);
   std::memcpy(this->frameProjFloats, &params.projMatrix[0][0],
@@ -1199,10 +1114,8 @@ SoVulkanRenderBackend::deferDestroyCacheEntry(VulkanCachedCommand & entry)
 void
 SoVulkanRenderBackend::deferDestroyTextureEntry(VulkanCachedTexture & entry)
 {
-  // The set is only returned to its pool after the batch ring wraps back
-  // around: a pending frame may still reference it, and vkFreeDescriptorSets
-  // on an in-use set is a spec violation.  Pools are append-only (never
-  // reset), so the pool handle captured here stays valid until shutdown.
+  // The set returns to its pool only after the batch ring wraps (vkFreeDescriptorSets on an
+  // in-use set is a violation).  Pools are append-only, so the captured handle stays valid.
   if (entry.descriptorSet != VK_NULL_HANDLE) {
     VkDevice device = this->device;
     const VkDescriptorPool pool = entry.descriptorPool;
@@ -1224,11 +1137,8 @@ SoVulkanRenderBackend::deferDestroyTextureEntry(VulkanCachedTexture & entry)
   const VkImage image = entry.image;
   const VmaAllocation allocation = entry.allocation;
   const VkImageView view = entry.view;
-  // The sampler is shared (samplerCache), so it is NOT destroyed here; it is
-  // released once at shutdown() after the texture cache has been emptied.  The
-  // image and its VMA allocation are freed together, once the frame's
-  // submission is complete (the deferred ring), so no in-flight reference is
-  // aliased.
+  // The sampler is shared (samplerCache) and released once at shutdown(), not here.  The
+  // image + VMA allocation are freed together after the frame's submission (deferred ring).
   this->deferDestroy([device, allocator, vmaAllocator, image, allocation,
                       view]() {
     if (view != VK_NULL_HANDLE) {
@@ -1275,9 +1185,8 @@ SoVulkanRenderBackend::createWhiteTexture()
     return false;
   }
 
-  // One-shot upload: stage buffer -> image (white 1x1), transitioning the image
-  // UNDEFINED -> TRANSFER_DST -> SHADER_READ_ONLY.  The shared helper waits for
-  // the queue to go idle so the staging buffer below is safe to destroy.
+  // One-shot upload: stage -> image (white 1x1), UNDEFINED -> TRANSFER_DST ->
+  // SHADER_READ_ONLY; the helper waits for the queue to idle so staging is safe to free.
   if (!SoVulkanShared::withOneShotSubmit(
         this->device, this->queue, this->commandPool, this->allocator,
         [this, staging](VkCommandBuffer uploadBuffer) {
@@ -1329,10 +1238,8 @@ SoVulkanRenderBackend::createWhiteTexture()
 bool
 SoVulkanRenderBackend::createPipelineLayout()
 {
-  // The visual push-constant block carries the per-draw material/texture/line
-  // state (the projection matrix lives in the DrawBlock UBO).  At 112 bytes it
-  // fits the 128-byte Vulkan guaranteed minimum, so even minimum-spec devices
-  // (and the desktop-baseline device profiles) can create the pipeline.
+  // The visual push-constant block carries per-draw material/texture/line state (proj is
+  // in the DrawBlock UBO); at 112 bytes it fits the 128-byte guaranteed minimum.
   VkPhysicalDeviceProperties deviceProps {};
   vkGetPhysicalDeviceProperties(this->physicalDevice, &deviceProps);
   if (deviceProps.limits.maxPushConstantsSize < sizeof(VulkanPushConstants)) {
@@ -1434,10 +1341,9 @@ SoVulkanRenderBackend::createWideLineShaders()
 bool
 SoVulkanRenderBackend::createSubPixelCullPipeline()
 {
-  // Descriptor set 0: the command's vertex buffer (0), original index buffer
-  // (1), compacted output index buffer (2) and the indirect command (3).  The
-  // input descriptors bind the whole (possibly shared) buffer; the shader
-  // applies the per-command base offset from its push constants, so no
+  // Descriptor set 0: vertex buffer (0), original index buffer (1), compacted output index
+  // buffer (2), indirect command (3).  Input descriptors bind the whole (possibly shared)
+  // buffer; the shader applies per-command base offsets via push constants, so no
   // descriptor offset-alignment constraint applies.
   VkDescriptorSetLayoutBinding bindings[4] {};
   for (uint32_t i = 0; i < 4; ++i) {
@@ -1494,9 +1400,8 @@ SoVulkanRenderBackend::createSubPixelCullPipeline()
     return false;
   }
 
-  // Dedicated, append-only storage-buffer descriptor pool.  Sets are never
-  // freed while a frame may reference them; when the pool fills a fresh one is
-  // appended (mirroring descriptorPools).
+  // Dedicated append-only storage-buffer pool: sets are never freed (a frame may reference
+  // them); when full, a fresh pool is appended.
   VkDescriptorPoolSize size {};
   size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   size.descriptorCount = 4096 * 4;
@@ -1516,9 +1421,8 @@ SoVulkanRenderBackend::createSubPixelCullPipeline()
                                  reinterpret_cast<uint64_t>(pool),
                                  "Coin raster sub-pixel descriptor pool");
 
-  // Cache the device's single-binding storage-buffer range limit so the
-  // pre-pass can reject a command whose vertex/index buffer cannot legally be
-  // bound whole (see subPixelMaxStorageRange in the header).
+  // Cache the device's single-binding storage-buffer range limit so the pre-pass can
+  // reject a command whose vertex/index buffer cannot legally be bound whole.
   VkPhysicalDeviceProperties props {};
   vkGetPhysicalDeviceProperties(this->physicalDevice, &props);
   this->subPixelMaxStorageRange = props.limits.maxStorageBufferRange;

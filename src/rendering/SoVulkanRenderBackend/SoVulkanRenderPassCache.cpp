@@ -1,7 +1,6 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderPassCache.cpp
 //
-// Render-pass and framebuffer caching for the Vulkan raster backend.  See
-// SoVulkanRenderPassCache.h for the design contract.
+// Render-pass/framebuffer caching for the Vulkan raster backend; see the header.
 
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderPassCache.h"
 
@@ -34,9 +33,8 @@ SoVulkanRenderPassCache::identityFor(const SoVulkanRenderTarget & target) const
   identity.colorFormat = target.colorFormat;
   identity.sampleCount = target.sampleCount;
   identity.colorLayout = target.colorLayout;
-  // createRenderPass() only adds a depth attachment when a depth view is
-  // present, so a configured-but-viewless depth format must not be part of
-  // the identity.
+  // createRenderPass() only adds a depth attachment when a depth view is present,
+  // so a configured-but-viewless depth format is excluded from the identity.
   identity.depthFormat =
     (target.depthImageView != VK_NULL_HANDLE) ? target.depthFormat
                                               : VK_FORMAT_UNDEFINED;

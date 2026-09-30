@@ -1,18 +1,13 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendWideLine.cpp
 //
-// CPU expansion of wide and/or stippled lines into triangle-list quads.  This
-// is the fallback path: plain wide lines are normally expanded on the GPU by
-// the instanced vertex shader (see buildInstancedLineBuffer() and
-// WideLineInstancedVertex.glsl).  The CPU path still handles stippled lines
-// (order-dependent distance), line strips, a missing instance buffer, and the
-// FC_VULKAN_WLINE_CPU override.  expandWideLines() walks each segment and:
-//
-//   - transforms the endpoints to clip space
-//   - near-plane clips, interpolating the hidden endpoint onto the plane
-//   - accumulates the screen-space polyline distance (in pixels, for the
-//     glLineStipple pattern)
-//   - emits 2 triangles / 6 vertices per segment into one host-visible quad
-//     buffer per in-flight frame slot (drawn by the wide-line pipeline)
+// CPU fallback expansion of wide and/or stippled lines into triangle-list quads.
+// Plain wide lines normally expand on the GPU via the instanced vertex shader
+// (buildInstancedLineBuffer() / WideLineInstancedVertex.glsl); this path handles
+// stippled lines (order-dependent distance), line strips, a missing instance
+// buffer, and the FC_VULKAN_WLINE_CPU override.  Per segment it clip-transforms
+// the endpoints, near-plane clips (interpolating the hidden end onto the plane),
+// accumulates screen-space pixel distance for glLineStipple, and emits 2 triangles
+// into a per-frame host-visible quad buffer.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -37,8 +32,7 @@ using namespace CoinVulkanDetail;
 
 namespace {
 
-// Segments below this stay on the whole-command path: the dispatch/join cost
-// (~tens of microseconds) is not worth splitting a small command.
+// Below this many segments, dispatch/join cost (~tens of us) outweighs splitting.
 constexpr uint32_t kWideLineSplitMinSegments = 2048;
 
 // Row-major SbMat product, identical to the lambda in expandWideLines().
@@ -52,8 +46,7 @@ inline void wlineMultiplyMat(const SbMat & a, const SbMat & b, SbMat & out)
   }
 }
 
-// Clip-space transform with the same Y-flip / depth remap as the visual
-// vertex shader (mirrors the lambda in expandWideLines()).
+// Clip-space transform with the same Y-flip/depth remap as the visual shader.
 inline void wlineTransformPoint(const SbMat & mvp, const float * p, float out[4])
 {
   const float x = p[0];
@@ -76,11 +69,8 @@ SoVulkanRenderBackend::ensureInstanceModelRingCapacity()
   const VkDeviceSize bytes =
     static_cast<VkDeviceSize>(this->maxFramesInFlight) *
     static_cast<VkDeviceSize>(this->uboSlotsPerFrame) * sizeof(float) * 16;
-  // Guard against an uninitialised ring (uboSlotsPerFrame==0 -> zero bytes):
-  // ensureInstanceModelBuffer() already clamps to a minimum of 64 bytes, so a
-  // zero request still allocates a valid single-element buffer.  The per-draw
-  // slot-index math is only ever exercised after prepareLightingSlots() sizes
-  // uboSlotsPerFrame, so this is a safety bound, not a steady-state path.
+  // uboSlotsPerFrame==0 gives zero bytes; ensureInstanceModelBuffer() clamps to
+  // 64, so this is a safety bound, not a steady-state path.
   return this->ensureInstanceModelBuffer(bytes);
 }
 
@@ -133,8 +123,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     strip ? (count > 1 ? count - 1 : 0) : count / 2;
   if (!segmentCount) return false;
 
-  // Diagnostics only on the recording thread: worker-thread prints interleave
-  // with it for no benefit and are the only shared I/O on this path.
+  // Diagnostics only on the recording thread: worker prints just interleave for no benefit.
   const bool onOwnerThread =
     std::this_thread::get_id() == this->wlineOwnerThread;
   static thread_local int wlineDiag = 0;
@@ -150,14 +139,9 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
             static_cast<double>(lineWidth));
   }
 
-  // MVP: clip = P * V * M * pos.  Regular geometry shares the frame view
-  // matrix in params.  An overlay command (NaviCube corner sub-region) is
-  // its own camera and must use its own view matrix so the wide-line quad
-  // expansion matches the filled geometry, which the visual shader
-  // transforms with command.viewMatrix for the overlay.  Using the frame
-  // view here transformed the overlay wide lines with the wrong camera,
-  // displacing the NaviCube edges / origin axes off the cube (the
-  // 'edges/axes drift away from the cube' bug).
+  // MVP: clip = P * V * M * pos.  Regular geometry uses the frame view in
+  // params; an overlay command (NaviCube) has its own camera and must use its
+  // own view or its wide lines drift off the cube ("edges/axes drift" bug).
   const bool wlineOverlay = (command.pass == SO_RENDERPASS_OVERLAY);
   SbMat model;
   command.modelMatrix.getValue(model);
@@ -176,18 +160,10 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
   else {
     params.viewMatrix.getValue(view);
   }
-  // The GPU visual path computes clip = proj_GL * view_GL * model_GL * pos,
-  // where a *_GL matrix is the transpose of the stored (row-major) SbMat,
-  // because Vulkan/GLSL interprets the raw memory as column-major.  The CPU
-  // quad expansion below must produce the exact same clip positions (the
-  // wide-line vertex shader passes them through).  With the stored accessor
-  // matrices this is equivalent to mvp = transpose(model * view * proj):
-  // (W^T * v)_i = sum_{l,k,j} model[l][k] view[k][j] proj[j][i] v_l
-  //   = sum_j proj_GL[i][j] * (view_GL * model_GL * v)_j.
-  // Multiplying in the naive order (proj*view*model) would place the view
-  // translation into the clip w component (-P.x*... *v + 1), producing huge
-  // negative w for off-origin geometry, a failing near-plane test, and
-  // geometry collapsed onto NDC (0,0).
+  // GLSL reads the row-major SbMat raw memory as column-major, so a *_GL matrix
+  // is its transpose and clip = proj_GL*view_GL*model_GL*pos equals
+  // mvp = transpose(model*view*proj).  The naive proj*view*model order folds the
+  // view translation into clip w, collapsing off-origin geometry onto NDC (0,0).
   SbMat vp;
   multiplyMat(view, proj, vp);
   SbMat wm;
@@ -198,11 +174,8 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
       mvp[r][c] = wm[c][r];
     }
   }
-  // The width offset is normalized against the viewport the line is drawn
-  // into.  An overlay line draws into its own sub-region (the NaviCube rect),
-  // so normalize against that, not the full-screen frame viewport -- using
-  // the frame size scaled every overlay width by frame/overlay and, on a
-  // fractional-DPI display, rendered the edge/axis strokes displaced.
+  // Normalize width against the viewport the line is drawn into: an overlay uses
+  // its own sub-region, not the frame viewport (else overlay strokes displace).
   SbVec2s viewportSize;
   if (wlineOverlay && command.state.raster.viewportWidth > 0 &&
       command.state.raster.viewportHeight > 0) {
@@ -218,15 +191,9 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     ? viewportSize[1] : 1);
 
   // ---- Expand-once cache ------------------------------------------------
-  // The quad expansion (clip transform + per-segment geometry + distance
-  // accumulation below) is the dominant per-frame CPU cost for line and edge
-  // heavy scenes, and on a retained (replayed) draw list with an unchanged
-  // camera the positions, view, projection, width and viewport are
-  // byte-identical every frame -- so the already-expanded quads in this slot
-  // are still exact.  Key the slot on the authoritative geometry content hash
-  // (the same one updateGeometryCache uses, so in-place edits invalidate here
-  // too) plus view/proj/width/viewport; on a match reuse the buffer instead of
-  // re-expanding and re-uploading it.
+  // Expansion is the dominant CPU cost for edge-heavy scenes; on a retained draw
+  // list with an unchanged camera the quads are byte-identical.  Key the slot on
+  // contentHash (in-place edits invalidate) + view/proj/width/viewport; on a match reuse.
   if (entry.wideLineBuffers.size() < this->maxFramesInFlight) {
     entry.wideLineBuffers.resize(this->maxFramesInFlight);
   }
@@ -263,9 +230,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     return true;
   }
 
-  // Transform a position to clip space with the same Y-flip and depth remap
-  // as the visual vertex shader, so the wide-line vertex shader can pass the
-  // quad corners through unchanged.
+  // Clip transform with the visual shader's Y-flip/depth remap; the wide-line shader passes it through.
   auto transformPoint = [&mvp](const float * p, float out[4]) {
     const float x = p[0];
     const float y = p[1];
@@ -284,14 +249,9 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     out[3] = cw;
   };
 
-  // Per-vertex clip-space cache plus accumulated polyline distance in
-  // WINDOW PIXELS.  Classic GL applies the stipple pattern in screen space
-  // (glLineStipple: each bit covers linePatternScaleFactor pixels), so the
-  // fragment discard below must operate on pixel distances, not object
-  // units -- an object-unit period changes size when zooming.
-  // Per-thread scratch: the expansion runs on the parallel record workers, so
-  // a shared member would race.  thread_local vectors keep the reuse (no
-  // realloc once grown) while giving each worker its own storage.
+  // Per-vertex clip-space cache plus accumulated polyline distance in WINDOW
+  // PIXELS: GL stipple is screen-space, so object units would scale when zooming.
+  // thread_local scratch: expansion runs on parallel workers, so a shared member would race.
   static thread_local std::vector<float> clipScratch;
   static thread_local std::vector<float> distScratch;
   static thread_local std::vector<float> quadScratch;
@@ -341,8 +301,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     }
   }
 
-  // 6 vertices per segment (two triangles), 9 floats each:
-  // clip position (4) + color (4) + distance in pixels (1).
+  // 6 vertices/segment, 9 floats each: clip pos (4) + color (4) + pixel distance (1).
   const size_t quadFloats = static_cast<size_t>(segmentCount) * 6 * 9;
   quadScratch.assign(quadFloats, 0.0f);
   float * const quads = quadScratch.data();
@@ -369,16 +328,10 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     const float * c0 = clipCache + static_cast<size_t>(i0) * 4;
     const float * c1 = clipCache + static_cast<size_t>(i1) * 4;
 
-    // Near-plane clip in the remapped clip space.  A point is visible when
-    // it is in front of the eye (w > nearEps) AND in front of the near plane
-    // (the remapped z, cache[2] >= 0, i.e. z_ndc >= 0).  The old code
-    // dropped the WHOLE segment when either endpoint had w <= 0, so a
-    // segment merely crossing the near plane vanished at close-in views.
-    // Instead, clip against the boundary: when only one endpoint is visible
-    // the segment straddles the near plane, so keep the visible half and
-    // interpolate the hidden endpoint onto the plane.  Behind-the-eye points
-    // also land behind the near plane (cache[2] < 0), so this single clip
-    // surface handles both the near-plane and eye-plane crossings.
+    // Near-plane clip: visible when w > nearEps AND remapped z (cache[2]) >= 0.
+    // Keep the visible half and interpolate the hidden endpoint onto the plane,
+    // rather than dropping the whole straddling segment (the old bug).  This also
+    // handles behind-the-eye points, which map to cache[2] < 0.
     const float fa = c0[2];
     const float fb = c1[2];
     const bool visible0 = (c0[3] > nearEps) && (fa >= 0.0f);
@@ -388,10 +341,8 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
       continue;
     }
 
-    // tA/tB give the interpolation fraction along c0 -> c1 for each emitted
-    // end (0 = original c0, 1 = original c1, intermediate = clipped onto the
-    // near plane).  Exactly one end is ever clipped because a plane meets a
-    // line segment at most once.
+    // tA/tB interpolate along c0 -> c1 for each emitted end (0/1 = original,
+    // intermediate = clipped); a plane meets a segment at most once.
     float tA;
     float tB;
     if (visible0 && visible1) {
@@ -437,8 +388,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
       if (wdiag) ++diagSkippedDeg;
       continue;
     }
-    // Frustum reject (see expandWideLinesSplitRange): a segment wholly off
-    // the sides of the view is not worth expanding -- the GPU would clip it.
+    // Frustum reject (see expandWideLinesSplitRange): the GPU would clip an off-screen segment.
     {
       const float mx = lineWidth / vpWidth;
       const float my = lineWidth / vpHeight;
@@ -453,14 +403,12 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
     }
     const float dirx = dx / length;
     const float diry = dy / length;
-    // Anisotropic NDC offset mirroring the GL geometry shader
-    // (perp * lineWidth / u_vpSize with per-axis division).
+    // Anisotropic NDC offset, mirroring the GL geometry shader (perp * width / vpSize).
     const float offx = -diry * lineWidth / vpWidth;
     const float offy = dirx * lineWidth / vpHeight;
 
-    // Quad corners: [0]=p0+off, [1]=p0-off, [2]=p1+off, [3]=p1-off.
-    // Triangles: (0,1,2), (2,1,3) -- same emission order as the GL
-    // geometry shader's triangle strip.
+    // Corners [0]=p0+off, [1]=p0-off, [2]=p1+off, [3]=p1-off; triangles
+    // (0,1,2),(2,1,3), matching the GL geometry shader's strip order.
     float corners[4][4];
     for (int corner = 0; corner < 4; ++corner) {
       const int endpoint = corner < 2 ? 0 : 1;
@@ -471,8 +419,7 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
       corners[corner][2] = endpoint == 0 ? cA[2] : cB[2];
       corners[corner][3] = w;
     }
-    // Colors, interpolated for a clipped (near-plane) endpoint.  The
-    // default is opaque white when the command has no per-vertex colors.
+    // Colors interpolated for a clipped endpoint; default opaque white if none supplied.
     const float defaultColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     const float * p0 = col0 ? col0 : defaultColor;
     const float * p1 = col1 ? col1 : defaultColor;
@@ -550,11 +497,8 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
 
   const VkDeviceSize needed =
     static_cast<VkDeviceSize>(outIndex) * sizeof(float);
-  // Ring of host-visible scratch buffers, one per in-flight frame slot: the
-  // slot selected for the current frame index is reused only after the same
-  // slot's previous submission has completed (beginFrame waits the slot
-  // fence).  Growth defers the old buffer's destruction instead of destroying
-  // it synchronously, since a still-executing frame may reference it.
+  // Ring of host-visible scratch buffers, one per in-flight slot: a slot is reused
+  // only after its fence (beginFrame).  Growth defers old-buffer destruction.
   if (slot.size < needed) {
     if (slot.buffer != VK_NULL_HANDLE || slot.memory != nullptr) {
       const VkBuffer oldBuffer = slot.buffer;
@@ -565,9 +509,8 @@ SoVulkanRenderBackend::expandWideLines(VulkanCachedCommand & entry,
       slot.size = 0;
       this->deferDestroyBufferMemory(oldBuffer, oldMemory);
     }
-    // Persistent host mapping.  The buffer is HOST_VISIBLE | HOST_COHERENT, so
-    // the GPU observes a memcpy without any explicit flush, and keeping the
-    // mapping alive avoids a vkMapMemory/vkUnmapMemory pair every frame.
+    // Buffer is HOST_VISIBLE | HOST_COHERENT, so a memcpy needs no flush; keeping
+    // the mapping alive avoids a vkMap/vkUnmap pair every frame.
     if (!this->createMappedBuffer(needed, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                   slot.buffer, slot.memory, &slot.mapped)) {
       this->emitError("expandWideLines: quad buffer create/map failed");
@@ -606,16 +549,11 @@ SoVulkanRenderBackend::buildInstancedLineBuffer(VulkanCachedCommand & entry,
   const uint32_t segmentCount = count / 2;
   if (!segmentCount) return false;
 
-  // The endpoint stream is a pure function of the (object-space) geometry, so
-  // rebuild only when the content hash changes.  contentHash==0 (unhashed) is
-  // treated as a miss on the first call, when the buffer is still null.
+  // Endpoints are a pure function of object-space geometry, so rebuild only when
+  // contentHash changes; the first call (null buffer) is a miss.
   //
-  // LIMITATION: an unhashed command (contentHash==0) that is edited in place
-  // keeps its first-built endpoints, because 0 == 0 short-circuits here once
-  // the buffer exists.  The hash is the only change signal, so a producer that
-  // mutates geometry without updating contentHash (or invalidating
-  // instancedLineHash) would render stale wide lines.  Leave contentHash==0
-  // for genuinely immutable geometry.
+  // LIMITATION: an unhashed command (contentHash==0) edited in place keeps its
+  // first endpoints (0==0 short-circuits); only use it for immutable geometry.
   if (entry.instancedLineBuffer != VK_NULL_HANDLE &&
       entry.instancedLineHash == entry.contentHash) {
     return true;
@@ -643,9 +581,8 @@ SoVulkanRenderBackend::buildInstancedLineBuffer(VulkanCachedCommand & entry,
     return false;
   }
 
-  // Four vec4 per segment: p0, p1, c0, c1.  Colors default to opaque white
-  // when the geometry carries none; the shader only reads them when the
-  // use-vertex-color flag is set, in which case the producer supplied them.
+  // Four vec4 per segment: p0, p1, c0, c1.  Colors default to opaque white; the
+  // shader reads them only when the use-vertex-color flag is set.
   float * const out = static_cast<float *>(mapped);
   for (uint32_t s = 0; s < segmentCount; ++s) {
     const uint32_t i0 = indices ? indices[s * 2] : s * 2;
@@ -684,9 +621,7 @@ SoVulkanRenderBackend::prepareWideLineBuffers(const SoDrawList & drawlist)
     VulkanCachedCommand & entry = this->gpuCache[found->second];
     if (entry.vertexBuffer == VK_NULL_HANDLE) continue;
 
-    // GPU-instanced wide line: build the static endpoint stream (once) and
-    // skip the CPU quad buffer -- the vertex shader expands on the GPU.  A
-    // failed build falls through to the CPU expansion below.
+    // GPU-instanced wide line: build the static endpoint stream once, skipping CPU quads.
     if (this->buildInstancedLineBuffer(entry, command)) {
       continue;
     }
@@ -703,8 +638,7 @@ SoVulkanRenderBackend::prepareWideLineBuffers(const SoDrawList & drawlist)
     }
     VulkanCachedCommand::VulkanWideLineBuffer & slot =
       entry.wideLineBuffers[this->uboFrameIndex % this->maxFramesInFlight];
-    // Worst case: every segment visible, 6 vertices, 9 floats per vertex.
-    // expandWideLines() then only ever fills a buffer this size or smaller.
+    // Worst case: every segment visible (6 verts * 9 floats); expandWideLines() fits this.
     const VkDeviceSize needed =
       static_cast<VkDeviceSize>(segmentCount) * 6u * 9u * sizeof(float);
     if (slot.buffer != VK_NULL_HANDLE && slot.size >= needed) continue;
@@ -737,10 +671,8 @@ SoVulkanRenderBackend::resolveCommandProj(const SoRenderCommand & command,
                                           bool overlayPass,
                                           SbMat & out) const
 {
-  // Must stay identical to recordDrawCommand()'s projection resolution: the
-  // expansion cache key includes the projection, so a divergence would either
-  // force a pointless re-expansion or reuse quads projected with the wrong
-  // matrix.
+  // Must match recordDrawCommand()'s projection resolution: the cache key includes
+  // the projection, so a divergence forces a re-expand or reuses wrong-matrix quads.
   const bool frameCameraOverlay = isFrameCameraOverlay(command, params);
   if (overlayPass && !frameCameraOverlay) {
     command.projMatrix.getValue(out);
@@ -766,12 +698,9 @@ void
 SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
                                                const SoRenderParams & params)
 {
-  // This is always the recording thread; the workers it dispatches compare
-  // against it to keep the diagnostics single-threaded.
+  // Always the recording thread; workers compare against it for single-threaded diagnostics.
   this->wlineOwnerThread = std::this_thread::get_id();
-  // Gather the drawable wide-line commands.  This mirrors the guards the
-  // record path applies (findCachedDrawable) so the pre-pass only touches
-  // entries that will actually be drawn.
+  // Gather drawable wide-line commands, mirroring the record path's guards (findCachedDrawable).
   std::vector<const SoRenderCommand *> & wideLines = this->wlineExpandScratch;
   wideLines.clear();
   std::vector<const SoRenderCommand *> & splitCmds = this->wlineSplitScratch;
@@ -788,16 +717,13 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
     const auto found = this->commandToCache.find(&command);
     if (found == this->commandToCache.end()) continue;
     if (this->gpuCache[found->second].vertexBuffer == VK_NULL_HANDLE) continue;
-    // Drawn by the GPU-instanced path: the vertex shader expands the segment,
-    // so there is nothing to expand on the CPU.
+    // Handled by the GPU-instanced path; nothing to expand on the CPU.
     if (isInstancedWideLine(command) &&
         this->gpuCache[found->second].instancedLineBuffer != VK_NULL_HANDLE) {
       continue;
     }
-    // A single dominant non-stippled LINE_LIST command (a lattice edge set)
-    // cannot be balanced by the whole-command round-robin below -- one worker
-    // would expand all of it.  Route it to the segment-range split instead.
-    // Stippled lines stay serial: their per-vertex distance is order-dependent.
+    // A single dominant non-stippled LINE_LIST (lattice edge set) would all land on
+    // one worker, so route it to the segment-range split.  Stippled lines stay serial.
     const SoGeometryDesc & geometry = command.geometry;
     const uint32_t count = geometry.indexCount && geometry.indices
       ? geometry.indexCount : geometry.vertexCount;
@@ -814,8 +740,7 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
     }
   }
 
-  // Expand the large commands first, on this (owner) thread; each split
-  // dispatch joins before the next, so the pool is idle when it runs.
+  // Expand large (split) commands first on the owner thread; each dispatch joins before the next.
   for (const SoRenderCommand * command : splitCmds) {
     const auto found = this->commandToCache.find(command);
     if (found == this->commandToCache.end()) continue;
@@ -841,15 +766,12 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
 
   vkBackendTrace(this->uboFrameIndex, "expandWideLines.dispatch",
                  "cmds=%zu workers=%u", wideLines.size(), W);
-  // Round-robin partition: the commands are of similar size, so this balances
-  // well without the sort the record path needs for its batched items.
+  // Round-robin partition balances well without the record path's sort (commands are similar size).
   for (uint32_t w = 0; w < W; ++w) {
     ParallelRecordJob & job = this->recordJobs[w];
     job.expandWideLines = true;
-    // Must clear the split phase: a preceding split dispatch left it set on
-    // the workers, and the worker loop keys the split branch on it.  Without
-    // this reset they would re-run the stale split range instead of their
-    // assigned wideLineCommands.
+    // Must clear the split phase: a preceding split dispatch left it set, and the
+    // worker loop keys its split branch on it (else it reruns the stale range).
     job.wlineSplitPhase = 0;
     job.params = &params;
     job.wideLineCommands.clear();
@@ -858,9 +780,8 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
     this->recordJobs[i % W].wideLineCommands.push_back(wideLines[i]);
   }
 
-  // Reset the done counter and bump the generation under recordMutex so the
-  // workers' count publication and the recording thread's predicate check are
-  // ordered by the same lock (see recordJobWorker's increment).
+  // Reset done count and bump generation under recordMutex so workers' publication
+  // and the recorder's predicate check share one lock.
   {
     std::lock_guard<std::mutex> lk(this->recordMutex);
     this->recordDoneCount.store(0);
@@ -889,14 +810,10 @@ SoVulkanRenderBackend::expandWideLinesParallel(const SoDrawList & drawlist,
 
 // --- Intra-command split --------------------------------------------------
 //
-// The round-robin in expandWideLinesParallel() balances by COMMAND, so one
-// command holding an entire scene's edges is expanded by a single worker.
-// This path partitions that one command's segments instead.  It is limited to
-// non-stippled LINE_LIST geometry (each segment then references exactly its
-// own two vertices and carries no order-dependent state), which is what a
-// large BRep edge set produces.  The output is byte-identical to the serial
-// expansion: phase 1 marks each segment, an exclusive prefix sum compacts the
-// visible ones, and phase 2 emits them at the prefix offsets.
+// expandWideLinesParallel() round-robins by command, so one scene-wide edge set
+// lands on a single worker; this path partitions that command's segments instead.
+// Limited to non-stippled LINE_LIST (no order-dependent state), as large BRep edge
+// sets produce.  Output is byte-identical: phase 1 marks, prefix-sum compacts, phase 2 emits.
 
 bool
 SoVulkanRenderBackend::expandWideLinesSplit(VulkanCachedCommand & entry,
@@ -917,8 +834,7 @@ SoVulkanRenderBackend::expandWideLinesSplit(VulkanCachedCommand & entry,
   const uint32_t segmentCount = count / 2;
   if (!segmentCount) return false;
 
-  // Main-pass only (the caller routes overlay commands to the serial path),
-  // so the frame view/projection apply, exactly as in expandWideLines().
+  // Main-pass only (overlays go serial), so the frame view/projection apply, as in expandWideLines().
   SbMat model;
   command.modelMatrix.getValue(model);
   SbMat view;
@@ -945,9 +861,7 @@ SoVulkanRenderBackend::expandWideLinesSplit(VulkanCachedCommand & entry,
   }
   VulkanCachedCommand::VulkanWideLineBuffer & slot =
     entry.wideLineBuffers[this->uboFrameIndex % this->maxFramesInFlight];
-  // Same fingerprint as expandWideLines(), so the inline call made by
-  // recordDrawCommand() during the record pass is a cache hit and does not
-  // re-expand.
+  // Same fingerprint as expandWideLines(), so recordDrawCommand()'s inline call is a cache hit.
   uint64_t wfp = entry.contentHash;
   auto mixWide = [&wfp](uint32_t bits) {
     wfp ^= bits + 0x9E3779B97F4A7C15ULL + (wfp << 6) + (wfp >> 2);
@@ -998,8 +912,7 @@ SoVulkanRenderBackend::expandWideLinesSplit(VulkanCachedCommand & entry,
 
   this->dispatchWideLineSplit(1, segmentCount, params);
 
-  // Exclusive prefix sum of the emitted-quad offsets, in floats.  Cheap
-  // (one add per segment) next to the expansion it compacts.
+  // Exclusive prefix sum of emitted-quad offsets in floats (one add per segment).
   size_t total = 0;
   for (uint32_t s = 0; s < segmentCount; ++s) {
     this->wlineSplitOffsets[s] = total;
@@ -1030,8 +943,7 @@ SoVulkanRenderBackend::expandWideLinesSplit(VulkanCachedCommand & entry,
     slot.size = needed;
   }
 
-  // Phase 2 emits the compacted quads directly into the slot's persistent
-  // mapping (prepareWideLineBuffers() already sized it for the worst case).
+  // Phase 2 emits compacted quads into the slot's mapping (pre-sized by prepareWideLineBuffers()).
   c.outBase = static_cast<float *>(slot.mapped);
   this->dispatchWideLineSplit(2, segmentCount, params);
 
@@ -1090,8 +1002,7 @@ SoVulkanRenderBackend::expandWideLinesSplitRange(int phase, uint32_t begin,
   const float nearEps = c.nearEps;
 
   if (phase == 1) {
-    // Clip transform + per-segment visibility.  Writes only this range's
-    // vertices and slots, so the ranges never overlap.
+    // Clip transform + per-segment visibility; writes only this range, so ranges don't overlap.
     for (uint32_t s = begin; s < end; ++s) {
       const uint32_t i0 = indices ? indices[s * 2] : s * 2;
       const uint32_t i1 = indices ? indices[s * 2 + 1] : s * 2 + 1;
@@ -1135,12 +1046,8 @@ SoVulkanRenderBackend::expandWideLinesSplitRange(int phase, uint32_t begin,
           const float dy = ndc1y - ndc0y;
           ok = std::sqrt(dx * dx + dy * dy) >= 1.0e-8f;
           if (ok) {
-            // Frustum reject.  Without it a segment wholly off the sides of
-            // the view is still expanded into quads and uploaded, only for
-            // the GPU to clip it; that keeps the per-frame cost independent
-            // of how much of a large edge set is actually on screen.  The
-            // quad extends sideways by half a line width, so pad the segment's
-            // NDC box by that margin (|off| <= lineWidth/viewport).
+            // Frustum reject: otherwise off-screen segments are still expanded and
+            // uploaded for the GPU to clip.  Pad the NDC box by lineWidth/viewport.
             const float mx = c.lineWidth / c.vpWidth;
             const float my = c.lineWidth / c.vpHeight;
             const float minx = std::min(ndc0x, ndc1x) - mx;

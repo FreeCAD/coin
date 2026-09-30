@@ -680,12 +680,10 @@ SoRenderManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
 }
 
 /*!
-  Recompute the camera's near/far clipping planes from the current scene
-  bounding box without rendering.  Mirrors what the next render() would do,
-  so an external consumer (e.g. FreeCAD's Vulkan viewport integration, which
-  keeps this render manager's GL viewer hidden) can refresh the shared
-  camera before it runs a pick traversal.  A no-op when auto-clipping is
-  disabled or the legacy GL renderer is not built in.
+  Recompute the camera's near/far from the current scene bbox without
+  rendering, mirroring the next render().  Lets FreeCAD's Vulkan viewport
+  (whose hidden GL viewer never refreshes them) prepare the shared camera for
+  a pick traversal.  No-op when auto-clipping is disabled.
 */
 void
 SoRenderManager::updateClippingPlanes(void)

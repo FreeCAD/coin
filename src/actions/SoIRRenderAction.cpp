@@ -1,5 +1,3 @@
-// src/actions/SoIRRenderAction.cpp
-
 #include <Inventor/actions/SoIRRenderAction.h>
 
 #include <Inventor/SoPath.h>
@@ -77,8 +75,7 @@ public:
 
   SoIRBuffer geometryPool;
   SbList<SoIRRenderAction::PrimitiveCollector *> collectorStack;
-  //! Set by a node whose recorded output depends on the camera pose (see
-  //! SoIRRenderAction::setCameraDependent); reset at the start of each frame.
+  //! Set by a node whose output depends on camera pose; reset each frame.
   SbBool cameraDependent = FALSE;
 };
 
@@ -94,9 +91,7 @@ SoIRRenderAction::initClass(void)
   }
   SO_ACTION_ADD_METHOD_INTERNAL(SoNode, SoNode::IRRenderS);
 
-  // Transformation and camera nodes must run their doAction()
-  // implementations so model/view/projection matrices are set up while
-  // building the retained draw list.
+  // Transform/camera nodes must run doAction() to set the matrices for the draw list.
   SO_ACTION_ADD_METHOD_INTERNAL(SoCamera, SoIRRenderAction::callDoAction);
   SO_ACTION_ADD_METHOD_INTERNAL(SoTransformSeparator, SoIRRenderAction::callDoAction);
   SO_ACTION_ADD_METHOD_INTERNAL(SoTransform, SoIRRenderAction::callDoAction);
@@ -154,9 +149,7 @@ SoIRRenderAction::initClass(void)
   SO_ENABLE(SoIRRenderAction, SoDecimationPercentageElement);
   SO_ENABLE(SoIRRenderAction, SoDecimationTypeElement);
   SO_ENABLE(SoIRRenderAction, SoTextureOverrideElement);
-  // Needed by SoShapeScale::updateScale() (FreeCAD's screen-constant-size
-  // datum planes/axes): the element must be enabled or updateScale() bails
-  // out and the shapes keep their raw world-unit scale.
+  // Needed by SoShapeScale::updateScale() or shapes keep raw world-unit scale.
   SO_ENABLE(SoIRRenderAction, SoDevicePixelRatioElement);
 }
 
@@ -249,10 +242,7 @@ void
 SoIRRenderAction::beginTraversal(SoNode * node)
 {
   SoViewportRegionElement::set(this->state, this->vpRegion);
-  // The IR viewport region is built from the swapchain extent in DEVICE
-  // pixels, so the device pixel ratio here is 1.0 (the GL side uses a
-  // logical-pixel viewport multiplied by dpr instead).  SoShapeScale and
-  // friends rely on this element being set.
+  // IR viewport is in device pixels, so dpr is 1.0 (GL uses logical pixels * dpr).
   SoDevicePixelRatioElement::set(this->state, this->vpRegion.getPixelsPerPoint());
   static const bool clipdebug_bt = getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
   if (clipdebug_bt) {

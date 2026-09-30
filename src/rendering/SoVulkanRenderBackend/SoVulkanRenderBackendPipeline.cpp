@@ -1,13 +1,9 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendPipeline.cpp
 //
-// Graphics pipeline and render-pass management.  Provides:
-//
-//   - getOrCreatePipeline(): build + cache an immutable VkPipeline per unique
-//     retained state (topology, fill/cull, depth, blend, stencil, sample
-//     count, wide-line) and translate it into the Vulkan state structs
-//   - Background-gradient pipeline + recordBackground()
-//
-// The render-pass/framebuffer cache moved to SoVulkanRenderPassCache.
+// Graphics pipeline and render-pass management.  getOrCreatePipeline() builds
+// and caches an immutable VkPipeline per unique retained state (topology,
+// fill/cull, depth, blend, stencil, sample count, wide-line); recordBackground()
+// draws the gradient.  Render-pass/framebuffer cache: SoVulkanRenderPassCache.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -39,8 +35,7 @@ SoVulkanRenderBackend::createGraphicsPipeline(
   const VkPipelineDepthStencilStateCreateInfo & depthStencil,
   const VkPipelineColorBlendAttachmentState & blendAttachment)
 {
-  // Fixed state shared by every graphics pipeline: viewport/scissor are
-  // dynamic, one color attachment, no logic op, one sample count.
+  // Fixed shared state: dynamic viewport/scissor, one color attachment, no logic op.
   VkPipelineViewportStateCreateInfo viewportState {};
   viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportState.viewportCount = 1;
@@ -157,8 +152,7 @@ SoVulkanRenderBackend::createBackgroundPipeline(
   rasterization.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterization.lineWidth = 1.0f;
 
-  // The gradient fills the whole viewport and writes no depth so geometry
-  // drawn afterwards is unaffected.
+  // Gradient fills the viewport and writes no depth, so later geometry is unaffected.
   VkPipelineDepthStencilStateCreateInfo depthStencil {};
   depthStencil.sType =
     VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -205,8 +199,7 @@ SoVulkanRenderBackend::recordBackground(const SoRenderParams & params,
     return;
   }
 
-  // The gradient covers exactly the viewport region (same Y-flip math as
-  // applyViewport()); geometry drawn afterwards restores its own viewport.
+  // Gradient covers exactly the viewport (same Y-flip as applyViewport()).
   const SbVec2s & origin = params.viewport.getViewportOriginPixels();
   const SbVec2s & size = params.viewport.getViewportSizePixels();
   const VkRect2D rect = toVkRect(clampFlippedRect(
@@ -264,33 +257,21 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
                      "call=%d", n.load());
     }
   }
-  // Pipelines are immutable in Vulkan.  Key the cache on every retained
-  // state value that changes the created pipeline so commands of different
-  // topology, fill mode, depth/blend state, or sample count never reuse an
-  // incompatible pipeline.  Shading model, vertex-color, texture, and
-  // lighting remain uniform/push-constant concerns in this milestone and do
-  // not need to participate in the key yet.
+  // Pipelines are immutable: key on every retained state value that changes the
+  // created pipeline (topology, fill, depth/blend, sample count) so incompatible
+  // states never share one.  Shading/texture/lighting are uniforms, not keyed yet.
   const bool blending = transparent || command.state.blend.enabled ||
                         command.material.diffuse[3] < 0.999f;
   const bool overlay = fillModeOverride >= 0;
-  // SoPolygonOffsetElement contributes an explicit depth bias captured into
-  // the raster state.  Selection/overlay faces use it to pull themselves in
-  // front of the coplanar base geometry (GL glPolygonOffset semantics).
-  // Respect it in the key so selection overlays stop z-fighting with the
-  // geometry underneath them.
+  // SoPolygonOffsetElement's captured depth bias pulls selection/overlay faces
+  // in front of coplanar base geometry (GL glPolygonOffset semantics); key it.
   const bool polygonOffset =
     command.state.raster.polygonOffsetFactor != 0.0f ||
     command.state.raster.polygonOffsetUnits != 0.0f;
   const bool depthBias = overlay || polygonOffset;
-  // GL polygon-offset units map ~1:1 onto Vulkan's depthBiasConstantFactor,
-  // but the two differ in how `r` (the minimum resolvable depth step) is
-  // derived: GL uses the (fixed-point, 24-bit) depth range while this backend
-  // commonly owns a float (D32_SFLOAT) depth attachment, whose resolvable
-  // step is far finer.  A GL-sized offset therefore leaves the coplanar
-  // selection/hover overlay Z-fighting with the base (a dark seam along the
-  // face boundary).  Scale the GL decal up so the overlay wins the depth test
-  // decisively; the slope factor keeps it from detaching at grazing,
-  // silhouette edges.
+  // GL offset units map ~1:1 to depthBiasConstantFactor, but the min-resolvable-
+  // depth step differs (GL 24-bit fixed vs float D32 here), so a GL-sized offset
+  // still Z-fights.  Scale the decal up; slope factor keeps grazing edges attached.
   constexpr float kDecalScale = 512.0f;
   const float kUseDecal = COIN_VULKAN_ENV_FLAG("FC_VULKAN_RASTER_DECAL")
     ? kDecalScale : 1.0f;
@@ -301,16 +282,12 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
     ? command.state.raster.polygonOffsetFactor * kUseDecal
     : (overlay ? -0.5f : 0.0f);
   PipelineKey key;
-  // Wide-line rendering (line width > 1 and/or a stipple pattern) draws each
-  // segment as a quad.  Eligible commands expand the quad on the GPU in the
-  // instanced vertex shader (key.wideLineInstanced); the rest expand on the
-  // CPU and are drawn as a triangle list, mirroring the GL wide-line geometry
-  // shader.  The overlay wireframe redraw stays on the plain line path.
+  // Wide-line (width > 1 and/or stipple) draws each segment as a quad: eligible
+  // commands expand on the GPU (key.wideLineInstanced), the rest on the CPU;
+  // the overlay wireframe redraw stays on the plain line path.
   key.wideLine = isWideLine(command, fillModeOverride, this->interactionLodActive);
-  // GPU-instanced variant when the command is eligible AND its static instance
-  // endpoint buffer exists.  The record path and the wide-line expansion
-  // pre-pass apply the identical per-command test, so the key and the draw
-  // always agree.
+  // GPU-instanced variant when eligible AND its instance endpoint buffer exists.
+  // The record path and expansion pre-pass use the identical test, so key == draw.
   key.wideLineInstanced = key.wideLine && isInstancedWideLine(command) &&
     cacheEntry != nullptr &&
     cacheEntry->instancedLineBuffer != VK_NULL_HANDLE;
@@ -321,9 +298,8 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   key.cullMode = overlay ? 0 : command.state.raster.cullMode;
   key.ccwFrontFace = command.state.raster.ccwFrontFace;
   key.depthTestEnable = command.state.depth.enabled || overlay;
-  // Overlay-pass geometry (e.g. the navigation cube) draws last into its own
-  // viewport and keeps depth writes so it can self-occlude correctly; the
-  // wireframe/point redraw overlays deliberately disable depth writes.
+  // Overlay-pass geometry (e.g. navigation cube) draws last, keeps depth writes
+  // to self-occlude; wireframe/point redraws deliberately disable depth writes.
   key.depthWriteEnable = overlayPass
     ? command.state.depth.writeEnabled
     : (!transparent && !overlay && command.state.depth.writeEnabled);
@@ -355,15 +331,10 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
     key.stencilZPassOp = stencil.zpassOp;
   }
 
-  // Per-command fast path: an unchanged command (same retained state -> the
-  // same PipelineKey) re-resolves to the same VkPipeline without paying the
-  // unordered_map lookup (key hash + bucket walk + equality) every frame.
-  // The key that produced the last resolved handle is stored verbatim on the
-  // geometry-cache entry, and the (cheap field-by-field, hash-free) equality
-  // below decides the hit.  The backing entry is destroyed together with the
-  // pipeline cache in invalidateCache(), so the cached handle can never
-  // dangle.  Callers that already resolved the entry (recordDrawCommand /
-  // recordCommandBatch) pass it in to skip the commandToCache lookup here.
+  // Per-command fast path: an unchanged command reuses its resolved VkPipeline
+  // without the map lookup.  The key is stored on the geometry cache entry
+  // (destroyed with the pipeline cache, so never dangling); callers that already
+  // resolved it (recordDrawCommand/recordCommandBatch) pass it in to skip the lookup.
   VulkanCachedCommand * entry = cacheEntry;
   if (entry == nullptr) {
     const auto cmdEntry = this->commandToCache.find(&command);
@@ -385,15 +356,10 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
     return pipeline != VK_NULL_HANDLE;
   }
 
-  // VK_POLYGON_MODE_LINE and VK_POLYGON_MODE_POINT require the
-  // fillModeNonSolid feature to be enabled at device creation.  The
-  // embedding application enables it only when the hardware advertises it,
-  // so creating such a pipeline without the feature is a spec violation
-  // (VUID-VkPipelineRasterizationStateCreateInfo-polygonMode-01507) and can
-  // make vkCreateGraphicsPipelines fail or hang drivers.  Refuse the
-  // pipeline instead; the failure is cached under the key so the warning is
-  // emitted once and every later lookup of the same state cheaply returns
-  // false.
+  // VK_POLYGON_MODE_LINE/POINT need the fillModeNonSolid device feature; without
+  // it creation is a spec violation (VUID-VkPipelineRasterizationStateCreateInfo-
+  // polygonMode-01507) and can fail or hang drivers.  Refuse, caching the failure
+  // so the warning emits once and later lookups return false cheaply.
   if (!this->fillModeNonSolid && !key.wideLine &&
       (key.fillMode == SoDrawStyleElement::LINES ||
        key.fillMode == SoDrawStyleElement::POINTS)) {
@@ -423,21 +389,18 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
                                   : this->fragmentModule;
   stages[1].pName = "main";
 
-  // Binding 0: the interleaved position/normal/color/texcoord stream.  The
-  // wide-line path substitutes its own 36-byte clip-space layout at binding 0.
+  // Binding 0: interleaved position/normal/color/texcoord (wide-line substitutes
+  // its own 36-byte clip-space layout).
   VkVertexInputBindingDescription binding[2] {};
   binding[0].binding = 0;
-  // GPU-instanced wide lines read one instance per segment from binding 0
-  // (four vec4: p0, p1, c0, c1); the CPU-expanded path reads its 36-byte
-  // clip-space quad stream; the visual path reads the interleaved vertex.
+  // Instanced wide lines read one segment/instance from binding 0 (p0,p1,c0,c1);
+  // CPU-expanded reads the 36-byte quad stream; visual reads the interleaved vertex.
   binding[0].stride = key.wideLineInstanced ? sizeof(float) * 16
                      : key.wideLine ? 36u : VULKAN_VERTEX_STRIDE;
   binding[0].inputRate = key.wideLineInstanced
     ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
-  // Binding 1: the per-instance model matrix, four R32G32B32A32 rows advanced
-  // per instance (rate INSTANCE).  Used by the visual pipelines and by the
-  // GPU-instanced wide-line pipeline.  The CPU-expanded wide-line pipeline
-  // keeps its own single-binding layout.
+  // Binding 1: per-instance model matrix (4 R32G32B32A32 rows, rate INSTANCE),
+  // used by visual + GPU-instanced wide-line; CPU-expanded uses one binding only.
   if (!key.wideLine || key.wideLineInstanced) {
     binding[1].binding = 1;
     binding[1].stride = sizeof(float) * 16; // mat4, 4 x vec4
@@ -479,8 +442,7 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   attributes[7].format = VK_FORMAT_R32G32B32A32_SFLOAT;
   attributes[7].offset = 48;
 
-  // Wide-line layout: clip-space position (0), color (16), polyline
-  // distance (32).
+  // Wide-line layout: clip position@0, color@16, polyline distance@32.
   VkVertexInputAttributeDescription wideLineAttributes[3] {};
   wideLineAttributes[0].location = 0;
   wideLineAttributes[0].binding = 0;
@@ -495,9 +457,8 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   wideLineAttributes[2].format = VK_FORMAT_R32_SFLOAT;
   wideLineAttributes[2].offset = 32;
 
-  // GPU-instanced wide-line layout: the segment endpoints/colors at binding 0
-  // (locations 0..3) and the per-instance model matrix at binding 1
-  // (locations 4..7, matching the visual pass).
+  // GPU-instanced layout: segment endpoints/colors at binding 0 (loc 0..3),
+  // per-instance model matrix at binding 1 (loc 4..7, matching the visual pass).
   VkVertexInputAttributeDescription instancedLineAttributes[8] {};
   instancedLineAttributes[0] = { 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 };
   instancedLineAttributes[1] = { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 };
@@ -544,28 +505,17 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
   const uint8_t fillMode = fillModeOverride >= 0
                              ? static_cast<uint8_t>(fillModeOverride)
                              : command.state.raster.fillMode;
-  // The overlay fill mode passed in by recordFrame() uses SoDrawStyleElement
-  // style values, and the retained IR stores the same encoding (see
-  // SoRenderIR::fillRenderStateFromState): FILLED=0, LINES=1, POINTS=2.
-  //
-  // Wide lines expand each segment into FILLED quads (drawn as a triangle
-  // list), so the polygon mode must be FILL regardless of the underlying
-  // draw style.  Using the inherited LINES mode here rasterizes the quad's
-  // edges as hairline wireframe instead of the solid line, which makes the
-  // expanded quads (a few pixels wide) effectively invisible -- the
-  // "wide lines don't render" symptom.
+  // SoDrawStyleElement values == retained IR encoding (FILLED=0, LINES=1,
+  // POINTS=2).  Wide lines expand to FILLED quads (triangle list), so polygonMode
+  // must be FILL -- LINES rasterizes hairline edges and the widened quads vanish.
   rasterization.polygonMode =
     key.wideLine ? VK_POLYGON_MODE_FILL
     : fillMode == SoDrawStyleElement::LINES ? VK_POLYGON_MODE_LINE
     : fillMode == SoDrawStyleElement::POINTS ? VK_POLYGON_MODE_POINT
     : VK_POLYGON_MODE_FILL;
-  // The vertex shader flips Y to match Coin's bottom-left origin; that
-  // reflection reverses screen winding, so the Vulkan front face is the
-  // inverse of the GL vertex ordering captured in the IR.  Back-face
-  // culling matches GL: only shapes declaring an explicit winding plus
-  // SOLID shape type cull (ccwFrontFace/cullMode above).  FreeCAD BRep
-  // tessellations declare COUNTERCLOCKWISE/SOLID, so closed parts cull
-  // back faces here exactly like the GL pipeline does.
+  // Vertex shader flips Y for Coin's bottom-left origin; that reflection reverses
+  // winding, so Vulkan frontFace inverts GL's IR order.  Back-face culling matches
+  // GL: only explicit winding + SOLID shapes cull (FreeCAD BRep is CCW/SOLID).
   rasterization.cullMode =
     key.wideLine || !key.cullMode ? VK_CULL_MODE_NONE
                                   : VK_CULL_MODE_BACK_BIT;
@@ -573,9 +523,8 @@ SoVulkanRenderBackend::getOrCreatePipeline(const SoRenderCommand & command,
     ? VK_FRONT_FACE_CLOCKWISE
     : VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterization.lineWidth = 1.0f;
-  // Depth bias: wireframe/point overlays pull toward the camera so they pass
-  // the depth test against coplanar filled geometry; selection/overlay faces
-  // carry an explicit SoPolygonOffsetElement captured into the raster state.
+  // Depth bias: wireframe/point overlays pull toward the camera to beat coplanar
+  // filled geometry; selection faces carry SoPolygonOffsetElement bias.
   rasterization.depthBiasEnable = depthBias ? VK_TRUE : VK_FALSE;
   rasterization.depthBiasConstantFactor = depthBiasConstant;
   rasterization.depthBiasSlopeFactor = depthBiasSlope;

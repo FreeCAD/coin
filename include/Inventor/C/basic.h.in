@@ -33,8 +33,7 @@
 #ifndef COIN_BASIC_H
 #define COIN_BASIC_H
 
-/* LegacyGL is the default for non-CMake library builds. Keep the internal
- * build decision separate from the installed public capability contract. */
+/* LegacyGL default for non-CMake builds; internal decision separate from installed contract. */
 #ifndef COIN_BUILD_LEGACY_GL_RENDERER
 #define COIN_BUILD_LEGACY_GL_RENDERER 1
 #endif

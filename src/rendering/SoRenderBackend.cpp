@@ -1,5 +1,3 @@
-// src/rendering/SoRenderBackend.cpp
-
 #include "rendering/SoRenderBackend.h"
 
 #include <Inventor/errors/SoDebugError.h>

@@ -1,47 +1,32 @@
 // data/shaders/vulkan/geometry-lod/SubPixelCull.glsl
 // GPU sub-pixel primitive culling (geometry LOD) for the raster Vulkan backend.
 //
-// One invocation per indexed TRIANGLE.  The triangle's three object-space
-// positions are read through the same interleaved vertex buffer the draw uses,
-// transformed with the same combined model*view*projection the visual vertex
-// shader applies, projected to device pixels, and its screen-space area is
-// compared against a threshold.  Triangles below the threshold are dropped;
-// the survivors are compacted into a dense output index buffer and the draw is
-// issued as vkCmdDrawIndexedIndirect, so culled primitives cost neither vertex
-// shading nor rasterization.
+// One invocation per triangle: read its object-space positions, transform by
+// the visual shader's model*view*projection, project to device pixels, and drop
+// it below a screen-area threshold.  Survivors are compacted into a dense index
+// buffer and drawn with vkCmdDrawIndexedIndirect (culled costs no shading/raster).
 //
-// The pipeline runs OUTSIDE the render pass (Vulkan forbids compute inside
-// one): the backend records it into the caller's command buffer before
-// vkCmdBeginRenderPass and a memory barrier orders it against the draws.
+// Runs OUTSIDE the render pass (Vulkan forbids compute inside one): recorded
+// before vkCmdBeginRenderPass, ordered against the draws by a memory barrier.
 //
-// Layout notes:
-//   - The interleaved vertex stride is 32 bytes (8 floats): position at
-//     floats 0..2, normal 3..5, color 6, texcoord 7 (see VULKAN_VERTEX_STRIDE).
-//   - u_offsets.x/y are the float/uint base offsets of the command's geometry
-//     inside its (possibly shared) vertex/index buffers; the descriptors bind
-//     the whole buffer, so the shader applies the offset itself and no
-//     descriptor offset-alignment constraint applies.
-//   - indirect.indexCount is the atomic append cursor AND the field
-//     vkCmdDrawIndexedIndirect reads back; the CPU zeroes just that 4-byte
-//     field per frame with vkCmdFillBuffer, leaving the other fields fixed.
+// Vertex stride 32 B (8 floats: pos 0..2, normal 3..5, color 6, texcoord 7, see
+// VULKAN_VERTEX_STRIDE).  u_offsets.x/y are float/uint bases into the (possibly
+// shared) buffers (descriptors bind whole buffers).  indirect.indexCount is the
+// atomic append cursor and the field vkCmdDrawIndexedIndirect reads; the CPU
+// zeroes only that 4-byte field per frame with vkCmdFillBuffer.
 
 #version 450
 
 layout(local_size_x = 64) in;
 
-// Distinct block name from the raster PushConstants: the layout differs, and a
-// shared name would make offline reflection (spirv_layout_check.py) ambiguous.
+// Distinct from the raster PushConstants so offline reflection (spirv_layout_check.py) is unambiguous.
 layout(push_constant) uniform SubPixelCullPush {
     mat4 u_mvp;        // offset 0:  combined model*view*projection (row-major
                        //            SbMat packed as mat4 columns)
     vec4 u_params;     // offset 64: x = viewport width  (px),
-                       //            y = viewport height (px),
-                       //            z = minimum screen area (px^2 * 2),
-                       //            w = primitive (triangle) count
+                       //            y=viewport height, z=min area (px^2*2), w=triangle count
     vec4 u_offsets;    // offset 80: x = vertex base (floats),
-                       //            y = index base (uints),
-                       //            z = 1 when the command is indexed,
-                       //                0 for a non-indexed triangle list
+                       //            y=index base (uints), z=1 indexed / 0 non-indexed
 } pc;
 
 layout(set = 0, binding = 0) readonly buffer VertexData {
@@ -56,8 +41,7 @@ layout(set = 0, binding = 2) writeonly buffer OutIndexData {
     uint data[];
 } outIdx;
 
-// The indirect command.  indexCount is the append cursor; the remaining fields
-// are initialized once at buffer creation and never rewritten.
+// Indirect command: indexCount is the append cursor; other fields are set once.
 layout(set = 0, binding = 3) buffer IndirectData {
     uint indexCount;
     uint instanceCount;
@@ -79,10 +63,8 @@ void main()
     const uint prim = gl_GlobalInvocationID.x;
     if (prim >= uint(pc.u_params.w)) return;
 
-    // Indexed geometry reads the command's index buffer; a non-indexed
-    // triangle list uses its vertices sequentially (vertex 3i, 3i+1, 3i+2).
-    // Either way the survivors are written as indices, so the draw always uses
-    // the compacted index buffer.
+    // Indexed: read the index buffer.  Non-indexed list: vertices 3i, 3i+1,
+    // 3i+2.  Survivors are always written as indices.
     const bool indexed = pc.u_offsets.z > 0.5;
     uint i0;
     uint i1;
@@ -103,18 +85,16 @@ void main()
     const vec4 c1 = pc.u_mvp * vec4(loadPosition(i1), 1.0);
     const vec4 c2 = pc.u_mvp * vec4(loadPosition(i2), 1.0);
 
-    // Keep any triangle that touches or crosses the near plane (w <= eps) or
-    // is partly behind the camera: the rasterizer clips it correctly, and
-    // culling on an undefined projection would pop it in and out.
+    // Keep triangles touching/crossing the near plane (w <= eps): the
+    // rasterizer clips them; culling an undefined projection would pop.
     const float kNearEps = 1.0e-6;
     bool keep = false;
     if (c0.w <= kNearEps || c1.w <= kNearEps || c2.w <= kNearEps) {
         keep = true;
     }
     else {
-        // NDC -> device pixels.  The exact origin (+1) cancels in the edge
-        // differences, and the 0.5 makes the differences true pixel deltas, so
-        // the cross product is twice the triangle's area in px^2.
+        // NDC -> device pixels; the 0.5 (origin cancels) makes the cross
+        // product twice the triangle area in px^2.
         const vec2 vp = pc.u_params.xy * 0.5;
         const vec2 p0 = (c0.xy / c0.w) * vp;
         const vec2 p1 = (c1.xy / c1.w) * vp;

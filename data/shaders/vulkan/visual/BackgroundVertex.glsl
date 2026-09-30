@@ -1,7 +1,5 @@
 // data/shaders/vulkan/visual/BackgroundVertex.glsl
-// Fullscreen triangle for the background gradient pass.  No vertex inputs or
-// descriptor sets: gl_VertexIndex drives a unit triangle covering the whole
-// viewport, and the fragment shader uses gl_FragCoord to compute the gradient.
+// Fullscreen triangle: gl_VertexIndex covers the viewport; no inputs/descriptors.
 
 #version 450
 

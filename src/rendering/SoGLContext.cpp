@@ -30,9 +30,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-// OpenGL context and rendering-state helpers shared by both renderer
-// configurations.  The fixed-function drawing helpers live in SoGL.cpp,
-// which is only built when the legacy renderer is enabled.
+// OpenGL context/state helpers shared by both renderer configurations.
+// The fixed-function drawing helpers live in SoGL.cpp (legacy renderer only).
 
 #include "rendering/SoGL.h"
 #include "coindefs.h"
@@ -82,8 +81,7 @@ sogl_glue_instance(const SoState * state)
   return cc_glglue_instance(1);
 #endif // workaround version
 #else
-  // Core-only code can still use the glue for context-independent queries,
-  // but there is no SoGLRenderAction from which to obtain a context id.
+  // Core-only build: no SoGLRenderAction to supply a context id; use glue 1.
   (void)state;
   return cc_glglue_instance(1);
 #endif

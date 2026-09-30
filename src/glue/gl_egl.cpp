@@ -98,9 +98,8 @@ SbBool eglglue_context_pbuffer_max(void * ctx, unsigned int * lims)
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-// Keep the core-profile request available with older EGL headers.  The
-// runtime extension/version check below still decides whether the attributes
-// may actually be passed to eglCreateContext().
+// Core-profile enums for older EGL headers; the runtime version check below
+// still decides whether eglCreateContext() accepts them.
 #ifndef EGL_CONTEXT_MAJOR_VERSION_KHR
 #define EGL_CONTEXT_MAJOR_VERSION_KHR 0x3098
 #endif

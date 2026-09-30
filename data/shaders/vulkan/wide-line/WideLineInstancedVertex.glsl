@@ -1,22 +1,15 @@
 // data/shaders/vulkan/wide-line/WideLineInstancedVertex.glsl
 // Vulkan wide-line vertex shader (GPU instanced) for the retained backend.
 //
-// Replaces the CPU quad expansion: one instance per line segment, six
-// vertices per instance (two triangles).  The instance vertex buffer
-// (binding 0, VK_VERTEX_INPUT_RATE_INSTANCE) carries the segment's two
-// object-space endpoints and their vertex colors; the per-instance model
-// matrix rides in binding 1, exactly as in the visual pipeline.  The
-// expansion math mirrors SoVulkanRenderBackendWideLine.cpp's producer so the
-// rasterized result is the same:
+// Replaces CPU quad expansion: one instance per segment, six vertices per
+// instance.  Binding 0 carries the object-space endpoints/colors (rate
+// INSTANCE); the model matrix is in binding 1 as in the visual pipeline.
+// Expansion mirrors SoVulkanRenderBackendWideLine.cpp: transform endpoints by
+// u_proj*u_view*model; apply Coin Y-flip and OpenGL->Vulkan depth remap;
+// near-clip the hidden endpoint onto z = 0; offset corners in NDC by line
+// width, scaled by clip w for perspective.
 //
-//   - transform both endpoints with u_proj * u_view * model
-//   - apply the Coin Y-flip and the OpenGL->Vulkan depth remap
-//   - near-clip the segment, interpolating the hidden endpoint onto z = 0
-//   - offset each corner perpendicular to the segment in NDC, scaled by the
-//     endpoint clip w so the width is perspective-correct
-//
-// The push-constant layout matches the visual pass (both pipelines share the
-// layout); u_lineGeom is appended after lineParams and read only here.
+// Push-constant layout matches the visual pass; only u_lineGeom is read here.
 
 #version 450
 
@@ -28,12 +21,10 @@ layout(push_constant) uniform PushConstants {
     float u_pointSize;    // offset 64, 16 bytes (pad[3])
     vec4  u_lineParams;   // offset 80, 16 bytes
     vec4  u_lineGeom;     // offset 96, 16 bytes: x = line width (device px),
-                          // y = viewport width, z = viewport height,
-                          // w = device pixel ratio
+                          // y=viewport width, z=viewport height, w=device pixel ratio
 } pc;
 
-// Per-draw block (set 1, binding 0).  The projection matrix now lives here
-// (offset 192) so the push-constant block fits the 128-byte Vulkan minimum.
+// Per-draw block (set 1, binding 0); projection at offset 192 keeps push constants <=128B.
 layout(set = 1, binding = 0, std140) uniform DrawBlock {
     mat4  u_view;                 // offset 0
     mat4  u_model;                // offset 64
@@ -44,29 +35,20 @@ layout(set = 1, binding = 0, std140) uniform DrawBlock {
     mat4  u_proj;                 // offset 192
 } draw;
 
-// Instance-rate attributes: the segment endpoints/colors (binding 0).  One
-// instance is one segment, so the per-instance model matrix (binding 1, used
-// by the visual pass) must NOT be read here: with instanceCount == segment
-// count the instance index advances per segment and every segment after the
-// first would read the next command's ring slot instead of its own model.
-// All segments of a command share one model, which is already in the per-draw
-// DrawBlock, so take it from there.
+// Instance-rate endpoints/colors (binding 0).  One instance is one segment, so
+// binding 1's per-instance model must NOT be read here (the index advances into
+// the next command's ring slot); all segments share the DrawBlock model.
 layout(location = 0) in vec4 a_p0;
 layout(location = 1) in vec4 a_p1;
 layout(location = 2) in vec4 a_c0;
 layout(location = 3) in vec4 a_c1;
 
 layout(location = 0) out vec4 v_color;
-// Declared for interface compatibility with WideLineFragment.glsl, which always
-// reads location 1.  The instanced path is only used for non-stippled lines
-// (stippled lines stay on the serial CPU-expansion path because their
-// per-vertex distance is order-dependent), so the fragment's stipple branch
-// (u_lineParams.x > 0) is never taken here.  Still write a meaningful
-// per-segment screen distance so the varying is not undefined.
+// Interface compatibility with WideLineFragment.glsl (always reads loc 1);
+// non-stippled only, but write a meaningful distance so the varying is defined.
 layout(location = 1) out float v_lineDistance;
 
-// Same triangle order as the CPU producer: corners [0]=p0+off, [1]=p0-off,
-// [2]=p1+off, [3]=p1-off.
+// Triangle order as CPU producer: [0]=p0+off, [1]=p0-off, [2]=p1+off, [3]=p1-off.
 const int kTriOrder[6] = int[](0, 1, 2, 2, 1, 3);
 
 void main()
@@ -86,8 +68,7 @@ void main()
     c0.z = 0.5 * c0.z + 0.5 * c0.w;
     c1.z = 0.5 * c1.z + 0.5 * c1.w;
 
-    // Near-clip, mirroring the producer: a hidden endpoint is moved onto the
-    // plane z = 0 by interpolating with t = z0 / (z0 - z1).
+    // Near-clip as producer: hidden endpoint interpolated onto z = 0 with t = z0/(z0-z1).
     bool visible0 = (c0.w > kNearEps) && (c0.z >= 0.0);
     bool visible1 = (c1.w > kNearEps) && (c1.z >= 0.0);
     if (!visible0 && !visible1) {
@@ -129,16 +110,14 @@ void main()
     int corner = kTriOrder[gl_VertexIndex];
     bool endpoint1 = corner >= 2;
     float sign = ((corner & 1) == 0) ? 1.0 : -1.0;
-    // Per-segment screen distance (pixels): 0 at the p0 corners, the segment
-    // length at the p1 corners, linearly interpolated across the quad.
+    // Per-segment screen distance (px): 0 at p0 corners, length at p1 corners.
     v_lineDistance = endpoint1
         ? length(d * vec2(max(pc.u_lineGeom.y, 1.0),
                           max(pc.u_lineGeom.z, 1.0)) * 0.5)
         : 0.0;
     vec4 base = endpoint1 ? cB : cA;
     float w = base.w;
-    // The offset is scaled by w so the perspective divide yields a constant
-    // screen-space width.
+    // Scale offset by w so the perspective divide yields constant screen width.
     vec4 pos = base;
     pos.x += sign * offx * w;
     pos.y += sign * offy * w;

@@ -1,16 +1,10 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendTexture.cpp
 //
-// Texture cache and upload path.  Provides:
-//
-//   - createSampler()
-//   - prepare/record/finalize staging-to-image uploads for changed textures
-//     (prepareTextureUpload, recordTextureUpload, finalizeTexture,
-//     recordPendingTextureUploadsInto, finalizePendingTextureUploads)
-//   - flushPendingTextureUploadsExternal() as the one-shot fallback used only
-//     when the external pre-pass cannot allocate its transient command buffer
-//   - ensureDescriptorPoolSpace(): grow the descriptor pool
-//   - allocateTextureDescriptorSet() / resolveTextureSet(): bind the
-//     descriptor set a draw uses
+// Texture cache and upload path: sampler cache, staging-to-image uploads for
+// changed textures (own-queue + external pre-pass), descriptor-pool growth and
+// per-draw descriptor binding.  flushPendingTextureUploadsExternal() is the
+// one-shot fallback when the external pre-pass cannot allocate its transient
+// command buffer.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -36,10 +30,8 @@ using namespace CoinVulkanDetail;
 
 namespace {
 
-// Record the identity of an uploaded texture on the cache entry: the pixel
-// pointer, dimensions/components, sampler state and the sampled content hash.
-// Both upload-completion paths (own-queue and external) stamped the same ten
-// fields by hand.
+// Record an uploaded texture's identity on the cache entry: pixel pointer,
+// dimensions/components, sampler state, content hash (both completion paths).
 void stampTextureContent(VulkanCachedTexture & entry,
                          const SoTextureData & texture)
 {
@@ -56,8 +48,6 @@ void stampTextureContent(VulkanCachedTexture & entry,
 }
 
 } // namespace
-
-// --- Texture cache --------------------------------------------------------
 
 void
 SoVulkanRenderBackend::destroyTextureEntry(VulkanCachedTexture & entry)
@@ -166,12 +156,8 @@ SoVulkanRenderBackend::createSampler(SoTextureFilter minFilter,
 VkFormat
 SoVulkanRenderBackend::effectiveTextureFormat(const int numComponents) const
 {
-  // VK_FORMAT_R8_UNORM and VK_FORMAT_R8G8_UNORM are not core-required
-  // sampled formats, so expand 1- and 2-component textures to
-  // VK_FORMAT_R8G8B8A8_UNORM (a required format) when the device lacks
-  // SAMPLED_IMAGE support; the same host-side expansion the 3-component
-  // path always applies for the optional VK_FORMAT_R8G8B8_UNORM.  Component
-  // counts that map directly are unchanged.
+  // R8/R8G8 aren't core-required sampled formats: expand 1-/2-component
+  // textures to R8G8B8A8_UNORM unless SAMPLED_IMAGE is supported (RGB always).
   if (numComponents == 3) return VK_FORMAT_R8G8B8A8_UNORM;
   if (numComponents == 1 && !this->sampledR8) return VK_FORMAT_R8G8B8A8_UNORM;
   if (numComponents == 2 && !this->sampledR8G8) return VK_FORMAT_R8G8B8A8_UNORM;
@@ -181,16 +167,13 @@ SoVulkanRenderBackend::effectiveTextureFormat(const int numComponents) const
 bool
 SoVulkanRenderBackend::ensureStagingPoolSize(VkDeviceSize required)
 {
-  // The caller needs `required` MORE bytes at the current cursor: the pool
-  // must fit cursor + required, not merely `required` (two mid-size uploads
-  // in one frame would otherwise each pass the check individually yet
-  // overrun the buffer end -- heap corruption downstream).
+  // Caller needs `required` MORE bytes at the cursor: fit cursor + required, not
+  // merely `required`, or a second mid-frame upload overruns the buffer end.
   if (this->stagingPoolBuffer != VK_NULL_HANDLE &&
       this->stagingPoolCapacity >= this->stagingPoolCursor + required) {
     return true;
   }
-  // Grow: at least double the current capacity so a burst of uploads in a
-  // frame amortizes a single reallocation instead of one per upload.
+  // Grow to at least double, amortizing a frame's upload burst into one realloc.
   VkDeviceSize newCapacity =
     std::max<VkDeviceSize>(this->stagingPoolCursor + required,
                            this->stagingPoolCapacity * 2);
@@ -207,10 +190,8 @@ SoVulkanRenderBackend::ensureStagingPoolSize(VkDeviceSize required)
   allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
   allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-  // Ask VMA for the persistent host mapping up front: the staging pool is
-  // written every frame, so a one-time map (no per-upload vkMapMemory) is the
-  // whole point.  VMA_MEMORY_USAGE_AUTO requires an explicit host-access flag
-  // whenever MAPPED is requested.
+  // Persistent host mapping up front (written every frame; no per-upload
+  // vkMapMemory).  VMA_MEMORY_USAGE_AUTO needs an explicit host-access flag.
   allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
   VmaAllocationInfo allocationInfo {};
@@ -220,13 +201,11 @@ SoVulkanRenderBackend::ensureStagingPoolSize(VkDeviceSize required)
   }
   void * newMapped = allocationInfo.pMappedData;
   if (newMapped == nullptr) {
-    // Should not happen with VMA_ALLOCATION_CREATE_MAPPED_BIT on host-visible
-    // memory, but do not leave a half-built pool behind.
+    // Unexpected with MAPPED_BIT on host-visible memory; don't leak a pool.
     vmaDestroyBuffer(this->vmaAllocator, newBuffer, newAllocation);
     return false;
   }
-  // Preserve any bytes already staged in the old buffer (uploads prepared
-  // earlier in this frame) before swapping it out.
+  // Preserve bytes already staged this frame before swapping buffers.
   if (this->stagingPoolBuffer != VK_NULL_HANDLE && this->stagingPoolMapped &&
       this->stagingPoolCursor > 0) {
     std::memcpy(newMapped, this->stagingPoolMapped,
@@ -263,9 +242,7 @@ SoVulkanRenderBackend::prepareTextureUpload(VulkanCachedTexture & entry,
   const VkDeviceSize byteSize =
     static_cast<VkDeviceSize>(texture.width) * texture.height * components;
 
-  // The expanded upload must sample identically to the native format it
-  // replaces, so the extra channels take the values the hardware would have
-  // produced: R8 -> (r,0,0,1), R8G8 -> (r,g,0,1), RGB -> (r,g,b,1).
+  // Expanded uploads sample as native: R8->(r,0,0,1), R8G8->(r,g,0,1), RGB->(r,g,b,1).
   std::vector<unsigned char> converted;
   const unsigned char * uploadPixels = texture.pixels;
   if (expandToRgba) {
@@ -296,10 +273,8 @@ SoVulkanRenderBackend::prepareTextureUpload(VulkanCachedTexture & entry,
   ci.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
   ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  // The image and its device memory are owned by the VMA allocator: a single
-  // vmaCreateImage creates, allocates and binds, sub-allocating from large
-  // blocks rather than hitting the driver (and maxMemoryAllocationCount) per
-  // upload.  Device-local, matching the old selectMemoryType() requirement.
+  // VMA owns the image + device memory: one vmaCreateImage creates, allocates
+  // and binds, sub-allocating large blocks (device-local).
   VmaAllocationCreateInfo allocInfo {};
   allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
   allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -309,11 +284,9 @@ SoVulkanRenderBackend::prepareTextureUpload(VulkanCachedTexture & entry,
     return false;
   }
 
-  // Stage the pixels into the shared staging pool.  The pool is host-visible
-  // and reused across frames (grown on demand), so all pending uploads of a
-  // frame coalesce into one buffer -- one allocation, one cleanup surface --
-  // rather than a fresh per-upload staging buffer.  st_offset is the byte
-  // offset (grown monotonically within the frame) where these pixels land.
+  // Stage into the shared host-visible staging pool (reused across frames,
+  // grown on demand): a frame's uploads coalesce into one buffer.
+  // stagingOffset is the frame-monotonic byte offset where these pixels land.
   if (!this->ensureStagingPoolSize(byteSize)) {
     this->emitError("prepareTextureUpload: staging pool growth failed");
     this->destroyTextureEntry(entry);
@@ -364,24 +337,20 @@ bool
 SoVulkanRenderBackend::finalizeTexture(VulkanCachedTexture & entry,
                                        const SoTextureData & texture)
 {
-  // The image format matches what prepareTextureUpload() created (RGB and
-  // unsupported R/RG textures are expanded to RGBA there).
+  // Must match prepareTextureUpload()'s image (RGB and unsupported R/RG -> RGBA).
   const VkFormat format = this->effectiveTextureFormat(texture.numComponents);
   entry.view = createImageView(this->device, entry.image, format,
                                VK_IMAGE_ASPECT_COLOR_BIT, this->allocator);
   if (entry.view == VK_NULL_HANDLE ||
-      // Shared sampler: entries with identical filter/wrap state reuse one
-      // VkSampler from samplerCache instead of creating one per texture entry.
+      // Shared sampler: identical filter/wrap state reuses one cached VkSampler.
       (entry.sampler = this->cachedSampler(texture.minFilter, texture.magFilter,
                                            texture.wrapS, texture.wrapT)) ==
         VK_NULL_HANDLE ||
       !this->allocateTextureDescriptorSet(entry.view, entry.sampler,
                                           entry.descriptorSet)) {
     this->emitError("finalizeTexture: view/sampler/descriptor creation failed");
-    // Leave the entry half-initialized for the caller to dispose of.  On the
-    // own-queue path the image is already referenced by recorded copies in
-    // an unsubmitted command buffer, so the caller must defer the
-    // destruction rather than destroy synchronously.
+    // Leave the entry half-initialized: on the own-queue path recorded copies
+    // still reference the image, so the caller must destroy it via the ring.
     return false;
   }
   entry.descriptorPool = this->descriptorPool;
@@ -391,12 +360,9 @@ SoVulkanRenderBackend::finalizeTexture(VulkanCachedTexture & entry,
 void
 SoVulkanRenderBackend::recordPendingTextureUploadsInto(VkCommandBuffer commandBuffer)
 {
-  // Record the copies into the caller's command buffer (which must not be
-  // inside a render pass).  The caller owns submission, so it is responsible
-  // for ordering them ahead of the draws that sample the images: the
-  // own-queue path records both into the same frame command buffer, and the
-  // external pre-pass submits its transient buffer (and waits) before the
-  // caller submits its pass.
+  // Record the copies into the caller's command buffer (which must not be in a
+  // render pass).  The caller owns submission and must order them before the
+  // sampling draws (own-queue: same frame buffer; external: submit/waits first).
   for (const PendingTextureUpload & upload : this->pendingUploads) {
     if (upload.index >= this->textureCache.size()) continue;
     this->recordTextureUpload(commandBuffer, this->textureCache[upload.index],
@@ -408,9 +374,7 @@ SoVulkanRenderBackend::recordPendingTextureUploadsInto(VkCommandBuffer commandBu
 bool
 SoVulkanRenderBackend::recordPendingTextureUploads()
 {
-  // Own-queue path: record the copies into the frame command buffer, ahead
-  // of the render pass that samples them.  No separate submit is needed, so
-  // no extra queue drain per frame.
+  // Own-queue path: copies go into the frame buffer ahead of the pass, no submit.
   this->recordPendingTextureUploadsInto(this->currentCommandBuffer());
   return true;
 }
@@ -418,11 +382,9 @@ SoVulkanRenderBackend::recordPendingTextureUploads()
 void
 SoVulkanRenderBackend::finalizePendingTextureUploads()
 {
-  // Own-queue path: create the views/samplers/descriptor sets (bound by the
-  // draws recorded below), stamp the content identity, and defer the staging
-  // buffers to the frame's deferred-destruction batch.  Staging buffers are
-  // referenced by the just-recorded submission, so they are released only
-  // after the slot fence signals.
+  // Own-queue path: create views/samplers/descriptor sets, stamp content, and
+  // defer staging buffers to the frame's deferred-destruction batch (released
+  // only after the slot fence signals).
   for (const PendingTextureUpload & upload : this->pendingUploads) {
     if (upload.index >= this->textureCache.size()) continue;
     VulkanCachedTexture & texEntry = this->textureCache[upload.index];
@@ -430,10 +392,8 @@ SoVulkanRenderBackend::finalizePendingTextureUploads()
       stampTextureContent(texEntry, *upload.texture);
     }
     else {
-      // The entry's image is referenced by the recorded copies, so the
-      // half-initialized resources must be destroyed through the deferred
-      // ring, not synchronously.  Keys stay unstamped so the next frame
-      // retries the upload.
+      // The image is referenced by recorded copies, so defer destruction of the
+      // half-initialized resources.  Keys stay unstamped to retry next frame.
       this->deferDestroyTextureEntry(texEntry);
     }
   }
@@ -446,15 +406,12 @@ SoVulkanRenderBackend::flushPendingTextureUploadsExternal()
   if (this->pendingUploads.empty()) return SoVulkan::Result::ok();
 
   // One-shot fallback for the external path, used only when
-  // beginExternalPrepass() could not allocate its transient command buffer
-  // (the normal external path records the copies into that buffer instead, so
-  // it pays no extra submission).  The caller owns the frame command buffer
-  // and is already inside a render pass, so the copies cannot be merged into
-  // it.  All pending uploads were staged into the single shared staging pool
-  // buffer at their recording offsets, so one submit copies every pending
-  // texture.  The wait also retires any in-flight frames submitted by the
-  // external caller, which keeps the staging pool free for reuse even when
-  // the caller pipelines more frames than maxFramesInFlight.
+  // beginExternalPrepass() could not allocate its transient buffer (which
+  // otherwise carries the copies at no extra submission).  The caller is inside
+  // a render pass and owns the frame buffer, so copies cannot merge there; all
+  // pending uploads sit in the shared staging pool, so one submit copies them
+  // all.  The wait also retires in-flight external frames, keeping the pool
+  // reusable even when the caller pipelines more frames than maxFramesInFlight.
   if (!SoVulkanShared::withOneShotSubmit(
         this->device, this->queue, this->commandPool, this->allocator,
         [this](VkCommandBuffer uploadBuffer) {
@@ -467,11 +424,8 @@ SoVulkanRenderBackend::flushPendingTextureUploadsExternal()
                                       upload.stagingOffset);
           }
         })) {
-    // The one-shot submit copies the whole batch, so a failure means no upload
-    // in it completed -- there is no per-texture failure to isolate, and every
-    // pending entry is half-initialized.  Reset them all so the next frame
-    // retries cleanly.  (A given index appears at most once here; see the
-    // dedup in prepareGeometryTextures.)
+    // Batch failure means none completed and every entry is half-initialized;
+    // reset all so the next frame retries.  (Deduped in prepareGeometryTextures.)
     for (const PendingTextureUpload & upload : this->pendingUploads) {
       if (upload.index < this->textureCache.size()) {
         this->destroyTextureEntry(this->textureCache[upload.index]);
@@ -481,10 +435,8 @@ SoVulkanRenderBackend::flushPendingTextureUploadsExternal()
     return SoVulkan::Result::error("one-shot texture upload failed");
   }
 
-  // Host-side completion (views/samplers/descriptor sets) and content
-  // identity stamping.  The queue is idle here, so the shared staging pool
-  // is free to be reused by the next frame.  A failure leaves the content
-  // keys unstamped, so the next frame retries the upload.
+  // Host-side completion (views/samplers/descriptor sets) and content stamping;
+  // on failure keys stay unstamped so the next frame retries.
   for (const PendingTextureUpload & upload : this->pendingUploads) {
     if (upload.index >= this->textureCache.size()) continue;
     VulkanCachedTexture & texEntry = this->textureCache[upload.index];
@@ -502,14 +454,10 @@ SoVulkanRenderBackend::flushPendingTextureUploadsExternal()
 bool
 SoVulkanRenderBackend::ensureDescriptorPoolSpace()
 {
-  // Each pool is sized for 1024 sets.  Textures accumulate per unique
-  // command until the cache is invalidated (scene change, backend re-init),
-  // so long-lived scenes with many distinct textures can exhaust the active
-  // pool.  Resetting a pool wholesale would invalidate every set allocated
-  // from it -- including sets referenced by frames the caller still has in
-  // flight -- so instead a fresh pool is appended and becomes current.
-  // Sets live in whatever pool allocated them and are freed back to that
-  // pool (or destroyed with it at shutdown); never reset.
+  // Each pool holds 1024 sets; textures accumulate per unique command until the
+  // cache is invalidated, so texture-heavy scenes can exhaust the active pool.
+  // Resetting would invalidate allocated sets (incl. in-flight caller frames),
+  // so append a fresh pool.  Sets are freed to their allocating pool; never reset.
   if (this->descriptorSetCount < 1000) {
     return true;
   }
@@ -520,10 +468,7 @@ SoVulkanRenderBackend::ensureDescriptorPoolSpace()
 VkDescriptorSet
 SoVulkanRenderBackend::resolveTextureSet(const SoRenderCommand & command)
 {
-  // Fast path for the overwhelmingly common untextured case: most retained
-  // commands (default CAD surfaces, edges, points) carry no texture, so fall
-  // straight through to the white set without touching the commandToTexture
-  // unordered_map (a hash + bucket walk per draw otherwise).
+  // Fast path for the common untextured case: return the white set, no lookup.
   const SoTextureData & tex = command.material.texture;
   if (!tex.pixels || tex.width == 0 || tex.height == 0 ||
       tex.numComponents == 0) {

@@ -1,17 +1,11 @@
 // src/rendering/SoVulkanDebugUtils.h
 //
-// Internal VK_EXT_debug_utils helpers: object names and command-buffer labels
-// so RenderDoc / Nsight / validation captures are readable.  Internal to Coin
-// (not installed, not public API).
+// Internal VK_EXT_debug_utils helpers (object names + command-buffer labels) for
+// readable RenderDoc/Nsight captures.  Not public API.
 //
-// Gated by SoVulkanConfig::get().diagnostics.debugUtils (FC_VULKAN_DEBUG_UTILS).
-// The entry points are resolved through vkGetDeviceProcAddr, so a build/run
-// where the instance did not enable VK_EXT_debug_utils degrades to a no-op
-// instead of dereferencing a null pointer.
-//
-// Single-device assumption: the renderer shares one VkDevice across the raster
-// and ray-tracing backends, so the resolved entry points are cached once.  If
-// a second device ever appears, call setDevice() from its creation site.
+// Gated by diagnostics.debugUtils (FC_VULKAN_DEBUG_UTILS); when unavailable the
+// vkGetDeviceProcAddr-resolved entry points stay null and every helper is a no-op.
+// Cached once for the shared VkDevice; call setDevice() for a second device.
 
 #ifndef COIN_SOVULKANDEBUGUTILS_H
 #define COIN_SOVULKANDEBUGUTILS_H
@@ -28,8 +22,7 @@ enabled()
   return SoVulkanConfig::get().diagnostics.debugUtils;
 }
 
-// The device whose vkGetDeviceProcAddr resolves the entry points.  Set once
-// after device creation; a null device keeps every helper a no-op.
+// Device whose vkGetDeviceProcAddr resolves the entry points; null = no-op.
 inline VkDevice &
 deviceRef()
 {

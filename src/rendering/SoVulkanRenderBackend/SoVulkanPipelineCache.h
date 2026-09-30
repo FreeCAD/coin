@@ -1,17 +1,8 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanPipelineCache.h
 //
-// Pipeline-cache state and lifetime for the Vulkan raster backend.
-//
-// Owns the two key -> VkPipeline maps (visual + background gradient), the
-// VkPipelineCache handle and its on-disk persistence.  It is deliberately a
-// pure store: the backend keeps computing the PipelineKey and the
-// VkGraphicsPipelineCreateInfo (which depend on the command state, the
-// render target and the wide-line predicates) and asks this class to resolve
-// the key to a pipeline, creating and storing it on a miss.
-//
-// Extracted from SoVulkanRenderBackend as the first step of the renderer
-// architecture cleanup; the class was a single ~90-method object owning the
-// frame pump, every cache and the CPU wide-line expander.
+// Pipeline-cache state and lifetime for the Vulkan raster backend: two
+// key -> VkPipeline maps (visual + background gradient) plus the persistent
+// VkPipelineCache.  A pure store -- the backend resolves keys through it.
 
 #ifndef COIN_SOVULKANPIPELINECACHE_H
 #define COIN_SOVULKANPIPELINECACHE_H
@@ -24,8 +15,7 @@
 
 #include <vulkan/vulkan.h>
 
-// Shared combine step for the hand-rolled hash functors below.  Keeping one
-// implementation prevents the == operator and the hash from drifting apart.
+// Shared combine step for the hand-rolled hash functors (keeps == and hash in sync).
 static inline size_t vkPipelineHashCombine(size_t hash, size_t value)
 {
   return hash ^ (value + 0x9e3779b9 + (hash << 6) + (hash >> 2));
@@ -34,10 +24,8 @@ static inline size_t vkPipelineHashCombine(size_t hash, size_t value)
 /*!
   \brief Immutable graphics-pipeline identity.
 
-  Pipelines are cached keyed by this struct.  It is defined before
-  VulkanCachedCommand (which stores a resolved key) so each cached command can
-  remember the exact key it last resolved to, letting the backend skip
-  re-hashing and the map lookup for an unchanged command.
+  Defined before VulkanCachedCommand so each cached command can remember the
+  key it last resolved to, skipping re-hash/map lookup for an unchanged command.
 */
 struct PipelineKey {
   VkRenderPass renderPass = VK_NULL_HANDLE;
@@ -68,11 +56,8 @@ struct PipelineKey {
   uint8_t stencilZPassOp = 0;
   uint32_t sampleCount = 1;
   bool wideLine = false;
-  //! GPU-instanced wide-line variant: the same wide-line output, but the
-  //! vertex shader expands the segment on the GPU from an instance-rate
-  //! endpoint buffer instead of drawing the CPU-expanded quads.  Shares the
-  //! fragment module with `wideLine` but needs a distinct pipeline (different
-  //! vertex module and vertex input layout).
+  //! GPU-instanced wide-line variant: same output, but the vertex shader
+  //! expands the segment on the GPU from an instance-rate endpoint buffer.
   bool wideLineInstanced = false;
 
   bool operator==(const PipelineKey & other) const
@@ -152,8 +137,7 @@ struct PipelineKeyHash
   }
 };
 
-// Background gradient pipeline cache: keyed on the render pass and sample
-// count only (the gradient pipeline has no retained per-command state).
+// Background gradient pipeline cache, keyed on render pass + sample count only.
 struct BackgroundPipelineKey {
   VkRenderPass renderPass = VK_NULL_HANDLE;
   uint32_t sampleCount = 1;
@@ -177,11 +161,9 @@ struct BackgroundPipelineKeyHash
 /*!
   \brief Key -> VkPipeline store plus the persistent VkPipelineCache handle.
 
-  The backend resolves a PipelineKey to a pipeline through find(); on a miss
-  it creates the pipeline and calls store() (a creation failure is stored as
-  VK_NULL_HANDLE so the failure is remembered and the warning emitted once).
-  The handle returned by handle() is passed to vkCreateGraphicsPipelines /
-  vkCreateComputePipelines.
+  find() resolves a key; on a miss the backend creates the pipeline and stores
+  it (a failure is stored as VK_NULL_HANDLE, remembered and warned once).
+  handle() feeds vkCreateGraphicsPipelines/vkCreateComputePipelines.
 */
 class SoVulkanPipelineCache {
 public:
@@ -195,15 +177,11 @@ public:
   //! On-disk persistence path (empty = no persistence).
   void setPath(const std::string & path) { this->path = path; }
 
-  //! Content key of the compiled shaders whose pipelines this cache holds.
-  //! Written into the persisted file and checked on load: a file written from
-  //! different shaders is rejected, so a rebuilt shader can never be served a
-  //! pipeline compiled from the previous one (the pipeline-state key alone
-  //! does not capture shader code).
+  //! Content key of the compiled shaders.  Persisted and checked on load: a
+  //! file from different shaders is rejected (the state key lacks shader code).
   void setShaderKey(uint64_t key) { this->shaderKey = key; }
 
-  //! Route this class's informational messages (cache supplied/saved/rejected)
-  //! to the backend's log callback.
+  //! Route informational messages (supplied/saved/rejected) to the log callback.
   void setLogger(std::function<void(const char *)> logger)
   {
     this->logger = std::move(logger);
@@ -212,14 +190,12 @@ public:
   //! Create the VkPipelineCache, seeding it from the path when one is set.
   bool initialize();
 
-  //! Persist (when a path is set) and destroy every cached pipeline and the
-  //! handle.  Idempotent.
+  //! Persist (when a path is set) and destroy all pipelines + the handle.  Idempotent.
   void shutdown();
 
   VkPipelineCache handle() const { return this->cache; }
 
-  //! Resolve \a key.  Returns true when the key was present, writing the
-  //! cached pipeline (possibly VK_NULL_HANDLE for a remembered failure).
+  //! Resolve \a key; true when present (out may be VK_NULL_HANDLE for a failure).
   bool find(const PipelineKey & key, VkPipeline & out) const
   {
     const auto found = this->pipelines.find(key);
@@ -246,11 +222,9 @@ public:
 
 private:
   void emit(const char * message) const;
-  // Read the persistent cache file into \a data.  False when the path is empty
-  // or the file is missing/unreadable/absurdly large.
+  // Read the persistent cache file; false when empty/missing/unreadable/oversized.
   bool readFile(std::vector<uint8_t> & data) const;
-  // Write the current cache to the path (sibling temp file + rename).  No-op
-  // when the path is empty or the handle is null.
+  // Write the cache to path (sibling temp + rename); no-op if path empty or null.
   void writeFile() const;
 
   VkDevice device = VK_NULL_HANDLE;

@@ -193,8 +193,7 @@ coin_alpha_test_function_to_gl(const int function)
 void
 SoAlphaTest::doAction(SoAction * action)
 {
-  // Generic traversal retains the semantic Inventor function. The LegacyGL
-  // override below is the only path that translates it to a GL enum.
+  // Generic traversal keeps the semantic function; the LegacyGL override maps it to a GL enum.
   SoLazyElement::setAlphaTestSemantic(action->getState(),
                                       this->function.getValue(),
                                       this->value.getValue());

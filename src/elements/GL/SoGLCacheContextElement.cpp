@@ -489,8 +489,7 @@ SoGLCacheContextElement::getIsRemoteRendering(SoState * state)
 }
 
 #if COIN_BUILD_LEGACY_GL_RENDERER
-// Internal method used by SoGLDisplayList to delete list as soon as the
-// display list context is current again.
+// Internal: SoGLDisplayList deletes its list once the context is current again.
 void
 SoGLCacheContextElement::scheduleDelete(SoState * state, class SoGLDisplayList * dl)
 {

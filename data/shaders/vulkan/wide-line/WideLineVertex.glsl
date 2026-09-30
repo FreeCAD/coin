@@ -1,13 +1,10 @@
 // data/shaders/vulkan/wide-line/WideLineVertex.glsl
 // Vulkan wide-line vertex shader for the retained render backend.
 //
-// The wide-line pipeline expands line segments into quads on the CPU (no
-// geometry shader): a_position carries the CLIP-SPACE quad corner (xyz with
-// the original clip w in the fourth component), with the Coin Y-flip and the
-// OpenGL->Vulkan depth remap already applied by the producer.  Each vertex
-// also carries the accumulated distance along the polyline in object units
-// for screen-space stippling.  The push-constant layout matches the visual
-// pass so both pipelines share one layout; only the fields below are read.
+// CPU expands segments into quads (no geometry shader): a_position is the
+// clip-space corner (xyz plus original clip w), Y-flip and depth remap already
+// applied; a_lineDistance carries polyline distance for screen-space stipple.
+// Push-constant layout matches the visual pass; only the fields below are read.
 
 #version 450
 

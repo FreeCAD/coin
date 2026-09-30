@@ -848,13 +848,11 @@ SoCamera::jitter(int numpasses, int curpass, const SbViewportRegion & vpreg,
   coin_viewvolume_jitter(numpasses, curpass, vpsize, (float*) jitteramount.getValue());
 }
 
-// Documented in superclass. Overridden to set up the viewing and
-// projection matrices.
+// Documented in superclass.  Overridden to set the view/projection matrices.
 void
 SoCamera::IRRender(SoIRRenderAction * action)
 {
-  // Camera nodes must set the view volume and view/projection matrices
-  // for the IR render action exactly as they do for GLRenderAction,
+  // Set view volume + view/projection matrices for IRRender as for GLRender,
   // otherwise the retained draw list is built with identity transforms.
   this->doAction(action);
 }

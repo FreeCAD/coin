@@ -1,5 +1,3 @@
-// src/rendering/SoRenderBackend.h
-
 #ifndef COIN_SORENDERBACKEND_H
 #define COIN_SORENDERBACKEND_H
 
@@ -16,14 +14,9 @@ class SoDrawList;
 
 typedef void (*SoRenderBackendLogFn)(const char * message, void * userdata);
 
-/*!
-  struct SoRenderParams
-  rief Per-render values consumed by a retained-rendering backend.
-
-  The values describe the currently bound framebuffer and the view being
-  rendered into it.  Target ownership and application orchestration remain
-  outside this interface.
-*/
+/*! \struct SoRenderParams \brief Per-render values consumed by a retained-rendering backend.
+  Describes the bound framebuffer and the view rendered into it; target ownership
+  and orchestration stay outside this interface. */
 struct SoRenderParams {
   SbViewportRegion viewport;
   SbMatrix         viewMatrix;
@@ -34,65 +27,38 @@ struct SoRenderParams {
   uint32_t         clearStencil = 0;
   uint32_t         flags = 0;
 
-  // Background gradient (vertical, screen-space).  When backgroundGradient
-  // is set the backend fills the viewport with a top-to-bottom gradient
-  // between backgroundTopColor and backgroundBottomColor before drawing
-  // geometry, instead of a flat clearColor.
+  // Vertical screen-space gradient: when set, fill the viewport top-to-bottom
+  // between backgroundTopColor and backgroundBottomColor instead of a flat clearColor.
   SbBool           backgroundGradient = FALSE;
   SbColor4f        backgroundTopColor = SbColor4f(0.0f, 0.0f, 0.0f, 1.0f);
   SbColor4f        backgroundBottomColor = SbColor4f(0.0f, 0.0f, 0.0f, 1.0f);
 
-  /*!
-    \brief Backend-defined render destination for this frame.
-
-    The base interface does not interpret this pointer.  Concrete backends
-    document the structure they expect.  The Vulkan backend expects it to
-    point to a SoVulkanRenderTarget (see Inventor/rendering/
-    SoVulkanRenderTarget.h).  A null pointer means "render into whatever
-    destination the backend is currently bound to", which is backend
-    specific.  The pointer is borrowed for the duration of render() only.
-  */
+  /*! \brief Backend-defined render destination for this frame, borrowed for render() only.
+    Uninterpreted by the base interface; Vulkan expects a SoVulkanRenderTarget
+    (Inventor/rendering/SoVulkanRenderTarget.h). NULL = the backend's current binding. */
   void * renderTarget = nullptr;
 
-  //! Monotonically increasing generation counter for the camera used this
-  //! frame.  Bumped whenever the active camera node changes or its pose
-  //! (position/orientation/projection) changes, so a backend can reliably
-  //! detect a camera move without diffing floating-point matrices.  A value
-  //! of 0 means "not supplied" (the backend should fall back to the matrices).
+  //! Camera generation counter, bumped on camera node/pose change (0 = not
+  //! supplied, fall back to matrices). Detects moves without diffing floats.
   uint32_t cameraVersion = 0;
 
-  //! 1-based ordinal of the presented frame this render belongs to, bumped
-  //! exactly once per frame by the embedding (SoVulkanRenderManager).  Used
-  //! as a stable, ordering-independent correlation key between backend
-  //! debug traces (RTDBG lines), captured frame dumps and probe phase
-  //! markers.  0 means "not supplied".
+  //! 1-based presented-frame ordinal bumped once per frame by
+  //! SoVulkanRenderManager; correlation key for RTDBG traces/frame dumps/phase markers (0 = unset).
   uint32_t frame = 0;
 
-  //! Set by the embedding (SoVulkanRenderManager) when this frame is a
-  //! retained-IR replay: the main scene graph was unchanged, no full
-  //! traversal ran, and the main retained geometry content is therefore
-  //! bit-identical to the previous frame.  A backend may use this to skip
-  //! re-verifying the sampled content hash of geometry whose pointer
-  //! identity already matches its cache (the hash exists to catch in-place
-  //! edits, which can only be produced by a traversal, and none ran).  It
-  //! says nothing about freshly-recorded overlay/decoration commands, which
-  //! are re-produced every frame and must still be verified.  FALSE by
-  //! default so a backend that ignores it is always correct.
+  //! Set by SoVulkanRenderManager on a retained-IR replay (scene graph unchanged,
+  //! no traversal): retained geometry is bit-identical, so a backend may skip its
+  //! content-hash re-verification when pointer identity matches its cache. Overlay
+  //! commands are re-produced every frame and still verified. FALSE by default.
   SbBool geometryContentUnchanged = FALSE;
 
-  //! Set by the embedding while the camera is moving (interaction LOD).  A
-  //! backend may drop per-frame work that is invisible in motion and restore
-  //! full quality when the camera stops.  The Vulkan backend uses it to draw
-  //! wide lines as plain 1px GPU lines instead of re-expanding every segment
-  //! into quads on the CPU, which dominates navigation on large edge sets.
-  //! FALSE by default so a backend that ignores it is always correct.
+  //! Set by the embedding while the camera moves (interaction LOD): a backend
+  //! may drop motion-invisible work and restore quality when stopped. Vulkan draws
+  //! wide lines as 1px GPU lines vs CPU-expanding segments into quads. FALSE by default.
   SbBool interactionLod = FALSE;
 };
 
-/*!
-  struct SoRenderBackendInitParams
-  rief Minimal backend initialization hooks.
-*/
+/*! \struct SoRenderBackendInitParams \brief Minimal backend initialization hooks. */
 struct SoRenderBackendInitParams {
   void *               userData = nullptr;
   SoRenderBackendLogFn logCallback = nullptr;
@@ -100,18 +66,13 @@ struct SoRenderBackendInitParams {
 };
 
 /*!
-  class SoRenderBackend
+  \class SoRenderBackend
   \brief Retained-render lifecycle and DrawList execution interface.
 
-  The retained IR does not depend on this interface or on a graphics API.
-  Concrete backends own all device resources.
-
-  This interface exists for the Vulkan renderer: SoVulkanRenderBackend is its
-  production implementation. SoGLRenderBackend is
-  a reference implementation exercised by the testsuite only; it is not built
-  into libCoin and the OpenGL viewport does not use it (SoRenderManager still
-  renders through SoGLRenderAction). Treat this as the Vulkan backend
-  interface rather than a promise that every backend is interchangeable.
+  The retained IR depends on neither this interface nor a graphics API; concrete
+  backends own all device resources. Effectively the Vulkan backend interface:
+  SoVulkanRenderBackend is production; SoGLRenderBackend is a testsuite-only
+  reference (not in libCoin; the GL viewport still uses SoGLRenderAction).
 */
 class SoRenderBackend {
 public:

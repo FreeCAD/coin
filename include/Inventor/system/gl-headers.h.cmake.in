@@ -51,10 +51,8 @@
 #endif
 
 #if defined(COIN_INTERNAL) && defined(_WIN32)
-/* The Windows SDK's legacy gl.h is still used for the compatibility API,
-   while modern GL declarations come from Coin's private Khronos snapshot.
-   Keep these includes private so installed public headers do not expose
-   Coin's source tree. */
+/* Windows: legacy gl.h for the compatibility API, modern declarations from
+   Coin's private Khronos snapshot; private so installed headers stay clean. */
 #  include <windows.h>
 #  include <GL/gl.h>
 #  include "glue/khronos/GL/glext.h"

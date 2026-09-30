@@ -1,5 +1,3 @@
-// src/rendering/SoRenderIR.cpp
-
 #include "rendering/SoRenderIRP.h"
 
 #include <Inventor/C/tidbits.h>
@@ -68,8 +66,7 @@ lightingEqual(const SoLightingData & lhs, const SoLightingData & rhs)
 SoBlendFactor
 blendFactorFromLegacyGL(const int value)
 {
-  // Keep the GL values local to this conversion boundary. No GL enum is
-  // stored in the public IR.
+  // Keep GL values local to this conversion boundary; no GL enum is stored in the public IR.
   switch (value) {
   case 0x0000: return SO_BLEND_FACTOR_ZERO;                    // GL_ZERO
   case 0x0001: return SO_BLEND_FACTOR_ONE;                     // GL_ONE
@@ -126,9 +123,7 @@ textureQualityLimit(const char * name, const float fallback)
 void
 textureFiltersFromQuality(const float quality, SoTextureData & texture)
 {
-  // Keep this mapping in lockstep with SoGLImageP::applyFilter() and its
-  // documented LegacyGL quality thresholds. The IR stores the effective
-  // sampler state so a backend does not need to know Coin's quality policy.
+  // Keep in lockstep with SoGLImageP::applyFilter()'s LegacyGL thresholds; the IR stores effective sampler state so backends need no Coin quality policy.
   static const float linearLimit =
     textureQualityLimit("COIN_TEX2_LINEAR_LIMIT", 0.2f);
   static const float mipmapLimit =
@@ -220,8 +215,7 @@ SoIRBuffer::allocate(size_t bytes, size_t alignment)
     }
   }
 
-  // Need a new chunk — size it to at least fit this allocation
-  // and to avoid many small chunks
+  // New chunk sized to fit this allocation while avoiding many small chunks.
   size_t chunkSize = std::max({bytes, MIN_CHUNK_SIZE, this->highWaterMark / 2});
   std::unique_ptr<Chunk> c(new Chunk);
   c->data.resize(chunkSize);
@@ -251,8 +245,7 @@ SoDrawList::truncate(int count)
 {
   if (count < static_cast<int>(this->commands.size())) {
     this->commands.resize(static_cast<size_t>(count));
-    // The command vector remains insertion-ordered; sortedOrder is rebuilt
-    // when the backend prepares the frame.
+    // Commands stay insertion-ordered; sortedOrder is rebuilt when the backend prepares the frame.
   }
 }
 
@@ -295,8 +288,7 @@ SoDrawList::getCommand(int i) const
 
 namespace {
 
-// Bitwise matrix equality: both sides are copies of the same element value,
-// so identical bit patterns are the right identity test (no epsilon).
+// Bitwise matrix equality: both sides copy one element value, so identical bits are the right identity test (no epsilon).
 bool matrixBitsEqual(const SbMatrix & a, const SbMatrix & b)
 {
   SbMat av, bv;
@@ -321,12 +313,8 @@ bool rawEqual(const SoLightingRaw & a, const SoLightingRaw & b)
   if (a.hasRaw != b.hasRaw) return false;
   if (!a.hasRaw) return true;
   if (a.lights.size() != b.lights.size()) return false;
-  // NOTE: SoLightingRaw::viewUsed is deliberately NOT compared.  Setups are
-  // world-space and view-independent, so two setups whose raw world geometry
-  // is identical are the same light regardless of the fill-time viewing
-  // matrix.  Comparing viewUsed (the old view-fixed/restrike convention) would
-  // fragment the dedup hash across camera frames, keeping identical
-  // world-space setups separate and inflating the lighting ring.
+  // NOTE: viewUsed is deliberately NOT compared: setups are world-space/view-independent, so
+  // identical raw geometry is the same light; comparing it would fragment dedup and inflate the lighting ring.
   for (size_t i = 0; i < a.lights.size(); ++i) {
     if (!rawLightEqual(a.lights[i], b.lights[i])) return false;
   }
@@ -364,11 +352,7 @@ SoDrawList::addLightingSetup(const SoLightingData & lighting,
   return static_cast<SoLightingHandle>(this->lightingSetups.size());
 }
 
-// Compatibility no-op, kept exported so already-linked consumers (such as the
-// pivy Python bindings) still resolve the symbol.  SoLightData carries
-// world-space geometry, so retained lighting setups are view-independent and a
-// camera-only frame replaying this draw list shades correctly without any
-// re-derivation.
+// Compatibility no-op kept exported for already-linked consumers (e.g. pivy): SoLightData is world-space, so retained setups need no camera-only re-derivation.
 void
 SoDrawList::restrikeLighting(const SbMatrix & prevView, const SbMatrix & newView)
 {
@@ -692,16 +676,12 @@ fillMaterialFromState(SoState * state, SoMaterialData & material,
   const SbColor & emissive = SoLazyElement::getEmissive(mutableState);
   const float transparency = SoLazyElement::getTransparency(mutableState, materialIndex);
 
-  // Keep diffuse and emissive independent. The explicit lighting shader owns
-  // emissive contribution, so inferring diffuse from a default-looking
-  // material would double-count emissive-only materials.
+  // Keep diffuse and emissive independent: the shader owns emissive, so inferring diffuse from a default-looking material would double-count emissive-only ones.
   material.diffuse.setValue(diffuse[0], diffuse[1], diffuse[2],
                             1.0f - transparency);
 
-  // Capture the effective shading contract explicitly. Coin's traditional
-  // PHONG light model currently maps to the legacy-compatible Gouraud path;
-  // a true per-fragment PHONG path can be introduced without changing the
-  // material/light payload carried by the IR.
+  // Capture the shading contract explicitly: Coin's PHONG model maps to the legacy-compatible
+  // Gouraud path now, but a true per-fragment PHONG path can come without changing the payload.
   const int lightModel = SoLightModelElement::get(mutableState);
   const bool baseColor = lightModel == SoLightModelElement::BASE_COLOR;
   material.shadingModel = baseColor
@@ -791,9 +771,7 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   rs.blend.srcRGBFactor = blendFactorFromLegacyGL(srcfactor);
   rs.blend.dstRGBFactor = blendFactorFromLegacyGL(dstfactor);
 
-  // A regular glBlendFunc applies the RGB factors to alpha as well. When
-  // Coin's separate-alpha state is present, retain its factors verbatim,
-  // including ZERO, which was previously indistinguishable from "not set".
+  // A regular glBlendFunc applies RGB factors to alpha too; when separate-alpha state is present retain its factors verbatim, including ZERO (previously indistinguishable from "unset").
   int srcAlphaFactor = 0;
   int dstAlphaFactor = 0;
   if (SoLazyElement::getAlphaBlending(mutableState,
@@ -806,9 +784,7 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
   }
 
 
-  // LegacyGL does not expose a Coin state element for blend equations. ADD
-  // is its effective equation and is the only value that can be captured
-  // deterministically from traversal.
+  // LegacyGL exposes no blend-equation element; ADD is its effective (and only deterministically capturable) equation.
   rs.blend.rgbEquation = SO_BLEND_EQUATION_ADD;
   rs.blend.alphaEquation = SO_BLEND_EQUATION_ADD;
 
@@ -835,12 +811,9 @@ fillRenderStateFromState(SoState * state, SoRenderState & rs)
     break;
   }
   rs.raster.fillMode = fillmode;
-  // Native GL_POINTS are square unless point smoothing is enabled. Keep the
-  // primitive shape explicit in the IR so backends do not choose independently.
+  // Native GL_POINTS are square unless point smoothing is on; keep the primitive shape explicit so backends do not choose independently.
 
-  // Backface culling from SoShapeHintsElement.  GL culls back faces for any
-  // declared solid with an explicit winding -- both CLOCKWISE and
-  // COUNTERCLOCKWISE (SoGLLazyElement), not just CCW.
+  // Backface culling from SoShapeHintsElement: GL culls declared solids with an explicit winding, both CLOCKWISE and COUNTERCLOCKWISE (SoGLLazyElement).
   {
     SoShapeHintsElement::VertexOrdering vo;
     SoShapeHintsElement::ShapeType st;
@@ -890,13 +863,10 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
 {
   SoLightingData lighting;
 
-  // Scene-space inputs recorded alongside the (world-space) setup for
-  // provenance and deduplication; the setup itself needs no re-derivation
-  // when the camera moves.
+  // Scene-space inputs recorded alongside the (world-space) setup for provenance/dedup; the setup needs no camera-move re-derivation.
   SoLightingRaw raw;
   raw.hasRaw = true;
-  // Strips the view out of SoLightElement::getMatrix (== model * view) so the
-  // stored sceneMatrix is the light's pure world/model transform.
+  // Strips the view out of SoLightElement::getMatrix (== model * view), leaving the light's pure world transform.
   const SbMatrix viewInverse = SoViewingMatrixElement::get(state).inverse();
 
   const SbColor & ambientColor = SoEnvironmentElement::getAmbientColor(state);
@@ -930,15 +900,10 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
     // lightMatrix == model * view, so the scene-space model matrix follows.
     rawLight.sceneMatrix = lightMatrix * viewInverse;
 
-    // World-space light data: the raw field values are light-LOCAL, so the
-    // light node's scene matrix maps them to the scene's world space.  A
-    // light at the scene root (identity matrix) keeps its raw geometry; a
-    // headlight parented to the camera inherits the camera rotation and thus
-    // stays head-fixed while document lights stay world-fixed -- which is
-    // exactly the scene-graph semantics the legacy GL path gave the
-    // modelview transform it fed glLightfv with.  The stored data is view-
-    // independent: eye-space consumers derive it per frame with
-    // SoRenderIR::lightToEye(); the path tracer shades in world space.
+    // Raw fields are light-LOCAL; the light's scene matrix maps them to world space. A scene-root
+    // light (identity) keeps its raw geometry; a camera-parented headlight inherits camera rotation
+    // and stays head-fixed (legacy GL modelview semantics). Stored data is view-independent:
+    // eye-space consumers use SoRenderIR::lightToEye(), the path tracer shades in world space.
     if (light->isOfType(SoDirectionalLight::getClassTypeId())) {
       SoDirectionalLight * directional = static_cast<SoDirectionalLight *>(light);
       lightData.type = SO_LIGHT_DIRECTIONAL;
@@ -1023,9 +988,8 @@ void
 ensureMaterialBlendState(SoRenderState & renderState,
                          const SoMaterialData & material)
 {
-  // SoIRRenderAction captures Coin's logical material state, while the
-  // legacy GL action enables the conventional blend function as part of its
-  // transparency setup. Make that implicit IR contract explicit without
+  // SoIRRenderAction captures logical material state, while legacy GL enables the conventional
+  // blend function as part of transparency setup; make that implicit IR contract explicit without
   // replacing an actual non-standard blend state.
   if (renderState.blend.enabled ||
       (!isMaterialTransparent(material) &&

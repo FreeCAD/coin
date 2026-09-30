@@ -1,7 +1,6 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanPipelineCache.cpp
 //
-// Pipeline-cache state and lifetime for the Vulkan raster backend.  See the
-// header for the design.
+// See the header for the design.
 
 #include "rendering/SoVulkanRenderBackend/SoVulkanPipelineCache.h"
 
@@ -13,9 +12,8 @@
 
 namespace {
 
-// File header: [magic][shaderKey][blobSize] followed by the driver blob.  The
-// magic distinguishes our wrapper from a bare vkGetPipelineCacheData blob (or
-// a pre-header file); the shaderKey rejects a blob built from older shaders.
+// File header: [magic][shaderKey][blobSize] + driver blob.  magic distinguishes
+// our wrapper from a bare blob; shaderKey rejects a blob built from older shaders.
 constexpr uint64_t kPipelineCacheMagic = 0x434f494e50495045ull; // "COINPIPE"
 constexpr size_t kPipelineCacheHeaderSize = sizeof(uint64_t) * 3;
 
@@ -32,16 +30,10 @@ SoVulkanPipelineCache::emit(const char * message) const
 bool
 SoVulkanPipelineCache::initialize()
 {
-  // Pipelines are created lazily on the draw path (the first time a state
-  // combination is seen).  A persistent cache lets the driver keep the
-  // compiled/reused shader-and-state blobs between those creations, so the
-  // first frames of a scene transition do not stutter on pipeline builds.
-  //
-  // When a path is set, its bytes are the exact blob a previous run's
-  // vkGetPipelineCacheData produced.  That blob carries the cache header and
-  // the physical device's pipelineCacheUUID, so the implementation rejects a
-  // file written for another device/driver; the retry below then creates an
-  // empty cache instead of failing device initialization.
+  // Pipelines are created lazily on the draw path; a persistent cache lets the
+  // driver keep compiled blobs between creations, avoiding first-frame stutter.
+  // The blob carries the device's pipelineCacheUUID, so a foreign-device file is
+  // rejected (retry makes an empty cache rather than failing init).
   std::vector<uint8_t> initialData;
   const bool haveInitialData = this->readFile(initialData);
   VkPipelineCacheCreateInfo ci {};
@@ -51,8 +43,7 @@ SoVulkanPipelineCache::initialize()
   VkResult result = vkCreatePipelineCache(this->device, &ci, this->allocator,
                                           &this->cache);
   if (result != VK_SUCCESS && haveInitialData) {
-    // The file was unreadable as a pipeline cache (corrupt, or written for a
-    // different device/driver).  Start empty rather than failing init.
+    // Unreadable as a cache (corrupt or foreign device); start empty, don't fail.
     char msg[192];
     std::snprintf(msg, sizeof(msg),
                   "pipeline cache: rejected %s; starting with an empty cache",
@@ -64,9 +55,8 @@ SoVulkanPipelineCache::initialize()
                                    &this->cache);
   }
   else if (result == VK_SUCCESS && haveInitialData) {
-    // "supplied", not "loaded": the implementation is free to ignore data it
-    // cannot use (e.g. a stale pipelineCacheUUID) without failing, so the
-    // bytes being accepted does not guarantee the driver reused them.
+    // "supplied" not "loaded": the impl may ignore unusable data (stale
+    // pipelineCacheUUID), so acceptance does not guarantee reuse.
     char msg[192];
     std::snprintf(msg, sizeof(msg), "pipeline cache: supplied %zu bytes from %s",
                   initialData.size(), this->path.c_str());
@@ -96,8 +86,7 @@ SoVulkanPipelineCache::shutdown()
   }
   this->backgroundPipelines.clear();
   if (this->cache != VK_NULL_HANDLE) {
-    // Persist the driver's blob before the handle dies, so the lazily-built
-    // pipeline variants survive a process restart.
+    // Persist before the handle dies so lazily-built variants survive a restart.
     this->writeFile();
     vkDestroyPipelineCache(this->device, this->cache, this->allocator);
     this->cache = VK_NULL_HANDLE;
@@ -112,8 +101,7 @@ SoVulkanPipelineCache::readFile(std::vector<uint8_t> & data) const
   if (!in) return false;
   const std::streamoff size = in.tellg();
   if (size <= 0) return false;
-  // Bound the read: a corrupt or foreign file must not be slurped wholesale
-  // into memory on the device-init path.
+  // Bound the read: never slurp a corrupt/foreign file wholesale at device init.
   if (size > static_cast<std::streamoff>(64u * 1024u * 1024u)) return false;
   std::vector<uint8_t> raw(static_cast<size_t>(size));
   in.seekg(0, std::ios::beg);
@@ -121,9 +109,8 @@ SoVulkanPipelineCache::readFile(std::vector<uint8_t> & data) const
           static_cast<std::streamsize>(raw.size()));
   if (!(in.good() || in.eof())) return false;
 
-  // Validate the wrapper.  A mismatch (different shaders, a bare driver blob,
-  // or a truncated file) means the blob must not be used: return false so
-  // initialize() starts from an empty cache.
+  // Validate the wrapper; mismatch (different shaders, bare blob, truncation)
+  // means unusable, so return false and let initialize() start empty.
   if (raw.size() < kPipelineCacheHeaderSize) return false;
   uint64_t magic = 0;
   uint64_t key = 0;
@@ -172,9 +159,8 @@ SoVulkanPipelineCache::writeFile() const
   append(&blobSize, sizeof(blobSize));
   append(blob.data(), blob.size());
 
-  // Write a sibling temp file, then swap it in.  std::rename does not replace
-  // an existing file on Windows, so remove the target first; the cache is
-  // advisory, so losing it to a crash mid-swap is harmless.
+  // Write a sibling temp then swap in.  std::rename does not replace on Windows,
+  // so remove the target first; losing an advisory cache to a crash is harmless.
   const std::string tmpPath = this->path + ".tmp";
   {
     std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);

@@ -1,15 +1,10 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendGeometry.cpp
 //
-// Retained geometry cache.  Provides:
-//
-//   - createBuffer()/createBufferDeviceLocal(): host-visible or device-local
-//     Vulkan buffers (the latter via a transient staging copy + one-shot
-//     transfer)
-//   - uploadGeometry(): repack the interleaved vertex layout (position +
-//     normal + color + texcoord) into the reusable uploadScratch vector
-//   - getOrCreateCache(), invalidateCache(), updateGeometryCache(): drive the
-//     per-command GPU cache, re-uploading on a content-key/content-hash change
-//     and evicting stale entries each frame
+// Retained geometry cache: createBuffer()/createBufferDeviceLocal() (host-visible
+// or device-local via staging + one-shot transfer); uploadGeometry() repacks
+// interleaved position/normal/color/texcoord; getOrCreateCache()/invalidateCache()/
+// updateGeometryCache() run the per-command cache (content-key/hash detection,
+// per-frame eviction).
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -51,11 +46,9 @@ VkDeviceSize alignGeometryUpload(VkDeviceSize bytes)
   return ((bytes + alignment - 1) / alignment) * alignment;
 }
 
-// Encode a float to a half (binary16).  Ranges outside the finite half range
-// clamp to +/-inf; CAD texcoords are in [0,1] so this is exact in practice.
+// Encode a float to binary16; CAD texcoords are in [0,1] so this is exact.
 static inline uint16_t floatToHalf(float value)
 {
-  // IEEE 754 single -> binary16 by narrowing the exponent/mantissa.
   uint32_t bits = 0;
   std::memcpy(&bits, &value, sizeof(bits));
   const uint32_t sign = (bits >> 16) & 0x8000u;
@@ -69,11 +62,9 @@ static inline uint16_t floatToHalf(float value)
   // The single exponent is biased by 127; the half by 15.  Shift the excess.
   int32_t halfExp = static_cast<int32_t>(exp) - 127 + 15;
   if (halfExp >= 0x1F) {
-    // Overflow -> inf.
     return static_cast<uint16_t>(sign | 0x7C00u);
   }
   if (halfExp <= 0) {
-    // Subnormal / zero underflow.
     if (halfExp < -10) {
       return static_cast<uint16_t>(sign);
     }
@@ -86,10 +77,9 @@ static inline uint16_t floatToHalf(float value)
                                ((mant + 0x1000u) >> 13));
 }
 
-// True when updateGeometryCache() should visit a command.  On an overlay-only
-// render only SO_RENDERPASS_OVERLAY commands and the non-triangle residual
-// geometry the RT backend did not trace are in scope; a full render visits
-// every command with usable geometry.  Both cache passes shared this filter.
+// True when updateGeometryCache() should visit a command.  Overlay-only renders
+// visit SO_RENDERPASS_OVERLAY plus untraced non-triangle residue; full renders
+// visit every command with usable geometry.
 bool shouldProcessGeometry(const SoRenderCommand & command,
                            const bool overlaysOnly)
 {
@@ -104,10 +94,8 @@ bool shouldProcessGeometry(const SoRenderCommand & command,
     geometry.vertexCount <= MAX_VERTEX_COUNT;
 }
 
-// Record the identity of an uploaded geometry stream on the cache entry: the
-// producer-owned pointers, counts/strides, and the sampled content hash.  The
-// two upload paths (per-command and shared-arena) stamped the same eleven
-// fields by hand.
+// Record an uploaded stream's identity on the cache entry: producer-owned
+// pointers, counts/strides, and the sampled content hash.
 void stampGeometryKeys(VulkanCachedCommand & entry,
                        const SoGeometryDesc & geometry,
                        const uint32_t vertexCount,
@@ -139,8 +127,7 @@ void packInterleavedVertices(const SoGeometryDesc & geometry, uint8_t * vertices
   const uint32_t texcoordStrideFloats = texcoordStride / sizeof(float);
 
   for (uint32_t i = 0; i < vertexCount; ++i) {
-    // 32-byte interleaved vertex: vec3 position f32 @0, vec3 normal f32 @12,
-    // vec4 color R8G8B8A8_UNORM @24, vec2 texcoord R16G16_SFLOAT @28.
+    // 32-byte vertex: pos f32 @0, normal f32 @12, color R8G8B8A8_UNORM @24, uv R16G16_SFLOAT @28.
     uint8_t * out = vertices + static_cast<size_t>(i) * VULKAN_VERTEX_STRIDE;
 
     const float * pos = geometry.positions +
@@ -231,9 +218,7 @@ SoVulkanRenderBackend::createBufferWithProperties(const VkDeviceSize size,
   allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
   allocInfo.requiredFlags = desiredProperties;
   if ((desiredProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) {
-    // HOST_VISIBLE memory is either filled once here or written per frame
-    // through a persistent map; declare the sequential-write access VMA wants
-    // and, for the one-time fill, request the mapping up front.
+    // Declare the sequential-write host access VMA wants; map up front if filling once.
     allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     if (data) {
       allocInfo.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
@@ -299,8 +284,7 @@ SoVulkanRenderBackend::createMappedBuffer(VkDeviceSize size,
   allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
   allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-  // VMA_MEMORY_USAGE_AUTO requires an explicit host-access flag whenever
-  // MAPPED is requested.
+  // VMA_MEMORY_USAGE_AUTO requires an explicit host-access flag with MAPPED.
   allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
   VmaAllocationInfo allocationInfo {};
@@ -340,15 +324,10 @@ SoVulkanRenderBackend::createBufferDeviceLocal(VkDeviceSize size,
                                                VmaAllocation & memory,
                                                const void * data)
 {
-  // Retained static geometry is read by the GPU every frame, so it belongs in
-  // device-local VRAM rather than host-visible memory.  `data` is copied from
-  // a transient host-visible staging buffer with a one-shot transfer that is
-  // fenced before this function returns.  The GPU then reads the mesh from
-  // device memory instead of walking the PCIe/system bus every frame.
-  //
-  // This is only invoked from the geometry-change path (not steady-state), so
-  // the synchronous transfer is acceptable.  On any failure the buffer/memory
-  // are left null and the caller falls back to the host-visible createBuffer().
+  // Retained static geometry is GPU-read every frame, so it belongs in
+  // device-local VRAM; `data` is staged via a transient host-visible buffer and
+  // a one-shot transfer fenced before return (acceptable: only reached on the
+  // geometry-change path).  On failure the caller falls back to host-visible.
   buffer = VK_NULL_HANDLE;
   memory = nullptr;
   VkBufferCreateInfo bci {};
@@ -379,21 +358,16 @@ SoVulkanRenderBackend::createBufferDeviceLocal(VkDeviceSize size,
     return false;
   }
 
-  // One-shot transfer command buffer.  The per-frame buffers are not yet begun
-  // at this point (updateGeometryCache runs before beginCommandBuffer), so the
-  // shared one-shot helper allocates a transient buffer from the command pool,
-  // records the copy + barrier, submits, and drains the queue before returning.
+  // Per-frame buffers are not yet begun (updateGeometryCache runs before
+  // beginCommandBuffer), so the shared one-shot helper records, submits, drains.
   const bool ok = SoVulkanShared::withOneShotSubmit(
     this->device, this->queue, this->commandPool, this->allocator,
     [staging, buffer, size](VkCommandBuffer transfer) {
       VkBufferCopy copy {};
       copy.size = size;
       vkCmdCopyBuffer(transfer, staging, buffer, 1, &copy);
-      // Make the device-local writes visible to a later vertex-input read.
-      // The submit is drained before returning, but completion alone does not
-      // establish a memory dependency for the buffer read as vertex/index
-      // attributes in a later submit, so transition TRANSFER_WRITE ->
-      // VERTEX_ATTRIBUTE/INDEX read explicitly.
+      // Completion alone gives no memory dependency for a later vertex/index
+      // read, so explicitly transition TRANSFER_WRITE -> VERTEX_ATTRIBUTE/INDEX.
       SoVulkanShared::bufferTransition(
         transfer, buffer, 0, size, VK_ACCESS_TRANSFER_WRITE_BIT,
         VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT,
@@ -430,29 +404,22 @@ SoVulkanRenderBackend::uploadGeometry(VulkanCachedCommand & entry,
   const SoGeometryDesc & geometry = command.geometry;
   const uint32_t vertexCount = geometry.vertexCount;
 
-  // Pack interleaved vertices with deterministic defaults for absent streams.
-  // The buffer is a reusable member scratch vector: resize() preserves
-  // capacity, so the heap is only touched on the first (largest) upload that
-  // reaches this size rather than on every geometry change.  The lock spans the
-  // packing plus the synchronous uploads below, which read `vertices`.
+  // Pack vertices with deterministic defaults for absent streams.  uploadScratch
+  // is reused (resize() preserves capacity), so the heap is touched only on the
+  // largest upload; the lock spans packing plus the synchronous uploads below.
   const uint32_t posStride = geometry.vertexStride
     ? geometry.vertexStride : sizeof(float) * 3;
 
   std::lock_guard<std::mutex> scratchLock(this->uploadScratchMutex);
-  // Byte-sized scratch: 32 bytes per packed vertex.
   this->uploadScratch.resize(static_cast<size_t>(vertexCount) * VULKAN_VERTEX_STRIDE);
   uint8_t * const vertices = this->uploadScratch.data();
   packInterleavedVertices(geometry, vertices);
 
   const VkDeviceSize vertexBytes =
     static_cast<VkDeviceSize>(vertexCount) * VULKAN_VERTEX_STRIDE;
-  // Cached static geometry (retained) lives in device-local VRAM so the GPU
-  // does not read large meshes across the PCIe/system bus every frame.  The
-  // upload is staged through a transient one-shot transfer; if device-local is
-  // unavailable or the copy fails, fall back to the host-visible path so
-  // rendering still works.  Non-retained geometry (per-frame overlays,
-  // highlights, text, images -- which rewrite every frame) stays host-visible
-  // so its frequent re-uploads never take the synchronous transfer stall.
+  // Retained geometry goes to device-local VRAM (staged via one-shot transfer;
+  // falls back to host-visible).  Non-retained per-frame geometry (overlays,
+  // highlights, text) stays host-visible to avoid the transfer stall per re-upload.
   bool vertexCreated = false;
   if (geometry.retained) {
     vertexCreated = this->createBufferDeviceLocal(vertexBytes,
@@ -590,10 +557,9 @@ SoVulkanRenderBackend::destroyCacheEntry(VulkanCachedCommand & entry)
     slot.destroy(this->vmaAllocator);
   }
   entry.wideLineBuffers.clear();
-  // GPU-instanced wide-line endpoint buffer.  The deferred destroy path
-  // (deferDestroyCacheEntry) already released this; the synchronous path used
-  // by invalidateCache() must too, or every instanced line command leaks its
-  // buffer + memory past vkDestroyDevice (VUID-vkDestroyDevice-device-05137).
+  // Instanced wide-line endpoint buffer.  deferDestroyCacheEntry released it on
+  // the deferred path; synchronous invalidateCache() must too, or it leaks past
+  // vkDestroyDevice (VUID-vkDestroyDevice-device-05137).
   if (entry.instancedLineBuffer != VK_NULL_HANDLE) {
     vmaDestroyBuffer(this->vmaAllocator, entry.instancedLineBuffer,
                      entry.instancedLineMemory);
@@ -681,8 +647,7 @@ void
 SoVulkanRenderBackend::releaseGeometryBlockResources(VulkanGeometryBlock & block)
 {
   if (block.buffer != VK_NULL_HANDLE) {
-    // vmaDestroyBuffer releases the buffer, its memory and the persistent host
-    // mapping together, so no explicit vkUnmapMemory is needed.
+    // vmaDestroyBuffer frees the buffer, memory and persistent mapping together.
     vmaDestroyBuffer(this->vmaAllocator, block.buffer, block.memory);
     block.buffer = VK_NULL_HANDLE;
   }
@@ -740,14 +705,9 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
                                            const bool overlaysOnly,
                                            const bool geometryContentUnchanged)
 {
-  // The frame boundary was handled by beginFrame() at the entry point.
-
-  // Release uploads left over from a frame that aborted between the cache
-  // update and the flush/finalize step (e.g. a failed framebuffer create).
-  // Their copies were never recorded.  The staged pixels live in the shared
-  // staging pool (which persists across frames), so there is no per-upload
-  // staging buffer to defer-destroy; just drop the pending list so the next
-  // frame re-stages from scratch.
+  // Frame boundary handled by beginFrame() at the entry point.  Drop uploads left
+  // by a frame that aborted before flush/finalize; the shared cross-frame staging
+  // pool needs no teardown, and the next frame re-stages from scratch.
   this->pendingUploads.clear();
 
   const long cacheBcStart = vkGeometryBreadcrumbEnabled() ? vkGeometryBreadcrumbNowUs() : 0;
@@ -759,12 +719,9 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
 
   const uint32_t generation = drawlist.getGeneration();
 
-  // Overlay-composite mode (ray tracing active): the sweep must release the
-  // traced triangle commands this backend no longer visits, but the draw-list
-  // generation cannot key that sweep -- on a replayed (camera-only) frame the
-  // retained list is not cleared, so the generation does not change and the
-  // stale triangle entries would survive.  Use a dedicated epoch bumped once
-  // per composite pass instead, stamped on every entry this pass visits.
+  // Overlay-composite mode (RT active): the sweep must release traced triangle
+  // commands this backend no longer visits, but replayed (camera-only) frames do
+  // not advance the retained list's generation, so use a dedicated epoch.
   const bool compositeSweep = overlaysOnly && this->overlayCompositeMode;
   if (compositeSweep) {
     ++this->overlayCompositeEpoch;
@@ -772,8 +729,7 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
 
   this->needsGeometryScratch.assign(
     static_cast<size_t>(std::max(0, drawlist.getNumCommands())), 0);
-  // Start this frame's texture staging at the front of the shared staging
-  // pool so pending uploads coalesce into one buffer (see prepareTextureUpload).
+  // Start texture staging at the shared pool front so uploads coalesce (see prepareTextureUpload).
   this->stagingPoolCursor = 0;
   std::vector<uint8_t> & needsGeometry = this->needsGeometryScratch;
   int retainedUploads = 0;
@@ -799,18 +755,11 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       entry.normalCount == geometry.normalCount &&
       entry.vertexStride == vertexStride &&
       entry.texcoordStride == geometry.texcoordStride;
-    // Change detection:
-    //  - Retained geometry (SoGeometryDesc::retained): the producer guarantees
-    //    the stream pointers change exactly when the content changes (shape
-    //    tessellation reallocates the buffers on rebuild), so pointer/count
-    //    identity alone is a correct change detector.  A per-frame content hash
-    //    is redundant and doing it defeats the retained contract those
-    //    producers rely on.  Skip the FNV walk entirely here.
-    //  - Replayed frames (geometryContentUnchanged): no traversal ran, so
-    //    pointer-identical geometry is bit-identical; also skip.
-    //  - Otherwise (per-frame arena streams that rewrite the same pointer in
-    //    place, e.g. per-vertex colors): fall back to the sampled content hash
-    //    to catch in-place edits.
+    // Change detection.  Retained geometry (SoGeometryDesc::retained) guarantees
+    // pointers change exactly when content does (rebuild reallocates), so pointer
+    // identity suffices and the FNV walk is skipped; replayed frames
+    // (geometryContentUnchanged) are bit-identical, also skipped.  Otherwise
+    // (arena streams rewriting the same pointer in place) use the content hash.
     const bool pointerIdentitySufficient =
       geometry.retained || geometryContentUnchanged;
     const bool geometryMatches = identityMatches &&
@@ -841,26 +790,20 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     sharedBlockId = this->allocateGeometryBlock(retainedUploadBytes + 4096u);
   }
 
-  // Make sure the descriptor pool can hold one set per distinct texture in
-  // this frame before any allocation happens.  Pool growth never
-  // invalidates existing sets, so this is safe regardless of recording
-  // state.
+  // Ensure the descriptor pool holds one set per distinct texture before any
+  // allocation; growth never invalidates existing sets, so this is always safe.
   if (!this->ensureDescriptorPoolSpace()) {
     this->emitError("updateGeometryCache: failed to grow descriptor pool");
-    // Continue with the current pool: allocateTextureDescriptorSet()
-    // failures fall back to the white texture per command.
+    // Continue with the current pool; failures fall back to the white texture.
   }
 
   this->pendingUploads.clear();
 
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
-    // Overlay-only renders (ray-tracing compositing) draw SO_RENDERPASS_OVERLAY
-    // commands (nav cube, axis cross, selection/hover highlights) plus the
-    // non-triangle residue the RT backend did not trace (Brep edge lines,
-    // point markers, polylines): those must be uploaded so the composite can
-    // rasterize them onto the traced surface.  Pure triangle geometry is
-    // already traced and skipping it here keeps the composite cheap.
+    // Overlay-only renders (RT compositing) upload SO_RENDERPASS_OVERLAY commands
+    // (nav cube, axis cross, highlights) plus untraced non-triangle residue (Brep
+    // edges, markers, polylines); skipping already-traced triangles keeps it cheap.
     if (!shouldProcessGeometry(command, overlaysOnly)) {
       continue;
     }
@@ -870,15 +813,9 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     bcIndices += geometry.indexCount;
 
     VulkanCachedCommand & entry = this->getOrCreateCache(&command);
-    // The draw-list generation changes every frame (clear() bumps it), so
-    // it is only a visit stamp for cache eviction below -- never a signal
-    // to re-upload.  Re-uploads are driven purely by the producer-owned
-    // content keys.
-    //
-    // Content (not just pointer identity) is always re-verified, because a
-    // producer may edit retained buffers in place (same pointer, new data);
-    // the sampled content hash is bounded and cheap, so it is authoritative
-    // for every command, retained or per-frame.
+    // The draw-list generation changes every frame (clear() bumps it), so it is
+    // only an eviction visit stamp, never a re-upload signal; re-uploads come from
+    // the producer-owned content keys (content hash re-verified for in-place edits).
     if (needsGeometry[static_cast<size_t>(i)]) {
       ++bcGeometryUploads;
       this->deferDestroyCacheEntry(entry);
@@ -903,9 +840,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     const SoTextureData & texture = command.material.texture;
     if (texture.pixels && texture.width > 0 && texture.height > 0) {
       VulkanCachedTexture & texEntry = this->getOrCreateTexture(&command);
-      // Texture pixels come from per-frame action storage (arena), which may
-      // rewrite the same pointer in place, so the content hash is always
-      // re-verified -- pointer identity alone is not sound for textures.
+      // Texture pixels live in per-frame arena storage that may rewrite the same
+      // pointer in place, so the content hash is always re-verified.
       const bool textureMatches = texEntry.image != VK_NULL_HANDLE &&
         texEntry.pixelsKey == texture.pixels &&
         texEntry.width == texture.width &&
@@ -919,9 +855,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
         texEntry.contentHash == hashTextureContent(texture);
       if (!textureMatches) {
         this->deferDestroyTextureEntry(texEntry);
-        // A command that appears twice in one draw list would otherwise
-        // prepare two uploads for the same entry (leaking the first image);
-        // the first pending upload for this index wins.
+        // A command appearing twice would prepare two uploads for the same entry
+        // (leaking the first image); the first pending upload wins.
         bool alreadyPending = false;
         for (const PendingTextureUpload & prior : this->pendingUploads) {
           if (prior.index == this->commandToTexture[&command]) {
@@ -939,8 +874,7 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
                                          upload.stagingBytes)) {
             this->pendingUploads.push_back(upload);
           }
-          // On failure the entry was reset by prepareTextureUpload();
-          // leaving the content keys unstamped makes the next frame retry.
+          // Failure reset the entry; unstamped content keys make the next frame retry.
         }
       }
       texEntry.commandKey = &command;
@@ -952,25 +886,14 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
     this->releaseGeometryBlock(sharedBlockId);
   }
 
-  // Evict entries that were not visited this frame: their command has
-  // disappeared from the draw list (or its pointer is no longer part of
-  // this frame's arena).  Entries surviving eviction keep their index
-  // identity, so rebuild the pointer maps from the stored commandKey.
-  // Destruction is deferred: a pending frame may still reference the
-  // evicted buffers/images.
-  //
-  // A transient overlay-only render skips the sweep: its traversal
-  // deliberately visits only overlay commands, so a sweep would evict the
-  // entire scene cache and force a full re-upload on the next full render.
-  // In overlay-composite mode (ray tracing active, so this backend never
-  // performs a full render again) the sweep DOES run: it releases the traced
-  // triangle geometry the RT backend already owns, instead of holding a
-  // second resident copy for the lifetime of the RT session.
+  // Evict entries not visited this frame (command gone, or its arena pointer no
+  // longer in this frame); survivors keep index identity, so rebuild the pointer
+  // maps from commandKey.  Destruction is deferred.  A transient overlay-only
+  // render skips the sweep (it would evict the whole cache); overlay-composite
+  // mode (RT active) runs it to release geometry the RT backend already owns.
   if (!overlaysOnly || this->overlayCompositeMode) {
-    // `stale` decides whether an entry is dropped.  A full render and a
-    // transient overlay render key on the draw-list generation; an
-    // overlay-composite pass keys on the composite epoch (see above) because
-    // the retained list's generation does not advance on replayed frames.
+    // `stale` decides whether to drop an entry: full/transient-overlay renders key
+    // on the draw-list generation, an overlay-composite pass on the composite epoch.
     const auto evictStale = [&](auto & cache, auto destroyEntry,
                                 auto & indexMap, auto stale) {
       bool anyStale = false;
@@ -995,9 +918,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       }
     };
     if (compositeSweep) {
-      // Release every traced triangle entry the composite pass did not visit
-      // (only overlays and the non-triangle residue are stamped this pass), so
-      // the RT backend's own copy is the only resident one.
+      // Release traced triangle entries not visited this pass (only overlays and
+      // residue are stamped), so the RT backend's copy is the only resident one.
       evictStale(this->gpuCache,
                  [this](VulkanCachedCommand & entry) {
                    this->deferDestroyCacheEntry(entry);
@@ -1026,10 +948,8 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
                  return entry.cacheGeneration != generation;
                });
 
-    // Eviction compacts the texture cache and reindexes it, so the upload
-    // indices captured above are stale.  Re-resolve each pending upload
-    // through its command pointer; entries that were just prepared carry the
-    // current generation and survive the sweep.
+    // Eviction compacted/reindexed the texture cache, so captured upload indices
+    // are stale; re-resolve via the command pointer (just-prepared entries survive).
     for (PendingTextureUpload & upload : this->pendingUploads) {
       const auto it = this->commandToTexture.find(upload.command);
       if (it != this->commandToTexture.end()) {

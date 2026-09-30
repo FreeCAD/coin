@@ -41,8 +41,6 @@
 #include "glue/glp.h"
 #include "glue/glslp.h"
 
-// *************************************************************************
-
 static void
 soglshaderprogram_append_source_description(
   SbString & result, const SoGLSLShaderObject * shader)
