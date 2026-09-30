@@ -241,8 +241,7 @@ typedef void (APIENTRY * COIN_PFNGLDRAWELEMENTSPROC)(GLenum mode, GLsizei count,
 typedef void (APIENTRY * COIN_PFNGLDRAWRANGEELEMENTSPROC)(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid * indices);
 typedef void (APIENTRY * COIN_PFNGLARRAYELEMENTPROC)(GLint i);
 
-/* Modern entry points which are not exported by the Windows OpenGL 1.1
-   import library and therefore must be resolved through the active context. */
+/* Modern entry points not exported by the Windows OpenGL 1.1 import library. */
 typedef void (APIENTRY * COIN_PFNGLBINDVERTEXARRAYPROC)(GLuint array);
 typedef void (APIENTRY * COIN_PFNGLDELETEVERTEXARRAYSPROC)(GLsizei n, const GLuint * arrays);
 typedef void (APIENTRY * COIN_PFNGLGENVERTEXARRAYSPROC)(GLsizei n, GLuint * arrays);
@@ -531,8 +530,7 @@ typedef void (APIENTRY * COIN_PFNGLUNIFORMMATRIX2FVARBPROC)(GLint, GLsizei, GLbo
 typedef void (APIENTRY * COIN_PFNGLUNIFORMMATRIX3FVARBPROC)(GLint, GLsizei, GLboolean, const GLfloat *);
 typedef void (APIENTRY * COIN_PFNGLUNIFORMMATRIX4FVARBPROC)(GLint, GLsizei, GLboolean, const GLfloat *);
 
-/* Standard GLSL entry points.  These are resolved dynamically so shader
-   users do not have to link directly against post-OpenGL-1.1 symbols. */
+/* Standard GLSL entry points, resolved dynamically to avoid linking post-GL-1.1 symbols. */
 typedef GLuint (APIENTRY * COIN_PFNGLCREATESHADERPROC)(GLenum);
 typedef void (APIENTRY * COIN_PFNGLSHADERSOURCEPROC)(GLuint, GLsizei,
                                                       const char * const *,

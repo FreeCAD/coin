@@ -172,19 +172,15 @@ struct SoIRBatch {
     : first(first), count(count), materialIndex(materialIndex) {}
 };
 
-// Retained, shape-owned tessellation output for the IR render path.  The
-// flattened stream arrays are allocated afresh on every rebuild so their
-// pointers are stable across frames for an unchanged shape and change exactly
-// when the shape re-tessellates.  The Vulkan backend's GPU geometry cache keys
-// on these pointers, so a rebuilt cache (new pointers) forces a re-upload while
-// an unchanged one (stable pointers, stable content) is safely reused.
+// Retained, shape-owned tessellation output for the IR render path. Stream arrays are
+// reallocated on rebuild, so pointers are stable for an unchanged shape and change on
+// re-tessellation; the Vulkan GPU cache keys on them (new = re-upload, stable = reuse).
 struct SoIRRetainedGeometry {
   SoPrimitiveTopology topology = SO_TOPOLOGY_COUNT;
   std::shared_ptr<std::vector<float>> positions;
   std::shared_ptr<std::vector<float>> normals;
   std::shared_ptr<std::vector<float>> texcoords;
-  // Per-vertex material index, so colors/batches can be re-resolved from the
-  // current material binding/state on every emission.
+  // Per-vertex material index so colors/batches re-resolve from current material state each emission.
   std::shared_ptr<std::vector<int>> matIndices;
   size_t vertexCount = 0;
   uint32_t vertexStride = 0;
@@ -243,12 +239,10 @@ public:
     this->flushRun();
   }
 
-  // Local-space bounding box of every primitive passed through append(), so
-  // the IR walk doubles as the bbox computation for getBBox().
+  // Local-space bbox of every append()ed primitive: the IR walk doubles as getBBox()'s bbox computation.
   const SbBox3f & getBBox() const { return this->bbox; }
-  // Centroid of the appended vertices, matching SoIndexedShape::computeBBox's
-  // center output (it averages the referenced coordinates, it does not use the
-  // box center).
+  // Centroid of appended vertices, matching SoIndexedShape::computeBBox's center output
+  // (it averages referenced coordinates, not the box center).
   SbVec3f getBBoxCenter() const
   {
     return this->bboxCount ? this->bboxSum / float(this->bboxCount)
@@ -260,12 +254,9 @@ private:
   {
     if (this->vertices.empty()) return;
 
-    // Flatten the accumulated SoIRVertex stream into shape-retained buffers.
-    // A fresh run is created per flushRun() (one per topology run), so its
-    // pointers are stable across frames for an unchanged shape and change
-    // whenever the shape re-tessellates -- the property the IR/GPU caches key
-    // on.  Actual command/state materialization happens later in
-    // soshape_emit_ir_commands(), which runs on a cache-replay frame too.
+    // Flatten into a fresh shape-retained run (one per topology run): pointers are stable
+    // across frames for an unchanged shape and change on re-tessellation, the property the
+    // IR/GPU caches key on. Command/state materialization happens later in soshape_emit_ir_commands().
     SoIRRetainedGeometry run;
     const size_t count = this->vertices.size();
     run.topology = this->topology;
@@ -276,11 +267,9 @@ private:
 
     run.positions = std::make_shared<std::vector<float>>(count * 3);
     run.normals = std::make_shared<std::vector<float>>(count * 3);
-    // Texture coordinates are only materialized when some primitive actually
-    // carries them.  A BRep tessellation (the overwhelmingly common case for a
-    // large assembly) has none, and a full count*4 float stream is hundreds of
-    // MB at millions of vertices -- pure waste, both in the retained geometry
-    // and in the copy below.
+    // Materialize texcoords only when some primitive carries them: a BRep tessellation
+    // (the common large-assembly case) has none, and a full count*4 stream is hundreds of
+    // MB at millions of vertices -- waste in both the retained geometry and the copy below.
     if (this->anyTexcoord) {
       run.texcoords = std::make_shared<std::vector<float>>(count * 4);
     }
@@ -351,8 +340,7 @@ private:
   std::vector<SoIRRetainedGeometry> * runs;
   SoPrimitiveTopology topology;
   std::vector<SoIRVertex> vertices;
-  // Set as soon as any primitive carries a non-default texture coordinate, so
-  // flushRun() only materializes the (large) texcoord stream when it is used.
+  // Set once any primitive carries a non-default texcoord, so flushRun() only materializes the large stream when used.
   bool anyTexcoord = false;
   // Accumulated local-space bounds of every appended vertex.
   SbBox3f bbox;
@@ -360,15 +348,9 @@ private:
   int bboxCount = 0;
 };
 
-// True when two resolved material snapshots produce an identical draw.
-//
-// Used to coalesce adjacent IR batches whose producer assigned distinct
-// material indices that nevertheless resolve to the same material.  FreeCAD's
-// SoBrepFaceSet/SoBrepEdgeSet do exactly this: they hand out one material index
-// per face/edge even when the per-face colour array repeats, so a model with a
-// per-face colour array otherwise emits one draw command per face.  Comparing
-// the *resolved* material (not the raw index) lets those runs collapse back to
-// a single draw while preserving the exact shading.
+// True when two resolved material snapshots produce an identical draw; coalesces adjacent IR
+// batches whose distinct producer indices resolve to the same material (e.g. FreeCAD's
+// SoBrepFaceSet/EdgeSet emit one index per face/edge even when the colour array repeats).
 static bool
 soshape_material_equal(const SoMaterialData & a, const SoMaterialData & b)
 {
@@ -404,16 +386,10 @@ soshape_material_equal(const SoMaterialData & a, const SoMaterialData & b)
   return true;
 }
 
-// Build and append the SoRenderCommands for one shape's tessellated geometry.
-// The positions/normals/texcoords are the shape-retained streams (stable
-// pointers); the per-vertex material indices, when present, allow the
-// batched/material assignment and any per-vertex colors to be re-derived from
-// the *current* traversal state so a material change is always honoured.
-//
-// This is the materialization half of the IR render cache: it runs both on a
-// fresh tessellation (right after generatePrimitives) and on a cache-replay
-// frame (without re-running generatePrimitives), and is the only per-frame
-// work remaining for an unchanged shape.
+// Build/append SoRenderCommands for one shape's tessellated geometry. Positions/normals/texcoords
+// are shape-retained streams (stable pointers); per-vertex material indices re-derive batch
+// assignment/colors from the *current* traversal state so material changes are honoured.
+// (Materialization half of the IR render cache; run after generatePrimitives and on cache replay.)
 static void
 soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
                          SoState * state, const SoIRRetainedGeometry & geom,
@@ -421,8 +397,7 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
 {
   const std::vector<float> & positions = *geom.positions;
   const std::vector<float> & normals = *geom.normals;
-  // Null when the shape carried no texture coordinates (the assembler skips
-  // materializing the stream); the command then simply has no texcoords.
+  // Null when the shape had no texcoords (the assembler skipped that stream); the command then has none.
   const std::vector<float> * texcoords = geom.texcoords.get();
   const bool hasMatIndices = geom.matIndices != nullptr;
   static const std::vector<int> emptyMatIndices;
@@ -444,8 +419,7 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     materialBinding == SoMaterialBindingElement::PER_VERTEX ||
     materialBinding == SoMaterialBindingElement::PER_VERTEX_INDEXED;
 
-  // Reuse the shape-owned scratch (capacity persists across frames) rather
-  // than allocating a fresh batch vector per run.
+  // Reuse the shape-owned scratch (capacity persists across frames) instead of a fresh vector per run.
   std::vector<SoIRBatch> & batches = batchScratch;
   batches.clear();
   batches.reserve((count + primitiveWidth - 1) / primitiveWidth);
@@ -472,14 +446,9 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     first += primitiveCount;
   }
 
-  // Per-vertex/mixed colors depend on the current material state, so they are
-  // resolved into action-owned frame storage on every emission.  This is only
-  // reached for the (rare) explicit/per-vertex binding case; the common
-  // single-material case keeps colors null and is shaded by the material
-  // uniform.  The colors buffer lives in the action's arena (persists through
-  // the backend's per-frame update) rather than a local vector, and any command
-  // carrying colors is deliberately not claimed `retained`, since the arena
-  // rewrites the same pointer in place.
+  // Per-vertex/mixed colors depend on current material state, so they resolve into an
+  // action-owned arena each emission (the common single-material case leaves colors null and
+  // shades via the uniform). Such commands are not `retained`: the arena rewrites in place.
   float * colors = nullptr;
   if (hasMixedMaterials || hasPerVertexMaterials) {
     colors = static_cast<float *>(
@@ -496,18 +465,11 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     }
   }
 
-  // Coalesce adjacent batches that resolve to the same material.  Producers
-  // such as FreeCAD's SoBrepFaceSet/SoBrepEdgeSet assign a distinct material
-  // index per face/edge even when the per-face colour array repeats, so a
-  // naive one-command-per-index emission turns a per-face colour array into
-  // one draw per face -- thousands of tiny draws on a heavy model.  The
-  // batches partition the vertex stream contiguously, so equal-material
-  // neighbours merge by simply extending the count.
-  //
-  // Only uniform-material batches (no per-vertex colour buffer) are merged:
-  // with a colour buffer the per-vertex alpha also drives the opaque/transparent
-  // pass split, so folding two batches together could pull opaque primitives
-  // into the transparent pass.
+  // Coalesce adjacent batches resolving to the same material: FreeCAD's SoBrepFaceSet/EdgeSet
+  // assign a distinct index per face/edge even when the colour array repeats, so a naive
+  // one-command-per-index emission means thousands of tiny draws on a heavy model. Batches
+  // partition the stream contiguously, so equal-material neighbours merge by count. Only
+  // uniform-material batches merge: per-vertex alpha also drives the opaque/transparent split.
   std::vector<SoIRBatch> mergedBatches;
   std::vector<SoMaterialData> mergedMaterials;
   mergedBatches.reserve(batches.size());
@@ -527,9 +489,8 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     }
   }
 
-  // Validate the clip-debug flag once: it is process-lifetime and this runs on
-  // the per-command path, so a getenv() (environ scan) per command is pure
-  // overhead.  Mirrors SoVulkanRenderManager's clipDebugEnabled().
+  // Validate the clip-debug flag once (process-lifetime, and this is the per-command
+  // path): a per-command getenv() environ scan is pure overhead. Mirrors SoVulkanRenderManager's clipDebugEnabled().
   static const bool clipDebug = std::getenv("FC_VULKAN_CLIP_DEBUG") != nullptr;
 
   for (size_t batchIndex = 0; batchIndex < mergedBatches.size(); ++batchIndex) {
@@ -547,19 +508,14 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     command.geometry.texcoords = texcoords
       ? texcoords->data() + batch.first * 4 : nullptr;
     command.geometry.colors = colors ? colors + batch.first * 4 : nullptr;
-    // Co-own the shape-retained stream buffers: SoShape::notify() may drop
-    // the shape's own reference (and free the chunk) on any field change, on
-    // another thread, before this command is re-emitted with a fresh buffer.
-    // The command's ownership keeps the storage -- and thus the raw pointers
-    // above -- valid until the command itself is replaced.
+    // Co-own the shape-retained streams: on any field change SoShape::notify() may drop the shape's
+    // reference (on another thread) before this command is re-emitted; ownership keeps the pointers above valid.
     command.geometry.positionOwner = geom.positions;
     command.geometry.normalOwner = geom.normals;
     command.geometry.texcoordOwner = geom.texcoords;
-    // The position/normal/texcoord streams are the shape-retained buffers
-    // (stable pointers, new pointer on change), so the backend can trust
-    // pointer identity without re-hashing.  Commands carrying per-vertex colors
-    // are NOT claimed retained: their colors come from the per-frame arena and
-    // could be rewritten in place, so those must still be content-verified.
+    // Position/normal/texcoord are shape-retained buffers (stable pointer, new one on
+    // change), so the backend can trust pointer identity without re-hashing. Per-vertex-color
+    // commands are NOT retained: their colors come from the in-place-rewritten arena.
     command.geometry.retained = retained && (colors == nullptr);
     command.modelMatrix = SoModelMatrixElement::get(state);
     command.viewMatrix = SoViewingMatrixElement::get(state);
@@ -603,9 +559,8 @@ soshape_emit_ir_commands(SoIRRenderAction * action, SoShape * shape,
     command.lightingHandle = SoRenderIR::fillLightingFromState(
       state, action->getMutableDrawList());
     command.userData = shape;
-    // Tag real B-Rep feature edges so the Vulkan edge overlay can restrict
-    // itself to those instead of recoloring every line command in the scene
-    // (which caught the Draft grid and other annotations).
+    // Tag real B-Rep feature edges so the Vulkan edge overlay restricts itself to those
+    // instead of recoloring every scene line command (which caught the Draft grid/annotations).
     command.isFeatureEdge = shape->isFeatureEdgeSet();
     action->getMutableDrawList().addCommand(command);
   }
@@ -699,11 +654,9 @@ public:
   static void calibrateBBoxCache(void);
   static double bboxcachetimelimit;
   SoBoundingBoxCache * bboxcache;
-  // Local bounding box of the retained IR geometry, recorded during the IR
-  // walk (which already visits every vertex) and used by getBBox() to answer
-  // the auto-clipping query without a second full traversal of a
-  // multi-million-vertex tessellation.  Cleared by notify() alongside the
-  // other caches; the IR walk refills it whenever the shape is re-recorded.
+  // Local bbox of the retained IR geometry, recorded during the IR walk (which visits
+  // every vertex) so getBBox()'s auto-clip query needs no second traversal of a
+  // multi-million-vertex tessellation. Cleared by notify(); refilled on re-record.
   SbBox3f irBBox;
   SbVec3f irBBoxCenter;
   bool irBBoxValid = false;
@@ -717,21 +670,17 @@ public:
   // stores the number of frames rendered with no node changes
   uint32_t rendercnt : RENDERCNT_BITS;
 
-  // Retained IR tessellation output (positions/normals/texcoords + per-vertex
-  // material indices), cached so an unchanged shape skips generatePrimitives()
-  // on the IR/Vulkan path.  `irCacheValid` is cleared in SoShape::notify() on
-  // any field change; the build-time complexity is snapshotted so a change in
-  // the (non-notified) Complexity element -- which drives primitive count for
-  // shapes like SoSphere -- also forces a rebuild rather than serving stale
-  // tessellation.  A fresh build reallocates the stream buffers (new pointers)
-  // so the backend geometry cache detects the change.
+  // Retained IR tessellation output (positions/normals/texcoords + per-vertex material
+  // indices) so an unchanged shape skips generatePrimitives() on the IR/Vulkan path.
+  // irCacheValid is cleared in SoShape::notify() on any field change; build-time complexity
+  // is snapshotted too, so a (non-notified) Complexity change also rebuilds. A rebuild
+  // reallocates the stream buffers (new pointers) so the backend cache detects it.
   std::vector<SoIRRetainedGeometry> irRuns;
   bool irCacheValid;
   float irCacheComplexity = -1.0f;
 
-  // Reusable scratch for the IR command emitter: the batch vector is rebuilt
-  // (and only transiently used) on every run/frame, so keeping its capacity
-  // across frames avoids a small heap allocation per emission.
+  // Reusable scratch for the IR command emitter: the batch vector is rebuilt each
+  // run/frame, so keeping its capacity across frames avoids a heap allocation per emission.
   std::vector<SoIRBatch> irBatchScratch;
 
   // needed since some VRML97 nodes change the GL state inside the node
@@ -986,8 +935,7 @@ SoShape::GLRender(SoGLRenderAction * action)
 bool
 SoShape::isFeatureEdgeSet() const
 {
-  // Only FreeCAD's SoBrepEdgeSet (and any future feature-edge producer)
-  // overrides this; every other shape is ordinary geometry.
+  // Only FreeCAD's SoBrepEdgeSet (and future feature-edge producers) overrides this.
   return false;
 }
 
@@ -1020,8 +968,7 @@ SoShape::IRRender(SoIRRenderAction * action)
   }
   if (shapestyleflags & SoShapeStyleElement::INVISIBLE) return;
 
-  // Draw style BOUNDS: record the shape's local bounding box as a solid
-  // cube instead of the shape's primitives, mirroring GLRenderBoundingBox().
+  // Draw style BOUNDS: record the local bbox as a solid cube instead of primitives, mirroring GLRenderBoundingBox().
   if (shapestyleflags & SoShapeStyleElement::BBOXCMPLX) {
     SbBox3f box;
     SbVec3f center;
@@ -1057,8 +1004,7 @@ SoShape::IRRender(SoIRRenderAction * action)
       SbVec3f(0.0f, -1.0f, 0.0f)
     };
 
-    // The bounds cube is tiny and its geometry follows the (per-frame) bbox,
-    // so it is generated each time (never cached) and emitted immediately.
+    // Tiny cube whose geometry follows the per-frame bbox: generated each time (never cached), emitted immediately.
     SoIRRetainedGeometry boxRun;
     {
       std::vector<SoIRRetainedGeometry> boxRuns;
@@ -1095,20 +1041,13 @@ SoShape::IRRender(SoIRRenderAction * action)
     vertexProperty->doAction(action);
   }
 
-  // IR render cache: retain the tessellation output so an unchanged shape does
-  // not re-run generatePrimitives() on every frame.  Material/state-dependent
-  // work (batches, per-vertex colors, matrices, lighting) is re-derived on
-  // every emission from the current state, so only the (expensive) geometry
-  // generation is skipped.  The cache is invalidated on any field change via
-  // SoShape::notify(); a rebuild allocates fresh stream buffers (new pointers)
-  // so the backend geometry cache observes the change.
-  //
-  // notify() and IRRender may run on different threads (GUI vs render), so the
-  // shared irRuns/irCacheValid are guarded by the shape mutex.  geometry
-  // generation on a missed cache runs unlocked into a local buffer; only the
-  // cheap swap/snapshot is under the lock.  Emitting from a snapshot of the
-  // retained runs keeps the shared_ptr stream buffers alive even if a
-  // concurrent edit invalidates the cache mid-frame.
+  // IR render cache: retain the tessellation so an unchanged shape skips the expensive
+  // generatePrimitives() each frame; material/state work still re-derives per emission.
+  // notify() invalidates on any field change, and a rebuild reallocates fresh pointers so
+  // the backend cache sees the change. notify()/IRRender may run on different threads (GUI
+  // vs render), so the shared irRuns/irCacheValid are mutex-guarded: geometry generation
+  // runs unlocked into a local buffer and only the cheap swap/snapshot is locked, while
+  // emitting from a snapshot keeps the shared_ptr streams alive across a concurrent edit.
   std::vector<SoIRRetainedGeometry> emitRuns;
   const float complexity = SoComplexityElement::get(state);
   PRIVATE(this)->lock();
@@ -1131,8 +1070,7 @@ SoShape::IRRender(SoIRRenderAction * action)
     PRIVATE(this)->irRuns.swap(built);
     PRIVATE(this)->irCacheValid = !PRIVATE(this)->irRuns.empty();
     PRIVATE(this)->irCacheComplexity = complexity;
-    // The walk just touched every vertex, so record its local bbox for the
-    // auto-clipping query (getBBox) instead of re-traversing the tessellation.
+    // The walk touched every vertex: record its local bbox for getBBox()'s auto-clip query instead of re-traversing.
     if (!assembler.getBBox().isEmpty()) {
       PRIVATE(this)->irBBox = assembler.getBBox();
       PRIVATE(this)->irBBoxCenter = assembler.getBBoxCenter();
@@ -1142,12 +1080,9 @@ SoShape::IRRender(SoIRRenderAction * action)
     PRIVATE(this)->unlock();
   }
 
-  // Emitting writes the shape-owned batch scratch.  Guard it with the same
-  // mutex that protects the cache: notify() and IRRender may run on different
-  // threads, and a second IRRender (e.g. a shared shape rendered by another
-  // viewport's render manager) would otherwise race on irBatchScratch.  The
-  // retained geometry itself is safe to read unlocked (emitRuns is a snapshot
-  // holding shared_ptr refs), so this only serializes the scratch.
+  // Emitting writes the shape-owned batch scratch, so guard it with the same mutex as the cache:
+  // notify()/IRRender may run on different threads, and a second IRRender (a shared shape from
+  // another viewport) would race on irBatchScratch. Retained geometry itself is read unlocked.
   static const bool irbreadcrumbs_emit = getenv("FC_IR_BREADCRUMB") != nullptr;
   if (irbreadcrumbs_emit) {
     size_t totalVerts = 0;
@@ -2274,13 +2209,10 @@ SoShape::getBBox(SoAction * action, SbBox3f & box, SbVec3f & center)
     SoCacheElement::set(state, PRIVATE(this)->bboxcache);
   }
   SbTime begin = SbTime::getTimeOfDay();
-  // The IR walk already recorded the local bounds of the rendered geometry,
-  // so reuse it instead of walking the (potentially tens of millions of)
-  // indexed coordinates a second time just to answer the clip query.
-  // FC_NO_IR_BBOX disables the shortcut (debug/parity comparison).
+  // Reuse the IR walk's recorded local bounds instead of re-walking tens of millions of
+  // indexed coordinates for the clip query. FC_NO_IR_BBOX disables the shortcut (debug/parity);
+  // FC_IR_BBOX_CHECK recomputes the reference bbox and logs the delta (debug only).
   static const bool noIrBBox = (getenv("FC_NO_IR_BBOX") != NULL);
-  // FC_IR_BBOX_CHECK recomputes the reference bbox and logs the delta, to
-  // prove the IR-derived box is bit-for-bit equivalent (debug only).
   static const bool checkIrBBox = (getenv("FC_IR_BBOX_CHECK") != NULL);
   if (PRIVATE(this)->irBBoxValid && !noIrBBox && !checkIrBBox) {
     box = PRIVATE(this)->irBBox;

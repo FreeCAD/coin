@@ -234,8 +234,7 @@
 #define GL_FLOAT_VEC4_ARB 0x8B52
 #endif
 
-/* Geometry shaders are used by the retained raster backend.  The macOS
- * compatibility headers predate this core enum. */
+/* Geometry shaders (retained raster backend); macOS compat headers lack this enum. */
 #ifndef GL_GEOMETRY_SHADER
 #define GL_GEOMETRY_SHADER 0x8DD9
 #endif

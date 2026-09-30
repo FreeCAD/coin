@@ -1,18 +1,12 @@
 // src/rendering/SoVulkanGpuTimers.h
 //
-// Per-pass GPU timestamps for the Vulkan renderer.  Internal to Coin (not
-// installed, not public API).
-//
-// Uses a VkQueryPool of VK_QUERY_TYPE_TIMESTAMP queries, ringed over a few
-// frames so results are read back only once they are complete (no pipeline
-// stall).  Gated by SoVulkanConfig::get().diagnostics.gpuTimestamps
-// (FC_VULKAN_GPU_TIMING); when disabled, or when the device/queue family has no
-// timestamp support, every method is a no-op.
-//
-// The caller brackets passes with beginScope()/endScope() while recording, then
-// calls endFrame() once per submitted frame.  endFrame() reads back the frame
-// kRingFrames-1 frames old and prints one "[RTDBG] gpuTiming <scope>=<ms>"
-// line per scope, matching the existing cpuTimingRaster diagnostic style.
+// Per-pass GPU timestamps for the Vulkan renderer.  Internal, not public API.
+// A VkQueryPool of VK_QUERY_TYPE_TIMESTAMP queries ringed over kRingFrames, so
+// results are read only once complete (no pipeline stall).  Gated by
+// diagnostics.gpuTimestamps (FC_VULKAN_GPU_TIMING); disabled, or without device/
+// queue-family timestamp support, every method is a no-op.  Callers bracket passes
+// with beginScope()/endScope(), then endFrame(): it reads back the frame
+// kRingFrames-1 old and prints "[RTDBG] gpuTiming <scope>=<ms>" (cf. cpuTimingRaster).
 
 #ifndef COIN_SOVULKANGPUTIMERS_H
 #define COIN_SOVULKANGPUTIMERS_H
@@ -23,11 +17,9 @@
 
 class SoVulkanGpuTimers {
 public:
-  //! Maximum scopes recorded per frame.  A frame that opens more is truncated
-  //! (the extra scopes are dropped, not misattributed).
+  //! Max scopes per frame; excess scopes are dropped, not misattributed.
   static constexpr uint32_t kMaxScopesPerFrame = 16;
-  //! Frames in the timestamp ring.  Reading back the oldest slot hides the
-  //! latency between submission and query availability without waiting.
+  //! Timestamp ring size; reading the oldest slot hides submission latency.
   static constexpr uint32_t kRingFrames = 4;
 
   SoVulkanGpuTimers() = default;
@@ -35,39 +27,28 @@ public:
   SoVulkanGpuTimers(const SoVulkanGpuTimers &) = delete;
   SoVulkanGpuTimers & operator=(const SoVulkanGpuTimers &) = delete;
 
-  //! Create the query pool.  Returns false (and stays disabled) when the device
-  //! or the given queue family cannot write timestamps.
+  //! Create the query pool; false (stays disabled) if timestamps unsupported.
   bool initialize(VkDevice device, VkPhysicalDevice physicalDevice,
                   uint32_t queueFamilyIndex);
   bool initialized() const { return this->queryPool != VK_NULL_HANDLE; }
 
-  //! Open/close a named scope on \a commandBuffer.  Nesting is not supported:
-  //! scopes are recorded as a flat sequence of begin/end pairs.
+  //! Open/close a named scope on \a commandBuffer.  Flat, non-nested.
   //!
-  //! vkCmdWriteTimestamp requires the scope's queries to be unavailable, i.e.
-  //! reset for this frame.  On the own-queue (internal) path the first
-  //! beginScope() records that reset itself, before vkCmdBeginRenderPass.  On
-  //! the caller-owned (external) path vkCmdResetQueryPool is illegal inside the
-  //! caller's already-begun render pass, so the caller records resetSlot() on
-  //! its command buffer BEFORE vkCmdBeginRenderPass; the begin/end writes then
-  //! proceed inside the pass.
+  //! vkCmdWriteTimestamp needs the scope's queries reset for this frame.  The
+  //! own-queue path resets on the first beginScope() (before vkCmdBeginRenderPass);
+  //! the caller-owned path cannot reset in-pass, so it calls resetSlot() first.
   void beginScope(VkCommandBuffer commandBuffer, const char * name);
   void endScope(VkCommandBuffer commandBuffer);
 
-  //! Reset the current frame's query range on \a commandBuffer.  Must be
-  //! recorded outside a render pass.  Afterwards slotReset() is true until the
-  //! next endFrame().  A no-op when timing is disabled; safe to call.
+  //! Reset this frame's query range on \a commandBuffer; must be outside a pass.
   void resetSlot(VkCommandBuffer commandBuffer);
-  //! True once resetSlot() has run for the current frame and endFrame() has not
-  //! yet advanced the ring.  The external path only records scopes when this is
-  //! true: a beginScope() inside the caller's pass cannot reset the pool.
+  //! True once resetSlot() ran this frame: the external path records scopes only then.
   bool slotReset() const { return this->slotResetForFrame; }
 
   //! Advance the ring and read back the oldest completed frame.
   void endFrame();
 
-  //! Destroy the query pool.  Must be called before the VkDevice is destroyed
-  //! (the backend calls it from its own shutdown while the device is alive).
+  //! Destroy the query pool (before the VkDevice; backend calls at shutdown).
   void shutdown();
 
 private:
@@ -78,12 +59,9 @@ private:
 
   uint32_t ringIndex = 0;
   uint32_t scopeCount = 0;
-  //! True after a beginScope() whose matching endScope() has not yet run, so
-  //! the end guard is exact and an unmatched begin cannot leak into the next
-  //! scope.
+  //! A beginScope() without its endScope() yet, so an unmatched begin cannot leak.
   bool scopePending = false;
-  //! True once this frame's query range has been reset (resetSlot() or the
-  //! first beginScope()), so no later begin() resets it again.
+  //! This frame's query range was reset; no later begin() resets it again.
   bool slotResetForFrame = false;
   uint32_t slotScopeCount[kRingFrames] = {};
   const char * scopeNames[kRingFrames][kMaxScopesPerFrame] = {};

@@ -1,16 +1,13 @@
-// src/rendering/SoClippingPlanes.h
-
 #ifndef COIN_SOCLIPPINGPLANES_H
 #define COIN_SOCLIPPINGPLANES_H
 
 /*!
   \file SoClippingPlanes.h
-  \brief Shared camera clipping-plane computation for the scene managers.
+  \brief Shared GL/Vulkan camera clipping-plane computation.
 
-  The legacy OpenGL SoRenderManagerP and the Vulkan SoVulkanRenderManagerP
-  compute the camera near/far planes from the scene bounding box with the same
-  algorithm.  This header holds the shared pure-math core so GL-side fixes
-  cannot silently diverge from the Vulkan path (and vice versa).
+  SoRenderManagerP (GL) and SoVulkanRenderManagerP compute near/far from the
+  scene bounding box with the same algorithm; this shared core keeps the two
+  paths from diverging.
 */
 
 #include <Inventor/SbBox3f.h>
@@ -22,22 +19,19 @@
 static const float kSoClippingSlack = 0.001f;
 
 /*!
-  \brief Compute near/far clipping planes from a camera-space projected box.
+  \brief Compute near/far from a camera-space projected box.
 
-  Pure function of the bounding box and the clipping strategy:
+  Clipping offset is 1% of the box diagonal (clamped to [epsilon, 1.0]); an
+  empty box defaults to near=1, far=10.  For perspective cameras the near
+  plane is the FIXED_NEAR_PLANE value or the VARIABLE_NEAR_PLANE precision
+  limit.
 
-  - clipping offset of 1% of the box diagonal (at most 1.0, at least epsilon),
-  - empty-box defaults (near=1, far=10),
-  - the perspective near-plane precision limit (VARIABLE_NEAR_PLANE) or the
-    fixed near-plane value (FIXED_NEAR_PLANE).
+  \a autoClipping uses the managers' enum values: 0=NO_AUTO_CLIPPING,
+  1=FIXED_NEAR_PLANE, 2=VARIABLE_NEAR_PLANE.
 
-  \a autoClipping uses the numeric values of the two managers' enums:
-  0 = NO_AUTO_CLIPPING, 1 = FIXED_NEAR_PLANE, 2 = VARIABLE_NEAR_PLANE.
-
-  \return FALSE when the caller must keep its current planes (the
-  whole-scene-behind-the-camera case for non-orthographic cameras); on TRUE
-  \a nearval/\a farval hold the pre-slack planes.  The caller applies
-  kSoClippingSlack and writes the result to its own state.
+  \return FALSE when the caller must keep its current planes (whole scene
+  behind a non-orthographic camera); on TRUE \a nearval/\a farval hold the
+  pre-slack planes, to which the caller applies kSoClippingSlack.
 */
 inline bool
 coinComputeClippingPlanes(const SbBox3f & box,
@@ -53,8 +47,6 @@ coinComputeClippingPlanes(const SbBox3f & box,
   const float boxDiagonal =
     std::sqrt(sizeX * sizeX + sizeY * sizeY + sizeZ * sizeZ);
 
-  // Clipping offset is 1% of the bounding box diagonal, at most 1.0 and at
-  // least std::numeric_limits<float>::epsilon().
   const float clippingOffset =
     SbMin(1.0f, SbMax(std::numeric_limits<float>::epsilon(),
                       0.01f * boxDiagonal));

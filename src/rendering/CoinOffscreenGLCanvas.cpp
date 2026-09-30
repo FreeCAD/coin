@@ -352,12 +352,8 @@ CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
   glGetIntegerv(GL_PACK_SKIP_PIXELS, &packSkipPixels);
   glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
 
-    // First reset all settings that can influence the result of a
-    // glReadPixels() call, to make sure we get the actual contents of
-    // the buffer, unmodified.
-    //
-    // The values set up below matches the default settings of an
-    // OpenGL driver.
+    // Reset settings that influence glReadPixels() so the buffer reads
+    // unmodified; the values below match an OpenGL driver's defaults.
 
     glPixelStorei(GL_PACK_SWAP_BYTES, 0);
     glPixelStorei(GL_PACK_LSB_FIRST, 0);
@@ -402,26 +398,9 @@ CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
     }
 #endif
 
-    // The flushing of the OpenGL pipeline before and after the
-    // glReadPixels() call is done as a work-around for a reported
-    // OpenGL driver bug: on a Win2000 system with ATI Radeon graphics
-    // card, the system would hang hard if the flushing was not done.
-    //
-    // This is obviously an OpenGL driver bug, but the workaround of
-    // doing excessive flushing has no real ill effects, so we just do
-    // it unconditionally for all drivers. Note that it might not be
-    // necessary to flush both before and after glReadPixels() to work
-    // around the bug (this was not established with the external
-    // reporter), but again it shouldn't matter if we do.
-    //
-    // For reference, the specific driver which was reported to fail has
-    // the following characteristics:
-    //
-    // GL_VENDOR="ATI Technologies Inc."
-    // GL_RENDERER="Radeon 9000 DDR x86/SSE2"
-    // GL_VERSION="1.3.3446 Win2000 Release"
-    //
-    // mortene.
+    // Flush the pipeline before and after glReadPixels as a workaround for a
+    // reported ATI Radeon / Win2000 driver hang when flushing is skipped; it
+    // has no ill effects, so do it unconditionally for all drivers.
 
     glFlush(); glFinish();
 

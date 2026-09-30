@@ -30,8 +30,7 @@ struct SoVulkanViewSettings {
   //! Raster overlays.
   bool wireframeOverlay = false;
   bool pointsOverlay = false;
-  //! Debug overlay: re-draw the triangle commands in polygon-LINES so the
-  //! raw tessellation is visible on top of the shaded geometry.
+  //! Re-draw triangle commands as polygon-LINES over the shaded geometry.
   bool tessellationOverlay = false;
   SbColor4f edgeColor {0.05f, 0.05f, 0.05f, 1.0f};
 

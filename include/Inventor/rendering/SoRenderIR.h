@@ -1,5 +1,3 @@
-// include/Inventor/rendering/SoRenderIR.h
-
 #ifndef COIN_SORENDERIR_H
 #define COIN_SORENDERIR_H
 
@@ -18,30 +16,20 @@
   \file SoRenderIR.h
   \brief Retained intermediate representation for the Vulkan renderer.
 
-  SoIRRenderAction produces a SoDrawList while traversing a scene graph, and
-  Coin's Vulkan backend (SoVulkanRenderBackend) consumes that list to produce
-  pixels.  The types in this file deliberately use semantic values instead of
-  OpenGL enums so the intermediate representation does not require a particular
-  graphics API.
+  SoIRRenderAction produces a SoDrawList while traversing a scene graph; the
+  Vulkan backend (SoVulkanRenderBackend) consumes it to produce pixels. Types use
+  semantic values instead of OpenGL enums so the IR needs no particular graphics API.
 
-  \note This is the Vulkan/retained path, not a universal Coin abstraction.
-  The production OpenGL viewport still renders through SoGLRenderAction
-  directly and does not traverse the IR. SoGLRenderBackend consumes a
-  SoDrawList only as a reference implementation used by the testsuite (see
-  testsuite/drawlist-gl-test.cpp); it is not built into libCoin and is not on
-  the OpenGL viewport's code path.
+  \note This is the Vulkan/retained path, not a universal Coin abstraction. The
+  production OpenGL viewport still renders through SoGLRenderAction and does not
+  traverse the IR; SoGLRenderBackend consumes a SoDrawList only as a testsuite
+  reference (testsuite/drawlist-gl-test.cpp), not built into libCoin.
 
-  Geometry and embedded texture pointers are borrowed from the producer. They
-  normally refer to storage owned by the current SoIRRenderAction frame and
-  must not be retained after that frame is cleared, rewound, or replaced.
-  Device objects, caches, and other implementation resources belong to the
-  consumer, not to the intermediate representation.
-*/
+  Geometry/texture pointers are borrowed from the producer and refer to the current
+  SoIRRenderAction frame's storage; do not retain after that frame is cleared,
+  rewound, or replaced. Device objects and caches belong to the consumer. */
 
-/*!
-  \enum SoPrimitiveTopology
-  \brief Enumerates how primitives referenced by a geometry buffer should be interpreted.
-*/
+/*! \enum SoPrimitiveTopology \brief How primitives referenced by a geometry buffer are interpreted. */
 enum SoPrimitiveTopology : uint8_t {
   SO_TOPOLOGY_TRIANGLES = 0,
   SO_TOPOLOGY_LINES,
@@ -51,28 +39,17 @@ enum SoPrimitiveTopology : uint8_t {
   SO_TOPOLOGY_COUNT
 };
 
-// Semantic point coverage requested by the retained traversal.  Backends may
-// emulate this when their native point rasterization cannot provide it.
+// Semantic point coverage; backends may emulate when native point rasterization cannot provide it.
 enum SoPointShape : uint8_t {
   SO_POINT_SHAPE_SQUARE = 0,
   SO_POINT_SHAPE_ROUND
 };
 
-/*!
-  \struct SoGeometryDesc
-  \brief Describes vertex/index data for a single draw call.
-
-  All pointers remain owned by the producer (typically SoIRRenderAction).
-  They must remain valid while the backend consumes the frame. They may point
-  into the action's frame geometry pool and must not be retained after that
-  storage is cleared or rewound. Backends are free to copy the data into
-  backend-owned buffers.
-
-  Strides are byte distances between successive entries. A zero position or
-  normal stride means three tightly packed floats; a zero texture-coordinate
-  stride means four tightly packed floats. normalCount may be smaller than
-  vertexCount when only part of a geometry has normals.
-*/
+/*! \struct SoGeometryDesc \brief Vertex/index data for one draw call.
+  Pointers are producer-owned, valid while the backend consumes the frame, and may
+  point into the action's frame pool (never retain past clear/rewind); backends may
+  copy. Strides are byte distances: 0 position/normal = 3 packed floats, 0 texcoord
+  = 4 packed floats. normalCount may be < vertexCount. */
 struct SoGeometryDesc {
   SoPrimitiveTopology topology = SO_TOPOLOGY_TRIANGLES;
   uint32_t            vertexCount = 0;
@@ -88,33 +65,21 @@ struct SoGeometryDesc {
   uint32_t            vertexStride = 0;   //!< Position/normal stride in bytes.
   uint32_t            texcoordStride = 0; //!< Texture-coordinate stride in bytes.
 
-  //!< Index of this command's first primitive within the source shape's
-  //!< primitive stream.  A shape whose material changes partway is split into
-  //!< several contiguous commands (see soshape_emit_ir_commands); each carries
-  //!< the offset so a backend can map a per-command primitive id back to a
-  //!< global primitive index (e.g. a SoBrepFaceSet face via partIndex).  Zero
-  //!< when the command covers the shape from its start.
+  //!< Index of this command's first primitive in the source shape's stream (material-split
+  //!< shapes emit contiguous commands, see soshape_emit_ir_commands) so a backend can map a
+  //!< per-command primitive id to a global index (e.g. SoBrepFaceSet face via partIndex); 0 = start.
   uint32_t            primitiveOffset = 0;
 
-  //!< Lifetime owners for the borrowed streams above.  When set, this command
-  //!< co-owns the storage its raw pointers refer to (the pointers may be
-  //!< offsets into these buffers), so the storage outlives the command even
-  //!< if the producer (e.g. a shape's retained tessellation cache, which is
-  //!< invalidated on any field change via SoShape::notify()) releases its own
-  //!< reference before this command is re-emitted or replaced.  Without these
-  //!< owners a retained drawlist command can hold a dangling pointer to a
-  //!< freed-and-reused chunk and read garbage (a false geometry change).
-  //!< Leave null for per-frame arena storage that is only valid for the frame.
+  //!< Lifetime owners for the borrowed streams above: the command co-owns the storage its
+  //!< raw pointers offset into, so it outlives the producer's reference (e.g. a tessellation
+  //!< cache invalidated via SoShape::notify()); without them it can read a freed chunk. Null for frame arenas.
   std::shared_ptr<const std::vector<float>>    positionOwner;
   std::shared_ptr<const std::vector<float>>    normalOwner;
   std::shared_ptr<const std::vector<float>>    texcoordOwner;
   std::shared_ptr<const std::vector<uint32_t>> indexOwner;
 
-  //!< Producer guarantees the geometry streams are stable, shape-retained
-  //!< buffers whose pointers change exactly when the content changes.  When
-  //!< set, backends may rely on pointer/count identity alone to detect a
-  //!< change (skipping a per-frame content hash); it must be false for
-  //!< per-frame arena pools that rewrite the same pointer in place.
+  //!< Producer guarantees stable shape-retained streams whose pointers change exactly with
+  //!< content; backends may then skip the content hash. False for in-place-rewritten arenas.
   bool                retained = false;
 };
 
@@ -126,22 +91,16 @@ static constexpr uint32_t SO_MAT_IS_PIXEL_IMAGE = 0x4;
 // --- Feature flags (SoMaterialData::featureFlags) ---
 static constexpr uint32_t SO_FEAT_BASE_COLOR = 0x1;   //!< Flat/unlit rendering (BASE_COLOR light model)
 
-/*!
-  \enum SoShadingModel
-  \brief Effective shading contract carried by a render command.
-
-  The legacy-compatible model is the current default. It preserves the
-  fixed-function Coin/GL behavior while the DrawList backend is migrated to
-  an explicit shading model.
-*/
+/*! \enum SoShadingModel \brief Effective shading contract carried by a render command.
+  LEGACY_GOURAUD is the current default, preserving fixed-function Coin/GL behavior
+  while the DrawList backend migrates to an explicit shading model. */
 enum SoShadingModel : uint8_t {
   SO_SHADING_UNLIT = 0,
   SO_SHADING_LEGACY_GOURAUD
 };
 
 // --- Texture sampler state ---
-// These are semantic sampler modes rather than OpenGL enum values so the IR
-// can be consumed by non-OpenGL backends as well.
+// Semantic sampler modes, not OpenGL enum values, so non-OpenGL backends can consume the IR.
 enum SoTextureFilter : uint8_t {
   SO_TEXTURE_FILTER_NEAREST = 0,
   SO_TEXTURE_FILTER_LINEAR,
@@ -157,8 +116,7 @@ enum SoTextureWrap : uint8_t {
   SO_TEXTURE_WRAP_CLAMP_TO_BORDER
 };
 
-// Texture environment models retained from SoMultiTextureImageElement. These
-// are semantic values; a backend maps them to its own texture-combine API.
+// Texture environment models retained from SoMultiTextureImageElement (semantic; a backend maps them to its combine API).
 enum SoTextureModel : uint8_t {
   SO_TEXTURE_MODEL_MODULATE = 0,
   SO_TEXTURE_MODEL_DECAL,
@@ -168,9 +126,7 @@ enum SoTextureModel : uint8_t {
 
 // --- Depth state ---------------------------------------------------------
 
-// Semantic comparison functions. These deliberately do not use GL enum
-// values: the IR is also consumed by backends which do not share GL's enum
-// space.
+// Semantic comparison functions (not GL enum values: the IR is also consumed by backends lacking GL's enum space).
 enum SoDepthFunction : uint8_t {
   SO_DEPTH_NEVER = 0,
   SO_DEPTH_ALWAYS,
@@ -266,14 +222,8 @@ static constexpr uint32_t SO_PARAM_CLEAR_WINDOW = 1u;
 static constexpr uint32_t SO_PARAM_CLEAR_DEPTH  = 4u;  //!< Clear depth buffer before rendering
 static constexpr uint32_t SO_PARAM_CLEAR_STENCIL = 8u; //!< Clear stencil buffer before rendering
 
-/*!
-  \struct SoTextureData
-  \brief Embedded texture payload carried directly by a render command.
-
-  This is used for commands that provide their own embedded image data.
-  The memory is owned by the producer of the draw list and must remain valid
-  until the backend finishes consuming the frame.
-*/
+/*! \struct SoTextureData \brief Embedded texture payload carried directly by a render command.
+  Producer-owned; must stay valid until the backend finishes consuming the frame. */
 struct SoTextureData {
   const unsigned char * pixels = nullptr;
   int width = 0;
@@ -293,38 +243,27 @@ struct SoPixelTextData {
   int originY = 0;
 };
 
-/*!
-  \struct SoMaterialData
-  \brief Snapshot of the logical Inventor material state for one draw call.
-
-  Texture pointers are backend-defined handles; the IR does not own the memory.
-*/
+/*! \struct SoMaterialData \brief Logical Inventor material state for one draw call.
+  Texture pointers are backend-defined handles; the IR does not own the memory. */
 struct SoMaterialData {
   SbVec4f  diffuse = {0.8f, 0.8f, 0.8f, 1.0f};
   SbVec4f  ambient = {0.2f, 0.2f, 0.2f, 1.0f};
   SbVec4f  specular = {0.0f, 0.0f, 0.0f, 1.0f};
   SbVec4f  emissive = {0.0f, 0.0f, 0.0f, 1.0f};
-  // A command with no retained lighting setup is explicitly unlit. Scene
-  // traversal fills this with the effective Gouraud model when lighting is
-  // present, so the executor never needs to invent a headlight.
+  // No retained lighting setup => explicitly unlit; traversal fills the effective Gouraud model when lighting is present (no invented headlight).
   SoShadingModel shadingModel = SO_SHADING_UNLIT;
   float    shininess = 0.2f;
   float    opacity = 1.0f;
 
   SoTextureData texture;  //!< Embedded texture data.
 
-  // Some CPU-rasterized textures already multiply their texel alpha by
-  // material opacity. Consumers use this to avoid multiplying that opacity a
-  // second time while still composing vertex and texture alpha.
+  // Some CPU-rasterized textures pre-multiply texel alpha by material opacity; consumers use this to avoid multiplying it twice.
   bool     textureAlphaIncludesOpacity = false;
 
-  // Material-derived per-vertex colors can already carry the effective
-  // material transparency (for example SoMaterial PER_FACE colors). Packed
-  // SoVertexProperty colors carry independent vertex alpha instead.
+  // Material-derived per-vertex colors may already carry transparency (e.g. SoMaterial PER_FACE); packed SoVertexProperty colors carry independent alpha.
   bool     vertexColorAlphaIncludesOpacity = false;
 
-  // Opaque texture handles supplied by a producer or backend integration.
-  // The IR does not interpret or own these objects.
+  // Opaque backend-integration texture handles; the IR neither interprets nor owns them.
   void *   diffuseTexture = nullptr;
   void *   normalTexture = nullptr;
   void *   emissiveTexture = nullptr;
@@ -337,10 +276,7 @@ struct SoMaterialData {
   bool     twoSidedLighting = false;
 };
 
-/*!
-  \struct SoDepthState
-  \brief Depth-test configuration for a draw call.
-*/
+/*! \struct SoDepthState \brief Depth-test configuration for a draw call. */
 struct SoDepthState {
   SbBool  enabled = TRUE;
   SbBool  writeEnabled = TRUE;
@@ -348,10 +284,7 @@ struct SoDepthState {
   SbVec2f range = SbVec2f(0.0f, 1.0f);
 };
 
-/*!
-  \struct SoBlendState
-  \brief Backend-neutral blending configuration.
-*/
+/*! \struct SoBlendState \brief Backend-neutral blending configuration. */
 struct SoBlendState {
   SbBool  enabled = FALSE;
   SoBlendFactor srcRGBFactor = SO_BLEND_FACTOR_ONE;
@@ -359,21 +292,14 @@ struct SoBlendState {
   SoBlendFactor srcAlphaFactor = SO_BLEND_FACTOR_ONE;
   SoBlendFactor dstAlphaFactor = SO_BLEND_FACTOR_ZERO;
 
-  // Coin's current LegacyGL state API exposes blend factors but not blend
-  // equations. ADD is therefore the only equation that can be captured
-  // from traversal today; separate fields keep the IR ready for a future
-  // state source without pretending that it is currently preserved.
+  // LegacyGL exposes blend factors but not equations, so ADD is the only capturable equation today; separate fields keep the IR ready.
   SoBlendEquation rgbEquation = SO_BLEND_EQUATION_ADD;
   SoBlendEquation alphaEquation = SO_BLEND_EQUATION_ADD;
 };
 
-/*!
-  \struct SoStencilState
-  \brief Backend-neutral stencil test/operation configuration.
-
-  Both faces share the same configuration (no two-sided stencil yet); a
-  backend maps this to its API's front and back stencil state.
-*/
+/*! \struct SoStencilState \brief Backend-neutral stencil test/operation configuration.
+  Both faces share one configuration (no two-sided stencil yet); a backend maps it to
+  its API's front/back stencil state. */
 struct SoStencilState {
   SbBool  enabled = FALSE;
   SoStencilFunction function = SO_STENCIL_FUNC_ALWAYS;
@@ -385,28 +311,19 @@ struct SoStencilState {
   SoStencilOp zpassOp = SO_STENCIL_OP_KEEP;
 };
 
-/*!
-  \struct SoAlphaTestState
-  \brief Explicit fragment alpha policy for a render command.
-*/
+/*! \struct SoAlphaTestState \brief Explicit fragment alpha policy for a render command. */
 struct SoAlphaTestState {
   SoAlphaTestPolicy policy = SO_ALPHA_TEST_POLICY_NONE;
   SoAlphaTestFunction function = SO_ALPHA_TEST_NONE;
   float reference = 0.5f;
 };
 
-/*!
-  \struct SoRasterState
-  \brief Rasterizer properties (fill mode, culling, polygon offset).
-*/
+/*! \struct SoRasterState \brief Rasterizer properties (fill mode, culling, polygon offset). */
 struct SoRasterState {
   uint8_t fillMode = 0;         // 0=filled, 1=lines (wireframe), 2=points
   SoPointShape pointShape = SO_POINT_SHAPE_SQUARE;
   uint8_t cullMode = 0;
-  // GL front face follows the declared vertex ordering (SoShapeHintsElement,
-  // glFrontFace): 1 = counterclockwise (the default), 0 = clockwise.  The
-  // Vulkan backend must invert this on screen because its pipeline Y-flips
-  // clip coordinates (a reflection reverses winding).
+  // GL front face from SoShapeHintsElement/glFrontFace: 1 = CCW (default), 0 = CW. Vulkan must invert on screen (Y-flip reverses winding).
   uint8_t ccwFrontFace = 1;
   SbBool  scissorEnabled = FALSE;
   SbBool  viewportEnabled = FALSE;
@@ -426,10 +343,7 @@ struct SoRasterState {
   float   polygonOffsetUnits = 0.0f;
 };
 
-/*!
-  \struct SoRenderState
-  \brief Aggregates depth/blend/raster states plus precomputed sort keys.
-*/
+/*! \struct SoRenderState \brief Aggregates depth/blend/raster states plus precomputed sort keys. */
 struct SoRenderState {
   SoDepthState depth;
   SoBlendState blend;
@@ -440,59 +354,35 @@ struct SoRenderState {
   uint32_t translucentKey = 0;
 };
 
-/*!
-  \enum SoRenderPassType
-  \brief Logical pass identifier used for coarse sorting within a stage.
-*/
+/*! \enum SoRenderPassType \brief Logical pass identifier for coarse sorting within a stage. */
 enum SoRenderPassType : uint8_t {
   SO_RENDERPASS_OPAQUE = 0,
   SO_RENDERPASS_TRANSPARENT,
-  //! Screen-space overlay geometry drawn after both previous passes with a
-  //! per-rect viewport and its own depth clear (e.g. the navigation cube).
-  //! Overlay commands carry their own view/projection matrices.
+  //! Screen-space overlay after both prior passes, per-rect viewport, own depth clear (e.g. navigation cube); carries its own view/proj matrices.
   SO_RENDERPASS_OVERLAY,
   SO_RENDERPASS_COUNT
 };
 
-/*!
-  \typedef SoLightingHandle
-  \brief Stable 1-based handle into the draw list's deduplicated lighting table.
-*/
+/*! \typedef SoLightingHandle \brief Stable 1-based handle into the draw list's deduplicated lighting table. */
 typedef uint32_t SoLightingHandle;
 
-/*!
-  \enum SoLightType
-  \brief Light kinds captured in render-backend lighting setups.
-*/
+/*! \enum SoLightType \brief Light kinds captured in render-backend lighting setups. */
 enum SoLightType : uint8_t {
   SO_LIGHT_DIRECTIONAL = 0,
   SO_LIGHT_POINT,
   SO_LIGHT_SPOT
 };
 
-/*!
-  \brief Maximum number of lights a retained render-backend shader evaluates.
-
-  All backends (GL visual program, Vulkan LightingBlock, RTX RTMaterial)
-  evaluate at most this many lights; setups carrying more are truncated with
-  a one-time warning by the consumer.
-*/
+/*! \brief Maximum number of lights a retained render-backend shader evaluates.
+  All backends (GL visual program, Vulkan LightingBlock, RTX RTMaterial) evaluate at
+  most this many; larger setups are truncated with a one-time consumer warning. */
 constexpr int SO_MAX_SHADER_LIGHTS = 8;
 
-/*!
-  \struct SoLightData
-  \brief Scene-space (world) light description used by the render backends.
-
-  The geometry fields are expressed in the scene's WORLD space: `direction`
-  is the normalized direction the light travels TOWARD (for a directional
-  light this is the negated SoDirectionalLight::direction field, rotated by
-  the light node's model matrix), and `position` is the light's world-space
-  location for point/spot lights.  The data is view-independent -- it does
-  not change when the camera moves -- so a draw list kept across a camera-
-  only frame needs no light re-derivation.  Consumers that shade in eye
-  space derive it with SoRenderIR::lightToEye(); the path tracer consumes
-  the world-space fields directly.
-*/
+/*! \struct SoLightData \brief Scene-space (world) light description for the render backends.
+  `direction` is the normalized travel-toward direction (directional: negated node
+  direction rotated by its model matrix); `position` is world-space for point/spot.
+  View-independent, so a camera-only frame needs no re-derivation: eye-space consumers
+  use SoRenderIR::lightToEye(), the path tracer consumes the world fields directly. */
 struct SoLightData {
   SoLightType type = SO_LIGHT_DIRECTIONAL;
   SbVec3f     color = SbVec3f(1.0f, 1.0f, 1.0f);
@@ -503,17 +393,12 @@ struct SoLightData {
   float       spotExponent = 0.0f;
 };
 
-/*!
-  \struct SoLightingData
-  \brief Shared (world-space) lighting setup referenced by render commands.
-*/
+/*! \struct SoLightingData \brief Shared (world-space) lighting setup referenced by render commands. */
 struct SoLightingData {
   SbVec3f ambient = SbVec3f(0.2f, 0.2f, 0.2f);
   std::vector<SoLightData> lights;
 
-  //! Number of lights a shader evaluates for this setup: the stored lights
-  //! clamped to the fixed shader capacity.  The block packer and every backend
-  //! that carries the count in a per-draw uniform share this one definition.
+  //! Lights a shader evaluates: stored lights clamped to SO_MAX_SHADER_LIGHTS; the block packer and per-draw-uniform backends share this definition.
   int lightCount() const
   {
     return static_cast<int>(
@@ -525,43 +410,26 @@ struct SoLightingData {
 
 namespace SoRenderIR {
 
-/*!
-  \brief Transform one world-space light into eye space for \a view.
-
-  Directions are rotated by the view matrix; positions are transformed
-  fully.  Spot cone parameters are carried unchanged.
-*/
+/*! \brief Transform a world-space light into eye space for \a view.
+  Directions are rotated, positions transformed fully; spot cone parameters unchanged. */
 COIN_DLL_API SoLightData lightToEye(const SoLightData & world,
                                     const SbMatrix & view);
 
-/*!
-  \brief Transform one eye-space light into world space for \a inverseView.
-
-  The exact inverse of lightToEye(): pass the inverse of the world-to-eye
-  view matrix.  Applications use this when they derive a camera-anchored light
-  set (Coin GL's view-relative three-point lighting) and must hand the
-  renderer world-space lights, so the eye<->world convention lives here rather
-  than being re-derived at each call site.  Directions are rotated; positions
-  are transformed fully; spot cone parameters are carried unchanged.
-*/
+/*! \brief Transform an eye-space light into world space for \a inverseView.
+  Exact inverse of lightToEye(): pass the inverse world-to-eye matrix. Used when
+  deriving a camera-anchored light set (Coin GL's view-relative three-point lighting)
+  and handing the renderer world-space lights; keeps the convention here, not per call site. */
 COIN_DLL_API SoLightData lightToWorld(const SoLightData & eye,
                                       const SbMatrix & inverseView);
 
 } // namespace SoRenderIR
 
-/*!
-  \struct SoLightingBlock
-  \brief Standardized fixed-capacity GPU mirror of one world-space lighting
-  setup, shared by every retained backend's lighting uniform/staging buffer.
-
-  The layout is the std140 `LightingBlock` uniform layout of the Vulkan
-  visual shaders byte-for-byte (and the array form the GL visual program
-  uploads).  Producers fill it with SoRenderIR::fillLightingBlock();
-  backends memcpy the finished block straight into their buffer, so the
-  per-light field packing lives in exactly one place.  The evaluated light
-  count travels separately (the raster path carries it in the per-draw
-  material block), keeping the block itself a pure layout mirror.
-*/
+/*! \struct SoLightingBlock \brief Fixed-capacity GPU mirror of one world-space lighting setup.
+  Layout is byte-for-byte the std140 `LightingBlock` of the Vulkan visual shaders
+  (and the array form the GL program uploads). Producers fill via
+  SoRenderIR::fillLightingBlock(); backends memcpy straight in, so per-light packing
+  lives in one place. The evaluated light count travels separately (per-draw material
+  block on the raster path), keeping the block a pure layout mirror. */
 struct COIN_DLL_API SoLightingBlock {
   float ambientLight[4];                            // offset 0
   float lightType[SO_MAX_SHADER_LIGHTS * 4];        // offset 16
@@ -576,29 +444,19 @@ static_assert(sizeof(SoLightingBlock) == 784,
 
 namespace SoRenderIR {
 
-/*!
-  \brief Fill a SoLightingBlock from a world-space SoLightingData.
-
-  When \a toEye is non-NULL every light is transformed into eye space with
-  it (raster/preview consumers); when NULL the world-space fields are copied
-  verbatim (path-tracing consumers).  Ambient passes through unchanged.
-  Returns the number of lights actually written (<= SO_MAX_SHADER_LIGHTS).
-*/
+/*! \brief Fill a SoLightingBlock from a world-space SoLightingData.
+  `toEye` non-NULL transforms each light to eye space (raster/preview), NULL copies
+  world fields verbatim (path tracer); ambient passes unchanged. Returns lights written. */
 COIN_DLL_API int fillLightingBlock(SoLightingBlock & block,
                                    const SoLightingData & world,
                                    const SbMatrix * toEye);
 
 } // namespace SoRenderIR
 
-/*!
-  \struct SoLightingRaw
-  \brief Scene-space inputs behind one SoLightingData entry (provenance).
-
-  The setups themselves are world-space and view-independent, so nothing has
-  to be re-derived on camera moves.  The raw entry is recorded for
-  provenance and participates in deduplication, keeping setups that differ
-  only by their originating light nodes distinct.
-*/
+/*! \struct SoLightingRaw \brief Scene-space inputs behind one SoLightingData entry (provenance).
+  Setups are world-space/view-independent (no re-derivation on camera moves); the raw
+  entry is recorded for provenance and dedup, keeping same-world setups from different
+  originating light nodes distinct. */
 struct SoLightingRaw {
   struct RawLight {
     SoLightType type = SO_LIGHT_DIRECTIONAL;
@@ -615,13 +473,9 @@ struct SoLightingRaw {
   std::vector<RawLight> lights;
 };
 
-/*!
-  \struct SoRenderCommand
-  \brief Complete description of a single draw call in the IR.
-*/
+/*! \struct SoRenderCommand \brief Complete description of a single draw call in the IR. */
 struct SoRenderCommand {
-  // Geometry, texture pixels, and other pointer-valued fields are borrowed;
-  // see the lifetime contract on SoGeometryDesc and SoTextureData.
+  // Pointer-valued fields (geometry, texture pixels) are borrowed; see the lifetime contract on SoGeometryDesc and SoTextureData.
   SoGeometryDesc   geometry;
   SoMaterialData   material;
   SoRenderState    state;
@@ -635,21 +489,14 @@ struct SoRenderCommand {
   SoPixelTextData pixelText;
   uint64_t         sortKey = 0; //!< Backend-computed key used by sorting.
   void *           userData = nullptr; //!< Opaque, non-owned producer data.
-  //! True when the producer reports this as the model's B-Rep feature-edge
-  //! line set (SoShape::isFeatureEdgeSet()).  The Vulkan edge overlay restricts
-  //! its uniform-color redraw to these commands.
+  //! Producer reports this as the model's B-Rep feature-edge line set (SoShape::isFeatureEdgeSet()); the Vulkan edge overlay redraws only these.
   bool             isFeatureEdge = false;
 };
 
-/*!
-  \class SoDrawList
-  \brief Container holding the commands and auxiliary tables for one frame.
-
-  Commands retain their insertion order. buildSortedOrder() produces a
-  separate index array for rendering; it never reorders the command vector.
-  clear() starts a new frame and invalidates pointers
-  into producer-owned frame storage.
-*/
+/*! \class SoDrawList \brief Commands and auxiliary tables for one frame.
+  Commands keep insertion order; buildSortedOrder() produces a separate index array and
+  never reorders the command vector. clear() starts a new frame and invalidates pointers
+  into producer-owned frame storage. */
 class COIN_DLL_API SoDrawList {
 public:
   SoDrawList();
@@ -673,22 +520,16 @@ public:
   //! Add or reuse a lighting setup and return its stable 1-based handle.
   SoLightingHandle addLightingSetup(const SoLightingData & lighting);
 
-  //! Variant carrying the scene-space inputs (SoLightingRaw) alongside the
-  //! setup.  The raw entry participates in deduplication (two setups equal
-  //! in their world-space fields but derived from different light nodes or
-  //! cameras must stay separate).
+  //! Variant carrying scene-space inputs (SoLightingRaw) alongside the setup; the raw entry
+  //! participates in dedup so same-world setups from different light nodes/cameras stay separate.
   SoLightingHandle addLightingSetup(const SoLightingData & lighting,
                                     const SoLightingRaw & raw);
 
-  //! Resolve a lighting handle previously returned by addLightingSetup().
-  //! Returns NULL for handle 0 or an invalid handle.
+  //! Resolve a handle from addLightingSetup(); NULL for 0 or an invalid handle.
   const SoLightingData * getLighting(SoLightingHandle handle) const;
 
-  //! Compatibility no-op: lighting setups are world-space and view-
-  //! independent, so a camera-only frame replaying a retained draw list
-  //! needs no light re-derivation.  Kept exported (rather than removed) so
-  //! already-linked consumers (e.g. the pivy Python bindings) continue to
-  //! resolve the symbol; implementations do nothing.
+  //! Compatibility no-op: setups are world-space/view-independent, so a camera-only
+  //! retained-drawlist replay needs no re-derivation. Kept exported for already-linked consumers (e.g. pivy).
   void restrikeLighting(const SbMatrix & prevView, const SbMatrix & newView);
 
   SoRenderCommand * begin();
@@ -696,8 +537,7 @@ public:
   const SoRenderCommand * begin() const;
   const SoRenderCommand * end() const;
 
-  //! Build a sorted index array for correct render ordering.
-  //! The draw list itself is NOT reordered — command indices stay stable.
+  //! Build a sorted index array for render ordering; the draw list itself is NOT reordered.
   void buildSortedOrder(const SbMatrix & viewMatrix);
 
   //! Get the sorted rendering order (indices into the command list).

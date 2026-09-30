@@ -1,11 +1,9 @@
 // data/shaders/vulkan/visual/Fragment.glsl
 // Vulkan visual-pass fragment shader for the retained render backend.
 //
-// Receives the vertex-lit (Gouraud) color computed by the vertex stage.  The
-// base color is either the per-vertex color or the uniform diffuse color,
-// with material opacity applied to the alpha channel.  An optional embedded
-// texture (set 1, binding 1) modulates, replaces, or blends the base color
-// according to the command's SoTextureModel.
+// Base is per-vertex color or uniform diffuse with opacity in alpha; an
+// embedded texture (set 1, binding 1) applies SoTextureModel: 1=DECAL,
+// 2=BLEND, 3=REPLACE, else MODULATE.
 
 #version 450
 
@@ -16,8 +14,7 @@ layout(push_constant) uniform PushConstants {
     vec4  u_texBlend;     // offset 48, 16 bytes
     float u_pointSize;    // offset 64, 16 bytes (pad[3])
     vec4  u_lineParams;   // offset 80, 16 bytes: x = stipple factor,
-                          //   y = round points, z = line primitive,
-                          //   w = point primitive
+                          //   y=round points, z=line primitive, w=point primitive
 } pc;
 
 // Lighting constant block (written once per lighting setup per frame).
@@ -54,20 +51,14 @@ layout(location = 0) out vec4 fragColor;
 
 const int COIN_MAX_LIGHTS = 8;
 
-// Per-fragment Blinn-Phong (matches the GL model's terms, but evaluated
-// here instead of per vertex): interpolated normals give a smooth diffuse
-// gradient and a soft specular highlight even on coarse tessellations.
+// Per-fragment Blinn-Phong (same terms as the GL model, evaluated here):
+// interpolated normals give a smooth gradient even on coarse tessellation.
 vec3 coin_vulkan_lighting(vec3 eyePos, vec3 eyeNormal, vec3 baseColor)
 {
     vec3 N = normalize(eyeNormal);
-    // View vector to the viewer.  For a perspective camera the viewer is the
-    // eye-space origin, so -eyePos is correct.  For an orthographic camera the
-    // viewer is at infinity: the view direction is the constant eye-space +Z.
-    // Using -eyePos there made dot(N, V) cross zero inside the silhouette (at
-    // r/R = sqrt(1 - (R/D)^2) instead of at the silhouette), so the two-sided
-    // normal flip below triggered over the front surface and drew a hard-edged
-    // dark ring.  u_proj[2][3] is the perspective-divide term: 0 for an
-    // orthographic projection, -1 for a perspective one.
+    // View vector.  Perspective: viewer at origin, so -eyePos.  Orthographic:
+    // viewer at infinity (+Z); -eyePos crossed zero inside the silhouette and
+    // made the two-sided flip draw a dark ring.  u_proj[2][3]: 0 ortho, -1 persp.
     vec3 V = (draw.u_proj[2][3] == 0.0) ? vec3(0.0, 0.0, 1.0)
                                       : normalize(-eyePos);
     if (draw.u_materialParams.y > 0.5 && dot(N, V) < 0.0) {
@@ -130,8 +121,7 @@ bool coin_vulkan_alpha_test_pass(float alpha, int function, float reference)
 
 void main()
 {
-    // Round point glyphs (SO_POINT_SHAPE_ROUND): discard the fragment outside
-    // the circle inscribed in the point square, mirroring the GL point shader.
+    // Round point glyphs (SO_POINT_SHAPE_ROUND): discard outside the inscribed circle.
     if (pc.u_lineParams.y > 0.5) {
         vec2 pointCoord = gl_PointCoord * 2.0 - 1.0;
         if (dot(pointCoord, pointCoord) > 1.0) {
@@ -139,10 +129,8 @@ void main()
         }
     }
 
-    // Mirror the retained GL visual program: vertex alpha already carries the
-    // material transparency for PER_FACE vertex colors (flagged on the
-    // command); otherwise the uniform material opacity multiplies the vertex
-    // alpha.
+    // Mirror the retained GL program: PER_FACE vertex colors already carry
+    // material transparency; otherwise opacity multiplies vertex alpha.
     float materialAlpha = pc.u_color.a;
     if (pc.u_flags.x > 0.5 && pc.u_flags.y > 0.5) {
         materialAlpha = 1.0;
@@ -157,14 +145,10 @@ void main()
     if (pc.u_flags.z > 0.5) {
         vec4 texel = texture(u_texture, v_texcoord);
 
-        // Pixel text is CPU-rasterized by the producer (SoText2-style
-        // overlays): the texture already carries the final RGBA, including
-        // opacity and the text color.  Emit it verbatim instead of modulating
-        // it by material diffuse (which would double-tint and darken text
-        // versus the legacy glDrawPixels path).
+        // CPU-rasterized pixel text (SoText2): the texture already holds final
+        // RGBA; emit verbatim to avoid double-tinting vs glDrawPixels.
         if (pc.u_texParams.w > 0.5) {
-            // Match the legacy GL_ALPHA_TEST(GL_GREATER, 0.3f) used for
-            // glDrawPixels so fully-transparent glyph padding stays clean.
+            // Match legacy GL_ALPHA_TEST(GL_GREATER, 0.3f) from glDrawPixels.
             if (texel.a <= 0.3) {
                 discard;
             }
@@ -177,21 +161,17 @@ void main()
 
         int model = int(pc.u_texParams.x);
         if (model == 1) {
-            // DECAL
             rgb = mix(rgb, texel.rgb, texel.a);
         }
         else if (model == 2) {
-            // BLEND
             rgb = mix(rgb, pc.u_texBlend.rgb, texel.rgb);
             alpha = primaryAlpha * textureAlpha;
         }
         else if (model == 3) {
-            // REPLACE
             rgb = texel.rgb;
             alpha = primaryAlpha * textureAlpha;
         }
         else {
-            // MODULATE (default)
             rgb = rgb * texel.rgb;
             alpha = primaryAlpha * textureAlpha;
         }

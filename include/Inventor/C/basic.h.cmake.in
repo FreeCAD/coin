@@ -34,8 +34,7 @@
 #ifndef COIN_BASIC_H
 #define COIN_BASIC_H
 
-/* Immutable installed-library capability.  This is generated from the
- * internal CMake decision and must not be overrideable by consumers. */
+/* Installed-library capability; generated from the CMake decision, not overridable. */
 #define COIN_HAVE_LEGACY_GL_RENDERER @COIN_BUILD_LEGACY_GL_RENDERER_VALUE@
 
 /*

@@ -489,17 +489,14 @@ void
 SoRayPickAction::computeWorldSpaceRay(void)
 {
   if (PRIVATE(this)->isFlagSet(SoRayPickActionP::WS_RAY_SET)) {
-    // A manually set ray still uses the camera's view volume to relate the
-    // pick radius (specified in screen pixels) to world units, otherwise a
-    // world-space ray would end up with a radius that is effectively zero
-    // and would never intersect lines or points.
+    // A manually set ray still needs the view volume to relate the pick
+    // radius (screen pixels) to world units, else the radius is ~0 and would
+    // never intersect lines or points.
     const SbViewVolume & vv = SoViewVolumeElement::get(this->state);
     const SbViewportRegion & vp = SoViewportRegionElement::get(this->state);
     SbVec2s vpsize = vp.getViewportSizePixels();
     const double pixels = (vpsize[1] > 0) ? double(vpsize[1]) : 1.0;
-    // Clamp to a floor so an empty scene (no camera view volume yet) does
-    // not collapse the radius back to zero and reintroduce the original
-    // never-intersect-lines-or-points failure.
+    // Floor the height so an empty scene doesn't collapse the radius to zero.
     const double viewHeight =
       SbMax(double(vv.getHeight()), double(FLT_EPSILON));
     PRIVATE(this)->rayradiusstart =

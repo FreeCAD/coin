@@ -169,7 +169,6 @@ SoIndexedMarkerSet::GLRender(SoGLRenderAction * action)
     this->vertexProperty.getValue()->GLRender(action);
   }
 
-  // send approx number of points for autocache handling. Divide
   if (!this->shouldGLRender(action)){
     state->pop();
     return;

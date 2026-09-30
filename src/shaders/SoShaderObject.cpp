@@ -135,8 +135,6 @@
 
 #include <cstring>
 
-// *************************************************************************
-
 static SbString
 soshaderobject_inline_source_preview(const SbString & source)
 {

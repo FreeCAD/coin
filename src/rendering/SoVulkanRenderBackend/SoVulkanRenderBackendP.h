@@ -1,18 +1,10 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h
 //
-// Private internal header for the Vulkan render backend.  Holds the helper
-// code that was formerly the file-local anonymous namespace, lifted here so
-// it can be shared across the split SoVulkanRenderBackend*.cpp translation
-// units (in the CoinVulkanDetail namespace).  Provides:
-//
-//   - Debug counters
-//   - Push-constant / lighting-UBO structs (VulkanPushConstants,
-//     VulkanBackgroundPush, VulkanLightingUbo, VulkanDrawUbo)
-//   - Vulkan enum-conversion helpers
-//   - FNV content-hash helpers (hashFloats, hashUint32, hashGeometryContent,
-//     hashTextureContent)
-//   - Draw/overlay/composite command counters
-//   - createImageView()
+// Private internal header: helper code formerly in the file-local anonymous namespace,
+// lifted into CoinVulkanDetail so the split SoVulkanRenderBackend*.cpp TUs can share it.
+// Provides debug counters; push-constant/lighting-UBO structs (VulkanPushConstants,
+// VulkanBackgroundPush, VulkanLightingUbo, VulkanDrawUbo); Vulkan enum converters;
+// FNV content-hash helpers; draw/overlay/composite counters; createImageView().
 
 #ifndef COIN_SOVULKANRENDERBACKENDP_H
 #define COIN_SOVULKANRENDERBACKENDP_H
@@ -36,18 +28,15 @@
 #include <unistd.h>
 #endif
 
-// Declared in SoRenderBackend.h; only referenced by the frame-stats helper
-// below, so a forward declaration keeps this header from pulling the backend
-// interface in.
+// Declared in SoRenderBackend.h; only the frame-stats helper references it, so a
+// forward declaration keeps the backend interface out of this header.
 struct SoRenderParams;
 
 namespace CoinVulkanDetail {
 
   // ---- [TRC] per-step recording traces (FC_VULKAN_TRACE) ----
-  // One line per pipeline step, tagged with a monotonic sequence, frame
-  // index and thread id so an interleaved multi-thread log can be read in
-  // order.  Gated by FC_VULKAN_TRACE, off by default, and cached (the
-  // environment does not change mid-process).
+  // One line per pipeline step, tagged with sequence, frame and thread id so an
+  // interleaved multi-thread log reads in order.  Gated by FC_VULKAN_TRACE, cached.
   inline bool vkBackendTraceEnabled()
   {
     static const bool enabled = SoVulkanShared::envString("FC_VULKAN_TRACE") != nullptr;
@@ -73,10 +62,8 @@ namespace CoinVulkanDetail {
     va_end(ap);
     if (len > 223) len = 223;
     buf[len++] = '\n';
-    // write(2) to fd 2: unbuffered, lock-free syscalls so tracing perturbs
-    // thread interleaving as little as possible and the final line before a
-    // crash is never lost in a stdio buffer.  (fprintf + fflush fallback on
-    // Windows, where fd 2 is not a POSIX descriptor.)
+    // write(2) to fd 2: unbuffered/lock-free so tracing perturbs thread interleaving
+    // minimally and the last pre-crash line survives.  (fprintf+fflush on Windows.)
 #ifdef _WIN32
     std::fwrite(buf, 1, static_cast<size_t>(len), stderr);
     std::fflush(stderr);
@@ -92,17 +79,12 @@ namespace CoinVulkanDetail {
   inline int s_dumpCmdCount = 0;
   inline int s_lightLog = 0;
 
-// Number of per-draw lighting UBO slots a frame will consume.  A command is
-// recorded once in its own pass, again when the wireframe/point/tessellation
-// overlay redraw is active (opaque commands only), and overlay commands are
-// recorded a second time in the overlay block.  recordDrawCommand() bails
-// out before claiming a slot for skipped commands, so this worst case is a
-// safe upper bound.
-// overlay redraw is active (opaque commands only; the tessellation overlay
-// redraws triangle commands, the LINES overlay line commands, the POINTS
-// overlay everything), and overlay commands are recorded a second time in the
-// overlay block.  recordDrawCommand() bails out before claiming a slot for
-// skipped commands, so this worst case is a safe upper bound.
+// Number of per-draw lighting UBO slots a frame will consume: each non-overlay
+// command is drawn once, again when the overlay redraw is active (opaque,
+// non-transparent only; tessellation redraws triangles, LINES redraws lines,
+// POINTS everything), plus the on-top pass for depth-disabled commands; overlay
+// commands draw a second time in the overlay block.  recordDrawCommand() bails
+// before claiming a slot for skipped commands, so this worst case is a safe bound.
   inline uint32_t
 countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
                   const bool tessellationOverlay)
@@ -119,8 +101,7 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
       const SoPrimitiveTopology topo = command.geometry.topology;
       const bool triTopo = topo == SO_TOPOLOGY_TRIANGLES ||
         topo == SO_TOPOLOGY_TRIANGLE_STRIP;
-      // At most one overlay redraw per command (the tessellation overlay
-      // takes precedence over the fill-mode overlay for its commands).
+      // At most one overlay redraw per command (tessellation wins over fill-mode).
       if (tessellationOverlay && triTopo) {
         ++draws;
       }
@@ -128,8 +109,7 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
         ++draws;
       }
     }
-    // The on-top annotations pass re-records every depth-disabled command
-    // after both passes (recordFrame), consuming a second lighting slot.
+    // The on-top pass re-records every depth-disabled command, consuming a second slot.
     if (!command.state.depth.enabled) {
       ++draws;
     }
@@ -144,9 +124,7 @@ countDrawCommands(const SoDrawList & drawlist, const int wireframeFillMode,
 countCompositeCommands(const SoDrawList & drawlist)
 {
   // Ray-tracing composite: every OVERLAY command plus every non-triangle
-  // OPAQUE/TRANSPARENT command (the BRep edge/point residue the RT backend
-  // did not trace).  Each is recorded as one draw and consumes one lighting
-  // slot, so the reservation must account for both.
+  // OPAQUE/TRANSPARENT command (BRep edge/point residue); one draw + one slot each.
   uint32_t draws = 0;
   const int num = drawlist.getNumCommands();
   for (int i = 0; i < num; ++i) {
@@ -165,10 +143,7 @@ countCompositeCommands(const SoDrawList & drawlist)
 }
 
 // --- Viewport / scissor coordinate helpers --------------------------------
-// Coin/OpenGL viewport, scissor and clear rectangles are anchored at the
-// bottom-left; Vulkan's are top-left.  Every site that converts one used to
-// re-derive the same clamped, Y-flipped x0/y0/x1/y1 by hand (six copies), so
-// the flip math lives here once.
+// Coin/OpenGL rectangles are bottom-left anchored, Vulkan's top-left; this Y-flip (clamped) replaces six hand-copied sites.
 
 struct FlippedRect {
   int32_t x0 = 0;
@@ -177,9 +152,7 @@ struct FlippedRect {
   int32_t y1 = 0;
 };
 
-// Clamp a bottom-left rectangle (origin x/y and size w/h) into a top-left
-// target, flipping Y around the target height.  x0<=x1 and y0<=y1 always
-// hold; an empty result has x0==x1 or y0==y1.
+// Clamp a bottom-left rect (origin x/y, size w/h) into a top-left target, flipping Y.
   inline FlippedRect
 clampFlippedRect(const int32_t originX, const int32_t originY,
                  const int32_t width, const int32_t height,
@@ -205,10 +178,7 @@ toVkRect(const FlippedRect & r)
 }
 
 // --- Wide-line predicate --------------------------------------------------
-// A line is drawn through the CPU wide-line expansion path when its width
-// exceeds 1px or it carries a stipple pattern.  The overlay wireframe/point
-// redraw (fillModeOverride >= 0) stays on the plain line path.  Four copies
-// of this rule existed; they now share one definition.
+// CPU wide-line expansion is used when width > 1px or a stipple is present; the overlay redraw stays plain-path.
 
   inline bool
 isPatternedLine(const SoRenderCommand & command)
@@ -225,29 +195,20 @@ isWideLine(const SoRenderCommand & command, const int fillModeOverride,
   const bool lineTopology = topology == SO_TOPOLOGY_LINES ||
     topology == SO_TOPOLOGY_LINE_STRIP;
   if (!lineTopology || fillModeOverride >= 0) return false;
-  // A stipple pattern needs the expanded path regardless of width (the
-  // fragment shader tests the per-pixel distance), so interaction LOD must
-  // not downgrade it.
+  // A stipple needs the expanded path regardless of width, so interaction LOD must not downgrade it.
   if (isPatternedLine(command)) return true;
-  // During camera interaction, draw wide lines as plain 1px GPU lines
-  // instead of expanding every segment into quads on the CPU.  The expansion
-  // is the dominant per-frame cost on large edge sets and is invisible while
-  // the camera moves; full width is restored when the camera stops.
+  // During camera interaction draw wide lines as plain 1px GPU lines rather than expand
+  // segments to quads; full width returns when the camera stops.
   return command.state.raster.lineWidth > 1.0f && !interactionLod;
 }
 
-  // True when a wide line should be drawn by the GPU-instanced vertex shader
-  // instead of the CPU quad expansion: a non-stippled LINE_LIST whose
-  // segments each reference exactly their own two vertices.  Both passes are
-  // eligible: the instanced shader reads the same per-draw view/projection
-  // (set 1 DrawBlock + push-constant proj) the record path resolves for the
-  // command, which already selects the frame camera for frame-camera
-  // overlays and the command's own camera for self-camera overlays.
+  // True when a wide line is drawn by the GPU-instanced vertex shader rather than the
+  // CPU quad expansion: a non-stippled LINE_LIST whose segments each reference their own
+  // two vertices.  Uses the same per-draw view/projection the record path resolves.
   inline bool
 instancedWideLineForceCpu()
 {
-  // FC_VULKAN_WLINE_CPU forces the CPU quad expansion for A/B comparison and
-  // as an escape hatch if a driver mishandles the instanced path.
+  // FC_VULKAN_WLINE_CPU forces CPU quad expansion for A/B and as a driver escape hatch.
   return SoVulkanConfig::get().raster.wideLineCpu;
 }
 
@@ -260,12 +221,8 @@ isInstancedWideLine(const SoRenderCommand & command)
     command.state.raster.lineWidth > 1.0f;
 }
 
-// True when an overlay command spans the whole frame viewport (the selection/
-// preselection highlight): such geometry is frame-camera geometry and must be
-// projected/viewed with the frame matrices, not the command's own recorded
-// camera.  Overlays that carry their own sub-viewport (the navigation cube)
-// return false and keep their own camera.  The identical test lived in
-// updateLightingUniforms() and recordDrawCommand().
+// True when an overlay spans the whole frame viewport (selection/preselection highlight):
+// frame-camera geometry using the frame matrices, not the command's own camera.
   inline bool
 isFrameCameraOverlay(const SoRenderCommand & command,
                      const SoRenderParams & params)
@@ -277,9 +234,8 @@ isFrameCameraOverlay(const SoRenderCommand & command,
 }
 
 // --- [BLACK] frame diagnostic ---------------------------------------------
-// Gated by FC_VULKAN_BLACK_DEBUG, this counts the draw list by pass/topology
-// and prints one line.  The identical counting loop + fprintf appeared in
-// renderInternal() and recordFrame(); both call this now.
+// Gated by FC_VULKAN_BLACK_DEBUG, counts the draw list by pass/topology and prints
+// one line (shared by renderInternal() and recordFrame()).
 
 struct VulkanFrameStats {
   int tri = 0;
@@ -311,8 +267,7 @@ collectFrameStats(const SoDrawList & drawlist)
   return s;
 }
 
-// `overlaysOnly` is printed when >= 0 (renderInternal); pass -1 to omit it
-// (recordFrame's line format).
+// `overlaysOnly` is printed when >= 0 (renderInternal); pass -1 to omit (recordFrame).
   inline void
 logBlackFrameStats(const SoDrawList & drawlist, const SoRenderParams & params,
                    const int frame, const int overlaysOnly)
@@ -342,16 +297,9 @@ logBlackFrameStats(const SoDrawList & drawlist, const SoRenderParams & params,
   }
 }
 
-// FNV-1a over a float stream, sampling up to sampleCount elements spread
-// uniformly across the buffer (the first and last elements are always
-// included).  The producer's per-frame arena hands out the same pointers
-// for unchanged layouts, so pointer identity alone cannot detect in-place
-// content edits; the hash closes that hole at a fraction of the cost of a
-// full scan.
-// Sample `sampleCount` elements spread uniformly across a buffer (first and
-// last always included) and fold their bit patterns into an FNV-1a hash.
-// `toBits` converts one element to the uint64 the mixer consumes.  Shared by
-// the float and uint32 entry points, which differ only in that conversion.
+// FNV-1a over `sampleCount` elements spread uniformly across a buffer (first and last
+// always included), folding bit patterns via `toBits`.  The producer arena reuses pointers
+// for unchanged layouts, so sampling catches in-place edits cheaply.
   template <typename T, typename ToBits>
   inline uint64_t
 hashSampled(const T * values, size_t count, size_t sampleCount, ToBits toBits)
@@ -460,57 +408,34 @@ hashTextureContent(const SoTextureData & texture)
   return hash;
 }
 
-// COIN_VULKAN_ENV_FLAG and envFlagEnabled() are provided by SoVulkanShared.h,
-// which every consumer of this header includes transitively (via
-// SoVulkanRenderBackend.h).  Defining them here again would both redefine the
-// macro (with a different body) and double the env-flag cache.
+// COIN_VULKAN_ENV_FLAG/envFlagEnabled() come from SoVulkanShared.h (via SoVulkanRenderBackend.h); don't redefine.
 
-// Fixed interleaved vertex layout shared by every retained command.
-//
-//   offset 0 : vec3 position  (R32G32B32_SFLOAT)
-//   offset 12: vec3 normal    (R32G32B32_SFLOAT)
-//   offset 24: vec4 color     (R8G8B8A8_UNORM)
-//   offset 28: vec2 texcoord  (R16G16_SFLOAT)
-//
-// Positions and normals stay full f32 (CAD geometry needs the precision for
-// correct normals/lighting); the diffuse color is quantized to 8-bit UNORM and
-// the texture coordinate to half-float, cutting the per-vertex fetch from 48
-// to 32 bytes.  This keeps a single static vertex-input description usable
-// across all pipelines, mirroring the GL backend's VAO-per-command bookkeeping
-// without any per-command vertex-state objects.
+// Fixed 32-byte interleaved vertex layout shared by every retained command: pos f32 @0,
+// normal f32 @12, color R8G8B8A8_UNORM @24, texcoord R16G16_SFLOAT @28.  Positions/normals
+// stay f32 (CAD precision); color is 8-bit UNORM and texcoord half-float, cutting the
+// per-vertex fetch from 48 to 32 bytes.  One static vertex-input description serves all.
 constexpr uint32_t VULKAN_VERTEX_STRIDE = 32;
-// Largest vertex count a single command may upload.  A flat-shaded CAD mesh
-// expands to 3 unique vertices per triangle (per-face normals prevent sharing),
-// so a Voron-class assembly reaches tens of millions of vertices in one
-// command; the old 10M ceiling silently dropped it (no vertex buffer, so the
-// object vanished from the raster pass).  Override with
-// FC_VULKAN_MAX_VERTEX_COUNT for a smaller/larger budget.
+// Largest vertex count a single command may upload.  Flat-shaded CAD expands to 3 unique
+// vertices per triangle, so a Voron-class assembly reaches tens of millions in one command;
+// the old 10M ceiling silently dropped such objects.  Override FC_VULKAN_MAX_VERTEX_COUNT.
 constexpr int MAX_VERTEX_COUNT = 64000000;
 
-// The projection matrix deliberately lives in the per-draw DrawBlock UBO
-// (below), not here: the block must fit VkPhysicalDeviceLimits::
-// maxPushConstantsSize, whose guaranteed minimum is only 128 bytes.  Keeping
-// the matrix out leaves this at 112 bytes, so the renderer runs on
-// minimum-spec devices instead of hard-failing in createPipelineLayout().
+// The projection matrix lives in the per-draw DrawBlock UBO, not here, so the push block
+// stays at 112 B within the 128 B maxPushConstantsSize minimum (minimum-spec devices).
 struct alignas(16) VulkanPushConstants {
   float color[4];       // offset 0: uniform diffuse color
   float flags[4];       // offset 16: x = useVertexColor
-                        // y = vertexColorAlphaIncludesOpacity
-                        // z = textureEnabled
-                        // w = textureAlphaIncludesOpacity
+                        // y = vertexColorAlphaIncludesOpacity; z = textureEnabled; w = textureAlphaIncludesOpacity
   float texParams[4];   // offset 32: x = textureModel, y = alphaTestFunction,
                         // z = alphaTestReference
   float texBlend[4];    // offset 48: texture blend color
   float pointSize;      // offset 64: gl_PointSize (points/polygon mode)
   float pointSizePad[3];// std140: pointSize occupies a full vec4 slot
   float lineParams[4];  // offset 80: x = stipple factor (px/bit, glLineStipple
-                        // factor), y = stipple pattern bits (wide-line) /
-                        // round points (visual), z = line primitive,
-                        // w = point primitive
+                        // factor), y = stipple bits (wide-line) / round points (visual),
+                        // z = line primitive, w = point primitive
   float lineGeom[4];    // offset 96: x = line width (device px), y = viewport
-                        // width, z = viewport height, w = device pixel ratio.
-                        // Read only by the GPU-instanced wide-line vertex
-                        // shader.
+                        // width, z = viewport height, w = device pixel ratio (instanced wide-line shader only).
 };
 static_assert(offsetof(VulkanPushConstants, lineParams) == 80,
               "lineParams must land at shader offset 80");
@@ -529,24 +454,19 @@ struct alignas(16) VulkanBackgroundPush {
 static_assert(sizeof(VulkanBackgroundPush) == 48,
               "VulkanBackgroundPush must match BackgroundPush layout");
 
-// The lighting constant block is the standardized SoLightingBlock (the
-// single authoritative std140 mirror of the visual shaders' LightingBlock
-// uniform, set 0 binding 0).  It is written once per frame into a small ring
-// -- world-space setups transformed to eye space by
-// SoRenderIR::fillLightingBlock() with the frame view -- and every draw binds
-// its slot through a dynamic offset, so a setup is never recomputed or
-// re-written per draw.  Normally a single slot holds the host-pushed
-// authoritative set (every handle maps to it); without one, a slot is packed
-// per distinct lightingHandle.
+// The lighting constant block is the standardized SoLightingBlock (std140 mirror of
+// the shaders' LightingBlock, set 0 binding 0), written once per frame into a small
+// ring (SoRenderIR::fillLightingBlock() transforms setups to eye space with the frame
+// view); each draw binds its slot by dynamic offset.  One slot normally holds the
+// host-pushed set, else one per distinct lightingHandle.
 using VulkanLightingUbo = SoLightingBlock;
 static_assert(sizeof(VulkanLightingUbo) == 784,
               "VulkanLightingUbo must match LightingBlock std140 layout");
 
-// std140 mirror of the DrawBlock uniform (set 1, binding 0) in the visual
-// shaders.  This is the per-draw member that actually varies per command
-// (view/model/material); it is pointed at through a dynamic offset into the
-// per-draw UBO ring.  The projection matrix lives here rather than in the
-// push constants so the push block fits the 128-byte Vulkan minimum.
+// std140 mirror of the DrawBlock uniform (set 1, binding 0): the per-draw
+// view/model/material, bound by dynamic offset into the per-draw UBO ring.  The
+// projection matrix lives here (not push constants) to keep the push block within
+// the 128-byte Vulkan minimum.
 struct alignas(16) VulkanDrawUbo {
   float view[16];                 // offset 0
   float model[16];                // offset 64

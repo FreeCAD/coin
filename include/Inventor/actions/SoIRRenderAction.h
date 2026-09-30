@@ -1,5 +1,3 @@
-// include/Inventor/actions/SoIRRenderAction.h
-
 #ifndef COIN_SOIRRENDERACTION_H
 #define COIN_SOIRRENDERACTION_H
 
@@ -18,31 +16,16 @@ class SoIRRenderActionP;
 
 /*!
   \class SoIRRenderAction SoIRRenderAction.h
-  \brief Render action that traverses a scene graph into a backend-neutral draw list.
-
+  \brief Traversal front-end recording geometry/material/state into a
+  backend-neutral SoDrawList (issued later by a backend), not OpenGL.
   \ingroup coin_actions
-
-  SoIRRenderAction is the traversal front-end for Coin's render-backend path.
-  Unlike SoGLRenderAction, it does not issue OpenGL commands directly during
-  traversal. Instead it records geometry, material state, and render state
-  into a SoDrawList that can later be consumed by a concrete backend.
-
-  The action owns transient per-frame storage for generated geometry.
 */
 class COIN_DLL_API SoIRRenderAction : public SoAction {
   typedef SoAction inherited;
   SO_ACTION_HEADER(SoIRRenderAction);
 
 public:
-  /*!
-    \class SoIRRenderAction::PrimitiveCollector
-    \brief Callback interface for receiving primitives generated during traversal.
-
-    Shapes that fall back to generatePrimitives() can stream their output
-    through a PrimitiveCollector instead of building temporary Coin-specific
-    callback structures. The active collector is managed as a stack so helper
-    code can install a collector for a limited traversal scope.
-  */
+  //! Streams primitives from generatePrimitives() fallback; active collector is a stack.
   class PrimitiveCollector {
   public:
     virtual ~PrimitiveCollector() {}
@@ -68,17 +51,7 @@ public:
   void setViewportRegion(const SbViewportRegion & vp);
   const SbViewportRegion & getViewportRegion(void) const { return this->vpRegion; }
 
-  /*!
-    \brief Mark the current frame's traversal as camera-dependent.
-
-    A node whose retained output bakes in a camera-derived transform -- e.g.
-    FreeCAD's screen-constant-size SoShapeScale / SoAutoZoomTranslation, whose
-    doAction() writes a view-volume-derived scale into the draw list -- sets
-    this during an SoIRRenderAction traversal.  The Vulkan manager then refuses
-    to replay a cached main draw list on a camera-only frame, because replaying
-    would keep the stale camera-derived transform until some unrelated change
-    forced a re-traversal.  The manager re-records such scenes on camera moves.
-  */
+  //! Mark frame camera-dependent: re-record rather than replay a camera-baked cache (SoShapeScale).
   void setCameraDependent(SbBool on);
   SbBool isCameraDependent(void) const;
 
@@ -92,12 +65,7 @@ public:
   //! Mutable access to the generated draw list for the current frame.
   SoDrawList & getMutableDrawList() { return this->drawlist; }
 
-  /*!
-    \brief Allocate per-frame geometry storage owned by the action.
-
-    The returned memory remains valid until the frame resources are cleared or
-    the geometry pool is rewound to an earlier save point.
-  */
+  //! Per-frame geometry owned by the action; valid until frame clear/pool rewind.
   void * allocateGeometryStorage(size_t bytes, size_t alignment = alignof(float));
 
   //! Clear all transient geometry owned by the current frame.

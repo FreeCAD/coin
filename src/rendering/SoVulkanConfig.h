@@ -1,24 +1,10 @@
 // src/rendering/SoVulkanConfig.h
 //
-// Typed, documented configuration for Coin's Vulkan renderer.  Internal to
-// Coin (not installed, not public API).
-//
-// Every FC_VULKAN_* knob that affects renderer behaviour should be read here
-// once, not via scattered getenv() calls: the defaults, the opt-out spelling
-// ("0"/"false"/"off") and the valid ranges then live in one place, the whole
-// set is enumerable for diagnostics, and a flag's semantics cannot silently
-// diverge between call sites (the historical failure mode this replaces).
-//
-// This is an incremental home.  The sections below cover the geometry-LOD and
-// ray-tracing-culling knobs; the remaining renderer flags migrate here as
-// their subsystems are touched.  SoVulkanShared::env* remains the low-level
-// environment accessor used by the loader.
-//
-// Opt-out spelling: boolean flags use SoVulkanShared::envFlagEnabled, which
-// treats the exact values "0", "false" and "off" as disabled.  The historical
-// FC_VULKAN_GEOM_LOD / FC_VULKAN_TLAS_CULL checks special-cased only the
-// literal "0", so a script that set either to "false" (expecting it to stay
-// on) now disables it.  Prefer "1"/"0" in scripts.
+// Typed configuration for Coin's Vulkan renderer.  Internal, not public API.
+// Every FC_VULKAN_* knob is read here once (not via scattered getenv): defaults,
+// ranges and opt-out spelling live in one place and are enumerable for diag.
+// envFlagEnabled treats "0"/"false"/"off" as disabled (the historical GEOM_LOD
+// and TLAS_CULL checks special-cased only "0"); prefer "1"/"0" in scripts.
 
 #ifndef COIN_SOVULKANCONFIG_H
 #define COIN_SOVULKANCONFIG_H
@@ -32,24 +18,16 @@ namespace SoVulkanConfig {
 struct GeometryLod {
   //! Master switch.  FC_VULKAN_GEOM_LOD; default on, "0"/"false"/"off" off.
   bool enabled = true;
-  //! Force the pre-pass while the camera is static (verification aid).
-  //! FC_VULKAN_GEOM_LOD_ALWAYS; default off.
+  //! Force the pre-pass while the camera is static (FC_VULKAN_GEOM_LOD_ALWAYS; default off).
   bool always = false;
-  //! Print the previous frame's survivor count per compacted command.
-  //! FC_VULKAN_GEOM_LOD_STATS; default off.
+  //! Print the previous frame's survivor count per compacted command (FC_VULKAN_GEOM_LOD_STATS; off).
   bool stats = false;
-  //! Minimum projected triangle area in px^2 that survives.
-  //! FC_VULKAN_GEOM_LOD_PIXELS; default 1.0, clamped to >= 0.
+  //! Minimum projected triangle area in px^2 that survives (FC_VULKAN_GEOM_LOD_PIXELS; 1.0, >= 0).
   float minAreaPixels = 1.0f;
-  //! Largest index count that gets a compacted buffer (memory bound).
-  //! FC_VULKAN_GEOM_LOD_MAX_INDEX; default 64M, clamped to > 0.
+  //! Largest index count that gets a compacted buffer, memory bound (FC_VULKAN_GEOM_LOD_MAX_INDEX; 64M, > 0).
   uint32_t maxIndices = 64000000u;
-  //! Smallest triangle count that is worth compacting.  Below this the fixed
-  //! per-command cost (fill + barrier + dispatch) exceeds the vertex shading the
-  //! compaction saves, so the command is drawn in full.  Scenes made of many
-  //! small parts (a CAD assembly) otherwise pay one dispatch per part for a
-  //! handful of triangles.  FC_VULKAN_GEOM_LOD_MIN_PRIMS; default 256, clamped
-  //! to >= 0 (0 disables the gate, restoring the pre-2026 behaviour).
+  //! Smallest triangle count worth compacting: below this the fixed per-command
+  //! cost exceeds the shading saved (FC_VULKAN_GEOM_LOD_MIN_PRIMS; 256, 0 disables).
   uint32_t minPrims = 256u;
 };
 
@@ -57,36 +35,27 @@ struct GeometryLod {
 struct Concurrency {
   //! Parallel command recording.  FC_VULKAN_PARALLEL_RECORD; default off.
   bool parallelRecord = false;
-  //! Upper bound on record-pool workers.  FC_VULKAN_RECORD_WORKERS; unset
-  //! keeps the hardware-derived default (clamped to 8).
+  //! Upper bound on record-pool workers (FC_VULKAN_RECORD_WORKERS; unset keeps the hardware default).
   std::optional<unsigned int> recordWorkerCap;
-  //! Secondary command buffers for the external (caller-owned) pass.
-  //! FC_VULKAN_EXTERNAL_SECONDARY; default off.
+  //! Secondary command buffers for the external caller-owned pass (FC_VULKAN_EXTERNAL_SECONDARY; off).
   bool externalSecondary = false;
 };
 
 // Raster-path options.
 struct Raster {
-  //! Force CPU wide-line quad expansion (A/B comparison / driver escape).
-  //! FC_VULKAN_WLINE_CPU; default off.
+  //! Force CPU wide-line quad expansion for A/B comparison (FC_VULKAN_WLINE_CPU; default off).
   bool wideLineCpu = false;
 };
 
-// Vulkan diagnostic tooling.  All default off and must be zero-cost (or
-// near-zero) when disabled; they exist to make captures and measurements
-// readable, never to change rendered output.
+// Vulkan diagnostic tooling; all default off and zero-cost when disabled, never change output.
 struct Diagnostics {
-  //! VK_EXT_debug_utils object names and command-buffer labels.
-  //! FC_VULKAN_DEBUG_UTILS; default off.
+  //! VK_EXT_debug_utils object names and command-buffer labels (FC_VULKAN_DEBUG_UTILS; off).
   bool debugUtils = false;
-  //! VK_EXT_debug_printf shader-side diagnostics (debug shader variants).
-  //! FC_VULKAN_DEBUG_PRINTF; default off.
+  //! VK_EXT_debug_printf shader-side diagnostics (FC_VULKAN_DEBUG_PRINTF; off).
   bool debugPrintf = false;
-  //! Per-pass GPU timestamps (VK_QUERY_TYPE_TIMESTAMP).
-  //! FC_VULKAN_GPU_TIMING; default off.
+  //! Per-pass GPU timestamps, VK_QUERY_TYPE_TIMESTAMP (FC_VULKAN_GPU_TIMING; off).
   bool gpuTimestamps = false;
-  //! VK_EXT_pipeline_creation_feedback logging (cache hit + creation cost).
-  //! FC_VULKAN_PIPELINE_FEEDBACK; default off.
+  //! VK_EXT_pipeline_creation_feedback logging, cache hit + cost (FC_VULKAN_PIPELINE_FEEDBACK; off).
   bool pipelineFeedback = false;
 };
 
@@ -100,10 +69,9 @@ struct Config {
 /*!
   \brief The process-wide configuration, resolved from the environment once.
 
-  Thread-safe: the environment is resolved once, on the first call (a C++11
-  function-local static), which is the renderer's first frame/initialize, so a
-  probe that sets its environment before launching FreeCAD sees the values.
-  The result is immutable for the process lifetime.
+  Thread-safe: resolved once on the first call (a C++11 function-local static),
+  i.e. the renderer's first frame/initialize, so a probe that sets its
+  environment before launching FreeCAD sees the values.  Immutable afterwards.
 */
 const Config & get();
 

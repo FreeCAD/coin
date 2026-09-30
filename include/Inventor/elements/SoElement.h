@@ -128,8 +128,7 @@ SoElement::getConstElement(SoState * const state,
   return element;
 }
 
-// trivial scalar accessors kept inline: getDepth() is called from the hot
-// SoState::getElement() fast path on every element access.
+// trivial accessors kept inline for the hot getElement() fast path.
 inline void
 SoElement::setDepth(const int depth)
 {
@@ -142,17 +141,11 @@ SoElement::getDepth(void) const
   return this->depth;
 }
 
-// SoState::getElement() is the single most frequently invoked method in the
-// whole library: every element accessor (So*Element::get()/set()/
-// getConstElement()) of every traversed node funnels through it.  It is
-// defined here (not in SoState.h) because it dereferences SoElement to read
-// its depth, and SoElement.h is the first place where both classes are
-// complete (SoElement.h includes SoState.h).  The common case -- the element
-// is enabled and already at the current depth -- is kept inline with no
-// cross-translation-unit call, no virtual dispatch and no debug assertion;
-// only the rare lazy copy-on-write push branches out of line to
-// SoState::getElementPush() (SoState.cpp).  This removes the per-access
-// call/assert overhead that dominated the render traversal.
+// SoState::getElement() is the hottest call in the library -- every element
+// accessor funnels through it.  Defined here (not SoState.h) because it
+// dereferences SoElement: the common already-at-depth case stays inline with
+// no call/virtual/assert; only the rare copy-on-write push goes out of line
+// to SoState::getElementPush() (SoState.cpp).
 inline SoElement *
 SoState::getElement(const int stackindex)
 {

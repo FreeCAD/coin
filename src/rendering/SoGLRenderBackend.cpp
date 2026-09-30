@@ -88,9 +88,8 @@ blendFactorToGL(const SoBlendFactor factor)
   case SO_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
     return GL_ONE_MINUS_CONSTANT_ALPHA;
   case SO_BLEND_FACTOR_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
-  // The Visual program has no secondary fragment output. Keep the semantic
-  // factor in the IR and make the executor's deterministic primary-source
-  // fallback only at this API boundary.
+  // Visual program has no secondary fragment output; the semantic factor stays
+  // in the IR, and this API boundary supplies the deterministic primary fallback.
   case SO_BLEND_FACTOR_SRC1_COLOR: return GL_SRC_COLOR;
   case SO_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR: return GL_ONE_MINUS_SRC_COLOR;
   case SO_BLEND_FACTOR_SRC1_ALPHA: return GL_SRC_ALPHA;
@@ -465,8 +464,7 @@ SoGLRenderBackend::uploadGeometry(CachedGPUCommand & entry,
     }
     cc_glglue_glBindTexture(this->glue, GL_TEXTURE_2D, entry.textureId);
 
-    // Core profiles do not accept the legacy L/LA upload formats. Expand all
-    // retained texture data to RGBA at the backend boundary.
+    // Core profiles reject legacy L/LA upload formats; expand retained textures to RGBA.
     std::vector<unsigned char> rgba(static_cast<size_t>(texture.width) *
                                     static_cast<size_t>(texture.height) * 4);
     const unsigned char * source = texture.pixels;
@@ -989,10 +987,8 @@ SoGLRenderBackend::drawCommand(const SoDrawList & drawlist,
   else {
     glDisable(GL_DEPTH_TEST);
   }
-  // Match LegacyGL's transparent-object contract and keep transparent
-  // geometry out of the depth buffer; otherwise triangle order inside a
-  // retained command changes visibility and later transparent passes
-  // self-occlude unpredictably.
+  // Match LegacyGL's transparent contract: keep transparent geometry out of
+  // the depth buffer, else triangle order changes visibility between passes.
   glDepthMask(command.state.depth.writeEnabled &&
               command.pass != SO_RENDERPASS_TRANSPARENT
                 ? GL_TRUE : GL_FALSE);
@@ -1181,9 +1177,7 @@ SoGLRenderBackend::renderTransparentPass(const SoDrawList & drawlist,
 void
 SoGLRenderBackend::beginFrame(const SoRenderParams & params)
 {
-  // Establish a deterministic baseline. These values are not interpretations
-  // of retained Coin state; semantic depth/blend/raster execution is layered
-  // above this executor.
+  // Deterministic baseline; semantic depth/blend/raster execution is layered above.
   glDisable(GL_BLEND);
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LEQUAL);

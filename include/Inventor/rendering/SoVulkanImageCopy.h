@@ -9,26 +9,17 @@
   \file SoVulkanImageCopy.h
   \brief Shared "copy a color image into a host-visible buffer" primitive.
 
-  Both debug frame dumps -- the renderer's storage-image dump (Coin's internal
-  SoVulkanShared::dumpImageToHost) and the embedding application's swapchain
-  dump (FreeCAD's VulkanFrameDumper) -- move an image into a host-visible
-  buffer wrapped in the same TRANSFER_SRC_OPTIMAL layout transitions.  They
-  differ only in who owns the command buffer (the renderer submits a one-shot
-  buffer, the application records into the frame's own buffer), so the copy
-  sequence lives here and both call it.
-
-  The helper uses the raw Vulkan entry points; both callers link the loader.
+  Shared by both debug frame dumps -- the renderer's storage-image dump
+  (SoVulkanShared::dumpImageToHost) and the app's swapchain dump (FreeCAD's
+  VulkanFrameDumper).  They differ only in command-buffer ownership (the renderer
+  submits a one-shot buffer, the app records into the frame's own), so the copy
+  sequence lives here; uses raw entry points, both callers link the loader.
 */
 namespace SoVulkanImageCopy {
 
-//! Record an image -> buffer copy, wrapping it in the TRANSFER_SRC_OPTIMAL
-//! layout transitions.  \a srcLayout / \a srcAccess / \a srcStage describe the
-//! image's current state; \a restoreLayout / \a restoreAccess / \a restoreStage
-//! the state to leave it in.  \a restoreSrcAccess is the access that the copy
-//! itself leaves pending on the image (TRANSFER_READ for a read-back, but kept
-//! a parameter so callers can mirror their previous barrier exactly).  The
-//! copy reads at VK_ACCESS_TRANSFER_READ_BIT /
-//! VK_PIPELINE_STAGE_TRANSFER_BIT.
+//! Record an image -> buffer copy wrapped in TRANSFER_SRC_OPTIMAL transitions.
+//! \a src* describe the image's current state, \a restore* the state to leave it
+//! in; \a restoreSrcAccess is the access the copy leaves pending (TRANSFER_READ).
 inline void recordToBuffer(VkCommandBuffer cmd, VkImage image, VkBuffer buffer,
                            VkImageLayout srcLayout, VkAccessFlags srcAccess,
                            VkPipelineStageFlags srcStage,

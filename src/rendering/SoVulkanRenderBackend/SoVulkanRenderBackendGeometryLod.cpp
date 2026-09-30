@@ -1,36 +1,24 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendGeometryLod.cpp
 //
-// GPU sub-pixel primitive culling ("geometry LOD") for the raster backend.
+// GPU sub-pixel primitive culling ("geometry LOD") for the raster backend.  While
+// the camera moves (interaction LOD), each eligible triangle command is compacted
+// on the GPU: a compute shader applies the visual shader's model*view*proj,
+// measures screen-space area, and appends survivors to a dense index buffer drawn
+// via vkCmdDrawIndexedIndirect, so culled triangles cost no shading/rasterization.
 //
-// While the camera moves (interaction LOD), each eligible indexed triangle
-// command is compacted on the GPU: a compute shader transforms every triangle
-// with the same model*view*projection the visual vertex shader uses, measures
-// its screen-space area, and appends the survivors to a dense index buffer.
-// The draw is then issued as vkCmdDrawIndexedIndirect, so culled triangles
-// cost neither vertex shading nor rasterization.
+// Vulkan forbids compute/transfer inside a render pass, so the own-queue path
+// records the pre-pass before vkCmdBeginRenderPass.  The external path
+// (renderExternal()) instead records dispatches plus pending texture copies into a
+// transient buffer (beginExternalPrepass()), submitted after frame recording
+// (submitExternalPrepass()) to overlap with the previous GPU frame; a trailing
+// barrier orders compute writes against DRAW_INDIRECT/VERTEX_INPUT reads.
 //
-// Vulkan forbids compute (and transfer) commands inside a render pass.  The
-// own-queue path records the pre-pass into its own command buffer before
-// vkCmdBeginRenderPass; the external path (renderExternal()) cannot, because
-// the caller owns and has already begun its pass, so it records the dispatches
-// -- together with any pending texture copies -- into one transient command
-// buffer (beginExternalPrepass()) and submits it after the frame is recorded
-// (submitExternalPrepass()), before the caller submits its pass.  Recording
-// before and submitting after the frame recording overlaps the CPU work with
-// the previous GPU frame.  A trailing memory barrier orders the compute writes
-// against the DRAW_INDIRECT / VERTEX_INPUT reads of the draws.
-//
-// Resources are per (command, in-flight frame) because the compacted index
-// buffer is rewritten every frame and must not alias a buffer a still
-// executing frame may read.  They are built lazily and kept until the
-// geometry content hash changes.  Commands whose index count exceeds
-// FC_VULKAN_GEOM_LOD_MAX_INDEX fall back to the full draw to bound memory.
-//
-// Validation caveat: a fresh document's main draw list is often just the
-// hidden nav cube (a tiny non-indexed list), so a nav-cube-only run exercises
-// neither the document geometry nor the indexed path and is not evidence the
-// feature works.  tools/fcprobe/vk_geomlod_probe.py asserts the LOD ran on a
-// real indexed Part shape and documents the check in full.
+// Resources are per (command, in-flight frame): the compacted buffer is rewritten
+// every frame and must not alias a still-executing frame's read; built lazily and
+// kept until the content hash changes.  Commands over FC_VULKAN_GEOM_LOD_MAX_INDEX
+// fall back to the full draw to bound memory.  Validation caveat: a nav-cube-only
+// run exercises neither the document geometry nor the indexed path;
+// tools/fcprobe/vk_geomlod_probe.py checks a real indexed Part.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -58,33 +46,24 @@ struct SubPixelPush {
 };
 static_assert(sizeof(SubPixelPush) == 96, "push block must be 96 bytes");
 
-// Minimum projected triangle area (px^2) that survives.  1 px keeps the LOD
-// visually faithful while dropping the sub-pixel filler that dominates a
-// zoomed-out CAD mesh.  Resolved once in SoVulkanConfig (FC_VULKAN_GEOM_LOD_*).
+// Minimum projected triangle area (px^2) that survives; 1 px keeps the LOD
+// faithful while dropping sub-pixel filler.  From FC_VULKAN_GEOM_LOD_* config.
 float geometryLodMinAreaPixels()
 {
   return SoVulkanConfig::get().geometryLod.minAreaPixels;
 }
 
-// Largest index count that gets a compacted buffer.  A pathologically large
-// mesh would otherwise allocate indexCount * 4 bytes per in-flight slot.
-// The default tracks the backend's MAX_VERTEX_COUNT so the huge CAD meshes
-// this feature exists for are actually compacted: the previous 16M default
-// silently excluded e.g. a 23.3M-element Voron face set, so the LOD did
-// nothing on exactly the models that need it.  Override with
-// FC_VULKAN_GEOM_LOD_MAX_INDEX (the compacted buffer costs 4 B/element per
-// in-flight slot, e.g. 93 MB/slot at 23.3M).
+// Largest index count that gets a compacted buffer (indexCount * 4 B per in-flight
+// slot).  Default tracks MAX_VERTEX_COUNT so huge meshes are compacted; the old 16M
+// default silently excluded e.g. a 23.3M-element Voron face set (FC_VULKAN_GEOM_LOD_MAX_INDEX).
 uint32_t geometryLodMaxIndices()
 {
   return SoVulkanConfig::get().geometryLod.maxIndices;
 }
 
-// Smallest triangle count worth compacting.  A command below this is drawn in
-// full: the per-command compaction cost (one indirect-cursor fill, one barrier,
-// one dispatch, one descriptor bind) is fixed, so compacting a handful of
-// triangles costs more than it saves.  This is what makes an assembly of many
-// small parts cheap; the huge meshes the feature exists for are unaffected.
-// FC_VULKAN_GEOM_LOD_MIN_PRIMS; 0 disables the gate.
+// Smallest triangle count worth compacting; below it the per-command fixed cost
+// (cursor fill, barrier, dispatch, descriptor bind) exceeds the saving.  Keeps many
+// small parts cheap.  FC_VULKAN_GEOM_LOD_MIN_PRIMS; 0 disables.
 uint32_t geometryLodMinPrims()
 {
   return SoVulkanConfig::get().geometryLod.minPrims;
@@ -95,30 +74,22 @@ bool geometryLodEnabled()
   return SoVulkanConfig::get().geometryLod.enabled;
 }
 
-// Force the pre-pass on even when the camera is not moving.  A verification
-// aid: it lets a static screenshot exercise the compacted draw so it can be
-// diffed against the full draw.
+// Force the pre-pass on even when the camera is not moving (verification aid).
 bool geometryLodAlways()
 {
   return SoVulkanConfig::get().geometryLod.always;
 }
 
-// Print the previous frame's survivor count per compacted command.  This is
-// the only way to prove the compaction is correct on a real, large mesh: a
-// nav-cube-only run says nothing.  With FC_VULKAN_GEOM_LOD_PIXELS=0 every
-// triangle must survive (survivors == prims); with the default threshold a
-// zoomed-out mesh must cull heavily.
+// Print the previous frame's survivor count per compacted command -- the only proof
+// on a real mesh.  At FC_VULKAN_GEOM_LOD_PIXELS=0 all survive; otherwise cull heavily.
 bool geometryLodStats()
 {
   return SoVulkanConfig::get().geometryLod.stats;
 }
 
 // Indexed-ness and element count of a command's triangle stream.  The IR emits
-// Voron-class meshes as non-indexed triangle lists and SoBrepFaceSet as
-// indexed, so the compaction handles both by treating non-indexed vertices as
-// sequential indices.  Shared by isSubPixelEligible(), ensureSubPixelSlot()
-// and recordGeometryLodPrepass() so the eligibility rule cannot drift between
-// the three call sites.
+// Voron-class meshes non-indexed and SoBrepFaceSet indexed, so non-indexed vertices
+// become sequential indices; shared by all three call sites so the rule cannot drift.
 struct SubPixelElementForm {
   bool indexed;
   uint32_t elements;
@@ -139,14 +110,11 @@ SoVulkanRenderBackend::isSubPixelEligible(const SoRenderCommand & command)
 {
   if (command.pass == SO_RENDERPASS_OVERLAY) return false;
   if (command.geometry.topology != SO_TOPOLOGY_TRIANGLES) return false;
-  // The IR emits the Voron-class meshes as non-indexed triangle lists, so the
-  // compaction must handle both forms.  Triangle lists always carry a multiple
-  // of three elements; anything else is left to the full draw so compaction
-  // can never change the visible set.
+  // Voron-class meshes are non-indexed, so both forms are handled.  Triangle
+  // lists carry a multiple of three; anything else stays in the full draw.
   const SubPixelElementForm form = subPixelElementForm(command);
   if (form.elements < 3 || (form.elements % 3) != 0) return false;
-  // Small meshes are not worth a dispatch: draw them in full (the same fallback
-  // the feature already uses for oversized/absent geometry).
+  // Small meshes aren't worth a dispatch: draw in full.
   if ((form.elements / 3) < geometryLodMinPrims()) return false;
   return true;
 }
@@ -243,16 +211,13 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
                                           const SoRenderCommand & command,
                                           const uint32_t slot)
 {
-  // Non-indexed triangle lists are compacted by treating the vertices as
-  // sequential indices; the output is always an index buffer, so the draw is
-  // the same vkCmdDrawIndexedIndirect either way.
+  // Non-indexed lists treat vertices as sequential indices; output is always an index buffer.
   const SubPixelElementForm form = subPixelElementForm(command);
   const bool indexed = form.indexed;
   const uint32_t elementCount = form.elements;
   if (elementCount == 0) return false;
   if (elementCount > geometryLodMaxIndices()) {
-    // Log once per command so an oversized mesh does not silently lose the LOD
-    // (which is indistinguishable from the feature working, but doing nothing).
+    // Log once per command so an oversized mesh's silent LOD skip is visible.
     if (!entry.warnedGeomLodCap) {
       entry.warnedGeomLodCap = true;
       fprintf(stderr,
@@ -270,8 +235,7 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
   }
   VulkanCachedCommand::VulkanSubPixelSlot & s = entry.subPixelSlots[slot];
 
-  // (Re)build when the slot is empty or the previous allocation was too small.
-  // The caller has already invalidated the slots on a content change.
+  // (Re)build if empty or too small; content changes already invalidated the slots.
   if (s.indexBuffer == VK_NULL_HANDLE || s.maxIndices < elementCount) {
     if (s.indexBuffer != VK_NULL_HANDLE) {
       vmaDestroyBuffer(this->vmaAllocator, s.indexBuffer, s.indexMemory);
@@ -296,9 +260,8 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
     icmd.firstIndex = 0;
     icmd.vertexOffset = 0;
     icmd.firstInstance = 0;
-    // Host-visible: the command is 20 bytes and rewritten in place by the
-    // compute atomic, so a device-local staging copy would only add a
-    // synchronous queue drain on first use.
+    // Host-visible: the command is 20 B and rewritten in place by the compute
+    // atomic, so device-local staging would only add a synchronous drain.
     if (!this->createBuffer(sizeof(icmd),
                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                               VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
@@ -314,23 +277,16 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
     }
   }
 
-  // The input descriptors bind the whole (possibly shared) buffer; the shader
-  // applies the per-command base offset from its push constants.  Explicit
-  // ranges (base + slice) rather than VK_WHOLE_SIZE keep the range within the
-  // device's maxStorageBufferRange when the shared block holds several
-  // commands' geometry.
+  // Descriptors bind the whole (possibly shared) buffer; the shader applies the
+  // per-command base offset.  Explicit ranges (not VK_WHOLE_SIZE) keep within maxStorageBufferRange.
   const VkDeviceSize vertexRange = entry.vertexOffset +
     static_cast<VkDeviceSize>(command.geometry.vertexCount) *
       VULKAN_VERTEX_STRIDE;
   const VkDeviceSize outRange =
     static_cast<VkDeviceSize>(elementCount) * sizeof(uint32_t);
 
-  // A single storage-buffer binding cannot span more than
-  // maxStorageBufferRange.  A huge mesh (e.g. 23M vertices * 32 B ~= 745 MB)
-  // can exceed it, and vkUpdateDescriptorSets() would then be invalid - the
-  // pre-pass must fall back to the full draw for that command.  Log once per
-  // command so the fallback is not silent (the whole point of this feature is
-  // the huge meshes; a quiet skip looks like it worked).
+  // A binding cannot span maxStorageBufferRange, which a huge mesh (23M verts * 32 B
+  // ~= 745 MB) can exceed, invalidating vkUpdateDescriptorSets.  Fall back, logging once.
   const VkDeviceSize indexRange = indexed
     ? entry.indexOffset +
         static_cast<VkDeviceSize>(command.geometry.indexCount) * sizeof(uint32_t)
@@ -355,8 +311,7 @@ SoVulkanRenderBackend::ensureSubPixelSlot(VulkanCachedCommand & entry,
   infos[0].buffer = entry.vertexBuffer;
   infos[0].offset = 0;
   infos[0].range = vertexRange;
-  // Binding 1 is only read for indexed geometry; a non-indexed list binds the
-  // vertex buffer there (never sampled) so the set stays valid.
+  // Binding 1 is read only when indexed; non-indexed binds the vertex buffer (unsampled) to stay valid.
   infos[1].buffer = indexed ? entry.indexBuffer : entry.vertexBuffer;
   infos[1].offset = 0;
   infos[1].range = indexed ? indexRange : vertexRange;
@@ -391,9 +346,7 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
 
   const bool debug = COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG");
 
-  // Dump the command list once per process.  An atomic exchange makes the
-  // once-guard thread-safe (the prepass is single-threaded today, but the
-  // backend's record path is not, and a racy latch could double- or never-print).
+  // Dump the command list once per process; atomic exchange keeps the latch race-free.
   static std::atomic<bool> dumpedCommands {false};
   if (debug && !dumpedCommands.exchange(true)) {
     for (int i = 0; i < num; ++i) {
@@ -411,16 +364,14 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
   const SbVec2s vpSize = params.viewport.getViewportSizePixels();
   const float vpW = static_cast<float>(vpSize[0]);
   const float vpH = static_cast<float>(vpSize[1]);
-  // The shader's cross product is twice the pixel area, so the pass-through
-  // threshold is 2 * minArea.
+  // The shader's cross product is twice the pixel area, so threshold = 2 * minArea.
   const float areaThreshold = 2.0f * geometryLodMinAreaPixels();
 
   uint32_t compacted = 0;
   uint32_t skipped = 0;
   uint32_t maxElements = 0;
   uint32_t maxPrims = 0;
-  // maxVc/maxIc span every command but only feed the debug summary line below,
-  // so they are accumulated in the main loop and only when it will print.
+  // maxVc/maxIc feed only the debug summary, so accumulate them only when it prints.
   uint32_t maxVc = 0;
   uint32_t maxIc = 0;
   for (int i = 0; i < num; ++i) {
@@ -453,11 +404,8 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
     const uint32_t elementCount = form.elements;
     const uint32_t primCount = elementCount / 3;
 
-    // Report the PREVIOUS frame's result before the cursor is reset.  The
-    // indirect buffer is host-visible/coherent and this slot's prior frame
-    // has completed (frames-in-flight), so the read is valid.  Guarded so it
-    // never runs in a normal session (a host read of GPU-written memory
-    // stalls the frame).
+    // Report the PREVIOUS frame's result before the cursor reset; the indirect buffer is
+    // host-visible/coherent and that frame completed (frames-in-flight).  Guarded from normal sessions.
     if (geometryLodStats() && s.readyFrame != 0) {
       void * mapped = nullptr;
       if (vmaMapMemory(this->vmaAllocator, s.indirectMemory, &mapped) ==
@@ -465,11 +413,8 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
         uint32_t survivors = 0;
         std::memcpy(&survivors, mapped, sizeof(uint32_t));
         vmaUnmapMemory(this->vmaAllocator, s.indirectMemory);
-        // The shader appends INDICES, so the indirect indexCount is 3x the
-        // surviving triangles.  Report triangles to compare with primCount:
-        // at FC_VULKAN_GEOM_LOD_PIXELS=0 every triangle must survive
-        // (survivorPrims == primCount); at the default threshold a zoomed-out
-        // mesh must cull heavily.
+        // The shader appends INDICES, so survivorPrims = indexCount / 3.  At
+        // FC_VULKAN_GEOM_LOD_PIXELS=0 all must survive; otherwise cull heavily.
         const uint32_t survivorPrims = survivors / 3u;
         const float culled = primCount
           ? 100.0f * (1.0f - static_cast<float>(survivorPrims) /
@@ -481,8 +426,7 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
       }
     }
 
-    // Reset the indirect indexCount (the append cursor) to zero.  Only the
-    // first 4 bytes are touched, so the fixed fields stay intact.
+    // Reset the indirect indexCount (append cursor) to zero; only the first 4 bytes are touched.
     vkCmdFillBuffer(cb, s.indirectBuffer, 0, sizeof(uint32_t), 0);
 
     SoVulkanShared::memoryBarrier(
@@ -491,9 +435,8 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
 
     SubPixelPush pc {};
-    // Same combined transform as the visual vertex shader: the shader applies
-    // u_proj * u_view * model, so the CPU composes model * view * proj in
-    // row-vector order and packs the rows as mat4 columns.
+    // Same combined transform as the visual shader (which applies u_proj*u_view*model):
+    // the CPU composes model*view*proj in row-vector order, packed as mat4 columns.
     SbMatrix mvp =
       command.modelMatrix * params.viewMatrix * params.projMatrix;
     std::memcpy(pc.mvp, &mvp[0][0], sizeof(float) * 16);
@@ -523,10 +466,8 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
     }
   }
 
-  // One barrier after every dispatch: compute writes become visible to the
-  // indirect-command read and the index/vertex-input reads of the draws.  Only
-  // needed when something was dispatched; a frame that compacted nothing
-  // records no commands at all, so the caller can skip its submit entirely.
+  // One barrier after all dispatches makes compute writes visible to the
+  // indirect-command and vertex/index reads.  Skipped when nothing was dispatched.
   if (compacted > 0) {
     SoVulkanShared::memoryBarrier(
       cb, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -547,8 +488,7 @@ SoVulkanRenderBackend::recordGeometryLodPrepass(VkCommandBuffer cb,
 bool
 SoVulkanRenderBackend::externalGeometryLodActive(const SoRenderParams & params) const
 {
-  // Geometry LOD only runs while the camera moves; otherwise the full-detail
-  // draw is used.
+  // Geometry LOD runs only while the camera moves; otherwise use the full-detail draw.
   if (params.interactionLod != TRUE && !geometryLodAlways()) return false;
   if (!geometryLodEnabled()) return false;
   return this->subPixelCullPipeline != VK_NULL_HANDLE;
@@ -566,13 +506,9 @@ SoVulkanRenderBackend::beginExternalPrepass(const SoDrawList & drawlist,
 
   const double recordT0 = timing ? SoVulkanShared::steadyNowMs() : 0.0;
 
-  // The caller's external pass is a LOAD render pass and is already begun, so
-  // neither the buffer -> image copies nor the compaction dispatches can be
-  // recorded into it.  Record both into one backend-owned transient command
-  // buffer now, before recordFrame() so the draw path sees the finalized
-  // textures and the compacted slots; submitExternalPrepass() submits it after
-  // the frame is recorded, which overlaps the CPU frame recording with the
-  // previous GPU frame.
+  // The caller's external pass is already begun, so neither buffer->image copies nor
+  // dispatches can be recorded into it; record both into one transient buffer before
+  // recordFrame() and submit after recording (overlaps the previous GPU frame).
   VkCommandBufferAllocateInfo allocInfo {};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   allocInfo.commandPool = this->commandPool;
@@ -598,12 +534,8 @@ SoVulkanRenderBackend::beginExternalPrepass(const SoDrawList & drawlist,
     return VK_NULL_HANDLE;
   }
 
-  // Record the copies and the dispatches into the transient buffer.  The
-  // host-side finalize (view/sampler/descriptor creation + content stamp) is
-  // deliberately deferred until after a successful vkEndCommandBuffer(): if
-  // the buffer cannot be completed, pendingUploads must stay populated so the
-  // caller's one-shot fallback still uploads the textures.  Finalizing first
-  // would clear the list and leave the images empty.
+  // Record copies/dispatches now, but defer host-side finalize (view/sampler/descriptor +
+  // stamp) until vkEndCommandBuffer() succeeds; on failure pendingUploads must survive.
   if (wantTextures) {
     this->recordPendingTextureUploadsInto(cb);
   }
@@ -616,10 +548,8 @@ SoVulkanRenderBackend::beginExternalPrepass(const SoDrawList & drawlist,
   }
   if (timing) timing->lodRecordMs = SoVulkanShared::steadyNowMs() - texEnd;
 
-  // The buffer is empty when there are no texture copies and no command was
-  // worth compacting.  End and free it and report "no pre-pass" so the caller
-  // skips submitExternalPrepass() -- a full host wait -- entirely; every
-  // command then takes the full-detail draw path, exactly as when LOD is off.
+  // Empty buffer (no texture copies, nothing compacted): end/free it and report "no
+  // pre-pass" so the caller skips submitExternalPrepass() -- a full host wait.
   if (!wantTextures && lodCompacted == 0) {
     vkEndCommandBuffer(cb);
     vkFreeCommandBuffers(this->device, this->commandPool, 1, &cb);
@@ -634,8 +564,7 @@ SoVulkanRenderBackend::beginExternalPrepass(const SoDrawList & drawlist,
                               "upload and the full-detail draw");
     return VK_NULL_HANDLE;
   }
-  // The copies are now recorded, so the descriptor sets the draw path binds
-  // can be created and the content identity stamped.
+  // Copies are recorded, so the draw path can create its descriptor sets and stamp identity.
   if (wantTextures) {
     this->finalizePendingTextureUploads();
   }
@@ -652,13 +581,9 @@ SoVulkanRenderBackend::submitExternalPrepass(VkCommandBuffer commandBuffer,
   submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit.commandBufferCount = 1;
   submit.pCommandBuffers = &commandBuffer;
-  // Host wait: the copies and the compacted writes must be complete and
-  // visible before the caller submits its pass, and the caller's submission is
-  // out of reach, so no semaphore can be threaded through it.  Wait on a
-  // dedicated fence so only this pre-pass submission is observed, rather than
-  // draining the whole shared graphics queue with vkQueueWaitIdle() (which
-  // also waits on the caller's swapchain acquire/present).  Fall back to the
-  // queue drain if the fence cannot be created or reset.
+  // Host wait: copies and compacted writes must complete before the caller submits, and
+  // its submission is unreachable by semaphore.  A dedicated fence observes only this
+  // pre-pass; fall back to the queue drain if it can't be created/reset.
   if (this->externalPrepassFence == VK_NULL_HANDLE) {
     VkFenceCreateInfo fenceInfo {};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

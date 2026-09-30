@@ -243,7 +243,6 @@ SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
 }
 #endif
 
-  // doc from parent
 // doc from parent
 void
 SoIndexedNurbsCurve::rayPick(SoRayPickAction * action)

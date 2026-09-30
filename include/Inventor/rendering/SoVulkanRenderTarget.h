@@ -7,20 +7,15 @@
   \file SoVulkanRenderTarget.h
   \brief Backend-neutral Vulkan device and render-target contracts.
 
-  These structures describe the Vulkan resources a concrete SoRenderBackend
-  needs from the embedding application (typically a QVulkanWindow inside
-  FreeCAD's Gui module, or an offscreen device for tests and exporters).
+  Structures describing the Vulkan resources a concrete SoRenderBackend needs
+  from the embedding application (a QVulkanWindow in FreeCAD's Gui module, or an
+  offscreen device for tests/exporters): the app owns the VkInstance, device and
+  queue and hands them via SoRenderBackendInitParams::userData; render targets
+  arrive per frame via SoRenderParams::renderTarget and are never retained past
+  the current render() call.
 
-  Coin itself has no Qt or window-system knowledge, so the application owns
-  the VkInstance, physical/logical device, and graphics queue, and hands them
-  to the backend through SoRenderBackendInitParams::userData.  Render targets
-  are delivered per frame through SoRenderParams::renderTarget and are never
-  retained by the backend beyond the current render() call.
-
-  The whole contract is compiled only when COIN_BUILD_VULKAN_RENDERER is set
-  (by Coin's own build and by applications that opt in).  Without it the
-  header expands to nothing, so an installed Coin built without the Vulkan
-  renderer does not force a Vulkan SDK dependency on its consumers.
+  Compiles only when COIN_BUILD_VULKAN_RENDERER is set, so an installed
+  non-Vulkan Coin does not force a Vulkan SDK dependency on its consumers.
 */
 
 #ifndef COIN_BUILD_VULKAN_RENDERER
@@ -31,20 +26,17 @@
 
 #include <cstdint>
 
-// Pull in the Vulkan declarations.  This header is only compiled when
-// COIN_BUILD_VULKAN_RENDERER is enabled, so the Vulkan SDK must be available.
+// Vulkan declarations; only compiled with COIN_BUILD_VULKAN_RENDERER.
 #include <vulkan/vulkan.h>
 
 /*!
   struct SoVulkanDeviceCaps
   \brief Physical-device capabilities probed once by the embedding application.
 
-  The renderer needs to know which optional extensions/features the device
-  advertises to select its best technique.  The application already probes the
-  device to decide which extensions/features to request at vkCreateDevice, so
-  it hands the result through SoVulkanDeviceContext::caps instead of the
-  renderer re-enumerating the device extension list (the extension-name list
-  then lives in exactly one place).
+  The renderer needs which optional extensions/features the device advertises to
+  select its best technique.  The app already probes the device for
+  vkCreateDevice, so it hands the result through SoVulkanDeviceContext::caps
+  rather than the renderer re-enumerating the extension list (kept in one place).
 */
 struct SoVulkanDeviceCaps {
   bool rayTracing = false;             //!< AS + ray_tracing_pipeline + ray_query.
@@ -60,51 +52,32 @@ struct SoVulkanDeviceCaps {
   bool dualSrcBlend = false;           //!< SRC1_* blend factors.
   bool timelineSemaphore = false;      //!< Vulkan 1.2 timeline semaphores.
   bool synchronization2 = false;       //!< VK_KHR_synchronization2.
-  //! VK_KHR_synchronization2 is advertised as an extension (as opposed to the
-  //! core Vulkan 1.3 feature).  Only then may it be added to the device
-  //! extension list; the feature itself is requested whenever
-  //! `synchronization2` is set.
+  //! VK_KHR_synchronization2 advertised as an extension (not core 1.3), required to add it.
   bool synchronization2Extension = false;
-  //! VK_EXT_descriptor_indexing update-after-bind for the descriptor types the
-  //! RT backend uses (sampled image, storage image, uniform buffer, storage
-  //! buffer).  Lets the backend legally update a descriptor set that an
-  //! in-flight command buffer still references, which the double-buffered
-  //! frame ring cannot always guarantee
-  //! (VUID-vkUpdateDescriptorSets-None-03047).
+  //! VK_EXT_descriptor_indexing update-after-bind, so a set may be updated while
+  //! an in-flight command buffer references it (VUID-vkUpdateDescriptorSets-None-03047).
   bool descriptorIndexingUpdateAfterBind = false;
-  //! VK_EXT_pipeline_creation_feedback, enabled by the app so the backend can
-  //! log pipeline-cache hits and creation cost (FC_VULKAN_PIPELINE_FEEDBACK).
+  //! VK_EXT_pipeline_creation_feedback (FC_VULKAN_PIPELINE_FEEDBACK).
   bool pipelineCreationFeedback = false;
-  //! VK_EXT_debug_printf + VK_KHR_shader_non_semantic_info, enabled by the app
-  //! so shaders compiled with COIN_ENABLE_DEBUG_PRINTF can emit diagnostics
-  //! through the validation layer (FC_VULKAN_DEBUG_PRINTF).
+  //! VK_EXT_debug_printf + VK_KHR_shader_non_semantic_info for COIN_ENABLE_DEBUG_PRINTF
+  //! shaders to emit via the validation layer (FC_VULKAN_DEBUG_PRINTF).
   bool debugPrintf = false;
 };
 
-/*!
-  struct SoVulkanDeviceContext
-  \brief Application-owned Vulkan device state required by the backend.
-
-  The backend borrows these handles for the lifetime of the backend.  The
-  application must keep the instance, device, and queue valid until the
-  backend has been shut down.
-*/
+//! Application-owned device state; borrowed for the backend's lifetime, so keep valid until shutdown.
 struct SoVulkanDeviceContext {
   VkInstance instance = VK_NULL_HANDLE;               //!< Owning instance.
   VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;   //!< Selected GPU.
   VkDevice device = VK_NULL_HANDLE;                   //!< Logical device.
   VkQueue graphicsQueue = VK_NULL_HANDLE;             //!< Submission queue.
   uint32_t graphicsQueueFamilyIndex = 0;              //!< Queue family index.
-  // Optional async-compute queue.  The embedding app requests it at device
-  // creation (e.g. via QVulkanWindow::setQueueCreateInfoModifier) and the
-  // backend retrieves the handle with vkGetDeviceQueue() using the family +
-  // index below.  computeQueueFamilyIndex is UINT32_MAX when none was created.
+  // Optional async-compute queue, requested by the app at device creation (e.g.
+  // QVulkanWindow::setQueueCreateInfoModifier); UINT32_MAX when absent.
   uint32_t computeQueueFamilyIndex = ~0u;             //!< Compute family index.
   uint32_t computeQueueIndex = 0;                     //!< Queue index (default 0).
   uint32_t apiVersion = VK_API_VERSION_1_0;           //!< Negotiated API version.
   const VkAllocationCallbacks * allocator = nullptr;  //!< Optional host allocator.
-  //! Probed capabilities (see SoVulkanDeviceCaps).  When capsValid is false
-  //! (e.g. an offscreen/test context) the renderer probes the device itself.
+  //! Probed caps; when capsValid is false the renderer probes the device itself.
   SoVulkanDeviceCaps caps {};
   bool capsValid = false;
 };
@@ -113,12 +86,10 @@ struct SoVulkanDeviceContext {
   struct SoVulkanRenderTarget
   \brief Per-frame destination framebuffer for a retained render.
 
-  The application guarantees the images are already in the layouts declared
-  here (or in VK_IMAGE_LAYOUT_PRESENT_SRC_KHR when a swapchain image is used
-  and the backend is expected to transition it).  The backend records a render
-  pass that loads the existing attachment contents and conditionally clears
-  them according to SoRenderParams::flags, so partial-viewport and overlay
-  rendering compose correctly.
+  The app guarantees the images are already in the layouts declared here (or
+  PRESENT_SRC_KHR for a swapchain image the backend should transition).  The
+  backend's pass loads the contents and clears conditionally per
+  SoRenderParams::flags, so partial-viewport and overlay rendering compose.
 */
 struct SoVulkanRenderTarget {
   VkImage colorImage = VK_NULL_HANDLE;             //!< Destination color image.

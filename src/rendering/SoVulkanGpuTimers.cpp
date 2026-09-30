@@ -94,10 +94,8 @@ SoVulkanGpuTimers::beginScope(VkCommandBuffer commandBuffer, const char * name)
   const uint32_t slot = this->ringIndex;
   const uint32_t base = slot * kMaxScopesPerFrame * 2;
   if (!this->slotResetForFrame) {
-    // Reset this slot's query range before the first write: vkCmdWriteTimestamp
-    // requires the query to be unavailable, and the slot's previous results
-    // were read back kRingFrames ago.  Must run outside a render pass, so the
-    // external path resets via resetSlot() before its pass instead.
+    // Reset this slot before the first write (vkCmdWriteTimestamp needs the query
+    // unavailable); must be outside a render pass, so the external path uses resetSlot().
     vkCmdResetQueryPool(commandBuffer, this->queryPool, base,
                         kMaxScopesPerFrame * 2);
     this->slotResetForFrame = true;
@@ -138,8 +136,7 @@ SoVulkanGpuTimers::endFrame()
   this->scopeCount = 0;
   this->ringIndex = (this->ringIndex + 1) % kRingFrames;
 
-  // After advancing, ringIndex is the oldest slot: its submission has had
-  // kRingFrames-1 frames to complete, so the results are normally ready.
+  // ringIndex is now the oldest slot (kRingFrames-1 frames old), normally ready.
   const uint32_t readSlot = this->ringIndex;
   const uint32_t count = this->slotScopeCount[readSlot];
   if (count == 0) {

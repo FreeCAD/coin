@@ -1,18 +1,9 @@
 // src/rendering/SoVulkanResult.h
 //
-// Lightweight status type for Coin's Vulkan renderer internals.  Internal to
-// Coin (not installed, not public API).
-//
-// Motivation: the renderer historically returned bare SbBool from every
-// fallible helper and reported the reason by logging as a side effect, so a
-// caller could not distinguish "not applicable" from "failed", could not
-// propagate a reason, and had to string-match logs to react.  SoVulkanResult
-// carries a status and a human-readable reason, so a failure can be
-// propagated to a decision point (e.g. drop to raster) without a log parse.
-//
-// The public SoRenderBackend interface keeps returning SbBool for ABI
-// stability; internal entry points may return SoVulkanResult and the
-// embedding converts at the boundary.
+// Lightweight status type for Coin's Vulkan internals.  Not public API.  Replaces
+// bare-SbBool checks that logged the reason as a side effect: Result carries a
+// status + message so a failure reaches a decision point (e.g. drop to raster)
+// without log parsing; the public SoRenderBackend keeps SbBool for ABI stability.
 
 #ifndef COIN_SOVULKANRESULT_H
 #define COIN_SOVULKANRESULT_H

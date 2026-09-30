@@ -271,7 +271,6 @@ SoIndexedNurbsSurface::GLRender(SoGLRenderAction * action)
 }
 #endif
 
-  // Doc in superclass.
 // Doc in superclass.
 void
 SoIndexedNurbsSurface::rayPick(SoRayPickAction * action)

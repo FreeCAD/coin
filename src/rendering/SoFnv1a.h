@@ -5,10 +5,8 @@
 
 #include <cstdint>
 
-// FNV-1a 64-bit mixing step shared by the Vulkan and RTX render backends'
-// content hashes.  Each backend keeps its own higher-level sampling/hash
-// strategy; only the single-step FNV mix (xor then multiply by the FNV
-// prime) is common and was previously duplicated in both private headers.
+// FNV-1a 64-bit mixing step shared by the Vulkan and RTX backends' content hashes;
+// xor, then multiply by the FNV prime.
 namespace CoinRenderDetail {
 
 inline void

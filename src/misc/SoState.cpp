@@ -231,11 +231,8 @@ SoState::getElementPush(const int stackindex, SoElement * element)
   // time debugging it, pederb, 2007-08-01)
   assert(!PRIVATE(this)->ispopping);
 
-  // the caller (inline SoState::getElement()) guarantees that
-  //   * this->stack[stackindex] is non-NULL (element enabled), and
-  //   * element->getDepth() < this->depth
-  // so the copy-on-write push below materialises a new element for this depth.
-
+  // Caller (inline SoState::getElement()) guarantees stack[stackindex] is
+  // non-NULL and element->getDepth() < this->depth: materialise a new element.
   SoElement * next = element->nextup;
   if (! next) { // allocate new element
     next = (SoElement *) element->getTypeId().createInstance();

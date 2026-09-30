@@ -20,10 +20,8 @@ float readNonNegativeFloat(const char * name, float fallback)
   return value >= 0.0f ? value : fallback;
 }
 
-// Read a strictly positive uint32; a missing/invalid value keeps the default.
-// Parsed with strtoll (not envInt) so a value above INT_MAX -- e.g. a large
-// FC_VULKAN_GEOM_LOD_MAX_INDEX -- saturates at UINT32_MAX instead of
-// overflowing the int round-trip.
+// Read a strictly positive uint32; missing/invalid keeps the default.  strtoll
+// (not envInt) saturates > INT_MAX values (e.g. GEOM_LOD_MAX_INDEX) at UINT32_MAX.
 uint32_t readPositiveUint(const char * name, uint32_t fallback)
 {
   const char * value = SoVulkanShared::envString(name);
@@ -41,8 +39,7 @@ uint32_t readPositiveUint(const char * name, uint32_t fallback)
   return static_cast<uint32_t>(parsed);
 }
 
-// Read a non-negative uint32; a missing/invalid value keeps the default.  Like
-// readPositiveUint but accepts 0 (an explicit "off" for a >= 0 threshold).
+// Read a non-negative uint32; missing/invalid keeps the default.  Accepts 0.
 uint32_t readNonNegativeUint(const char * name, uint32_t fallback)
 {
   const char * value = SoVulkanShared::envString(name);
@@ -111,9 +108,8 @@ Config load()
 
 const Config & get()
 {
-  // C++11 guarantees thread-safe initialization of a function-local static, so
-  // the environment is resolved exactly once, on first use, and the result is
-  // immutable for the process lifetime.
+  // C++11 function-local static init is thread-safe: the environment is
+  // resolved once, on first use, and is immutable for the process lifetime.
   static const Config config = load();
   return config;
 }

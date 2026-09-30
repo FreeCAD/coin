@@ -1,15 +1,9 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendCommand.cpp
 //
-// Per-draw command recording.  Provides:
-//
-//   - applyViewport()/applyCommandViewport()/applyScissor(): dynamic state
-//     (with the Coin bottom-left -> Vulkan top-left Y-flip)
-//   - recordClear()/recordOverlayDepthClear(): emit clears
-//   - updateLightingUniforms(): fill a lighting/material UBO slot
-//   - recordDrawCommand(): bind the pipeline, descriptor set and viewports,
-//     pack the push constants, and issue the draw (plain, indexed or
-//     wide-line)
-//   - beginCommandBuffer()/endAndSubmit()
+// Per-draw command recording: dynamic viewport/scissor state (with the Coin
+// bottom-left -> Vulkan top-left Y-flip), clears, the lighting/material UBO
+// write, the draw itself (plain, indexed or wide-line), and command-buffer
+// begin/submit.
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -31,10 +25,7 @@ using namespace CoinVulkanDetail;
 
 namespace {
 
-// Pack the per-draw push-constant block.  Shared by the single-draw and
-// instanced-batch recorders: they differ only in the wide-line/stipple fields
-// (the batch path is never wide-line and stipples nothing, so it passes
-// stippleFactor=0 / stipplePatternBits=0 / wideLine=false).
+// Pack the per-draw push-constant block; shared by single-draw and batch recorders.
 VulkanPushConstants
 packPushConstants(const SoRenderCommand & command,
                   const VulkanCachedCommand & entry,
@@ -71,26 +62,21 @@ packPushConstants(const SoRenderCommand & command,
   push.texBlend[1] = blendColor[1];
   push.texBlend[2] = blendColor[2];
   push.texBlend[3] = blendColor[3];
-  // Point size from the retained state, scaled by the device pixel ratio (the
-  // viewport is in device pixels; SoDrawStyle sizes are logical points).
+  // Point size scaled by DPR (viewport is device px; SoDrawStyle is logical).
   push.pointSize = std::max(1.0f, command.state.raster.pointSize) * dpr;
   push.lineParams[0] = stippleFactor;
-  // Slot y serves two masters: the wide-line shader reads the stipple pattern
-  // bits here, the visual shader reads the round-point flag.  A draw never
-  // reaches both shaders, so the slot is safe to share.
+  // lineParams.y is shared: wide-line reads stipple bits, visual reads round-point.
   push.lineParams[1] = (wideLine && stipplePatternBits != 0.0f)
     ? stipplePatternBits
     : (command.state.raster.pointShape == SO_POINT_SHAPE_ROUND ? 1.0f : 0.0f);
-  // Point primitives (e.g. Sketcher vertex dots) render as round dots; the
-  // IR/Vulkan path has no marker-bitmap rasterization.
+  // Point primitives (Sketcher vertex dots) are round; no marker-bitmap rasterization here.
   if (command.geometry.topology == SO_TOPOLOGY_POINTS) {
     push.lineParams[1] = 1.0f;
   }
   push.lineParams[2] = wideLine ? 1.0f : 0.0f;
   push.lineParams[3] =
     command.geometry.topology == SO_TOPOLOGY_POINTS ? 1.0f : 0.0f;
-  // Geometry the GPU-instanced wide-line shader needs to size the quad: the
-  // line width in device pixels and the device-pixel viewport dimensions.
+  // GPU wide-line quad sizing: line width and viewport size in device pixels.
   push.lineGeom[0] = lineWidthPx;
   push.lineGeom[1] = viewportWidthPx;
   push.lineGeom[2] = viewportHeightPx;
@@ -158,10 +144,8 @@ SoVulkanRenderBackend::applyViewport(const SoRenderParams & params,
             target.extent.width, target.extent.height);
   }
 
-  // Coin/OpenGL viewport origins are bottom-left; Vulkan's are top-left.
-  // The vertex shader flips Y in clip space, so the viewport rectangle must
-  // be re-anchored to the top edge for the two to cancel out (and for
-  // non-fullscreen viewports to land in the correct sub-region).
+  // Coin/GL viewport origin is bottom-left, Vulkan's top-left.  The vertex
+  // shader flips Y in clip space, so re-anchor the rect to the top edge to cancel.
   VkViewport viewport {};
   viewport.x = static_cast<float>(origin[0]);
   viewport.y = static_cast<float>(static_cast<int32_t>(target.extent.height) -
@@ -173,19 +157,15 @@ SoVulkanRenderBackend::applyViewport(const SoRenderParams & params,
   viewport.maxDepth = 1.0f;
   this->applyViewportState(viewport, ctx);
 
-  // Clamp the clear region to the target so an off-screen viewport (origin
-  // outside the target, or a size exceeding the extent) never generates a
-  // clear outside the render area.
+  // Clamp to the target so an off-screen viewport never clears outside the render area.
   this->applyScissorState(
     toVkRect(clampFlippedRect(origin[0], origin[1], size[0], size[1],
                               target.extent)),
     ctx);
 }
 
-// Apply a per-command viewport (recorded by the IR producer from
-// SoViewportRegionElement).  Draws that carry their own viewport render
-// into that sub-region; commands without one keep the frame viewport set
-// by applyViewport().  Same Y-flip math as applyViewport().
+// Apply a per-command viewport (from SoViewportRegionElement); commands without
+// one keep the frame viewport from applyViewport().  Same Y-flip math.
 void
 SoVulkanRenderBackend::applyCommandViewport(const SoRenderCommand & command,
                                             const SoVulkanRenderTarget & target,
@@ -203,18 +183,14 @@ SoVulkanRenderBackend::applyCommandViewport(const SoRenderCommand & command,
                                  static_cast<int32_t>(raster.viewportHeight));
   viewport.width = static_cast<float>(raster.viewportWidth);
   viewport.height = static_cast<float>(raster.viewportHeight);
-  // Depth range from the retained SoDepthBufferElement state; GL applies
-  // glDepthRange() per command and restores (0,1) after each draw.  The
-  // viewport is dynamic state here, so each command gets its own range and
-  // nothing needs restoring.  Clamp to the legal [0,1] window.
+  // Depth range from SoDepthBufferElement; dynamic viewport state means no restore needed.
   viewport.minDepth =
     std::clamp(command.state.depth.range[0], 0.0f, 1.0f);
   viewport.maxDepth =
     std::clamp(command.state.depth.range[1], 0.0f, 1.0f);
   this->applyViewportState(viewport, ctx);
 
-  // The per-command viewport also bounds the draw region; mirror the
-  // scissor clamp used by applyViewport().
+  // The per-command viewport also bounds the draw region; mirror applyViewport()'s clamp.
   this->applyScissorState(
     toVkRect(clampFlippedRect(raster.viewportX, raster.viewportY,
                               raster.viewportWidth, raster.viewportHeight,
@@ -231,9 +207,7 @@ SoVulkanRenderBackend::applyScissor(const SoRenderCommand & command,
   const SoRasterState & raster = command.state.raster;
   if (raster.scissorEnabled && raster.scissorWidth > 0 &&
       raster.scissorHeight > 0) {
-    // Coin/OpenGL scissors are anchored at the bottom-left; Vulkan's are
-    // top-left.  Mirror the viewport math: flip the Y offset around the
-    // target height so the region lands where the producer intends.
+    // Coin/GL scissors are bottom-left anchored; mirror the viewport Y-flip.
     const int32_t flippedY = static_cast<int32_t>(target.extent.height) -
       static_cast<int32_t>(raster.scissorY) -
       static_cast<int32_t>(raster.scissorHeight);
@@ -252,10 +226,8 @@ bool
 SoVulkanRenderBackend::isFullTargetClear(const SoRenderParams & params,
                                          const SoVulkanRenderTarget & target) const
 {
-  // Mirror the clear-region math in recordClear().  A full-target clear means
-  // the viewport region, after clamping to the target, covers the entire
-  // attachment, so no vkCmdClearAttachments region is needed and the render
-  // pass can clear via its loadOp instead.  Empty viewports clear nothing.
+  // Mirror recordClear()'s region math: a full-target clear means the clamped
+  // viewport covers the whole attachment, so the render-pass loadOp can clear.
   const SbVec2s & origin = params.viewport.getViewportOriginPixels();
   const SbVec2s & size = params.viewport.getViewportSizePixels();
   const FlippedRect r = clampFlippedRect(origin[0], origin[1], size[0], size[1],
@@ -279,9 +251,8 @@ SoVulkanRenderBackend::recordClear(const SoRenderParams & params,
   uint32_t attachmentCount = 0;
 
   if (params.flags & SO_PARAM_CLEAR_WINDOW) {
-    // When the render pass begins with a CLEAR color loadOp (full-target
-    // clear fast path), the attachment was already cleared to params.clearColor,
-    // so there is no matching vkCmdClearAttachments to omit.
+    // Full-target clear fast path already cleared via loadOp to clearColor, so
+    // skip the matching vkCmdClearAttachments.
     if (!colorClearedByLoad) {
       const SbColor4f & color = params.clearColor;
       VkClearAttachment clear {};
@@ -317,9 +288,7 @@ SoVulkanRenderBackend::recordClear(const SoRenderParams & params,
 
   if (attachmentCount == 0) return;
 
-  // Clear only the requested viewport region (Y-flipped into Vulkan
-  // coordinates like applyViewport()).  Clearing the whole target would
-  // overwrite other viewports or the backing image outside the viewport.
+  // Clear only the viewport region (Y-flipped); the full target would clobber other viewports.
   const SbVec2s & origin = params.viewport.getViewportOriginPixels();
   const SbVec2s & size = params.viewport.getViewportSizePixels();
   const FlippedRect r = clampFlippedRect(origin[0], origin[1], size[0], size[1],
@@ -345,8 +314,7 @@ SoVulkanRenderBackend::recordOverlayDepthClear(const SoRenderCommand & command,
     return;
   }
 
-  // The overlay rect is stored in Coin/OpenGL (bottom-left) coordinates by
-  // the producer; mirror the Y-flip applied by applyScissor().
+  // Overlay rect is Coin/GL bottom-left; mirror applyScissor()'s Y-flip.
   const SoRasterState & raster = command.state.raster;
   const FlippedRect r = clampFlippedRect(raster.scissorX, raster.scissorY,
                                          raster.scissorWidth,
@@ -373,10 +341,8 @@ SoVulkanRenderBackend::updateLightingSetup(const SoDrawList & drawlist)
 {
   vkBackendTrace(this->uboFrameIndex, "updateLightingSetup.enter", "cmds=%d",
                  drawlist.getNumCommands());
-  // Build the (usually single) lighting constant block per distinct
-  // lightingHandle once per frame, into the lighting ring, so the 8-light
-  // setup is computed once and referenced by every draw through its dynamic
-  // offset instead of being re-derived per draw.
+  // Build one lighting constant block per distinct lightingHandle per frame
+  // (into the fixed 8-slot ring), referenced by each draw via its dynamic offset.
   this->lightingSlotOffsets.clear();
   if (this->lightingConstMapped == nullptr || this->lightingConstStride == 0) {
     return false;
@@ -388,14 +354,13 @@ SoVulkanRenderBackend::updateLightingSetup(const SoDrawList & drawlist)
   static const SoLightingData emptyLighting;
   uint32_t occupiedSlots = 0;
 
-  // Setups are world-space; the visual shaders light in eye space, so pack
-  // them through the frame view (cacheFrameMatrices() runs before this).
+  // Setups are world-space but the shaders light in eye space, so pack through
+  // the frame view (cacheFrameMatrices() ran first).
   SbMat frameViewMat;
   std::memcpy(frameViewMat, this->frameViewFloats, sizeof(float) * 16);
   const SbMatrix frameView(frameViewMat);
 
-  // Seed slot 0 with empty lighting so the handle-0 fallback in
-  // lightingOffsetFor() is always valid.
+  // Seed slot 0 with empty lighting so the handle-0 fallback is always valid.
   {
     const VkDeviceSize offset =
       static_cast<VkDeviceSize>(frameBase + occupiedSlots) *
@@ -407,11 +372,8 @@ SoVulkanRenderBackend::updateLightingSetup(const SoDrawList & drawlist)
     occupiedSlots = 1;
   }
 
-  // When the GL host pushed authoritative viewer lights, pack that single
-  // camera-anchored set once and point every command at it, instead of
-  // deriving per-command IR lighting.  The set is world-space and the visual
-  // shaders light in eye space, so it is packed through the frame view exactly
-  // like the IR setups below (fillLightingBlock applies the eye transform).
+  // GL host pushed authoritative viewer lights: pack that single camera-anchored
+  // set once and point every command at it (world-space, through the frame view).
   VkDeviceSize sceneLightOffset = 0;
   if (!this->sceneLighting.lights.empty()) {
     const uint32_t slot = std::min(occupiedSlots, 7u);
@@ -439,8 +401,7 @@ SoVulkanRenderBackend::updateLightingSetup(const SoDrawList & drawlist)
     const SoLightingData * lighting = drawlist.getLighting(handle);
     if (!lighting) lighting = &emptyLighting;
 
-    // Clamp to the per-frame slot budget (8); beyond that reuse the last
-    // slot (degraded but never out of bounds).
+    // Clamp to the per-frame slot budget (8); overflow reuses the last slot in bounds.
     const uint32_t slot = std::min(occupiedSlots, 7u);
     const VkDeviceSize offset =
       static_cast<VkDeviceSize>(frameBase + slot) * this->lightingConstStride;
@@ -460,9 +421,8 @@ SoVulkanRenderBackend::lightingOffsetFor(const SoRenderCommand & command) const
   if (found != this->lightingSlotOffsets.end()) {
     return found->second;
   }
-  // Handle missing from the current frame's setup (updateLightingSetup()
-  // visits every command, so this should be unreachable): fall back to the
-  // seeded handle-0 empty slot.
+  // Unreachable in practice (updateLightingSetup() visits every command); fall
+  // back to the seeded handle-0 empty slot.
   const auto zero = this->lightingSlotOffsets.find(0);
   if (zero != this->lightingSlotOffsets.end()) {
     return zero->second;
@@ -478,30 +438,23 @@ SoVulkanRenderBackend::updateLightingUniforms(const SoDrawList & drawlist,
                                               const bool unlit,
                                               const float * projFloats)
 {
-  // Per-draw block only: view/model/material and the projection matrix.  The
-  // lighting constant block lives in set 0 and is written once per frame by
-  // updateLightingSetup().
+  // Per-draw block: view/model/material + projection; the lighting constant block is in set 0.
   VulkanDrawUbo ubo {};
   if (projFloats) {
     std::memcpy(ubo.proj, projFloats, sizeof(float) * 16);
   }
 
   SbMat m;
-  // Overlay-pass geometry that spans the whole frame viewport (the
-  // selection/preselection highlight) is frame-camera geometry: it must be
-  // projected with the frame camera matrices, not with the scene camera's
-  // own recorded matrices (whose near/far fields are stale and which lag
-  // one frame behind during navigation).  Overlays that carry their own
-  // viewport (the navigation cube sub-scene) keep their own camera.
+  // Overlay geometry spanning the frame (selection highlight) is frame-camera
+  // geometry: it must use the frame view/proj, not the scene camera's stale,
+  // one-frame-lagging matrices.  Overlays with their own viewport keep theirs.
   const bool frameCameraOverlay = isFrameCameraOverlay(command, params);
   if (command.state.raster.scissorEnabled
       && command.pass == SO_RENDERPASS_OVERLAY && !frameCameraOverlay) {
     command.viewMatrix.getValue(m);
   }
   else {
-    // Frame view, converted once per render (cacheFrameMatrices): the main
-    // pass draws every command with the frame camera, so no per-draw
-    // double -> float conversion.
+    // Frame view, converted once per render (cacheFrameMatrices).
     std::memcpy(m, this->frameViewFloats, sizeof(float) * 16);
   }
   std::memcpy(ubo.view, &m[0][0], sizeof(float) * 16);
@@ -527,10 +480,7 @@ SoVulkanRenderBackend::updateLightingUniforms(const SoDrawList & drawlist,
     ? 0.0f
     : (material.shadingModel == SO_SHADING_LEGACY_GOURAUD ? 1.0f : 0.0f);
 
-  // Light count is consumed by the fragment shader loop; it is a per-material
-  // value carried here (the lighting block itself holds the array).  When the
-  // host pushed authoritative viewer lights, every command references that
-  // single set, so the count comes from it rather than the IR capture.
+  // Light count: from scene lighting when the host pushed it, else the command's IR capture.
   int count = 0;
   if (!this->sceneLighting.lights.empty()) {
     count = this->sceneLighting.lightCount();
@@ -565,19 +515,15 @@ SoVulkanRenderBackend::bindDrawDescriptors(const SoRenderCommand & command,
                                            const uint32_t slotIndex,
                                            VulkanRecordContext & ctx)
 {
-  // Bind set 0 (lighting constant, dynamic offset per handle) and set 1
-  // (per-draw UBO + texture, dynamic offset).  Lighting is the same for every
-  // command sharing a handle, so its block was written once per handle by
-  // updateLightingSetup() and is merely referenced here.
+  // Bind set 0 (lighting constant, per-handle dynamic offset; written once by
+  // updateLightingSetup()) and set 1 (per-draw UBO + texture, dynamic offset).
   VkDescriptorSet textureSet = this->resolveTextureSet(command);
   if (textureSet == VK_NULL_HANDLE) {
     textureSet = this->whiteDescriptorSet;
   }
-  // Cache the lighting dynamic offset per handle: a frame's retained commands
-  // almost always share ONE handle, so only the first draw of a new handle
-  // pays the unordered_map lookup in lightingOffsetFor().  Set 0 re-binds only
-  // when the handle (its dynamic offset) actually changes; set 1 must re-bind
-  // every draw because its dynamic offset is the per-draw UBO slot.
+  // Cache the lighting dynamic offset per handle: retained frames almost always
+  // share ONE handle, so only the first new handle pays the lightingOffsetFor()
+  // lookup.  Set 0 re-binds only when the handle changes; set 1 every draw.
   uint32_t lightingDynamicOffset = ctx.lastLightingOffset;
   if (command.lightingHandle != ctx.lastLightingHandle) {
     lightingDynamicOffset =
@@ -588,8 +534,7 @@ SoVulkanRenderBackend::bindDrawDescriptors(const SoRenderCommand & command,
   uint32_t bindingOffsets[2] = { lightingDynamicOffset, uboDynamicOffset };
   if (ctx.lastBoundLightingOffset != lightingDynamicOffset ||
       ctx.lastBoundTextureSet != textureSet) {
-    // First draw of a new lighting handle / texture set: bind both sets with
-    // their dynamic offsets in one call (also covers the frame's first draw).
+    // First draw of a new handle/texture set: bind both sets with their offsets at once.
     const VkDescriptorSet both[2] = {this->lightingDescriptorSet, textureSet};
     vkBackendTrace(this->uboFrameIndex, "draw.bindDescSets2",
                    "slot=%u", slotIndex);
@@ -601,9 +546,8 @@ SoVulkanRenderBackend::bindDrawDescriptors(const SoRenderCommand & command,
     ctx.lastBoundTextureSet = textureSet;
   }
   else {
-    // Same lighting handle + texture set as the previous draw: only the
-    // per-draw UBO dynamic offset advances.  Re-bind set 1 alone (set 0 stays
-    // bound from the last 2-set bind) instead of re-emitting both sets.
+    // Same handle + texture set: only the per-draw UBO offset advances, so
+    // re-bind set 1 alone (set 0 stays bound from the last 2-set bind).
     vkBackendTrace(this->uboFrameIndex, "draw.bindDescSets1",
                    "slot=%u", slotIndex);
     vkCmdBindDescriptorSets(ctx.buffer,
@@ -673,14 +617,12 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
     return;
   }
 
-  // Wide-line rendering mirrors the GL wide-line path: line width > 1 or a
-  // stipple pattern expands each segment into a quad.  The overlay
-  // wireframe/point redraws keep the plain line path.
+  // Wide-line rendering mirrors GL: line width > 1 or a stipple pattern expands
+  // each segment into a quad; overlay wireframe/point redraws stay plain lines.
   const bool useWideLine = isWideLine(command, fillModeOverride, this->interactionLodActive);
   const bool patternedLine = isPatternedLine(command);
-  // Line stipple mirrors classic GL (glLineStipple): each pattern bit
-  // covers linePatternScaleFactor PIXELS in screen space.  The fragment
-  // shader tests the bit selected by floor(distance / factor) % 16.
+  // Line stipple mirrors GL glLineStipple: each bit covers linePatternScaleFactor
+  // screen pixels; the fragment shader tests bit floor(distance/factor) % 16.
   float stippleFactor = 0.0f;
   float stipplePatternBits = 0.0f;
   if (useWideLine && patternedLine) {
@@ -718,17 +660,12 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
     }
   }
   this->applyPipeline(pipeline, ctx);
-  // Commands carrying their own viewport (SoViewportRegionElement) render
-  // into that sub-region; otherwise the frame viewport from applyViewport()
-  // stays active.
+  // Commands with their own viewport (SoViewportRegionElement) keep it; others use the frame viewport.
   this->applyCommandViewport(command, target, ctx);
   this->applyScissor(command, target, ctx);
 
   const uint32_t slotIndex = ctx.uboCmdIndex++;
-  // prepareLightingSlots() reserves a worst-case slot count before any
-  // recording, so this can only trip if a future recording path forgets to
-  // pre-count.  Guard at runtime regardless: the mapped UBO write below
-  // would otherwise run past the allocation.
+  // prepareLightingSlots() pre-reserved worst-case slots, so only a missing pre-count trips this.
   if (slotIndex >= this->uboSlotsPerFrame) {
     static bool reported = false;
     if (!reported) {
@@ -747,10 +684,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   const bool indexed =
     entry.indexBuffer != VK_NULL_HANDLE && command.geometry.indexCount &&
     command.geometry.indices;
-  // GPU geometry LOD: when the pre-pass compacted this command for the current
-  // frame, the draw reads the compacted index buffer through an indirect
-  // command whose indexCount the compute shader wrote.  It applies to
-  // non-indexed triangle lists too (the compaction emits sequential indices).
+  // GPU geometry LOD: a frame-compacted command draws the compacted index buffer via indirect draw.
   const VulkanCachedCommand::VulkanSubPixelSlot * subPixel =
     (!useWideLine) ? this->subPixelSlotFor(entry) : nullptr;
   vkBackendTrace(this->uboFrameIndex, "draw.bindVbuf0",
@@ -772,23 +706,18 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   }
 
   SbMat projValue;
-  // Overlay-pass geometry that carries its own camera and viewport (the
-  // navigation cube sub-scene) uses its own projection; overlay geometry
-  // that spans the whole frame viewport (the selection/preselection
-  // highlight) is frame-camera geometry and must share the frame projection
-  // in params, otherwise it is projected through the scene camera's stale
-  // near/far fields and lags behind navigation (see updateLightingUniforms).
+  // Overlay with its own camera/viewport (NaviCube) uses its own projection;
+  // overlay spanning the frame (selection highlight) shares the frame projection
+  // in params, since the scene camera's near/far lag a frame during navigation.
   const bool frameCameraOverlay = isFrameCameraOverlay(command, params);
   if (overlayPass && !frameCameraOverlay) {
     command.projMatrix.getValue(projValue);
   }
   else {
-    // Frame projection, converted once per render (cacheFrameMatrices): the
-    // main pass projects every command with the frame camera.
+    // Frame projection, converted once per render (cacheFrameMatrices).
     std::memcpy(projValue, this->frameProjFloats, sizeof(float) * 16);
   }
-  // The projection matrix now lives in the per-draw DrawBlock UBO (not the
-  // push constants), so the UBO must be written after projValue is resolved.
+  // Projection lives in the DrawBlock UBO now, so write the UBO after projValue is resolved.
   this->updateLightingUniforms(drawlist, command, params, uboOffset,
                                uniformColorOverride != nullptr,
                                &projValue[0][0]);
@@ -842,10 +771,9 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
               pp[3][0], pp[3][1], pp[3][2], pp[3][3]);
     }
   }
-  // The GPU wide-line shader sizes its quads from the viewport it is
-  // rasterized into.  A sub-viewport overlay (the navigation cube) rasterizes
-  // into its own rect, not the frame, so size from the command's viewport
-  // there; using the frame size shrinks the quads to sub-pixel dots.
+  // The GPU wide-line shader sizes quads from its rasterization viewport.  A
+  // sub-viewport overlay (NaviCube) rasterizes into its own rect, so size from
+  // the command's viewport there; the frame size would shrink quads to sub-pixel.
   SbVec2s lineViewportSize = params.viewport.getViewportSizePixels();
   const SoRasterState & lineRaster = command.state.raster;
   if (lineRaster.viewportEnabled && lineRaster.viewportWidth > 0
@@ -946,16 +874,13 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
   }
 
   // GPU-instanced wide lines: the vertex shader expands each segment from a
-  // static instance-rate endpoint stream, so there is no per-frame CPU work
-  // and no quad upload.  Falls back to the CPU expansion when the endpoint
-  // buffer is unavailable.
+  // static instance-rate endpoint stream (no CPU work / quad upload).  Falls
+  // back to CPU expansion when the endpoint buffer is unavailable.
   const bool useInstancedWideLine = useWideLine &&
     isInstancedWideLine(command) && entry.instancedLineBuffer != VK_NULL_HANDLE;
 
   if (useWideLine && !useInstancedWideLine) {
-    // CPU-side quad expansion in clip space (line width and/or stipple);
-    // the wide-line pipeline draws it as a triangle list.  Binds here so
-    // the projection matrix (projValue) is already resolved.
+    // CPU-side clip-space quad expansion (width and/or stipple), drawn as a triangle list.
     if (!this->expandWideLines(entry, command, params, projValue,
                                std::max(1.0f, command.state.raster.lineWidth) *
                                  this->frameDpr)) {
@@ -968,25 +893,17 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
                            &wideOffset);
   }
 
-  // Bind the per-instance model matrix (binding 1, rate INSTANCE) for the
-  // visual and GPU-instanced wide-line paths; both read the transform from
-  // the attribute rather than the UBO.  The model is written into a
-  // per-command ring slot at the SAME element index the draw UBO uses, so the
-  // GPU reads this draw's transform even though recording completes before
-  // execution (a single shared offset would collapse every draw onto the
-  // last-committed model).  A batched group writes a run of
-  // [slotIndex .. slotIndex+N) elements and draws instanceCount=N.  The
-  // CPU-expanded wide-line path does not use binding 1.
+  // Bind the per-instance model matrix (binding 1, INSTANCE rate) for the visual
+  // and GPU-instanced wide-line paths; both read the transform from the
+  // attribute, written at the SAME ring element index as the draw UBO so the GPU
+  // reads this draw's transform (a shared offset would collapse all onto the last).
   if (useInstancedWideLine || !useWideLine) {
     const VkDeviceSize instElement =
       static_cast<VkDeviceSize>((this->uboFrameIndex % this->maxFramesInFlight) *
         this->uboSlotsPerFrame + slotIndex);
     const VkDeviceSize instByteOffset = instElement * sizeof(float) * 16;
-    // The instance-model ring is pre-sized to maxFramesInFlight *
-    // uboSlotsPerFrame (see ensureInstanceModelRingCapacity), so the element
-    // index can never exceed it -- this is a defensive bounds check only, with
-    // no growth path (growing here would re-create the buffer mid-record,
-    // which races once workers record in parallel).
+  // Defensive check only: the ring is pre-sized (ensureInstanceModelRingCapacity);
+  // growing mid-record would race parallel workers.
     if (instByteOffset + sizeof(float) * 16 > this->instanceModelCapacity) {
       return;
     }
@@ -1008,8 +925,7 @@ SoVulkanRenderBackend::recordDrawCommand(const SoDrawList & drawlist,
                    "slot=%u segs=%u cmd=%p", slotIndex,
                    entry.instancedLineSegmentCount,
                    reinterpret_cast<const void *>(&command));
-    // Six vertices per segment (two triangles); the vertex shader selects the
-    // corner from gl_VertexIndex.
+    // Six vertices per segment (two triangles); the shader picks the corner from gl_VertexIndex.
     vkCmdDraw(ctx.buffer, 6u, entry.instancedLineSegmentCount, 0, 0);
   }
   else if (useWideLine) {
@@ -1062,9 +978,7 @@ SoVulkanRenderBackend::recordCommandBatch(const SoDrawList & drawlist,
                                           const float * uniformColorOverride,
                                           VulkanRecordContext & ctx)
 {
-  // The batch shares geometry/material/state and differs only by model matrix,
-  // so every command picks the same pipeline, descriptor sets, vertex data and
-  // push constants as commands[0].  Rendered with one instanced draw.
+  // The batch differs only by model matrix, so all commands share commands[0]'s state.
   vkBackendTrace(this->uboFrameIndex, "recordCommandBatch.enter",
                  "count=%d slot=%u", count, ctx.uboCmdIndex);
   const SoRenderCommand & command = *commands[0];
@@ -1075,8 +989,7 @@ SoVulkanRenderBackend::recordCommandBatch(const SoDrawList & drawlist,
   const auto found = this->commandToCache.find(&command);
   if (found == this->commandToCache.end()) return false;
   // Fragile: only guaranteed-correct side paths (pipeline + descriptor + push +
-  // non-instanced vertex geometry) batch.  Wide-line expands per command on the
-  // CPU, so it is not batchable here.
+  // non-instanced geometry) batch; wide-line expands per command on the CPU.
   const VulkanCachedCommand & entryRef = this->gpuCache[found->second];
   if (entryRef.vertexBuffer == VK_NULL_HANDLE) return false;
 
@@ -1095,21 +1008,16 @@ SoVulkanRenderBackend::recordCommandBatch(const SoDrawList & drawlist,
   this->applyCommandViewport(command, target, ctx);
   this->applyScissor(command, target, ctx);
 
-  // Reserve `count` lighting-UBO slots so a batch of N instances maps to N
-  // distinct instance-model ring elements (base..base+N-1).  The prepareLighting
-  // pre-pass reserved countDrawCommands() slots, so this cannot overflow.
+  // Reserve `count` slots (base..base+N-1) for the batch's instance-model elements.
   const uint32_t slotIndex = ctx.uboCmdIndex;
   ctx.uboCmdIndex += count;
   const VkDeviceSize uboOffset = this->uboSlotOffset(slotIndex);
   const uint32_t uboDynamicOffset = static_cast<uint32_t>(uboOffset);
 
-  // Descriptor set 0 (lighting constant) + set 1 (per-draw UBO + texture).
-  // Lighting and texture are group-constant (batch key guarantees it), so bind
-  // once using commands[0].
+  // Set 0 (lighting) + set 1 (per-draw UBO + texture) are group-constant, so bind once.
   this->bindDrawDescriptors(command, uboDynamicOffset, slotIndex, ctx);
 
-  // Vertex buffer (binding 0).  The whole batch shares commands[0]'s geometry,
-  // so one bind serves every instance.
+  // Binding 0 shares commands[0]'s geometry, so one bind serves every instance.
   const VkDeviceSize vertexOffset = entryRef.vertexOffset;
   vkCmdBindVertexBuffers(ctx.buffer, 0, 1, &entryRef.vertexBuffer,
                          &vertexOffset);
@@ -1125,10 +1033,8 @@ SoVulkanRenderBackend::recordCommandBatch(const SoDrawList & drawlist,
                                uniformColorOverride != nullptr,
                                this->frameProjFloats);
 
-  // Push constants (group-constant).  Batches are recorded only from the main
-  // (non-overlay) passes, so every command projects with the frame camera and
-  // the wide-line/stipple fields are unused (mirrors recordDrawCommand's
-  // frameCameraOverlay=false, non-wide-line branch).
+  // Push constants are group-constant too; batches come only from main passes,
+  // so wide-line/stipple fields are unused (mirrors recordDrawCommand's main-pass branch).
   const VulkanPushConstants push = packPushConstants(
     command, entryRef, uniformColorOverride,
     this->frameDpr, /*stippleFactor*/ 0.0f, /*stipplePatternBits*/ 0.0f,
@@ -1145,9 +1051,7 @@ SoVulkanRenderBackend::recordCommandBatch(const SoDrawList & drawlist,
       this->uboSlotsPerFrame + slotIndex);
   const VkDeviceSize instCountBytes = instBase * sizeof(float) * 16 +
     static_cast<VkDeviceSize>(count) * sizeof(float) * 16;
-  // Defensive bounds check only -- the ring is pre-sized to the slot layout
-  // (see ensureInstanceModelRingCapacity), so no growth path here (which
-  // would re-create the buffer mid-record and race under parallelism).
+  // Defensive bounds check only; the ring is pre-sized and growing would race parallel workers.
   if (instCountBytes > this->instanceModelCapacity) {
     return false;
   }
@@ -1206,11 +1110,9 @@ SoVulkanRenderBackend::endAndSubmit()
   vkBackendTrace(this->uboFrameIndex, "endAndSubmit.submitRc", "rc=%d",
                  static_cast<int>(submitRc));
   if (submitRc != VK_SUCCESS) {
-    // The fence stays unsignaled (no signal was requested), so beginFrame()
-    // would wait forever on the next reuse of this slot.  Signal it by
-    // submitting nothing and relying on the next frame's failure path, but
-    // mark the slot as not pending so the wait is skipped; a submission
-    // failure (typically device loss) leaves the backend unusable anyway.
+    // Fence stays unsignaled (no signal requested), so beginFrame() would wait
+    // forever on this slot.  Mark it not pending so the wait is skipped; a
+    // submission failure (typically device loss) leaves the backend unusable.
     this->frameFencePending[slot] = 0;
     return false;
   }

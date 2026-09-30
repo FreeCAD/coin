@@ -1,16 +1,10 @@
 // src/rendering/SoVulkanRenderBackend/SoVulkanRenderBackendFrame.cpp
 //
-// Frame orchestration and teardown.  Provides:
-//
-//   - shutdown(): release every owned Vulkan object (flush deferred destroys,
-//     pipelines, render passes/framebuffers, shaders, buffers, descriptor
-//     pools)
-//   - renderInternal(): drive the render()/renderOverlaysOnly() entry points
-//   - renderExternal()/renderExternalOverlay(): record into a caller-owned
-//     command buffer
-//   - recordFrame(): opaque/transparent passes + wireframe/point overlay
-//     redraws + on-top annotations
-//   - recordOverlayBlock() and recordTracedComposite()
+// Frame orchestration and teardown:
+//   - shutdown(): release every owned Vulkan object
+//   - renderInternal(): render()/renderOverlaysOnly() entry points
+//   - renderExternal()/renderExternalOverlay(): record into a caller-owned cb
+//   - recordFrame() / recordOverlayBlock() / recordTracedComposite()
 
 #include "rendering/SoVulkanRenderBackend.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
@@ -51,9 +45,7 @@ double vkBackendRenderNowMs()
   return SoVulkanShared::steadyNowMs();
 }
 
-// Phase timing for the fcprobe profile harness ([RTDBG] cpuTimingRaster),
-// gated by the same FC_VULKAN_FRAME_TIMING flag as the manager and RTX
-// [RTDBG] lines.  Cached: the environment does not change mid-process.
+// Phase timing for the fcprobe harness ([RTDBG] cpuTimingRaster); gated by FC_VULKAN_FRAME_TIMING.
 bool vkBackendFrameTimingEnabled()
 {
   static const bool enabled =
@@ -76,11 +68,9 @@ void vkBackendRenderBreadcrumbSince(long startUs, long thresholdUs, const char* 
 
 } // namespace
 
-// Two commands can be drawn as ONE instanced draw only when they share every
-// pipeline, descriptor-set and push-constant input and differ solely by their
-// model matrix.  `hashA`/`hashB` are the cached geometry content hashes.
-// `pass` equality plus the caller rejecting overlay/wide-line commands keeps
-// the batch inside the shared frame-camera main pass.
+// Two commands batch into ONE instanced draw only if they share every pipeline,
+// descriptor-set and push-constant input and differ solely by model matrix.
+// `hashA`/`hashB` are content hashes; `pass` equality keeps them in the main pass.
 static bool vkCommandBatchable(const SoRenderCommand & a,
                                const SoRenderCommand & b,
                                uint64_t hashA, uint64_t hashB)
@@ -93,12 +83,9 @@ static bool vkCommandBatchable(const SoRenderCommand & a,
   if (a.lightingHandle != b.lightingHandle) return false;
   if (a.pass != b.pass) return false;
   if (hashA != hashB) return false;
-  // Compare the pipeline/push-determining state FIELD BY FIELD.  memcmp of the
-  // sub-structs is unsafe: SbBool is an int and the enum fields leave padding
-  // bytes that are not deterministically zeroed, so two identical cube states
-  // could compare unequal.  The position-dependent sort keys
-  // (SoRenderState::opaqueKey/translucentKey) are deliberately not compared --
-  // identical geometry at different locations must still batch.
+  // Compare pipeline/push-determining state FIELD BY FIELD: memcmp is unsafe (SbBool
+  // is an int, enum padding is not zeroed).  Position-dependent sort keys
+  // (opaqueKey/translucentKey) are omitted so identical geometry elsewhere still batches.
   const SoDepthState & da = a.state.depth, &db = b.state.depth;
   if (da.enabled != db.enabled || da.writeEnabled != db.writeEnabled ||
       da.func != db.func || da.range[0] != db.range[0] ||
@@ -164,11 +151,9 @@ static bool vkCommandBatchable(const SoRenderCommand & a,
   return true;
 }
 
-// Coarse grouping key for the opaque batching pass: two commands with the same
-// key MIGHT be batchable (vkCommandBatchable re-verifies and splits any
-// collision).  Hashes the fields that determine pipeline/descriptor/push state
-// plus the cached geometry content hash.  Not intended to be collision-free;
-// the pairwise re-verification is what guarantees correctness.
+// Coarse opaque-batching key: same key MIGHT be batchable (vkCommandBatchable
+// re-verifies and splits collisions).  Hashes pipeline/descriptor/push state
+// plus the geometry content hash; correctness comes from the pairwise re-check.
 static uint64_t vkBatchKey(const SoRenderCommand & a, uint64_t contentHash)
 {
   uint64_t h = contentHash;
@@ -208,13 +193,10 @@ SoVulkanRenderBackend::shutdown()
 
   vkQueueWaitIdle(this->queue);
 
-  // Destroy the timestamp query pool now, while the VkDevice is still alive;
-  // the destructor would otherwise run after device teardown
-  // (VUID-vkDestroyQueryPool-device-parameter).
+  // Destroy the timestamp query pool while the VkDevice is alive (VUID-vkDestroyQueryPool-device-parameter).
   this->gpuTimers.shutdown();
 
-  // The queue is drained above, so the external pre-pass fence is idle; destroy
-  // it while the VkDevice is still alive.
+  // Queue is drained, so the external pre-pass fence is idle; destroy it now.
   if (this->externalPrepassFence != VK_NULL_HANDLE) {
     vkDestroyFence(this->device, this->externalPrepassFence, this->allocator);
     this->externalPrepassFence = VK_NULL_HANDLE;
@@ -223,10 +205,8 @@ SoVulkanRenderBackend::shutdown()
   // The queue is idle, so every deferred resource is safe to release now.
   this->flushAllPendingDestroys();
 
-  // Release uploads abandoned by a frame that aborted between the cache
-  // update and the flush/finalize step.  Their copies were never recorded,
-  // so synchronous destruction is safe here.  The staged pixels live in the
-  // shared staging pool, so there is no per-upload staging to free.
+  // Release uploads abandoned by a frame that aborted before flush/finalize; their copies
+  // were never recorded, so synchronous destruction is safe (shared staging pool).
   for (const PendingTextureUpload & upload : this->pendingUploads) {
     if (upload.index < this->textureCache.size()) {
       this->destroyTextureEntry(this->textureCache[upload.index]);
@@ -236,20 +216,14 @@ SoVulkanRenderBackend::shutdown()
 
   this->invalidateCache();
   this->destroyAllGeometryBlocks();
-  // invalidateCache()/destroyAllGeometryBlocks() release their cached command
-  // buffers (vertex/index/instanced-line/sub-pixel) through deferDestroy(),
-  // because a frame may still have referenced them when they were evicted.
-  // The queue is idle here, so flush that batch now; without it those buffers
-  // and their device memory leak past vkDestroyDevice
-  // (VUID-vkDestroyDevice-device-05137).
+  // invalidateCache()/destroyAllGeometryBlocks() deferDestroy() their cached command buffers
+  // (a frame may still reference one); queue idle -> flush now or leak (VUID-vkDestroyDevice-device-05137).
   this->flushAllPendingDestroys();
 
-  // Persist the driver's blob and destroy every cached pipeline + the
-  // VkPipelineCache handle (see SoVulkanPipelineCache).
+  // Persist the driver blob and destroy every cached pipeline + VkPipelineCache.
   this->pipelines.shutdown();
 
-  // The render-pass/framebuffer cache owns the current pass + framebuffer;
-  // releasing it after the deferred destroys flush above (queue is idle).
+  // The render-pass/framebuffer cache owns the current pass + framebuffer.
   this->renderPasses.destroyAll();
   if (this->subPixelCullPipeline != VK_NULL_HANDLE) {
     vkDestroyPipeline(this->device, this->subPixelCullPipeline, this->allocator);
@@ -317,8 +291,7 @@ SoVulkanRenderBackend::shutdown()
     this->pipelineLayout = VK_NULL_HANDLE;
   }
   if (this->instanceModelBuffer != VK_NULL_HANDLE) {
-    // vmaDestroyBuffer releases the buffer, its memory and the persistent host
-    // mapping together, so no explicit vkUnmapMemory is needed.
+    // vmaDestroyBuffer releases buffer, memory and host mapping (no explicit vkUnmapMemory).
     vmaDestroyBuffer(this->vmaAllocator, this->instanceModelBuffer,
                      this->instanceModelMemory);
     this->instanceModelBuffer = VK_NULL_HANDLE;
@@ -342,8 +315,7 @@ SoVulkanRenderBackend::shutdown()
   this->lightingConstMapped = nullptr;
   this->lightingDescriptorSet = VK_NULL_HANDLE;
   if (this->stagingPoolBuffer != VK_NULL_HANDLE) {
-    // vmaDestroyBuffer releases the buffer, its memory and the persistent host
-    // mapping together.
+    // vmaDestroyBuffer releases buffer, memory and persistent host mapping together.
     vmaDestroyBuffer(this->vmaAllocator, this->stagingPoolBuffer,
                      this->stagingPoolAllocation);
     this->stagingPoolBuffer = VK_NULL_HANDLE;
@@ -391,8 +363,7 @@ SoVulkanRenderBackend::shutdown()
                                  this->allocator);
     this->lightingSetLayout = VK_NULL_HANDLE;
   }
-  // Join the M1d record workers before freeing the secondary buffers they
-  // record into.
+  // Join M1d record workers before freeing their secondary buffers.
   this->shutdownRecordPool();
   this->releaseFrameResources();
   if (this->commandPool != VK_NULL_HANDLE) {
@@ -406,8 +377,7 @@ SoVulkanRenderBackend::shutdown()
   }
   this->secondaryCommandPools.clear();
   if (this->vmaAllocator != nullptr) {
-    // Queue is idle and every deferred destroy has been flushed, so all
-    // allocations are free and the allocator (and its blocks) can be released.
+    // Queue idle and deferred destroys flushed, so all allocations are free.
     vmaDestroyAllocator(this->vmaAllocator);
     this->vmaAllocator = nullptr;
   }
@@ -469,8 +439,7 @@ SoVulkanRenderBackend::prepareExternalFrame(
   const SoVulkanRenderTarget * target = this->validateRenderTarget(params);
   if (target == nullptr) return nullptr;
 
-  // External passes are caller-supplied LOAD render passes, so no attachment
-  // is cleared by a loadOp here: recordClear() must emit vkCmdClearAttachments.
+  // External passes are caller LOAD passes, so recordClear() must vkCmdClearAttachments.
   this->renderPasses.setClearedByLoad(false, false);
 
   this->cacheFrameMatrices(params);
@@ -488,19 +457,14 @@ SoVulkanRenderBackend::prepareExternalFrame(
   if (wantCpuTiming) {
     timing->geomMs = SoVulkanShared::steadyNowMs() - t0;
   }
-  // The composite path never goes through recordFrame(), so it must reserve
-  // the lighting slots its overlay/residual draws consume here; otherwise the
-  // cursor keeps climbing across frames and overflows the ring.
+  // The composite path skips recordFrame(), so reserve its overlay/residual lighting slots here.
   if (reserveCompositeSlots &&
       !this->prepareLightingSlots(countCompositeCommands(drawlist))) {
     this->emitError("failed to reserve lighting UBO slots");
     return nullptr;
   }
-  // Changed textures are now staged in pendingUploads; the caller's
-  // beginExternalPrepass() records the copies into its transient command
-  // buffer (or falls back to flushPendingTextureUploadsExternal() when that
-  // buffer cannot be allocated).  No flush here: it would need its own
-  // submission and queue drain, and the caller already submits the pre-pass.
+  // Changed textures are staged in pendingUploads; the caller's beginExternalPrepass() records
+  // the copies (or flushPendingTextureUploadsExternal()); no flush here (caller submits pre-pass).
   return target;
 }
 
@@ -546,21 +510,15 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
     if (!hasOverlay) return TRUE;
   }
 
-  // One frame boundary: advances the ring cursor and releases resources
-  // deferred maxFramesInFlight frames ago.
+  // One frame boundary: advance the ring cursor, release resources deferred maxFramesInFlight ago.
   this->beginFrame();
 
-  // Write the lighting constant block(s) into the ring once per frame so the
-  // shared lighting setup is referenced, not re-derived, per draw.
+  // Write the lighting constant block(s) into the ring once per frame.
   this->updateLightingSetup(drawlist);
 
-  // Render passes are cached by their attachment identity (formats, sample
-  // count, image layouts, load ops), not by the target's images: swapchain
-  // targets cycle their images every frame, and pipelines are keyed on the
-  // render pass handle, so reusing the pass across image changes keeps the
-  // pipeline cache warm.  On the full-target-clear fast path (FC_VULKAN_RP_CLEAR)
-  // the color/depth attachments are cleared via their loadOp at pass begin,
-  // which is cheaper than a separate vkCmdClearAttachments region clear.
+  // Render passes are cached by attachment identity (formats, samples, layouts, load ops),
+  // not the target images: swapchain images cycle and pipelines key on the pass handle, so
+  // reuse keeps the cache warm.  FC_VULKAN_RP_CLEAR clears via loadOp, cheaper than clear-cmds.
   const bool wantRpClear = COIN_VULKAN_ENV_FLAG("FC_VULKAN_RP_CLEAR");
   const bool fullTargetClear =
     wantRpClear && this->isFullTargetClear(params, *target);
@@ -578,9 +536,7 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
       : VK_ATTACHMENT_LOAD_OP_LOAD;
   this->renderPasses.getOrCreateRenderPass(*target, colorLoadOp,
                                            depthLoadOp);
-  // Stash whether the pass cleared each attachment so recordClear() can skip
-  // the redundant vkCmdClearAttachments, and (below) so the begin info carries
-  // the matching clear values.
+  // Stash which attachments the pass cleared so recordClear() skips vkCmdClearAttachments.
   this->renderPasses.setClearedByLoad(
     colorLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR,
     depthLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -592,9 +548,7 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
   this->updateGeometryCache(drawlist, overlaysOnly,
                             params.geometryContentUnchanged);
 
-  // Composite renders skip recordFrame(), so reserve the ring slots here;
-  // beginFrame() above already advanced the frame cursor.  This covers both
-  // the OVERLAY commands and the non-triangle residual geometry.
+  // Composite skips recordFrame(); reserve slots here: OVERLAY + non-triangle residue.
   if (overlaysOnly &&
       !this->prepareLightingSlots(countCompositeCommands(drawlist))) {
     this->emitError("failed to reserve lighting UBO slots");
@@ -614,29 +568,23 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
                                this->queueFamilyIndex);
   }
 
-  // The framebuffer is cached for the current target identity (image views +
-  // extent + render pass) and recreated whenever any of those change.  The
-  // old framebuffer is released through the deferred ring: an older in-flight
-  // submission may still reference it (the per-frame vkQueueWaitIdle is gone,
-  // so only the current slot's fence has been waited by beginFrame()).
+  // The framebuffer is cached per target identity (image views + extent + pass); the old one
+  // is defer-destroyed (an older in-flight submission may reference it) -- no per-frame
+  // vkQueueWaitIdle, beginFrame() waits only the current slot.
   if (!this->renderPasses.ensureFramebuffer(
         target, this->renderPasses.currentRenderPass())) {
     this->emitError("failed to create Vulkan framebuffer");
-    // The one-shot command buffer was begun above and never submitted; an
-    // implicit reset only happens on submission, so reset it explicitly or
-    // every later beginCommandBuffer() will fail.
+    // The one-shot cb was begun but not submitted; reset it explicitly or later begins fail.
     vkEndCommandBuffer(this->currentCommandBuffer());
     vkResetCommandBuffer(this->currentCommandBuffer(), 0);
     return FALSE;
   }
   const VkFramebuffer framebuffer = this->renderPasses.framebuffer();
 
-  // Record the pending texture copies into the frame command buffer (one
-  // submit for the whole frame instead of a separate transfer submit) and
-  // finalize the host-side resources.  The draws that sample these textures
-  // are recorded below, after the copies, and the descriptor sets they bind
-  // must already exist.  Staging buffers are released through the deferred
-  // ring once the slot fence signals.
+  // Record pending texture copies into the frame command buffer (one submit for
+  // the whole frame instead of a separate transfer submit) and finalize host
+  // resources.  Sampling draws are recorded below; their descriptor sets must
+  // exist.  Staging buffers release through the deferred ring on the slot fence.
   this->gpuTimers.beginScope(this->currentCommandBuffer(), "textureUploads");
   if (!this->recordPendingTextureUploads()) {
     this->emitError("failed to record texture uploads");
@@ -650,9 +598,7 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
   rpbi.framebuffer = framebuffer;
   rpbi.renderArea.offset = {0, 0};
   rpbi.renderArea.extent = target->extent;
-  // When the render pass clears an attachment via its loadOp (full-target
-  // clear fast path), the clear value must be supplied here.  clearValueCount
-  // maps one-to-one to the attachment indices (0 = color, 1 = depth).
+  // On the loadOp clear path the clear value goes here (0 = color, 1 = depth).
   VkClearValue clearValues[2];
   uint32_t clearValueCount = 0;
   if (this->renderPasses.colorClearedByLoad()) {
@@ -670,13 +616,10 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
   rpbi.clearValueCount = clearValueCount;
   rpbi.pClearValues = clearValueCount ? clearValues : nullptr;
 
-  // INLINE_AND_SECONDARY: the opaque pass replays a secondary command buffer
-  // (M1c/M1d) inside this pass, so plain INLINE contents would be a spec
-  // violation (VUID-vkCmdExecuteCommands-contents-09680) and would also stop
-  // the primary's dynamic state (viewport/scissor) from being inherited by the
-  // secondary.  The inline+secondary contents enum comes from
-  // VK_EXT_nested_command_buffer; devices without it would need the fully
-  // inline fallback (canUseSecondary == false) instead.
+  // INLINE_AND_SECONDARY: the opaque pass replays a secondary (M1c/M1d), so plain
+  // INLINE would violate VUID-vkCmdExecuteCommands-contents-09680 and break the
+  // secondary's inheritance of viewport/scissor.  The enum needs
+  // VK_EXT_nested_command_buffer; otherwise use the fully-inline fallback.
   vkCmdBeginRenderPass(this->currentCommandBuffer(), &rpbi,
                        VK_SUBPASS_CONTENTS_INLINE_AND_SECONDARY_COMMAND_BUFFERS_EXT);
   SoVulkanDebugUtils::beginLabel(this->currentCommandBuffer(),
@@ -707,9 +650,7 @@ SoVulkanRenderBackend::renderInternal(const SoDrawList & drawlist,
   vkCmdEndRenderPass(this->currentCommandBuffer());
   SoVulkanDebugUtils::endLabel(this->currentCommandBuffer());
 
-  // Submit even when recordFrame() failed: an unsubmitted one-shot command
-  // buffer cannot be reused, and a partial frame is preferable to a dead
-  // backend.
+  // Submit even on recordFrame() failure: an unsubmitted one-shot cb cannot be reused.
   const bool submitted = this->endAndSubmit();
   this->gpuTimers.endFrame();
   if (!submitted) {
@@ -746,9 +687,7 @@ SoVulkanRenderBackend::setOverlayCompositeMode(SbBool enabled)
 void
 SoVulkanRenderBackend::resetExternalGpuQueries(VkCommandBuffer commandBuffer)
 {
-  // The caller records this on its own command buffer before vkCmdBeginRenderPass:
-  // vkCmdResetQueryPool is illegal inside a render pass, and renderExternal()
-  // can only record inside the caller's pass.  No-op when timing is disabled.
+  // Caller records this on its own cb before vkCmdBeginRenderPass (reset is illegal in-pass).
   this->gpuTimers.resetSlot(commandBuffer);
 }
 
@@ -767,11 +706,9 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
 
   this->debugValidateDrawList(drawlist);
 
-  // GPU timestamps on the caller-owned pass: the caller has already begun its
-  // render pass, so it must have recorded the frame's query reset on its
-  // command buffer before vkCmdBeginRenderPass (resetExternalGpuQueries()).
-  // Only then may we write timestamps inside the pass; guard on the reset
-  // because an in-pass beginScope() cannot reset the pool itself.
+  // GPU timestamps on the caller-owned pass: the caller must have recorded the
+  // query reset before vkCmdBeginRenderPass (resetExternalGpuQueries()), else an
+  // in-pass beginScope() cannot reset the pool.  Guard on the reset.
   if (SoVulkanConfig::get().diagnostics.gpuTimestamps &&
       !this->gpuTimers.initialized()) {
     this->gpuTimers.initialize(this->device, this->physicalDevice,
@@ -790,33 +727,22 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
   if (target == nullptr) return FALSE;
   const double extPrepareEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
 
-  // The M1c/M1d secondary path records with RENDER_PASS_CONTINUE inheritance,
-  // which needs the framebuffer matching the caller's pass + swapchain image.
-  // The caller owns the pass/framebuffer pair (e.g. QVulkanWindow's
-  // defaultRenderPass()/currentFramebuffer(), whose MSAA pass carries a
-  // resolve attachment the backend cannot guess), so the framebuffer is
-  // threaded in rather than fabricated here.
+  // M1c/M1d secondary path records with RENDER_PASS_CONTINUE inheritance, needing the
+  // framebuffer matching the caller's pass + swapchain image.  The caller owns that
+  // pair (e.g. QVulkanWindow's MSAA pass), so it is threaded in, not fabricated.
   if (framebuffer == VK_NULL_HANDLE) {
     this->emitError("renderExternal called without a framebuffer");
     return FALSE;
   }
 
-  // External pre-pass.  Vulkan forbids transfer and compute inside a render
-  // pass and the caller has already begun its pass, so the pending texture
-  // copies and the sub-pixel compaction dispatches are recorded into one
-  // transient command buffer here, before recordFrame(), so the draw path sees
-  // the finalized textures and the compacted slots; it is submitted below,
-  // after the frame is recorded.  Recording before and submitting after
-  // overlaps the CPU frame recording with the previous GPU frame.  Non-fatal
-  // on failure: the caller falls back to the one-shot texture upload and the
-  // full-detail draw.
+  // External pre-pass: transfer/compute are illegal in-pass, so pending texture copies
+  // + sub-pixel compaction go into one transient command buffer before recordFrame(),
+  // submitted after (overlaps CPU recording with the previous GPU frame); non-fatal.
   VkCommandBuffer prepass = this->beginExternalPrepass(
     drawlist, params, /*lod*/ true, wantCpuTiming ? &timing : nullptr);
   if (prepass == VK_NULL_HANDLE && !this->pendingUploads.empty()) {
-    // The transient buffer could not carry the copies (allocation/begin/end
-    // failure).  Fall back to the legacy one-shot upload so the textures still
-    // land this frame; a failure there leaves the entries unstamped and the
-    // next frame retries.
+  // The transient buffer could not carry the copies; fall back to the one-shot upload so
+  // textures land.  A failure leaves entries unstamped and the next frame retries.
     const SoVulkan::Result uploadResult =
       this->flushPendingTextureUploadsExternal();
     if (!uploadResult.isOk()) {
@@ -842,16 +768,12 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
   this->recordContext.buffer = VK_NULL_HANDLE;
   const double recordEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
 
-  // Submit the pre-pass and wait so the copies and the compacted writes are
-  // visible before the caller submits its pass.  Only the pre-pass is on the
-  // critical path now; the frame recording above overlapped the previous GPU
-  // frame.
+  // Submit the pre-pass and wait so copies/compacted writes are visible before the caller's pass.
   this->submitExternalPrepass(prepass, wantCpuTiming ? &timing : nullptr);
   const double extSubmitEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
 
-  // Advance the GPU-timestamp ring and read back the oldest completed frame.
-  // The caller submits its pass after we return, so the writes for this frame
-  // are read a few frames later (no stall).  No-op when timing is disabled.
+  // Advance the GPU-timestamp ring and read back the oldest completed frame; the caller
+  // submits after we return, so this frame's writes are read a few frames later (no stall).
   this->gpuTimers.endFrame();
 
   if (wantCpuTiming) {
@@ -894,11 +816,9 @@ SoVulkanRenderBackend::renderExternalOverlay(const SoDrawList & drawlist,
     wantCpuTiming ? &timing : nullptr);
   if (target == nullptr) return FALSE;
 
-  // The composite path is a raster overlay inside the caller's (RT) pass, so
-  // it has no geometry-LOD pre-pass; it still routes any pending texture
-  // copies through the transient pre-pass, because transfer commands cannot
-  // be recorded inside the pass.  Fall back to the one-shot upload when the
-  // transient buffer cannot be allocated.
+  // The composite path is a raster overlay inside the caller's (RT) pass: no geometry-LOD
+  // pre-pass, but pending texture copies route through the transient pre-pass (transfer is
+  // illegal in-pass); fall back to the one-shot upload on failure.
   VkCommandBuffer prepass = this->beginExternalPrepass(
     drawlist, params, /*lod*/ false, wantCpuTiming ? &timing : nullptr);
   if (prepass == VK_NULL_HANDLE && !this->pendingUploads.empty()) {
@@ -949,9 +869,7 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
   const std::vector<int> & order = drawlist.getSortedOrder();
   out.clear();
 
-  // Geometry content identity for batching: reuse the cached content hash the
-  // geometry cache computed when the buffer was uploaded (a map lookup) instead
-  // of re-walking every vertex stream.
+  // Geometry content identity: reuse the hash computed at upload (a map lookup).
   auto contentHashOf = [this](const SoRenderCommand & c) -> uint64_t {
     const auto it = this->commandToCache.find(&c);
     if (it == this->commandToCache.end()) return 0;
@@ -959,16 +877,13 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
   };
 
   uint32_t nextSlot = 0;
-  // A replayed list reuses the previous frame's sorted order, which may be
-  // shorter than (or hold stale indices for) the current command list; fall
-  // back to the identity order for those entries.
+  // A replayed sorted order may be stale/shorter; fall back to identity order.
   const auto orderedIndex = [&order, &drawlist](int i) {
     return (i < static_cast<int>(order.size()) &&
             order[i] < drawlist.getNumCommands())
       ? order[i] : i;
   };
-  // Opaque then transparent, honoring the draw-list sort order.  Overlay
-  // commands are handled by the dedicated overlay block outside the work list.
+  // Opaque then transparent, honoring sort order; overlays handled outside the work list.
   for (int passIndex = 0; passIndex < 2; ++passIndex) {
     const bool transparent = passIndex == 1;
     if (transparent) {
@@ -988,10 +903,9 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
       }
     }
     else {
-      // Only depth-tested opaque geometry is render-order independent, so it can
-      // be reordered and batched.  Depth-off commands go to the on-top
-      // annotation pass; the CPU wide-line path must stay per-command.  Bucket
-      // by a batch key and re-verify pairwise (splitting any collision).
+      // Only depth-tested opaque geometry is order-independent and batchable.
+      // Depth-off commands go to on-top annotations; bucket by key, re-verify
+      // pairwise (splitting collisions).  The CPU wide-line path stays per-command.
       std::unordered_map<uint64_t, std::vector<const SoRenderCommand*>> & buckets =
         this->batchBucketScratch;
       buckets.clear();
@@ -1002,13 +916,10 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         if (command.pass == SO_RENDERPASS_TRANSPARENT) continue;
         if (!command.state.depth.enabled) continue; // on-top annotation (later)
         if (isWideLine(command, -1, this->interactionLodActive)) {
-          // CPU-expanded per command, so never batched.  It still goes into a
-          // secondary: prepareWideLineBuffers() has already grown the
-          // per-command quad buffer on the recording thread, so the parallel
-          // workers only fill the existing host-visible mapping and bind it.
-          // The expansion is the dominant per-frame CPU cost on edge-heavy
-          // scenes, and routing it through the workers is what parallelizes
-          // it (previously it ran inline on the recording thread).
+          // CPU-expanded per command, so never batched, but still routed to a secondary:
+          // prepareWideLineBuffers() grew the quad buffer on the recording thread, so
+          // workers only fill/bind the existing mapping.  Expansion dominates per-frame
+          // CPU on edge-heavy scenes; routing it through the workers parallelizes it.
           if (!this->findCachedDrawable(command)) continue;
           VulkanWorkItem item;
           item.single = &command;
@@ -1051,21 +962,10 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
       }
     }
 
-    // Wireframe/point overlay: re-draw opaque geometry in the requested fill
-    // mode using a uniform edge color.
-    //
-    // When the request is a LINES (edge) overlay, re-draw only the actual
-    // B-Rep feature-edge commands (SoBrepEdgeSet emits SO_TOPOLOGY_LINES /
-    // LINE_STRIP).  Re-drawing every triangle command in polygon-LINES would
-    // paint the raw tessellation -- the straight seam meridian on a sphere and
-    // the radial fan spokes on a cylinder cap -- instead of the true feature
-    // edges (rims, creases, seams).  A CAD edge overlay must show only feature
-    // edges; smooth curved surfaces carry no feature edges and read as clean.
-    //
-    // The debug tessellation overlay is the opposite request: re-draw the
-    // TRIANGLE commands in polygon-LINES so the raw triangulation edges are
-    // visible on top of the shaded geometry, and skip the line commands so
-    // the feature edges are not double-painted.
+    // Wireframe/point overlay: re-draw opaque geometry in the requested fill mode with
+    // a uniform edge color.  A LINES (edge) overlay re-draws only real B-Rep feature
+    // edges (SoBrepEdgeSet emits SO_TOPOLOGY_LINES/LINE_STRIP), not every triangle in
+    // polygon-LINES -- that would show the raw tessellation.  Tess overlay does the opposite.
     if (!transparent && (wireframeFillMode >= 0 || tessellationOverlay)) {
       const bool isEdgeOverlay = (wireframeFillMode == SoDrawStyleElement::LINES);
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
@@ -1081,16 +981,10 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
           topo == SO_TOPOLOGY_LINE_STRIP;
         const bool triTopo = topo == SO_TOPOLOGY_TRIANGLES ||
           topo == SO_TOPOLOGY_TRIANGLE_STRIP;
-        // The enabled overlays form a union: the edge overlay re-draws only
-        // real line commands (feature edges), the points overlay re-draws
-        // every command as points, and the tessellation overlay re-draws only
-        // triangle commands.  Filter each independently so enabling two
-        // overlays re-draws both sets instead of cancelling out -- a triangle
-        // is wanted by the tess overlay even while the edge overlay is active,
-        // and a line by the edge overlay even while the tess overlay is.
-        // The edge overlay re-draws only real B-Rep feature edges
-        // (SoBrepEdgeSet), not every line command: the Draft grid, dimensions
-        // and other annotation line sets keep their own per-part colors.
+        // Enabled overlays form a union (edge = feature-edge lines, points = all as
+        // points, tess = triangles), filtered independently so two enabled overlays
+        // re-draw both sets instead of cancelling out.  Edge re-draws only real B-Rep
+        // feature edges; Draft grid/dimension annotations keep their own colors.
         const bool wantEdge = isEdgeOverlay && lineTopo
           && command.isFeatureEdge;
         const bool wantPoints = wireframeFillMode == SoDrawStyleElement::POINTS;
@@ -1099,8 +993,7 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         VulkanWorkItem item;
         item.single = &command;
         item.count = 1;
-        // The tessellation overlay re-draws triangles in polygon-LINES; the
-        // edge/points overlays keep their own fill mode.
+        // Tess re-draws triangles in polygon-LINES; edge/points keep their fill mode.
         item.fillModeOverride = wantTess
           ? SoDrawStyleElement::LINES
           : wireframeFillMode;
@@ -1111,8 +1004,7 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
     }
   }
 
-  // On-top annotations: depth-disabled commands drawn after both passes in
-  // insertion order.
+  // On-top annotations: depth-disabled commands, after both passes, in insertion order.
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
     if (command.pass == SO_RENDERPASS_OVERLAY) continue;
@@ -1125,12 +1017,9 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
     out.push_back(item);
   }
 
-  // M1d: when the opaque pass is recorded in parallel, pre-resolve every
-  // recordToSecondary item's pipeline here (single-threaded).  getOrCreatePipeline()
-  // mutates the shared pipeline store/gpuCache on its cold path, so warming each
-  // key ahead of the dispatch means the parallel recorders only hit the read-only
-  // warm fast path and never race on the cache.  Opaque items use the default
-  // (non-transparent, no fill-mode override, not an overlay) recording state.
+  // M1d: pre-resolve each recordToSecondary item's pipeline here (single-threaded):
+  // getOrCreatePipeline() mutates the shared store/gpuCache on its cold path, so
+  // warming keys first leaves the parallel recorders on the read-only fast path.
   if (this->parallelRecordEnabled) {
     const auto * tgt = static_cast<const SoVulkanRenderTarget *>(params.renderTarget);
     if (tgt) {
@@ -1138,8 +1027,7 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         if (!item.recordToSecondary) continue;
         const SoRenderCommand * const cmd =
           item.count > 1 ? item.commands[0] : item.single;
-        // Pass the cache entry so the warmed key matches the one the record
-        // path builds (it depends on the command's wide-line instance buffer).
+        // Pass the cache entry so the warmed key matches the record path's key.
         VulkanCachedCommand * entry = nullptr;
         const auto found = this->commandToCache.find(cmd);
         if (found != this->commandToCache.end()) {
@@ -1163,8 +1051,7 @@ SoVulkanRenderBackend::recordWorkItem(const SoDrawList & drawlist,
                                       const VulkanWorkItem & item,
                                       VulkanRecordContext & ctx)
 {
-  // Plant the pre-assigned disjoint slot block, then record one draw or one
-  // instanced batch.  The record helper advances ctx.uboCmdIndex from here.
+  // Plant the pre-assigned disjoint slot block, then record one draw/instanced batch.
   ctx.uboCmdIndex = item.slotBase;
   vkBackendTrace(this->uboFrameIndex, "recordWorkItem.enter",
                  "count=%d slotBase=%u kind=%s",
@@ -1177,8 +1064,7 @@ SoVulkanRenderBackend::recordWorkItem(const SoDrawList & drawlist,
                                  ctx)) {
       return;
     }
-    // Batch rejected (e.g. a non-batchable command slipped in): fall back to
-    // per-command draws over the item's slot range, each at its own slot.
+    // Batch rejected (non-batchable command slipped in): fall back to per-command draws.
     for (int k = 0; k < item.count; ++k) {
       ctx.uboCmdIndex = item.slotBase + static_cast<uint32_t>(k);
       this->recordDrawCommand(drawlist, *item.commands[k], target, params,
@@ -1215,8 +1101,7 @@ SoVulkanRenderBackend::recordSecondaryChunk(VulkanRecordContext & ctx,
   vkBackendTrace(this->uboFrameIndex, "recordSecondaryChunk.resetDone",
                  "secondary=%p",
                  reinterpret_cast<const void *>(secondary));
-  // Start from a clean dedup cache: secondary buffers inherit nothing (not
-  // dynamic state, pipeline, or descriptors) from the primary.
+  // Clean dedup cache: secondaries inherit no dynamic state, pipeline or descriptors.
   ctx.reset();
   VkCommandBufferBeginInfo sbi {};
   sbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1257,14 +1142,11 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
 {
   vkBackendTrace(this->uboFrameIndex, "recordFrame.enter",
                  "cmds=%d", drawlist.getNumCommands());
-  // Latch the interaction-LOD state before any isWideLine() decision so the
-  // wide-line expansion, pipeline key and draw path all agree for this frame.
+  // Latch interaction-LOD before any isWideLine() decision so expansion, pipeline key and draw path agree.
   this->interactionLodActive = params.interactionLod == TRUE;
-  // Wide-line CPU expansion: grow the per-command quad buffers (device-memory
-  // allocation is not thread-safe) and compute the quads across the worker
-  // pool before recording, which then only binds the cached buffers.  The
-  // expansion is the CPU-heavy part of edge rendering and is embarrassingly
-  // parallel; the command-buffer recording itself stays single-threaded.
+  // Wide-line CPU expansion: grow per-command quad buffers (device-memory allocation
+  // is not thread-safe) and compute quads across the worker pool before recording;
+  // expansion is the CPU-heavy, parallel part, recording stays single-threaded.
   this->prepareWideLineBuffers(drawlist);
   this->expandWideLinesParallel(drawlist, params);
   if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_MATRIX_DUMP")) {
@@ -1279,14 +1161,10 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   this->recordClear(params, target, this->renderPasses.colorClearedByLoad(),
                     this->renderPasses.depthClearedByLoad(), ctx);
   this->recordBackground(params, target, renderPass, ctx);
-  // The background pass overrides the viewport/scissor for its own draw;
-  // restore the viewport from params before recording geometry so draws
-  // land in the requested region.
+  // The background pass overrides viewport/scissor; restore from params before geometry.
   this->applyViewport(params, target, ctx);
 
-  // Vulkan-only display options, configured through setWireframeOverlay()/
-  // setPointsOverlay()/setTessellationOverlay()/setEdgeColor().  Environment
-  // variables act as a diagnostic fallback for the command line.
+  // Vulkan-only display options (setWireframeOverlay()/setPointsOverlay()/setTessellationOverlay()/setEdgeColor()).
   const bool wireframeOverlay =
     this->wireframeOverlay || COIN_VULKAN_ENV_FLAG("FC_VULKAN_WIREFRAME");
   const bool pointsOverlay =
@@ -1297,10 +1175,7 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     this->edgeColor[0], this->edgeColor[1], this->edgeColor[2],
     this->edgeColor[3]
   };
-  // Parse the FC_VULKAN_EDGE_COLOR override (a diagnostic switch) once; it is
-  // process-lifetime and this runs on the overlay path, so two env reads
-  // per frame is pure overhead.  Only RGB is taken from the hex value; alpha
-  // keeps the configured edgeColor's.
+  // Parse the FC_VULKAN_EDGE_COLOR diagnostic override once; RGB from hex, alpha kept from edgeColor.
   struct EdgeColorOverride { bool present; float rgb[3]; };
   static const EdgeColorOverride edgeOverride = []() {
     EdgeColorOverride o{false, {0.0f, 0.0f, 0.0f}};
@@ -1321,9 +1196,7 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     overlayColor[1] = edgeOverride.rgb[1];
     overlayColor[2] = edgeOverride.rgb[2];
   }
-  // No overlay when neither is requested; otherwise re-draw opaque geometry
-  // in the requested draw style (SoDrawStyleElement encoding: LINES=1,
-  // POINTS=2) using a uniform edge color.
+  // Re-draw opaque geometry in the requested draw style (LINES=1, POINTS=2) with a uniform edge color.
   const int wireframeFillMode = wireframeOverlay
     ? SoDrawStyleElement::LINES
     : (pointsOverlay ? SoDrawStyleElement::POINTS : -1);
@@ -1338,20 +1211,18 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     }
   }
 
-  // Reserve per-draw lighting slots for the worst case (main pass plus
-  // overlay redraws) before recording, so slotIndex can never overflow the
-  // ring allocation (VUID-vkCmdBindDescriptorSets-pDynamicOffsets-01972).
+  // Reserve per-draw lighting slots for the worst case (main pass + overlay
+  // redraws) before recording so slotIndex never overflows the ring allocation
+  // (VUID-vkCmdBindDescriptorSets-pDynamicOffsets-01972).
   if (!this->prepareLightingSlots(countDrawCommands(drawlist,
                                                     wireframeFillMode,
                                                     tessellationOverlay))) {
     return FALSE;
   }
 
-  // Build the read-only worklist (bucketed opaque + batched + transparent +
-  // overlay-redraw + annotation items), each with a pre-assigned disjoint
-  // slotBase, then record it.  buildWorkItems() mirrors the exact order the
-  // previous inline loops used, and the slotBase values match what the
-  // per-draw uboCmdIndex++ sequence produced, so recording is identical.
+  // Build the read-only worklist (bucketed/batched opaque + transparent + overlay
+  // redraw + annotation items), each with a pre-assigned disjoint slotBase, then
+  // record it.  buildWorkItems() mirrors the old inline order, so recording is identical.
   std::vector<VulkanWorkItem> & workItems = this->workItemsScratch;
   this->buildWorkItems(drawlist, params, wireframeOverlay, pointsOverlay,
                        tessellationOverlay, overlayColor, renderPass,
@@ -1359,15 +1230,9 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   vkBackendTrace(this->uboFrameIndex, "recordFrame.workItemsBuilt",
                  "items=%zu", workItems.size());
 
-  // Secondaries are recorded with RENDER_PASS_CONTINUE inheritance into the
-  // pass the frame is in.  On the INTERNAL path that pass is backend-owned
-  // (renderPass == this->renderPasses.currentRenderPass()) and the combination
-  // is exercised by the testsuite.  The EXTERNAL path (FreeCAD's QuarterVulkanWidget) hands us a
-  // caller-owned pass/framebuffer/command-buffer triplet (QVulkanWindow's,
-  // possibly MSAA); recording secondaries against it has proven to corrupt
-  // NVIDIA driver state (crash inside the driver at the first render-pass
-  // command after the replay) so it stays OFF unless explicitly opted in
-  // while that interaction is investigated.
+  // Secondaries record with RENDER_PASS_CONTINUE inheritance into the frame's pass.
+  // INTERNAL is backend-owned; EXTERNAL (FreeCAD/QuarterVulkanWidget) is caller-owned
+  // and corrupts NVIDIA driver state, so it stays OFF unless explicitly opted in.
   const bool externalPass = renderPass != this->renderPasses.currentRenderPass();
   const bool canUseSecondary =
     !this->secondaryCommandBuffers.empty() &&
@@ -1413,8 +1278,7 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
       }
       return TRUE;
     }
-    // The primary's bound state was NOT preserved across the secondary, so
-    // reset its dedup cache before continuing inline.
+    // The primary's bound state is not preserved across the secondary; reset its cache.
     ctx.buffer = primary;
     ctx.reset();
     vkCmdExecuteCommands(primary, 1, &secondary);
@@ -1426,9 +1290,8 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   }
   else if (wantParallel) {
     // M1d parallel: partition opaque items into disjoint chunks (greedy
-    // longest-first for load balance), record each into its own worker
-    // secondary in parallel, then replay all in order followed by the inline
-    // painter-order / overlay / annotation items.
+    // longest-first for load balance), record each into its own worker secondary,
+    // replay all in order, then inline the painter-order / overlay / annotation items.
     if (COIN_VULKAN_ENV_FLAG("FC_VULKAN_BACKEND_DEBUG")) {
       static int parLog = 0;
       if (parLog++ < 3) {
@@ -1503,9 +1366,7 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     vkBackendTrace(this->uboFrameIndex, "recordFrame.joined",
                    "doneCount=%d ok0=%d",
                    this->recordDoneCount.load(), this->recordJobs[0].ok ? 1 : 0);
-    // Replay the secondaries in order, then inline the non-opaque items.
-    // A failed worker's chunk is re-recorded inline (serial fallback) into the
-    // primary instead of executing its possibly-invalid secondary.
+    // Replay secondaries in order, then inline non-opaque items; a failed worker records inline.
     VkCommandBuffer primary = this->currentCommandBuffer();
     ctx.buffer = primary;
     ctx.reset();
@@ -1542,9 +1403,7 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
     }
   }
 
-  // Screen-space overlay geometry (navigation cube): drawn after both passes
-  // into its own viewport, with the overlay rect's depth cleared first so the
-  // overlay self-occludes independently of the main scene.
+  // Screen-space overlay geometry (navigation cube) into its own viewport, depth cleared first.
   this->recordOverlayBlock(drawlist, params, target, renderPass, ctx);
 
   return true;
@@ -1557,11 +1416,9 @@ SoVulkanRenderBackend::recordOverlayBlock(const SoDrawList & drawlist,
                                           VkRenderPass renderPass,
                                           VulkanRecordContext & ctx)
 {
-  // Overlays are drawn in recorded (insertion) order, matching GL: the
-  // draw-list sorted order is a painter's algorithm built from the main
-  // scene's camera-space depth, which is meaningless for screen-space
-  // overlay geometry and would shuffle the navigation cube's panels
-  // relative to each other and to other overlays.
+  // Overlays draw in recorded (insertion) order, matching GL: the draw-list sorted
+  // order is a painter's algorithm from main-scene camera-space depth, meaningless
+  // for screen-space overlays (it would shuffle the navigation cube's panels).
   int lastClearX = -1, lastClearY = -1, lastClearW = -1, lastClearH = -1;
   const SbVec2s frameSize = params.viewport.getViewportSizePixels();
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
@@ -1572,12 +1429,9 @@ SoVulkanRenderBackend::recordOverlayBlock(const SoDrawList & drawlist,
         raster.scissorHeight <= 0) {
       continue;
     }
-    // The selection/preselection highlight is a full-frame overlay: it must
-    // depth-test against the scene depth (so a selected face behind other
-    // geometry stays hidden), NOT be forced on top.  Clearing the depth over
-    // the whole viewport would let it composite over everything.  Only the
-    // sub-viewport widgets (navigation cube, axis cross) clear depth so they
-    // remain visible over the scene.
+    // The selection/preselection highlight is a full-frame overlay that must depth-test
+    // against scene depth (NOT be forced on top), so its depth is not cleared.  Only
+    // sub-viewport widgets (navigation cube, axis cross) clear depth.
     const bool fullFrameOverlay =
       raster.scissorWidth == frameSize[0] && raster.scissorHeight == frameSize[1];
     if (raster.scissorX != lastClearX || raster.scissorY != lastClearY ||
@@ -1603,21 +1457,14 @@ SoVulkanRenderBackend::recordTracedComposite(const SoDrawList & drawlist,
                                              VkRenderPass renderPass,
                                              VulkanRecordContext & ctx)
 {
-  // Same parallel wide-line expansion as recordFrame(): the RT composite
-  // draws the line/point residue here, so it needs the same pre-expanded
-  // buffers.
+  // Same parallel wide-line expansion as recordFrame(): the RT composite draws the residue.
   this->prepareWideLineBuffers(drawlist);
   this->expandWideLinesParallel(drawlist, params);
 
   // Ray-tracing compositing residue: the RT backend traces only triangles, so
-  // the OPAQUE/TRANSPARENT LINES / POINTS / LINE_STRIP commands (BRep edge
-  // lines, point markers, polylines) are drawn here as a raster layer on top
-  // of the path-traced image.  The present pass wrote the scene depth, so
-  // each fragment is depth tested with the overlay's LESS_OR_EQUAL compare
-  // (recordDrawCommand's overlay path): a front face's edge lies at the
-  // traced surface's depth and passes, while a hidden back-facing edge is
-  // farther and is culled -- matching the raster pipeline's silhouette edge
-  // look.  Depth is not cleared here and depth write stays off.
+  // LINES/POINTS/LINE_STRIP commands (BRep edges, point markers, polylines) are drawn
+  // as a raster layer over the traced image, depth-tested (LESS_OR_EQUAL) against the
+  // present pass's scene depth so hidden back edges are culled.  No depth clear/write.
   for (int i = 0; i < drawlist.getNumCommands(); ++i) {
     const SoRenderCommand & command = drawlist.getCommand(i);
     if (command.pass == SO_RENDERPASS_OVERLAY) continue;
@@ -1626,16 +1473,12 @@ SoVulkanRenderBackend::recordTracedComposite(const SoDrawList & drawlist,
     if (topo == SO_TOPOLOGY_TRIANGLE_STRIP) continue;
 
     [[maybe_unused]] const SoRasterState & raster = command.state.raster;
-    // Apply the command's own viewport/scissor if it carries one, else the
-    // whole-surface viewport (the default for scene geometry).
+    // Apply the command's own viewport/scissor if set, else the whole-surface default.
     this->applyCommandViewport(command, target, ctx);
     this->applyScissor(command, target, ctx);
-    // overlayPass=false: these are scene-geometry edge/point commands, so
-    // they must draw with the FRAME camera (params.projMatrix), not the
-    // command's own projection matrix.  Passing overlayPass=true made them
-    // use a stale per-command proj, displacing them off the traced surface
-    // (the offset "phantom box").  They inherit the raster depth compare so
-    // the present-pass depth occludes hidden edges.
+    // overlayPass=false: these are scene-geometry edge/point commands, so draw with the
+    // FRAME camera (params.projMatrix), not the command's own proj -- overlayPass=true
+    // used a stale proj, displacing them off the traced surface (the "phantom box").
     this->recordDrawCommand(drawlist, command, target, params, renderPass,
                             false, -1, nullptr, false, ctx);
   }

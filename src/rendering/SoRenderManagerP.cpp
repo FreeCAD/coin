@@ -138,8 +138,7 @@ SoRenderManagerP::setClippingPlanes(void)
   xbox.transform(mat);
   SbBox3f box = xbox.project();
 
-  // Shared near/far computation (diagonal offset, empty-box defaults,
-  // perspective near limit) with the Vulkan manager.
+  // Shared with the Vulkan manager (offset, empty-box defaults, near limit).
   float nearval, farval;
   if (!coinComputeClippingPlanes(
         box,

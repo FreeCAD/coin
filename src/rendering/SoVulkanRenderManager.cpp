@@ -47,17 +47,14 @@ static void vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor);
 #include <memory>
 #include <vector>
 
-// Graph-fingerprint helpers for the retained-IR replay live in
-// SoVulkanReplayKey.h so the key and its node-class exclusions are testable.
+// Graph-fingerprint helpers live in SoVulkanReplayKey.h (testable).
 using namespace CoinVulkanReplay;
 
 namespace {
 
-// Cached environment checks for the diagnostic flags.  These sit on the
-// per-frame path and the environment does not change during a process
-// lifetime, so the getenv() lookup (not thread-safe) is performed at most
-// once instead of every frame.  All flags use the shared
-// SoVulkanShared::envFlagEnabled policy (honors "0"/"false"/"off" opt-outs).
+// Cached env-var checks: on the per-frame path, and getenv() is not
+// thread-safe, so resolve once. All use SoVulkanShared::envFlagEnabled
+// (honors "0"/"false"/"off" opt-outs).
 bool clipDebugEnabled()
 {
   static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_CLIP_DEBUG");
@@ -70,10 +67,9 @@ bool breadcrumbsEnabled()
   return enabled;
 }
 
-// Per-phase CPU timing for the fcprobe profile harness.  Gated by the same
-// FC_VULKAN_FRAME_TIMING flag as the RTX [RTDBG] frameTiming line; the manager
-// emits its own [RTDBG] cpuTiming line (clip/apply/restamp/sort) so the
-// existing frameTiming regex in vk_profile_probe.check.py is untouched.
+// Per-phase CPU timing for the fcprobe harness, gated by FC_VULKAN_FRAME_TIMING.
+// Emits its own [RTDBG] cpuTiming (clip/apply/restamp/sort) so the frameTiming
+// regex in vk_profile_probe.check.py stays untouched.
 bool frameTimingEnabled()
 {
   static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_FRAME_TIMING");
@@ -110,31 +106,20 @@ void vkRenderBreadcrumbSince(long startUs, long thresholdUs, const char* phase)
                                   startUs, thresholdUs, phase);
 }
 
-// When FC_VULKAN_CLIP_VERBOSE is set, the near/far probe below logs every
-// frame instead of the sparse every-25-frame sampler, so a probe can assert
-// that the auto-clipping near/far planes recompute after a scene transform
-// change (the cached-bbox correctness case).
+// FC_VULKAN_CLIP_VERBOSE: log near/far every frame instead of the sparse
+// sampler, so a probe can assert the auto-clip planes recompute after a scene
+// transform change (cached-bbox correctness case).
 bool clipVerboseEnabled()
 {
   static const bool enabled = SoVulkanShared::envFlagEnabled("FC_VULKAN_CLIP_VERBOSE");
   return enabled;
 }
 
-// Cheap content fingerprint over the MAIN part of the IR draw list: the
-// world model transform and geometry identity of the first \a mainCount
-// commands.  The scene bbox (and thus the auto-clipping near/far planes)
-// depends on the main scene's geometry + world transform, so a change in any
-// main command's model matrix (an object or ancestor moved/rotated), its
-// geometry streams, or its counts means the world extent can differ and the
-// cache must refresh.  Command count alone is not a sound proxy: moving a
-// body keeps the same number of draw commands but changes its world extent.
-// Only the main commands are hashed: the overlay/decoration commands appended
-// after index mainCommandCount are re-recorded every frame with
-// camera-dependent model matrices, so hashing them would change the
-// fingerprint on pure camera moves and defeat the cache.  This is far cheaper
-// than re-running SoGetBoundingBoxAction over the whole scene every frame,
-// and it is a sound signal -- any main-scene extent change necessarily
-// implies a geometry or model-transform change in these commands.
+// Content fingerprint of the first \a mainCount commands: mixes model matrix,
+// geometry pointers and counts. The scene bbox/auto-clip planes depend on main
+// geometry + world transform; command count alone is unsound (moving a body
+// keeps the count but changes extent). Overlay/decoration are excluded; this is
+// cheaper than a per-frame bbox walk and is a sound change signal.
 uint64_t computeSceneFingerprint(const SoIRRenderAction & action, int mainCount)
 {
   const SoDrawList & drawList = action.getDrawList();
@@ -143,16 +128,14 @@ uint64_t computeSceneFingerprint(const SoIRRenderAction & action, int mainCount)
   for (int i = 0; i < n; ++i) {
     const SoRenderCommand & c = drawList.getCommand(i);
     const SoGeometryDesc & g = c.geometry;
-    // Mix the world transform (model matrix) so object/ancestor motion and
-    // rotation (which do not change command count) still invalidate the cache.
+    // Mix the world transform so object/ancestor motion still invalidates.
     for (int k = 0; k < 16; ++k) {
       uint32_t bits;
       std::memcpy(&bits, &(c.modelMatrix[k >> 2][k & 3]), sizeof(bits));
       const uint64_t v = bits;
       h ^= v + 0x517cc1b727220a95ULL + (h << 6) + (h >> 2);
     }
-    // Mix geometry identity (buffers are reallocated on rebuild, so pointer
-    // identity tracks content) and counts.
+    // Mix geometry identity (pointers track reallocated buffers) and counts.
     const uint64_t ids[5] = {
       reinterpret_cast<uintptr_t>(g.positions),
       reinterpret_cast<uintptr_t>(g.normals),
@@ -172,12 +155,10 @@ uint64_t computeSceneFingerprint(const SoIRRenderAction & action, int mainCount)
   return h;
 }
 
-// IR replay kill switch: retained-drawlist replay is on by default; set
-// FC_VULKAN_IR_REPLAY=0 to force a full scene re-traversal every frame.
+// FC_VULKAN_IR_REPLAY=0 forces a full scene re-traversal every frame.
 bool irReplayEnabled()
 {
-  // On by default; the shared helper honors the full 0/false/off opt-out set
-  // (this site used to accept only a leading '0', unlike every other flag).
+  // Default on; shared helper honors the full 0/false/off opt-out set.
   static const bool enabled =
     SoVulkanShared::envFlagEnabled("FC_VULKAN_IR_REPLAY", true);
   return enabled;
@@ -192,32 +173,27 @@ public:
       overlayIrAction(SbViewportRegion())
   {
     this->viewportRegion.setWindowSize(1, 1);
-    // Persist one traversal root so prepareRenderParams() does not heap-allocate
-    // + ref/unref a new separator on every frame.  Children are cleared and
-    // re-added each frame; only the root node itself is retained.
+    // Persist one traversal root so prepareRenderParams() need not allocate
+    // and ref/unref a separator each frame; only the root is retained.
     this->frameRoot = new SoSeparator;
     this->frameRoot->ref();
-    // A separate root for the always-re-recorded overlay/decoration scenes
-    // (nav cube, axis cross), kept apart from the replayed main scene.
+    // Separate root for the always-re-recorded overlay/decoration scenes.
     this->overlayRoot = new SoSeparator;
     this->overlayRoot->ref();
-    // Dirty-tracking sensor for the graph-fingerprint fast-path: the sensor is
-    // attached to the main scene and fires whenever any descendant is notified,
-    // so computeGraphFingerprint() can skip the O(N) scene walk on frames
-    // where the scene has not changed (static / camera-only frames).
+    // Dirty-tracking sensor on the main scene: fires on any descendant
+    // notification, letting computeGraphFingerprint() skip the O(N) walk on
+    // unchanged (static/camera-only) frames.
     this->sceneGraphSensor =
       new SoNodeSensor(vulkanSceneGraphChangedCallback, this);
-    // Priority 0 makes this a SoDelayQueueSensor "immediate" sensor AND makes
-    // SoDataSensor populate the trigger node/operation type; at the default
-    // priority the trigger is left null and the callback cannot tell a
-    // camera-coupled field write from a real scene change (see the callback).
+    // Priority 0 makes it an "immediate" sensor AND makes SoDataSensor
+    // populate the trigger node/op; at default priority the trigger is null
+    // and the callback cannot tell a camera write from a real scene change.
     this->sceneGraphSensor->setPriority(0);
   }
 
   ~SoVulkanRenderManagerP()
   {
-    // Detach/destroy the scene-dirty sensor FIRST: it is attached to the main
-    // scene node, which is unref'd below and may be destroyed here.
+    // Detach/destroy the scene sensor first: its scene node is unref'd below.
     if (this->sceneGraphSensor) {
       this->sceneGraphSensor->detach();
       delete this->sceneGraphSensor;
@@ -247,25 +223,19 @@ public:
   SoNode * overlayScene = nullptr;
   SoNode * decorationScene = nullptr;
   SoCamera * camera = nullptr;
-  //! Cached result of resolveActiveCamera(): the first camera node found in the
-  //! scene, plus the child-index path from the scene root down to it.  Reused
-  //! while the path still resolves to the same node, which is checked in O(depth)
-  //! instead of an O(scene) SoSearchAction.  A camera-pose write does not change
-  //! the path (the node identity is unchanged), so the search is skipped on
-  //! navigation frames; a child-list edit that shifts, removes or replaces any
-  //! node on the path fails the check and re-runs the search.  See
-  //! resolveActiveCamera().
+  //! Cached resolveActiveCamera() result: the first camera in the scene and the
+  //! child-index path to it. Revalidated in O(depth) rather than an O(scene)
+  //! search; a camera-pose write keeps the path valid, a child-list edit on the
+  //! path fails it and re-runs the search.
   SoCamera * resolvedCamera = nullptr;
   SoNode * resolvedCameraScene = nullptr;
   std::vector<int> resolvedCameraPath;
-  //! The retained camera (this->camera) at the time the search last ran.  Used
-  //! only for the "no camera in the scene" result: it is reused while the scene
-  //! pointer and this pointer are unchanged, so a fruitless search is not
-  //! repeated every frame (it costs ~44 ms on a 1600-shape scene and FreeCAD's
-  //! camera is never inside the traversed scene).
+  //! Retained camera when the search last ran; caches the "no camera in scene"
+  //! result so the fruitless O(scene) search (~44 ms on a 1600-shape scene) is
+  //! not repeated every frame.
   SoCamera * resolvedCameraFallback = nullptr;
   bool resolvedCameraCached = false;
-  // Persistent traversal root (see the constructor comment).
+  // Persistent traversal root (see constructor).
   SoSeparator * frameRoot = nullptr;
   //! Persistent root for the always-re-recorded overlay/decoration scenes.
   SoSeparator * overlayRoot = nullptr;
@@ -279,195 +249,145 @@ public:
   SbBool wireframeOverlay = FALSE;
   SbBool pointsOverlay = FALSE;
   SbBool tessellationOverlay = FALSE;
-  //! Interaction LOD state, forwarded to the RT backend.  Persisted here so a
-  //! later RT-backend bring-up (setViewSettings/invalidateViewSettings) can
-  //! re-apply it.
+  //! Interaction LOD, persisted so a later RT-backend bring-up can re-apply it.
   SbBool interactionLod = FALSE;
   SbColor4f edgeColor = SbColor4f(0.05f, 0.05f, 0.05f, 1.0f);
-  //! Last settings blob applied through setViewSettings(), and whether one has
-  //! been applied yet (so the first call always applies).
+  //! Last setViewSettings() blob; the applied flag makes the first call always apply.
   SoVulkanViewSettings viewSettings;
   SbBool viewSettingsApplied = FALSE;
   SbBool clearWindow = TRUE;
   SbBool clearDepth = TRUE;
   void * renderTarget = nullptr;
-  //! Device-pixel ratio of the Vulkan surface.  The swapchain/viewport region
-  //! is in device pixels, so renderer widths/sizes (logical SoDrawStyle
-  //! points) must be scaled by this; kept in the render params for the
-  //! backends and also exposed to the SoDevicePixelRatio element.
+  //! Device-pixel ratio of the Vulkan surface. The viewport region is in
+  //! device pixels, so logical SoDrawStyle widths/sizes are scaled by this in
+  //! the backends; also exposed to the SoDevicePixelRatio element.
   float devicePixelRatio = 1.0f;
 
   SoVulkanRenderManager::AutoClippingStrategy autoClipping =
     SoVulkanRenderManager::NO_AUTO_CLIPPING;
   float nearplanevalue = 0.6f;
 
-  //! Generation counter bumped every time the active camera's identity
-  //! changes (a different node, position, orientation or projection).  The
-  //! ray-tracing backend reads this instead of diffing floating-point view
-  //! matrices, which are fragile (a real camera move can produce variations
-  //! swallowed by the equality epsilon, and single-precision translation can
-  //! alias under a hash).  A monotonically increasing integer is unambiguous.
+  //! Bumped whenever the active camera's identity or pose changes. The RT
+  //! backend reads this instead of diffing float view matrices, which are
+  //! fragile (epsilon-swallowed moves, single-precision aliasing under a hash).
   uint32_t cameraVersion = 0;
 
-  //! Fingerprint of the camera pose (position + forward direction) used to
-  //! detect in-place pose changes of the same camera node, because a pointer
-  //! comparison cannot see a rotation/pan/zoom that mutates the node.
+  //! Pose fingerprint (position + forward) to catch in-place pose changes of
+  //! the same camera node that a pointer comparison cannot see.
   uint32_t cameraPoseFingerprint = 0;
 
-  //! 1-based ordinal of the last presented frame.  Bumped exactly once per
-  //! render()/renderExternal() call and copied into SoRenderParams::frame,
-  //! so backends, frame dumps and probe phase markers can correlate on one
-  //! monotonic key independent of stream ordering.
+  //! 1-based ordinal of the last presented frame; bumped once per
+  //! render()/renderExternal() and copied into SoRenderParams::frame so
+  //! backends/dumps/probes share one monotonic key.
   uint32_t frameOrdinal = 0;
 
   //! --- Retained-IR replay state (camera-only frame fast path) ----------
-  //! Fold of the render-affecting graph (see graphFingerprintWalk) from the
-  //! last full traversal; a match means the retained IR draw list (and the
-  //! geometry/texture caches keyed on it) is still exactly reproducible.
+  //! Graph fold from the last full traversal (graphFingerprintWalk); a match
+  //! means the retained draw list (and its geometry/texture caches) reproduces.
   uint64_t graphFingerprint = 0;
   SbBool graphFingerprintValid = FALSE;
-  //! Inputs the last graph-fingerprint walk was computed from, plus an
-  //! SoNodeSensor dirty flag: the sensor fires whenever the main scene graph
-  //! is notified, so the O(N) scene walk can be skipped on frames where the
-  //! scene has not changed (camera-only / static frames).  See
-  //! prepareRenderParams.
+  //! Inputs of the last graph-fingerprint walk; with sceneGraphDirty (the root
+  //! sensor) this skips the O(N) walk on unchanged frames. See prepareRenderParams.
   SbBool lastFpValid = FALSE;
   SoNode * lastFpScene = nullptr;
   SbVec2s lastFpViewport = SbVec2s(0, 0);
   float lastFpDpr = 1.0f;
   SbBool sceneGraphDirty = TRUE;
   SoNodeSensor * sceneGraphSensor = nullptr;
-  //! Caller-published revision of state the graph walk cannot see (the
-  //! selection model behind FreeCAD's highlight roots); mixed in verbatim.
+  //! Caller-published revision the walk cannot see (selection behind highlight roots).
   uint64_t externalRevision = 0;
-  //! True when the last full traversal recorded a node whose retained output
-  //! bakes in the camera pose (a screen-constant-size datum node such as
-  //! FreeCAD's SoShapeScale / SoAutoZoomTranslation, which sets
-  //! SoIRRenderAction::setCameraDependent).  Such a scene cannot be replayed
-  //! on a camera-only frame: the cached draw list holds the previous camera's
-  //! derived transform, so it must be re-recorded whenever the camera moves.
+  //! Set when the last traversal hit a camera-dependent node (e.g.
+  //! SoShapeScale/SoAutoZoomTranslation -> setCameraDependent); such a scene
+  //! must be re-recorded whenever the camera moves, not replayed.
   SbBool sceneCameraDependent = FALSE;
-  //! cameraVersion the retained list was recorded at; the replay below is
-  //! refused for a camera-dependent scene while cameraVersion differs.
+  //! cameraVersion of the retained list: replay refused for a camera-dependent scene while it differs.
   uint32_t sceneCameraDependentVersion = 0;
-  //! Viewing matrix (SoViewingMatrixElement bits) stamped into the commands
-  //! of the last full traversal; the replay restamp key.
+  //! Viewing matrix (SoViewingMatrixElement bits) of the last traversal; replay restamp key.
   SbMatrix lastFrameView;
   SbBool lastFrameViewValid = FALSE;
-  //! Viewing matrix the retained list's painter's-algorithm order was last
-  //! built for (SoDrawList::buildSortedOrder); a bit-match with a replayed
-  //! list means the previous frame's sorted order is still exact.
+  //! View matrix the retained list's painter order was built for
+  //! (buildSortedOrder); a bit-match means the prior order is still exact.
   SbMatrix lastSortView;
   SbBool lastSortValid = FALSE;
-  //! Command count the retained list's sorted order was built for.  The
-  //! overlay/decoration region is truncated and re-appended every frame, so a
-  //! replayed frame may reuse the previous order only while the total command
-  //! count is unchanged; otherwise the order still holds indices of overlay
-  //! commands that no longer exist (an out-of-range getCommand()).
+  //! Command count the sorted order was built for. Overlay is truncated and
+  //! re-appended each frame, so a replay may reuse the prior order only while
+  //! the total count is unchanged; else it holds out-of-range indices.
   int lastSortCommandCount = -1;
-  //! Child pointers last installed in frameRoot, so navigation frames stop
-  //! churning the separator's child list (and its notifications).
+  //! Child pointers last installed in frameRoot, avoiding child-list churn on navigation.
   SoNode * rootChildren[4] = {nullptr, nullptr, nullptr, nullptr};
   SbBool rootChildrenValid = FALSE;
 
   //! Current render-affecting graph fingerprint (see graphFingerprintWalk).
   uint64_t computeGraphFingerprint() const;
 
-  //! Resolve the camera that will render this frame.  The scene graph is the
-  //! single camera authority (FreeCAD's navigation mutates the camera node
-  //! inside the scene it passes to setSceneGraph), so the camera is found
-  //! there first.  The retained pointer set by setCamera() is only a
-  //! fallback/hint for the case where the camera lives outside the scene
-  //! root (overlay-only setups).  Returns nullptr if no camera is available.
+  //! Resolve this frame's camera. The scene graph is the authority (FreeCAD
+  //! navigation mutates the in-scene camera); the retained setCamera() pointer
+  //! is only a fallback for cameras outside the scene root. nullptr if none.
   SoCamera * resolveActiveCamera();
 
-  //! Refresh the retained camera pointer from the scene-graph authority and
-  //! bump cameraVersion when the active camera (or its pose) changes.
+  //! Refresh the retained camera from the scene authority; bump cameraVersion on change.
   void refreshActiveCamera();
 
 
-  // Near/far planes computed by setClippingPlanes(), consumed by
-  // prepareRenderParams().  The projection is built from these fields, never
-  // read back from SoCamera::nearDistance/farDistance: the camera node is
-  // shared with the hidden GL viewer (FreeCAD), whose SoRenderManager can
-  // concurrently write the same fields with its own GL-side values, and
-  // reading them back races that writer (it intermittently rendered with the
-  // wrong near plane while rotating).  Keeping the projection input private
-  // makes the two renderers independent.  setClippingPlanes() additionally
-  // publishes these values onto the shared camera node (guarded on an actual
-  // change) so external consumers -- SoRayPickAction's ray depth range in
-  // particular -- see scene-fitted planes even though the GL viewer never
-  // renders to fit them.
+  // Near/far planes from setClippingPlanes(), consumed by prepareRenderParams().
+  // The projection is built from these, never SoCamera::nearDistance/farDistance:
+  // the camera node is shared with FreeCAD's hidden GL viewer, whose render
+  // manager writes those fields concurrently (racing reads gave an intermittent
+  // wrong near plane). The planes are also published onto the node (on change)
+  // so SoRayPickAction's ray depth range sees scene-fitted planes.
   float computedNear = 1.0f;
   float computedFar = 10.0f;
-  // Camera back-off along the view direction applied by the zoom wall (see
-  // setClippingPlanes()); 0.0f when the camera is clear of the surface.
+  // Camera back-off along the view direction from the zoom wall; 0 when clear of the surface.
   float cameraShiftZ = 0.0f;
 
-  // Cached world-space scene bounding box for setClippingPlanes().  The box in
-  // camera coordinates still depends on the camera pose, which changes every
-  // frame, so only the (static) world-space box is cached: each frame re-applies
-  // the cheap camera transform instead of running a full scene bbox traversal.
-  // The cache is invalidated when the scene pointer changes (setSceneGraph) or
-  // when the previous frame's IR command count differs (a cheap structural-
-  // change proxy for geometry edits).
+  // Cached world-space scene bbox for setClippingPlanes(). Only the (static)
+  // world box is cached; each frame re-applies the cheap camera transform rather
+  // than a full traversal. Invalidated on scene change or IR command-count change.
   SbXfBox3f sceneWorldBBox;
   SoNode * sceneBBoxScene = nullptr;
   uint64_t sceneBBoxFingerprint = 0;
   bool sceneBBoxCached = false;
-  //! Cached scene fingerprint (see cachedSceneFingerprint): on camera-only
-  //! frames the main draw list is retained verbatim and the scene sensor has
-  //! not fired, so the O(main-commands) hash is invariant and the walk is
-  //! skipped.  Revalidated against the scene pointer and the retained main
-  //! command count, both of which any content change must disturb.
+  //! Cached scene fingerprint: on camera-only frames (list retained, sensor
+  //! quiet) the O(main-commands) hash is invariant, so skip it. Revalidated
+  //! against scene pointer and retained main command count.
   uint64_t sceneFpCached = 0;
   SoNode * sceneFpScene = nullptr;
   uint32_t sceneFpMainCount = 0;
   SbBool sceneFpValid = FALSE;
 
   SoIRRenderAction irAction;
-  //! Second IR action used to re-record the overlay/decoration scenes every
-  //! frame (their node-ids churn with the camera, so they cannot be retained);
-  //! its commands are appended onto the replayed main list in prepareRenderParams.
+  //! Re-records the overlay/decoration scenes every frame (their node-ids churn
+  //! with the camera); commands are appended onto the replayed main list.
   SoIRRenderAction overlayIrAction;
-  //! Number of main (non-overlay) commands retained in irAction's draw list,
-  //! used to separate the replayed main region from the fresh overlay region.
+  //! Main (non-overlay) command count in irAction, separating replay from fresh overlay.
   uint32_t mainCommandCount = 0;
   SoVulkanRenderBackend backend;
   SbBool backendInitialized = FALSE;
-  // Persistent pipeline-cache path set by the embedding application before
-  // initialize(); forwarded to the backend there (see setPipelineCachePath()).
+  // Pipeline-cache path set before initialize(); forwarded to the backend there.
   std::string pipelineCachePath;
-  // Device context borrowed at initialize(); retained (not owned) so the RT
-  // backend can be brought up lazily by ensureRayTracing() after a startup
-  // that skipped it.  Cleared in shutdown().
+  // Device context borrowed at initialize() (not owned); retained for lazy RT
+  // bring-up. Cleared in shutdown().
   SoVulkanDeviceContext * initContext = nullptr;
 
-  // Re-compute the camera near/far clipping planes from the scene bounding
-  // box in camera coordinates.  Mirrors SoRenderManagerP::setClippingPlanes()
-  // (the GL auto-clipping); the camera is a separate member here, so the
-  // camera-to-world matrix is built directly from the camera node instead of
-  // being looked up in the scene graph.
+  // Recompute near/far clipping planes from the camera-space scene bbox,
+  // mirroring SoRenderManagerP::setClippingPlanes() (GL auto-clipping). The
+  // camera is a separate member, so its matrix is built directly from the node.
   void setClippingPlanes(void);
 
-  // Traverse the scene and harvest view/projection into params.  Returns
-  // FALSE when the backend or target is unavailable.
+  // Traverse the scene into params. FALSE when backend/target unavailable.
   SbBool prepareRenderParams(SbBool clearwindow,
                              SbBool clearzbuffer,
                              SoDrawList *& drawlist,
                              SoRenderParams & params);
 
-  // Dump the [CLIP] diagnostic trace (env-gated by FC_VULKAN_CLIP_DEBUG;
-  // FC_VULKAN_CLIP_VERBOSE adds the per-25-frame verbose lines).  Extracted
-  // from prepareRenderParams() so the per-frame hot path stays readable; the
-  // body is inert unless the flag is set.
+  // Dump the [CLIP] trace (FC_VULKAN_CLIP_DEBUG; CLIP_VERBOSE adds the
+  // per-25-frame lines). Extracted from the hot path; inert unless enabled.
   void dumpClipDebug(SoDrawList & list, const SoRenderParams & params);
 
 };
 
-// Retained-pointer assignment: keep the new node referenced and drop the old
-// one, no-op when unchanged.  The three scene setters, setCamera() and
-// refreshActiveCamera() all performed this exact refcount dance by hand.
+// Retained-pointer assignment: ref the new node, unref the old, no-op when
+// unchanged (the scene setters, setCamera() and refreshActiveCamera() did this by hand).
 template <typename T>
 static void
 setRetainedNode(T *& slot, T * node)
@@ -478,17 +398,12 @@ setRetainedNode(T *& slot, T * node)
   if (slot) slot->ref();
 }
 
-// Mark the graph fingerprint dirty when a render-affecting part of the main
-// scene changes.  The root sensor fires on ANY subtree notification, including
-// the headlight/camera-coupled field writes FreeCAD performs every navigation
-// frame.  Those do not change the retained main draw list -- the fingerprint
-// walk skips their node ids (fingerprintSkipsNodeId) -- so treating them as a
-// graph change forced the O(scene) fingerprint walk (~55 ms on a 1600-shape
-// scene) on every navigation frame, defeating the retained-IR replay.  A
-// structural edit (child-list op) or a field write on any other node still
-// dirties.  The sensor runs at priority 0 (an "immediate" delay sensor) so
-// SoDataSensor populates the trigger node/op; at the default priority the
-// trigger is left null and no distinction is possible.
+// Mark the graph fingerprint dirty on a render-affecting main-scene change. The
+// root sensor fires on ANY subtree notification, including the camera/headlight
+// writes FreeCAD does every navigation frame; those don't change the retained
+// list (their ids are skipped via fingerprintSkipsNodeId), so treating them as
+// dirty forced the O(scene) walk (~55 ms/1600 shapes) every frame. Sensor
+// priority 0 (immediate) is required so SoDataSensor populates the trigger.
 static void
 vulkanSceneGraphChangedCallback(void * data, SoSensor * sensor)
 {
@@ -512,12 +427,9 @@ SoVulkanRenderManager::SoVulkanRenderManager()
 
 SoVulkanRenderManager::~SoVulkanRenderManager()
 {
-  // Shut down through the manager entry point so both the raster and RTX
-  // backends release their resources in the documented order and the shared
-  // init context is invalidated.  Letting only the raster backend shut down
-  // here left the RTX backend's deferred destruction state to its implicit
-  // member destructor, which can run after the manager has already torn down
-  // surrounding state.
+  // Shut down via the manager entry point so raster and RTX release resources
+  // in order and the init context is invalidated; shutting down only raster
+  // left RTX teardown to its implicit member destructor, which can run too late.
   this->shutdown();
   delete this->pimpl;
 }
@@ -532,9 +444,8 @@ SoVulkanRenderManager::setSceneGraph(SoNode * root)
   // The bbox is cached in world space; a different scene graph invalidates it.
   this->pimpl->sceneBBoxCached = false;
   this->pimpl->sceneBBoxScene = nullptr;
-  // Re-arm the graph-fingerprint dirty sensor on the new scene: detach from the
-  // previous scene and attach to the new one, and mark the fingerprint dirty so
-  // the next frame re-walks rather than trusting a stale cached fingerprint.
+  // Re-arm the dirty sensor on the new scene and mark the fingerprint dirty so
+  // the next frame re-walks instead of trusting a stale cache.
   if (this->pimpl->sceneGraphSensor) {
     this->pimpl->sceneGraphSensor->detach();
     if (root) {
@@ -577,18 +488,10 @@ SoVulkanRenderManager::getDecorationSceneGraph(void) const
 void
 SoVulkanRenderManager::setCamera(SoCamera * camera)
 {
-  // The scene graph is the single camera authority and stays that way: this
-  // retained pointer is only a fallback/hint for scenes that carry no camera
-  // (overlay-only or off-screen render setups).  When the scene DOES contain a
-  // camera, refreshActiveCamera() re-resolves it from the scene graph each
-  // frame, overrides this pointer, and owns that node's lifetime -- so the
-  // GL viewer and every Vulkan backend (raster and path tracing) all render
-  // from the same camera node with no sync between them.
-  // FreeCAD replaces the camera node when the user toggles between the
-  // perspective and orthographic views.  Without a reference the old node is
-  // destroyed and this raw pointer dangles, crashing the next render
-  // (segfault in setClippingPlanes / SoBase::isOfType).  Keep the camera
-  // alive for as long as the manager references it.
+  // The scene graph is the single camera authority: this retained pointer is only
+  // a fallback for scenes with no camera. When the scene does contain a camera,
+  // refreshActiveCamera() re-resolves it each frame and owns its lifetime.
+  // FreeCAD replaces the node on perspective/ortho toggle; keep a reference.
   setRetainedNode(this->pimpl->camera, camera);
 }
 
@@ -705,8 +608,7 @@ SoVulkanRenderManager::setEdgeColor(const SbColor4f & color)
 void
 SoVulkanRenderManager::setViewSettings(const SoVulkanViewSettings & settings)
 {
-  // Single diff for the whole blob: the individual setters are unconditional,
-  // so re-applying an unchanged blob every frame would be pure waste.
+  // Diff the whole blob: individual setters are unconditional, so re-applying it is waste.
   if (this->pimpl->viewSettingsApplied
       && settings == this->pimpl->viewSettings) {
     return;
@@ -772,33 +674,15 @@ SoVulkanRenderManager::getClearEnabled(SbBool & clearwindow,
 SbBool
 SoVulkanRenderManager::initialize(SoVulkanDeviceContext * context)
 {
-  // QVulkanWindow invokes renderer::initResources() on every Expose/Hide/
-  // Resize/Move event, which re-enters this method.  Those events only
-  // recreate the swapchain (a separate initSwapChainResources() call for the
-  // frame-level resources); the Vulkan instance/device/queue survive.  When
-  // the device context is unchanged this is NOT a device reset, so tearing
-  // down and rebuilding both backends -- and every cached BLAS/acceleration
-  // structure and RT pipeline -- again would be pure waste and the dominant
-  // cost while navigating in the raster path.  Keep the live backends and
-  // their caches alive; just refresh the retained context (a new stack-allocated
-  // context points at the same window-owned device handles).
+  // QVulkanWindow re-enters initResources() on every Expose/Hide/Resize/Move;
+  // those events only recreate the swapchain, the instance/device/queue
+  // survive. An unchanged device context is NOT a device reset, so rebuilding
+  // both backends and every cached BLAS/RT pipeline would be pure waste.
   //
-  // NOTE (known Qt-side validation artifact, not a FreeCAD defect): with the
-  // Vulkan validation layer enabled, the first few frames of a freshly shown
-  // window may log
-  //   "vkQueueSubmit(): pSubmits[0].pSignalSemaphores[0] ... may still be in
-  //    use by VkSwapchainKHR ..." (VUID-vkQueueSubmit-pSignalSemaphores-00067).
-  // That submit is QVulkanWindow's OWN internal present, not one from this
-  // manager: we never call vkQueuePresentKHR/vkAcquireNextImage and never
-  // submit a signal semaphore (our submissions are fence-based).  QVulkanWindow
-  // reuses its per-swapchain
-  // render-finished semaphore during initial swapchain/surface setup, which
-  // the validation layer flags.  It is transient (fires at viewport open), is
-  // emitted only with validation enabled, and
-  // has never been observed to cause VK_ERROR_DEVICE_LOST or any functional
-  // degradation in this project.
-  // Do not chase it: the remedy (per-swapchain-image semaphores) is a Qt/
-  // QVulkanWindow change, not a FreeCAD one.
+  // NOTE (known Qt artifact, not a FreeCAD defect): with validation enabled the
+  // first frames may log VUID-vkQueueSubmit-pSignalSemaphores-00067. That submit
+  // is QVulkanWindow's own present (ours are fence-based), reusing its
+  // per-swapchain render-finished semaphore. Transient; remedy is a Qt change.
   if (this->pimpl->backendInitialized && this->pimpl->initContext
       && this->pimpl->initContext->device == context->device) {
     this->pimpl->initContext = context;
@@ -807,8 +691,7 @@ SoVulkanRenderManager::initialize(SoVulkanDeviceContext * context)
 
   SoRenderBackendInitParams params;
   params.userData = context;
-  // Forward the persistent pipeline-cache path before the backend creates its
-  // VkPipelineCache (createPipelineCache() reads it once, during initialize()).
+  // Forward the pipeline-cache path before the backend creates its VkPipelineCache.
   this->pimpl->backend.setPipelineCachePath(this->pimpl->pipelineCachePath);
   if (!this->pimpl->backend.initialize(params)) {
     SoDebugError::postWarning("SoVulkanRenderManager::initialize",
@@ -816,13 +699,11 @@ SoVulkanRenderManager::initialize(SoVulkanDeviceContext * context)
     return FALSE;
   }
   this->pimpl->backendInitialized = TRUE;
-  // One-shot, after a successful device init (the early return above skips
-  // re-entry), so FC_VULKAN_BACKEND_DEBUG runs get a resolved-config dump.
+  // One-shot after successful init; FC_VULKAN_BACKEND_DEBUG gets a config dump.
   if (SoVulkanShared::envFlagEnabled("FC_VULKAN_BACKEND_DEBUG")) {
     SoVulkanConfig::dump();
   }
-  // Retain the borrowed context (used by the same-device early return above);
-  // invalidated in shutdown().
+  // Retain the borrowed context (used by the same-device early return); cleared in shutdown().
   this->pimpl->initContext = context;
   return TRUE;
 }
@@ -834,8 +715,7 @@ SoVulkanRenderManager::shutdown(void)
     this->pimpl->backend.shutdown();
     this->pimpl->backendInitialized = FALSE;
   }
-  // The retained context is only valid for the window's device/queue
-  // lifetime, which ends around releaseResources(); do not reuse it after.
+  // Retained context is only valid for the window device/queue lifetime; do not reuse after.
   this->pimpl->initContext = nullptr;
 }
 
@@ -848,10 +728,8 @@ SoVulkanRenderManager::setMaxFramesInFlight(uint32_t count)
 void
 SoVulkanRenderManager::setPipelineCachePath(const std::string & path)
 {
-  // Stored and forwarded in initialize(), because createPipelineCache() runs
-  // during the backend's initialize() and reads the path once.  Forwarding
-  // here too covers a caller that sets it on an already-initialized manager
-  // (the next backend initialize(), e.g. after a window reset, picks it up).
+  // Stored and forwarded in initialize() (createPipelineCache() reads it once);
+  // forwarding here too covers a caller setting it on an initialized manager.
   this->pimpl->pipelineCachePath = path;
   this->pimpl->backend.setPipelineCachePath(path);
 }
@@ -859,9 +737,8 @@ SoVulkanRenderManager::setPipelineCachePath(const std::string & path)
 void
 SoVulkanRenderManager::setSceneLights(const SoLightingData & lighting)
 {
-  // Raster executor lighting.  Without this it would light from the
-  // world-fixed IR capture, so its highlights would not follow the camera the
-  // way Coin GL does.
+  // Raster executor lighting; without it, lighting comes from the world-fixed
+  // IR capture and highlights don't follow the camera like Coin GL.
   this->pimpl->backend.setSceneLights(lighting);
 }
 
@@ -960,16 +837,10 @@ SoVulkanRenderManagerP::computeGraphFingerprint() const
               (int)this->viewportRegion.getViewportSizePixels()[1]);
     }
   }
-  // The replay gate is keyed on the MAIN scene only (plus the viewport and the
-  // caller-published revision).  The overlay/decoration scene node-ids churn
-  // every frame -- the navigation cube and the axis cross mirror the camera,
-  // so their nodes are re-touched each frame even when the geometry they draw
-  // is unchanged.  Folding those ids into the same hash made the fingerprint
-  // change every frame and forced a full re-traversal of an otherwise-stable
-  // main scene (the held hotspot).  The overlay/decoration are now re-recorded
-  // separately every frame (cheap) and the main scene is replayed when THIS
-  // fingerprint is stable; their pointer mixes below stay constant so an
-  // overlay-scene swap still invalidates.
+  // The replay gate keys on the MAIN scene only (plus viewport and external
+  // revision). Overlay/decoration node-ids churn every frame (the nav cube/axis
+  // cross mirror the camera), so folding them in forced a re-traversal every
+  // frame; they are re-recorded separately. Their pointer mixes stay constant.
   graphFingerprintWalk(this->scene, this->camera, h);
   const SbVec2s size = this->viewportRegion.getViewportSizePixels();
   mixHash(h, static_cast<uint32_t>(size[0]));
@@ -985,20 +856,12 @@ SoVulkanRenderManagerP::computeGraphFingerprint() const
 SoCamera *
 SoVulkanRenderManagerP::resolveActiveCamera()
 {
-  // Cache the resolved node.  This runs at least twice per frame
-  // (refreshActiveCamera() then setClippingPlanes()), and the fallback
-  // SoSearchAction below is an O(scene) full-graph search with per-match path
-  // allocation: measured at ~41 ms for a 1600-shape scene, i.e. ~82 ms/frame of
-  // pure camera lookup -- and the scene root sensor fires on the camera-pose
-  // write FreeCAD performs every navigation frame, so gating on that flag alone
-  // left the search running on exactly the moving frames that need it most.
-  //
-  // Instead re-validate the cached node with the stored child-index path from
-  // the scene root: O(depth), no search.  The path is only a way to reach the
-  // same node, so a camera-pose write keeps it valid (the node identity is
-  // unchanged and its pose is read live elsewhere); a child-list edit that
-  // shifts, removes or replaces any node on the path makes the walk land on a
-  // different node (or fail), which re-runs the search.
+  // Cache the resolved node. Runs twice per frame (refreshActiveCamera() then
+  // setClippingPlanes()); the fallback SoSearchAction is an O(scene) search
+  // measured at ~41 ms/1600 shapes, and the root sensor fires on the camera-pose
+  // write every navigation frame, so gating on the dirty flag alone kept it on
+  // the moving frames. Re-validate with the stored child-index path: O(depth),
+  // no search (a camera-pose write keeps it; a child-list edit re-runs it).
   if (this->resolvedCameraCached && this->resolvedCameraScene == this->scene) {
     if (this->resolvedCamera) {
       SoNode * node = this->scene;
@@ -1020,27 +883,20 @@ SoVulkanRenderManagerP::resolveActiveCamera()
       }
     }
     else if (this->resolvedCameraFallback == this->camera) {
-      // Cached "no camera in the scene"; the retained camera is the authority
-      // and nothing that could introduce an in-scene camera (a different scene
-      // or a different retained camera) has happened.
+      // Cached "no camera in scene"; the retained camera is the authority.
       return this->camera;
     }
   }
-  // About to (re)run the search: reset and record the inputs it depends on.
+  // About to run the search: reset and record its inputs.
   this->resolvedCameraCached = true;
   this->resolvedCamera = nullptr;
   this->resolvedCameraScene = this->scene;
   this->resolvedCameraFallback = this->camera;
   this->resolvedCameraPath.clear();
 
-  // The scene graph passed to setSceneGraph() is the GL viewer's superscene,
-  // which CAN contain the camera node that navigation mutates, so prefer an
-  // in-scene camera when there is one: it is the single authority and cannot go
-  // stale, whereas the retained pointer set by setCamera() could be a snapshot
-  // that diverges once the camera is rotated/panned without a re-sync.  In
-  // practice FreeCAD sets the camera explicitly and the superscene holds only
-  // the geometry (the search finds nothing) -- which is why the empty result is
-  // cached: the search is O(scene) and would otherwise run every frame.
+  // The setSceneGraph() root is the GL viewer's superscene, which CAN contain the
+  // navigation camera, so prefer an in-scene camera (the single authority).
+  // FreeCAD usually sets the camera explicitly, so the empty result is cached.
   if (this->scene) {
     if (this->scene->getTypeId().isDerivedFrom(SoSeparator::getClassTypeId())) {
       SoSeparator * sep = static_cast<SoSeparator *>(this->scene);
@@ -1053,9 +909,8 @@ SoVulkanRenderManagerP::resolveActiveCamera()
         }
       }
     }
-    // The camera may be nested deeper (a subset/child separator).  Search the
-    // subtree for the first camera, mirroring SoCamera::doAction() semantics of
-    // using the camera encountered first in traversal order.
+    // Deeper nesting: search the subtree for the first camera, mirroring
+    // SoCamera::doAction() traversal order.
     SoSearchAction search;
     search.setType(SoCamera::getClassTypeId());
     search.setSearchingAll(TRUE);
@@ -1064,26 +919,20 @@ SoVulkanRenderManagerP::resolveActiveCamera()
     if (paths.getLength() > 0) {
       SoPath * path = paths[0];
       this->resolvedCamera = static_cast<SoCamera *>(path->getTail());
-      // Record the descent from the scene root: getIndex(i) is the index of the
-      // i-th path node within its parent, so start at 1 (0 is the root itself).
+      // Record descent from the root: start at 1 (0 is the root itself).
       for (int i = 1; i < path->getLength(); ++i) {
         this->resolvedCameraPath.push_back(path->getIndex(i));
       }
       return this->resolvedCamera;
     }
   }
-  // No camera in the scene graph: fall back to the retained pointer (used by
-  // overlay-only or programmatic render setups that manage a camera outside
-  // the scene).
+  // No in-scene camera: fall back to the retained pointer.
   return this->camera;
 }
 
-// Refresh the retained camera pointer from the authoritative scene-graph
-// camera and bump the generation counter when the active camera (or its
-// pose) changes.  Called at the top of every prepareRenderParams() so all
-// downstream reads of `this->camera` see the node that is actually in the
-// scene -- the node navigation mutates -- instead of a possibly-stale
-// snapshot.  The refcount is managed so the node stays alive for the frame.
+// Refresh the retained camera from the scene authority and bump cameraVersion
+// on change. Called at the top of prepareRenderParams() so downstream reads of
+// `this->camera` see the node navigation mutates, not a stale snapshot.
 void
 SoVulkanRenderManagerP::refreshActiveCamera()
 {
@@ -1093,9 +942,8 @@ SoVulkanRenderManagerP::refreshActiveCamera()
     this->cameraVersion++;
   }
   else if (resolved == this->camera) {
-    // Same node: detect pose changes (a rotation/pan/zoom mutates the node in
-    // place), which a pointer comparison alone cannot see.  Compare the pose
-    // fingerprint so the backend's viewChanged reliably fires on a camera move.
+    // Same node: detect in-place pose changes (rotation/pan/zoom) via the pose
+    // fingerprint so the backend's viewChanged reliably fires.
     SbVec3f pos = this->camera->position.getValue();
     SbRotation ori = this->camera->orientation.getValue();
     SbVec3f fp;
@@ -1117,23 +965,14 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   SoCamera * camera = this->resolveActiveCamera();
   if (!camera || !this->scene) return;
 
-  // Recompute the world-space bounding box only when the scene pointer changed
-  // or the previous frame's main-command fingerprint differs.  The fingerprint
-  // covers the world transform AND geometry identity of every main command, so
-  // a moved/rotated object (same command count) still invalidates the cache.
-  // Only the main commands are hashed: overlay/decoration commands (appended
-  // after mainCommandCount) are re-recorded every frame with camera-dependent
-  // model matrices, so including them would invalidate the cache on pure
-  // camera moves.  The camera pose is applied below every frame; the
-  // whole-scene bbox traversal is the expensive part and is now skipped on
-  // unchanged scenes.
+  // Recompute the world bbox only when the scene pointer changed or the main-
+  // command fingerprint differs (it covers world transform + geometry identity,
+  // so a moved object with the same count still invalidates). Overlay commands
+  // are excluded (camera-dependent). The camera pose is applied below each frame.
   const int mainCount = static_cast<int>(this->mainCommandCount);
-  // Reuse the cached fingerprint when the retained main list provably has
-  // not changed: the scene pointer and the retained main command count are
-  // the same, and the scene sensor has not fired since the last full walk
-  // (any main-scene change notifies the scene root, which raises
-  // sceneGraphDirty).  On those camera-only frames the O(main-commands)
-  // model-matrix/geometry hash would just reproduce last frame's value.
+  // Reuse it when the main list provably has not changed: same scene pointer and
+  // main count and the sensor quiet (any change raises sceneGraphDirty); on those
+  // camera-only frames the O(main-commands) hash would just repeat last value.
   uint64_t sceneFp;
   if (this->sceneFpValid && !this->sceneGraphDirty &&
       this->scene == this->sceneFpScene &&
@@ -1147,19 +986,11 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     this->sceneFpMainCount = this->mainCommandCount;
     this->sceneFpValid = TRUE;
   }
-  // A scene change (sceneGraphDirty) forces a fresh bbox when the cached box
-  // is empty.  computeSceneFingerprint() hashes the *retained* draw list,
-  // which lags the live graph by one frame (setClippingPlanes runs before the
-  // traversal re-records it), so a pure visibility toggle like
-  // SoSwitch::whichChild leaves sceneFp identical and would otherwise keep a
-  // stale bbox.  On an empty scene that stale bbox is the empty-box default
-  // (near=1/far=10), which clips GUI trackers added at the origin -- most
-  // visibly the Draft working-plane grid, whose z=0 plane sits on the near
-  // plane at the default camera (pos z=1) and stays invisible until a camera
-  // move happens to refresh the box.  Only the empty case needs the forced
-  // recompute: a non-empty stale box still brackets the origin, so scoping it
-  // here avoids re-running the O(scene) bbox walk on every selection/hover
-  // field write that dirties the graph.
+  // A scene change with an empty cached box forces a fresh bbox. The fingerprint
+  // hashes the *retained* list (one frame behind), so a SoSwitch::whichChild
+  // toggle leaves it unchanged and would keep a stale empty default (near=1/
+  // far=10) that clips GUI trackers at the origin (notably the Draft grid). Only
+  // the empty case recomputes; a non-empty box still brackets the origin.
   if (!this->sceneBBoxCached ||
       (this->sceneGraphDirty && this->sceneWorldBBox.isEmpty())) {
     SoGetBoundingBoxAction bboxaction(this->viewportRegion);
@@ -1178,12 +1009,9 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   }
   SbXfBox3f xbox = this->sceneWorldBBox;
 
-  // Transform the world-space bounding box into camera coordinates.  The
-  // managed scene graph is geometry-only (the camera is a separate member),
-  // so the transform is built directly from the camera node: translate to
-  // the camera origin, then rotate by the inverse orientation.  This is the
-  // same math SoRenderManagerP::setClippingPlanes() applies after looking up
-  // the camera-to-world matrix.
+  // Transform the world bbox into camera coordinates: translate to the camera
+  // origin, then rotate by the inverse orientation (same math as
+  // SoRenderManagerP::setClippingPlanes()). The camera is a separate member.
   SbMatrix mat;
   mat.setTranslate(-camera->position.getValue());
   xbox.transform(mat);
@@ -1195,33 +1023,21 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   box.getSize(sizeX, sizeY, sizeZ);
   float boxDiagonal = std::sqrt(sizeX * sizeX + sizeY * sizeY + sizeZ * sizeZ);
 
-  // Clipping offset is 1% of the bounding box diagonal or at most 1.0 and at
-  // least std::numeric_limits<float>::epsilon() (same as SoRenderManagerP).
+  // Clipping offset: 1% of the bbox diagonal, clamped to [float epsilon, 1.0].
   float clippingOffset = SbMin(1.0f, SbMax(std::numeric_limits<float>::epsilon(),
                                            0.01f * boxDiagonal));
   float zmin = box.getMin()[2];
   float zmax = box.getMax()[2];
 
-  // Vector-graphics zoom wall: a CAD camera must never clip into a solid.
-  // Once the nearest scene boundary comes within delta of the camera (or
-  // crosses behind it), back the *effective* camera out along the view
-  // direction so the nearest surface stays delta in front.  Zooming in then
-  // scales features continuously -- the near plane keeps hugging the
-  // surface -- until the wall is reached, where the view pins instead of
-  // showing the interior of the solid.  The shift is applied to the box
-  // here and to the view matrix in prepareRenderParams(); the shared camera
-  // node itself is never touched (the hidden GL viewer owns it).
-  //
-  // delta scales with the scene: 0.001 * clippingOffset yields 0.1% of the
-  // 1% diagonal offset, i.e. ~100000x magnification before the wall on a
-  // typical part -- deep enough for any practical CAD inspection while the
-  // near plane (delta, times the 0.1% slack below) stays strictly in front
-  // of the surface.
+  // Vector-graphics zoom wall: a CAD camera must never clip into a solid. Once
+  // the nearest boundary is within delta (or behind), back the *effective* camera
+  // out along the view so the nearest surface stays delta in front; zooming then
+  // scales continuously until the wall pins the view. The shift applies to the
+  // box here and the view matrix in prepareRenderParams(); the camera node is
+  // untouched. delta = 0.001 * clippingOffset (~100000x magnification).
   float shiftZ = 0.0f;
-  // Only engage the wall when geometry actually spans the view direction:
-  // zmin < 0 means something is in front of the camera.  With the whole
-  // scene behind the camera (looking away), backing out would flip the
-  // view around -- leave the planes alone instead.
+  // Only engage when geometry spans the view direction (zmin < 0); with the
+  // whole scene behind the camera, backing out would flip the view.
   if (!box.isEmpty() && zmin < 0.0f) {
     const float delta = clippingOffset * 0.001f;
     shiftZ = zmax + delta;
@@ -1233,8 +1049,7 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   }
   this->cameraShiftZ = shiftZ;
 
-  // Rebuild the box from the shifted z extent so the shared clipping core
-  // below reads the zoom-wall-adjusted depth.
+  // Rebuild the box with the shifted z extent for the clipping core below.
   SbBox3f clippedBox = box;
   if (shiftZ != 0.0f) {
     float x0, y0, z0, x1, y1, z1;
@@ -1242,8 +1057,7 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     clippedBox.setBounds(x0, y0, zmin, x1, y1, zmax);
   }
 
-  // Shared near/far computation (diagonal offset, empty-box defaults,
-  // perspective near limit) with the legacy GL SoRenderManager.
+  // Shared near/far computation with the legacy GL SoRenderManager.
   const bool isOrtho = camera->isOfType(
     SoOrthographicCamera::getClassTypeId());
   const bool isPersp = camera->isOfType(
@@ -1255,16 +1069,9 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     return;
   }
 
-  // Do NOT bail out when farval <= 0 here.  For an orthographic camera a
-  // negative near/far pair is meaningful: the ortho view volume is symmetric
-  // and may extend behind the projection point, so a scene that is wholly
-  // behind the camera still renders (the legacy GL manager writes exactly
-  // these signed values in SoRenderManagerP::setClippingPlanes).  Returning
-  // early instead keeps whatever planes were last stored -- on a freshly
-  // opened document that is the pimpl default near=1/far=10 -- so the Vulkan
-  // viewport culls the whole scene and goes blank while the Coin renderer,
-  // which has no such guard, keeps drawing it.  Perspective cameras are
-  // already rejected inside coinComputeClippingPlanes().
+  // Do NOT bail when farval <= 0: an orthographic negative near/far pair is
+  // meaningful (ortho extends behind the projection point), matching
+  // SoRenderManagerP::setClippingPlanes; bailing would blank a fresh document.
 
   if (clipDebugEnabled()) {
     static float lastNear = -1.0f, lastFar = -1.0f;
@@ -1286,30 +1093,18 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     }
   }
 
-  // Never let the near plane fall beyond the closest geometry in front of the
-  // camera.  When zoomed in close, the 1% diagonal offset and the
-  // VARIABLE_NEAR_PLANE precision floor can push the near plane past nearby
-  // surfaces, clipping them during close-up rotation.  Only clamp while the
-  // camera is outside the bounding box (closest > 0) so the near plane always
-  // stays in front of the camera.
-  //
-  // closest is the distance to the nearest boundary of the *shifted* box
-  // (-zmax): with the zoom wall active it is delta, keeping the near plane
-  // in front of the pinned surface.  Reading the unshifted box here made the
-  // near plane fall behind the surface (camera inside -> closest < 0 ->
-  // near plane = clippingOffset >> delta) and cut into the solid.
+  // Never let the near plane fall beyond the closest geometry in front: zoomed
+  // in the 1% offset and VARIABLE_NEAR_PLANE floor can push it past surfaces.
+  // Clamp only while the camera is outside the box (closest > 0); closest is from
+  // the *shifted* box (-zmax), so the zoom wall keeps it at delta.
   const float closest = -zmax;
   if (closest > 0.0f) {
     if (nearval > closest) {
       nearval = closest;
     }
-    // The camera sits just outside the scene bounds: the 1% clipping offset
-    // can exceed the distance to the nearest geometry, pushing the near
-    // plane behind the camera (nearval <= 0).  A negative or zero near
-    // plane inverts the view volume and clips geometry that is actually in
-    // front of the camera; SoCamera::viewAll() can also leave the near
-    // plane at exactly 0.  Keep the near plane strictly in front of the
-    // camera and behind the closest geometry.
+    // Just outside, the 1% offset can exceed the nearest distance and push the
+    // near plane behind the camera (nearval <= 0), inverting the volume and
+    // clipping front geometry (viewAll() can also leave it at 0).
     if (nearval <= 0.0f) {
       nearval = SbMin(closest, clippingOffset);
       if (nearval <= 0.0f) {
@@ -1318,24 +1113,17 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
     }
   }
   else if (zmin < 0.0f) {
-    // The camera is inside the scene bounds (zmin < 0 < zmax), so the
-    // bbox-derived nearval is negative.  A negative near plane inverts the
-    // projection and clips everything (nothing renders / object "cut away"),
-    // which is what FreeCAD's GL renderer avoids by keeping a small positive
-    // near plane.  Fall back to a small positive plane anchored on the
-    // clipping offset.
+    // Camera inside the bounds (zmin < 0 < zmax): the bbox near is negative
+    // and would invert the projection and clip everything; fall back to a
+    // small positive plane anchored on the clipping offset.
     if (nearval < clippingOffset) {
       nearval = clippingOffset;
     }
   }
-  // else: the whole scene is behind the camera (zmin >= 0).  Keep the signed
-  // negative near/far planes computed above -- this is the orthographic case
-  // the legacy GL manager renders as-is (SoRenderManagerP::setClippingPlanes
-  // has no positive-near fallback), and the ortho view volume extends behind
-  // the projection point to cover it.
+  // else: whole scene behind the camera (zmin >= 0) -- keep the signed
+  // near/far, the orthographic case the legacy GL manager renders as-is.
 
-  // The far plane can also land behind the camera (whole scene behind it) or
-  // invert relative to near; keep the view volume well-formed.
+  // Keep the view volume well-formed if far lands behind the camera or inverts.
   if (farval <= nearval) {
     farval = nearval + clippingOffset;
   }
@@ -1346,24 +1134,16 @@ SoVulkanRenderManagerP::setClippingPlanes(void)
   const float newfar = farval >= 0 ? farval * (1.0f + SLACK)
                                    : farval * (1.0f - SLACK);
 
-  // Store the planes privately: prepareRenderParams() builds the projection
-  // from these fields, never from the camera node's, so rendering stays
-  // independent of the values the GL manager may write concurrently.
+  // Store privately: prepareRenderParams() builds the projection from these,
+  // independent of concurrent GL-manager writes to the camera node.
   this->computedNear = newnear;
   this->computedFar = newfar;
 
-  // Publish the planes onto the shared camera node too.  The camera is the
-  // clipping authority every other Coin consumer reads (SoRayPickAction's ray
-  // depth range, a perspective view volume, an external render manager).  A
-  // normal GL render auto-fits these fields, but FreeCAD's Vulkan viewport
-  // keeps the GL viewer hidden and never renders through it, so without this
-  // they keep whatever the last viewAll()/viewBoundingBox() wrote -- for an
-  // orthographic camera that is near=0, which is wrong for perspective
-  // clipping and pick-ray depth.  Write only when the value actually changes:
-  // SoSFFloat::setValue() notifies the field's auditors unconditionally, and
-  // the FreeCAD camera carries a node sensor, so an unconditional write from
-  // inside prepareRenderParams() would request another frame every frame and
-  // keep the viewport rendering at full rate while idle.
+  // Publish the planes onto the shared camera node too: it is the clipping
+  // authority other Coin consumers read (SoRayPickAction's ray depth range), and
+  // FreeCAD keeps the GL viewer hidden (fields would stay at near=0 for ortho).
+  // Write only on change: setValue() notifies unconditionally and the FreeCAD
+  // camera has a sensor, so an unconditional write would render every frame idle.
   if (camera->nearDistance.getValue() != newnear) {
     camera->nearDistance = newnear;
   }
@@ -1389,21 +1169,17 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   const long prepBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const bool wantCpuTiming = frameTimingEnabled();
   double cpuClipMs = 0.0, cpuApplyMs = 0.0, cpuReplayMs = 0.0, cpuSortMs = 0.0;
-  // The scene graph is the single camera authority.  Refresh the retained
-  // camera pointer (and the generation counter) from the camera node inside
-  // the scene every frame so auto-clipping and the matrix build always track
-  // the node navigation actually mutates, never a stale snapshot.
+  // Scene graph is the camera authority: refresh the retained camera (and
+  // generation counter) from it every frame so clipping and matrices track
+  // the node navigation mutates, not a stale snapshot.
   this->refreshActiveCamera();
   if (prepBcStart) {
     vkRenderBreadcrumbSince(prepBcStart, 2000, "prepare refreshActiveCamera end");
   }
 
-  // Keep the near/far planes tight around the scene so zooming and orbiting
-  // never push geometry outside the view volume.  The GL SoRenderManager does
-  // this automatically (VARIABLE_NEAR_PLANE); without the equivalent here,
-  // the Vulkan viewport clips near faces when the camera is close and far
-  // faces when the camera is far (FreeCAD's hidden GL viewer never renders,
-  // so its auto-clipping never runs).
+  // Keep near/far tight so zooming/orbiting never clips geometry. The GL
+  // SoRenderManager does this (VARIABLE_NEAR_PLANE), but FreeCAD's hidden GL
+  // viewer never renders, so its auto-clipping never runs: do it here.
   const long clipBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   const long clipT0 = wantCpuTiming ? vkRenderBreadcrumbNowUs() : 0;
   if (this->autoClipping != SoVulkanRenderManager::NO_AUTO_CLIPPING) {
@@ -1431,11 +1207,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   }
 
   params.viewport = this->viewportRegion;
-  // The viewport region is in device pixels, so carry the device-pixel ratio
-  // into the render params.  The GL and Vulkan backends scale logical line
-  // widths / point sizes by this (SoDrawStyle values are logical points);
-  // without it the ratio stayed 1.0 and, on a fractional-scaling display,
-  // lines/dots rendered 1/dpr too thin.
+  // Viewport is in device pixels, so carry the ratio into the params; backends
+  // scale logical line widths/point sizes by it (SoDrawStyle is logical points),
+  // else lines/dots render 1/dpr too thin on fractional-scaling displays.
   params.devicePixelRatio = this->devicePixelRatio;
   params.viewMatrix.makeIdentity();
   params.projMatrix.makeIdentity();
@@ -1483,43 +1257,25 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     params.flags |= SO_PARAM_CLEAR_DEPTH;
   }
   params.renderTarget = this->renderTarget;
-  // Hand the camera generation counter to the backends so a camera move is
-  // detected unambiguously (see SoRenderParams::cameraVersion).
+  // Pass the camera generation counter so backends detect a camera move unambiguously.
   params.cameraVersion = this->cameraVersion;
-  // Interaction LOD is driven by the viewport adapter's camera-move timer and
-  // applies to every backend: the RT backend lowers its bounce count, the
-  // raster Vulkan backend draws wide lines as plain 1px lines (no CPU quad
-  // expansion) for the duration of the motion.
+  // Interaction LOD (viewport camera-move timer) applies to all backends: RT
+  // lowers bounces, raster draws wide lines as 1px (no CPU quad expansion).
   params.interactionLod = this->interactionLod ? TRUE : FALSE;
 
-  // SoIRRenderAction::apply() resets the frame, so the camera and the scene
-  // must be traversed in a single apply() call.  The managed scene graph is
-  // geometry-only: the camera is stored as a separate member (matching
-  // SoRenderManager/SoSceneManager, which apply the camera independently of
-  // the scene root).  Build a path [camera, scene] so SoCamera::doAction()
-  // installs the projection/viewing matrix elements before any geometry is
-  // recorded; otherwise every command carries identity matrices and the view
-  // renders at the origin with an identity projection (blank/wrong view,
-  // invisible geometry, and a camera that appears not to follow navigation).
-  // The overlay/decoration scenes are NOT traversed here: their node-ids churn
-  // every frame with the camera, and folding them into this traversal would
-  // both re-record the (stable) main geometry and defeat the retained-IR replay
-  // below.  They are re-recorded separately afterwards (cheap) and merged onto
-  // this main list.
+  // SoIRRenderAction::apply() resets the frame, so camera and scene must be
+  // traversed in one apply(). The graph is geometry-only (camera is a separate
+  // member, matching SoRenderManager), so build [camera, scene] to let
+  // SoCamera::doAction() install the projection/view before geometry is recorded
+  // (else every command carries identity matrices and the view is blank/wrong).
+  // Overlay/decoration are traversed separately below (node-ids churn each frame).
    SbBool irReplayed = FALSE;
-   // The graph fingerprint walk is O(N) over the scene nodes, so on a retained
-   // (replayed) frame with no scene change at all it is pure waste.  The walk
-   // folds scene node-ids but deliberately skips camera, light, environment and
-   // tag/infra nodes, so the fingerprint is invariant under camera motion; the
-   // only thing that changes it is a change to a render-affecting node.  An
-   // SoNodeSensor attached to the scene root fires whenever any descendant is
-   // notified (a field write or a child-list edit, including the camera pose --
-   // FreeCAD keeps the camera inside the scene graph).  When the sensor has NOT
-   // fired since the last walk the cached fingerprint is still exact and the
-   // walk/re-traversal can be skipped via the branch below.  When it HAS fired
-   // we must recompute the fingerprint (see the else) to distinguish camera-only
-   // churn (identical fingerprint -> replay) from a real content change
-   // (different fingerprint -> re-traverse).
+   // The graph-fingerprint walk is O(N), so it is pure waste on an unchanged
+   // replayed frame. It folds render-affecting node-ids but skips camera/light/
+   // environment/tag nodes, so it is invariant under camera motion. The scene-
+   // root sensor fires on any descendant notification, including the camera pose
+   // (FreeCAD keeps the camera in the scene): if it has NOT fired the cached fp is
+   // exact and the branch below skips the walk, else recompute (see else).
    uint64_t graphFp;
    const SbVec2s fpVpSize = this->viewportRegion.getViewportSizePixels();
     if (this->graphFingerprintValid && this->lastFpValid &&
@@ -1528,25 +1284,13 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       graphFp = this->graphFingerprint;
     }
     else {
-      // Recompute the graph fingerprint whenever the scene sensor has fired.
-      // graphFingerprintWalk folds the node-id of every non-camera-coupled,
-      // render-affecting node, so a real content change that alters what the
-      // walk sees -- an add/remove, a geometry rebuild, a transform/model-matrix
-      // write, a material/selection field write, or a SoSwitch::whichChild
-      // visibility toggle -- bumps at least one folded id and produces a
-      // DIFFERENT fingerprint, correctly forcing a re-traverse below.  The
-      // root sensor also fires on camera pose/headlight motion, but those nodes
-      // are EXCLUDED from the walk, so camera-only frames yield an identical
-      // (camera-invariant) fingerprint and the retained main list replays.
-      //
-      // Do NOT short-circuit this walk with a cheap hash of the retained draw
-      // list: that is unsound.  The retained list is the PREVIOUS frame's graph
-      // output, so a visibility toggle (SoSwitch::whichChild) changes the scene
-      // without yet changing the retained commands -- their fingerprint is
-      // therefore unchanged, and skipping the walk would replay the stale list
-      // forever, leaving an object's show/hide state never reflected in the
-      // viewport.  The walk is the authoritative signal and is O(nodes) (a few
-      // mixHash per node), far cheaper than an actual re-traversal.
+      // Recompute when the sensor fires. The walk folds every non-camera-coupled
+      // render-affecting node-id, so a real change -- add/remove, geometry
+      // rebuild, transform/material/selection write, SoSwitch::whichChild -- bumps
+      // an id and forces a re-traverse; camera/headlight motion is excluded.
+      // Do NOT short-circuit with a hash of the retained draw list: it is the
+      // PREVIOUS frame's output, so a visibility toggle has not changed it yet and
+      // skipping the walk would replay stale output forever (show/hide lost).
       const long fpBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
       graphFp = this->computeGraphFingerprint();
       vkRenderBreadcrumbSince(fpBcStart, 1000, "prepare computeGraphFingerprint end");
@@ -1562,30 +1306,18 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
          graphFp == this->graphFingerprint &&
          (!this->sceneCameraDependent ||
           this->cameraVersion == this->sceneCameraDependentVersion)) {
-      // Camera-only frame: the main graph, the viewport, and the
-      // caller-published revision are unchanged, so the retained main IR draw
-      // list is exactly what a full traversal would produce -- keep it (and
-      // the geometry/texture caches keyed on it) and restamp the frame view
-      // after the matrices are built below.
-      // The graph-fingerprint walk folds node-id of every non-camera-coupled
-      // reachable node, so a real edit -- a transform/matrix move, a geometry
-      // rebuild, an add/remove, a material/selection field write (SoShape::
-      // notify() bumps its own id and drops the retained tessellation) --
-      // re-bumps at least one folded id and therefore produces a DIFFERENT
-      // fingerprint, correctly forcing a re-traverse.  Camera pose/headlight
-      // motion is excluded from the walk, so it leaves the fingerprint
-      // unchanged and replays.  Relying on fingerprint equality (not the
-      // sensor dirty flag) is what makes this robust: FreeCAD keeps the
-      // camera inside the scene graph, so the "camera never dirties the
-      // scene sensor" assumption the dirty flag encodes is false here, and
-      // without this the retained main list would be re-traversed (O(scene))
-      // every navigation frame even though the geometry is unchanged.
+      // Camera-only frame: graph, viewport and caller revision unchanged, so the
+      // retained main list is exactly what a full traversal would produce -- keep
+      // it (and its caches) and restamp the view below. A real edit (transform,
+      // geometry rebuild, add/remove, material/selection -- SoShape::notify()
+      // drops retained tessellation) changes the fingerprint and re-traverses;
+      // camera motion is excluded. Relying on fingerprint equality, not the
+      // sensor flag, is robust because FreeCAD keeps the camera in the scene.
       irReplayed = TRUE;
     }
     else {
-      // Reuse the persistent traversal root: clear its children only when
-      // the child set actually changes so the refcount stays balanced and
-      // navigation frames stop re-triggering child-list notifications.
+      // Reuse the traversal root; only touch children when the set changes, so
+      // the refcount stays balanced and navigation stops re-notifying.
       SoSeparator * root = this->frameRoot;
       SoNode * const want[4] = { this->camera, this->scene,
                                  nullptr, nullptr };
@@ -1630,25 +1362,18 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     vkRenderBreadcrumbSince(applyBcStart, 2000, "prepare action.apply end");
   }
 
-  // A replayed frame retains the main list verbatim and no traversal ran, so
-  // the retained main geometry content is bit-identical to the previous
-  // frame: backends may skip re-hashing geometry whose pointer identity
-  // already matches (the content hash exists to catch in-place edits, which
-  // only a traversal produces).  Freshly recorded overlay/decoration commands
-  // are out of scope for this guarantee.
+  // On a replay no traversal ran, so the retained main geometry is bit-
+  // identical to last frame: backends may skip re-hashing geometry whose
+  // pointer identity matches. Fresh overlay/decoration commands are excluded.
   params.geometryContentUnchanged = irReplayed;
 
   const long matricesBcStart = vkRenderBreadcrumbEnabled() ? vkRenderBreadcrumbNowUs() : 0;
   SoDrawList & list = action.getMutableDrawList();
 
   // ---- Always re-record the overlay/decoration (cheap) and merge ----------
-  // The nav cube and the axis cross mirror the camera, so their scene node-ids
-  // are re-touched every frame.  They cannot be retained with the stable main
-  // list, so re-traverse them here into a separate IR action and append their
-  // fresh commands onto the (retained) main list.  Truncate the previous
-  // frame's overlay region first -- it references geometry storage owned by the
-  // overlay action, which apply() just reset -- so the draw list the backend
-  // sees is [main..., overlay...] with no stale/dangling overlay commands.
+  // The nav cube/axis cross mirror the camera, so their node-ids churn and cannot
+  // be retained: re-traverse into overlayIrAction and append onto the main list.
+  // Truncate the previous overlay region first (its geometry was just reset).
   SbBool overlayApplied = FALSE;
   {
     SoSeparator * oroot = this->overlayRoot;
@@ -1660,8 +1385,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       this->overlayRootChildren[2] == owant[2];
     if (!oSame) {
       oroot->removeAllChildren();
-      // Decorations (axis cross) are added after the overlay scene so their
-      // overlay-pass commands draw on top of the navigation cube, matching GL's
+      // Decorations (axis cross) after the overlay scene, matching GL's
       // foreground/decoration render order.
       for (int i = 0; i < 3; ++i) {
         if (owant[i]) {
@@ -1681,20 +1405,15 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       overlayApplied = TRUE;
     }
     else {
-      // No overlay/decoration this frame: clear the previous frame's overlay
-      // list so the merge below does not append stale commands.
+      // No overlay this frame: clear the previous overlay list before merging.
       this->overlayIrAction.beginFrame();
     }
   }
   {
-    // The main region is whatever the MAIN IR action recorded, and on a fresh
-    // document that is often just the hidden anchor cube (a tiny non-indexed
-    // SoCube, ~36 vertices) - the real document shapes may not be in it at
-    // all.  Do not assume "the scene rendered" just because main > 0: check
-    // mainMaxVc against the shape's real vertex count.  Feature work that is
-    // only ever exercised against the nav cube can appear to work while never
-    // touching real, indexed document geometry (tools/fcprobe/vk_geomlod_probe.py
-    // is the check that guards against exactly this).
+    // Main region is whatever the MAIN IR action recorded; on a fresh document
+    // that is often just the hidden anchor cube (~36 vertices). Do not assume
+    // "the scene rendered" because main > 0: check mainMaxVc against the shape's
+    // real vertex count (tools/fcprobe/vk_geomlod_probe.py guards this).
     const int numMain = static_cast<int>(this->mainCommandCount);
     if (numMain < list.getNumCommands()) {
       list.truncate(numMain);
@@ -1721,33 +1440,17 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     }
   }
 
-  // The frame view/projection matrices drive every non-overlay command, so
-  // they must come from the camera this manager was told to use
-  // (setCamera()), not from whatever camera node happens to sit inside the
-  // traversed scene graph.  FreeCAD swaps the camera node in its scene
-  // graph when the projection type changes; if that swap is not mirrored
-  // into the manager, harvesting the matrices from the first recorded
-  // command renders with the scene's (new) camera while auto-clipping and
-  // the viewport use the manager's (stale) camera -- or vice versa.  The
-  // result is a viewport whose near/far planes do not belong to the camera
-  // actually rendering: the swapped-in camera keeps its default planes
-  // (near=1, far=10) and culls anything beyond 10 units as soon as the
-  // camera moves away from the object.
-  //
-  // Build the matrices directly from the camera node, mirroring
-  // SoCamera::doAction().  The managed camera is always traversed at the
-  // top of a fresh separator (no model transforms above it), so the
-  // view-volume/projection computed here matches what the traversal would
-  // install when the scene graph contains the same camera node.
+  // The frame view/projection must come from the camera this manager uses
+  // (setCamera()), not whatever camera sits in the scene graph: FreeCAD swaps
+  // the node when the projection changes, and a mismatch renders with one while
+  // clipping/viewport use the other. Build the matrices directly from the camera
+  // node (mirroring SoCamera::doAction()); the managed camera sits at the top of
+  // a fresh separator, so it matches an in-scene traversal.
   if (this->camera) {
-    // Build the view volume with the near/far planes this manager computed
-    // (setClippingPlanes()), NOT with SoCamera::nearDistance/farDistance.
-    // The camera fields are shared with FreeCAD's hidden GL viewer, whose
-    // own render manager rewrites them concurrently; harvesting the volume
-    // from the fields races with that writer and intermittently projects
-    // with a near plane behind the front surface (visible clipping / seeing
-    // into the object while navigating).  When auto-clipping is off the
-    // fields are authoritative and are used as-is.
+    // Build the view volume with the manager's computed near/far, NOT the camera
+    // fields: those are shared with FreeCAD's hidden GL viewer, whose render
+    // manager rewrites them concurrently (racing reads give an intermittent near
+    // plane behind the surface). When auto-clipping is off the fields win.
     float nearplane = this->camera->nearDistance.getValue();
     float farplane = this->camera->farDistance.getValue();
     if (this->autoClipping != SoVulkanRenderManager::NO_AUTO_CLIPPING) {
@@ -1786,8 +1489,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       vv.rotateCamera(this->camera->orientation.getValue());
       if (this->cameraShiftZ > 0.0f
           && this->autoClipping != SoVulkanRenderManager::NO_AUTO_CLIPPING) {
-        // Zoom wall: render from the backed-off camera position (see
-        // setClippingPlanes()); the camera node itself is left alone.
+        // Zoom wall: render from the backed-off position; the camera node is untouched.
         SbVec3f forward;
         this->camera->orientation.getValue().multVec(
           SbVec3f(0.0f, 0.0f, -1.0f), forward);
@@ -1807,11 +1509,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     params.projMatrix = first.projMatrix;
   }
 
-  // Diagnose a manager-camera vs scene-camera mismatch: if the scene graph
-  // itself contains a camera node, its doAction() state overrides the
-  // manager camera for any geometry recorded after it, so the rendered
-  // view/projection (and face culling) come from a different camera than the
-  // one the viewport is using.
+  // Diagnose a manager-vs-scene camera mismatch: an in-scene camera's
+  // doAction() state overrides the manager camera for later geometry, so the
+  // rendered view/projection comes from a different camera.
   if (clipDebugEnabled()) {
     static bool sceneCamLogged = false;
     static int sceneDumpCount = 0;
@@ -1838,8 +1538,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
         }
       }
       {
-        // Recursive type-only dump of the scene (up to 5 levels deep) to spot
-        // any stray camera or matrix nodes.
+        // Recursive type-only dump (up to depth 7) to spot stray camera/matrix nodes.
         std::function<void(SoNode*, int, int*)> dumpLevel =
             [&dumpLevel](SoNode * n, int depth, int * counter) {
           if (!n) return;
@@ -1924,18 +1623,14 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
 
   int dbgRestamped = -1;
   if (irReplayed) {
-    // Camera-only frame: restamp the frame viewing matrix into every
-    // non-overlay command that carried the previous traversal's viewing
-    // element (commands stamped by a sub-camera keep their own matrix).
-    // Lighting setups are world-space and need no re-derivation here.
+    // Camera-only frame: restamp the frame view into every non-overlay command
+    // carrying the previous traversal's view element (sub-camera commands keep
+    // their own). Lighting is world-space and needs no re-derivation.
     if (this->lastFrameViewValid) {
       const long replayT0 = wantCpuTiming ? vkRenderBreadcrumbNowUs() : 0;
-      // SbMatrix stores exactly float[4][4] (16 contiguous floats), so a
-      // full-storage bit-compare says whether the viewing matrix changed at
-      // all.  On a static camera (idle scene, no navigation) the replay
-      // frame's view is bit-identical to the previous one: nothing to
-      // restamp, so the O(N) per-command getValue + memcmp + matrix-copy
-      // loop is skipped entirely.
+      // SbMatrix is exactly float[4][4], so a full-storage bit-compare detects
+      // any view change. On a static camera the replay view is bit-identical,
+      // so the O(N) restamp loop is skipped entirely.
       if (std::memcmp(&this->lastFrameView[0][0], &params.viewMatrix[0][0],
                       sizeof(float) * 16) != 0) {
         SbMat lastView;
@@ -1963,8 +1658,7 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
     }
   }
   else if (!this->lastFrameViewValid) {
-    // Remember the exact viewing-element bits the current traversal stamped
-    // so the next replay (if any) can identify restrikable entries.
+    // Remember the view bits this traversal stamped so the next replay can restamp.
     const int numCommands = list.getNumCommands();
     for (int i = 0; i < numCommands; ++i) {
       const SoRenderCommand & command = list.getCommand(i);
@@ -2001,12 +1695,10 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
            list.getNumCommands() == this->lastSortCommandCount &&
            std::memcmp(&this->lastSortView[0][0], &params.viewMatrix[0][0],
                        sizeof(float) * 16) == 0) {
-    // A retained (replayed) list with a bit-identical view and an unchanged
-    // command count sorts exactly as the previous frame: reuse the previous
-    // frame's sorted order instead of re-deriving every command's sort key and
-    // re-running the stable sort.  The count check is required because the
-    // overlay region above was truncated/re-appended this frame; if its size
-    // changed, the previous order holds stale (out-of-range) indices.
+    // Replayed list, bit-identical view, unchanged command count: reuse the
+    // previous sorted order instead of re-deriving every sort key. The count
+    // check is required because the overlay region was truncated/re-appended
+    // this frame; if its size changed the order holds stale indices.
   }
   else {
     list.buildSortedOrder(params.viewMatrix);
@@ -2026,21 +1718,17 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
   vkRenderBreadcrumbSince(sortBcStart, 2000, "prepare buildSortedOrder end");
   drawlist = &list;
 
-  // Dump the draw list when COIN_DEBUG_RENDER_IR is set so the overlay
-  // commands recorded by the highlight/selection paths can be inspected
-  // (pass, depth state, diffuse color, vertex count).
+  // COIN_DEBUG_RENDER_IR: dump the draw list so highlight/selection overlay
+  // commands can be inspected (pass, depth, color, vertex count).
   static int dumpCount = 0;
   if (coin_render_ir_trace_enabled() && dumpCount++ < 300) {
     SoIRDumpSummary(list);
     SoIRDumpFirstN(list, list.getNumCommands());
   }
 
-  // Diagnostic trace for the Vulkan viewport pipeline.  The view/projection
-  // matrices are harvested from the first recorded command (see above).
-  // Identity values mean the scene graph did not contribute a camera node (or
-  // no geometry was recorded at all), which renders as a blank view.  Log the
-  // transition to non-identity matrices (the first real camera frame) rather
-  // than the initial empty frame so the camera fix can be verified at runtime.
+  // Diagnostic: identity view/proj means no camera node (or no geometry) and a
+  // blank view. Log the transition to non-identity (the first real camera
+  // frame) so the camera fix can be verified at runtime.
   static bool loggedReady = false;
   if (!loggedReady && list.getNumCommands() > 0
       && (params.viewMatrix[3][3] != 1.0f || params.projMatrix[3][3] != 1.0f
@@ -2061,12 +1749,9 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
       params.viewMatrix[3][3], params.projMatrix[3][3], params.projMatrix[2][3]);
   }
 
-  // Reconstruct near/far from the recorded projection matrix and compare with
-  // the auto-clipped values so mismatches (per-object clipping) are obvious.
-  // This is a diagnostic: its [CLIP] traces walk the draw-list vertices (a
-  // multi-million-vertex mesh costs seconds per dump), so it MUST stay behind
-  // the FC_VULKAN_CLIP_DEBUG gate.  Without the gate it dominates the frame on
-  // a large scene.
+  // Reconstruct near/far from the projection matrix and compare with the auto-
+  // clipped values. Diagnostic: the [CLIP] traces walk draw-list vertices (seconds
+  // per dump on a large mesh), so it MUST stay behind FC_VULKAN_CLIP_DEBUG.
   if (clipDebugEnabled()) {
     this->dumpClipDebug(list, params);
   }
@@ -2075,9 +1760,8 @@ SoVulkanRenderManagerP::prepareRenderParams(SbBool clearwindow,
 }
 
 
-// [CLIP] diagnostic trace, env-gated by FC_VULKAN_CLIP_DEBUG (verbose adds
-// FC_VULKAN_CLIP_VERBOSE).  Kept out of prepareRenderParams() so the frame
-// hot path is not dominated by this print-only branch.
+// [CLIP] trace, gated by FC_VULKAN_CLIP_DEBUG (CLIP_VERBOSE adds lines). Kept
+// out of prepareRenderParams() so the print-only branch does not dominate.
 void
 SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
                                       const SoRenderParams & params)
@@ -2088,10 +1772,9 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
       frames % 25 == 0) {
     SbMatrix m = params.projMatrix;
     SbMatrix v = params.viewMatrix;
-    // OpenGL-style perspective: col2=(0,0,a,-1), col3=(0,0,b,0) with
-    // a=-(f+n)/(f-n), b=-2fn/(f-n)  ->  n=b/(a-1), f=b/(a+1).
-    // Depth-range form (ortho): m22=-2/(f-n), m32=-(f+n)/(f-n)
-    // ->  n=(m32+1)/m22, f=(m32-1)/m22.
+    // Perspective: col2=(0,0,a,-1), col3=(0,0,b,0), a=-(f+n)/(f-n),
+    // b=-2fn/(f-n) -> n=b/(a-1), f=b/(a+1). Ortho: m22=-2/(f-n),
+    // m32=-(f+n)/(f-n) -> n=(m32+1)/m22, f=(m32-1)/m22.
     float nearf = -1.0f, farf = -1.0f;
     if (m[2][3] == -1.0f && m[3][3] == 0.0f) {
       const float a = m[2][2];
@@ -2157,9 +1840,8 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
         }
       }
     }
-    // Compare the box-center position in camera space derived from the
-    // camera NODE's own fields vs the harvested params.viewMatrix.  If they
-    // disagree, the matrix the GPU uses is not built from this camera node.
+    // Compare box-center in camera space from the camera NODE's fields vs
+    // params.viewMatrix; disagreement means the GPU matrix is not from this node.
     if (this->camera && this->scene) {
       SoGetBoundingBoxAction bba(this->viewportRegion);
       bba.apply(this->scene);
@@ -2197,11 +1879,9 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
             (void*)this->camera);
   }
 
-  // Cross-check the near/far source: transform the scene bounding box by
-  // the ACTUAL view matrix (what the GPU uses) and print the z-range, so a
-  // mismatch with the [CLIP] boxz (from setClippingPlanes' own transform)
-  // is obvious.  This isolates whether the near plane is cutting geometry
-  // because setClippingPlanes computes a wrong camera-space box.
+  // Cross-check near/far: transform the scene bbox by the ACTUAL view matrix
+  // and print the z-range; a mismatch with [CLIP] boxz isolates whether the
+  // near plane cuts geometry due to a wrong camera-space box.
   if (frames % 250 == 0 && this->scene) {
     SoGetBoundingBoxAction bboxAction(this->viewportRegion);
     bboxAction.apply(this->scene);
@@ -2233,10 +1913,8 @@ SoVulkanRenderManagerP::dumpClipDebug(SoDrawList & list,
     }
   }
 
-  // Project the first few commands' vertices into NDC the same way the
-  // backend vertex shader does (gl_Position = proj * view * model * pos,
-  // column-vector math on column-major matrices) to see whether the model
-  // geometry actually lands inside the clip volume at this view.
+  // Project the first commands' vertices into NDC as the backend shader does
+  // (gl_Position = proj * view * model * pos) to check they land in the clip volume.
   if (frames % 250 == 0 && list.getNumCommands() > 0) {
     auto mv = [](const SbMatrix & M, float x, float y, float z,
                  float * ox, float * oy, float * oz, float * ow) {

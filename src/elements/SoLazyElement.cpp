@@ -182,8 +182,7 @@ SoLazyElement::init(SoState * COIN_UNUSED_ARG(state))
   this->coinstate.transparray = lazy_defaulttransp;
   this->coinstate.colorindexarray = lazy_defaultindex;
   this->coinstate.istransparent = FALSE;
-  // Keep the public transparency enum ABI stable without depending on the
-  // LegacyGL-only SoGLRenderAction declaration in core builds.
+  // Keep the transparency enum ABI stable without the LegacyGL-only declaration.
   this->coinstate.transptype = 4; // SoTransparencyType::BLEND
   this->coinstate.diffusenodeid = 0;
   this->coinstate.transpnodeid = 0;

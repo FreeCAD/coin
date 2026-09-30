@@ -7,15 +7,10 @@
   \file SoVulkanReplayKey.h
   \brief Graph-fingerprint helpers for the Vulkan retained-IR replay.
 
-  These back SoVulkanRenderManagerP's camera-only-frame replay: a hash over
-  the render-affecting node ids (mixed with their pointer identity) that is
-  deliberately invariant under camera / light / environment chatter, so a
-  navigation frame leaves the retained draw list replayable.
-
-  Extracted from the manager (previously an anonymous-namespace block in
-  SoVulkanRenderManager.cpp) so the key, its node-class exclusions and the
-  walk can be reasoned about and unit-tested in isolation.  The functions are
-  header-inline; the pure graph walk has no dependency on the manager.
+  Backs SoVulkanRenderManagerP's camera-only-frame replay: a hash over
+  render-affecting node ids (mixed with pointer identity) that is invariant under
+  camera/light/environment chatter, so a navigation frame keeps the retained draw
+  list replayable.  Header-inline; the pure graph walk has no manager dependency.
 */
 
 #include <Inventor/nodes/SoCamera.h>
@@ -41,17 +36,13 @@ inline void mixHash(uint64_t & h, uint64_t v)
 /*!
   \brief True for a node whose id the graph fingerprint deliberately ignores.
 
-  The camera-coupled chatter (camera / light / environment / rotation /
-  transform-separator) and the plain container nodes.  Coin propagates a
-  notification up the parent chain, so any changed node re-bumps every
-  ancestor's node-id; FreeCAD re-aims the headlight rotation to follow the
-  camera every navigation frame, and those container ids are re-bumped purely
-  by propagation.  None of these nodes produce the rasterized fill-geometry in
-  the retained main draw list (lighting is re-derived every frame by the
-  backend), so excluding their ids only suppresses the camera-coupled chatter.
-  Real geometry edits use transform / shape / selection nodes, which still
-  fold their ids.  Shared with the scene-dirty sensor so the two stay
-  consistent.
+  Camera-coupled chatter (camera/light/environment/rotation/transform-separator)
+  and plain container nodes.  Coin propagates notifications up the parent chain,
+  so any change re-bumps every ancestor's node-id, and FreeCAD re-aims the
+  headlight rotation every navigation frame.  None of these produce the retained
+  fill geometry (lighting is re-derived per frame), so excluding their ids only
+  suppresses camera-coupled chatter; real edits use transform/shape/selection
+  nodes, which still fold their ids.  Shared with the scene-dirty sensor.
 */
 inline bool fingerprintSkipsNodeId(const SoNode * node)
 {
@@ -64,10 +55,8 @@ inline bool fingerprintSkipsNodeId(const SoNode * node)
     node->getTypeId() == SoSeparator::getClassTypeId();
 }
 
-//! Recursively fold (node pointer, SoNode::getNodeId()) of every reachable
-//! node into \a h.  Camera-coupled infra is excluded via
-//! fingerprintSkipsNodeId(), so a camera-only frame yields an unchanged hash
-//! and the retained draw list replays.
+//! Fold (node pointer, getNodeId()) of every reachable node into \a h, excluding
+//! camera-coupled infra, so a camera-only frame yields an unchanged hash.
 inline void graphFingerprintWalk(SoNode * node, const SoNode * skip, uint64_t & h)
 {
   if (!node || node == skip) return;

@@ -1200,9 +1200,8 @@ glglue_resolve_symbols(cc_glglue * w)
 #endif /* GL_VERSION_1_1 */
 
 
-  /* Vertex array objects are core in OpenGL 3.0 and exposed by
-     GL_ARB_vertex_array_object on older contexts. Resolve them explicitly;
-     the Windows OpenGL 1.1 import library does not export these symbols. */
+  /* VAOs are core in GL 3.0 and ARB_vertex_array_object earlier; resolve
+     explicitly since the Windows OpenGL 1.1 import library lacks them. */
   w->glBindVertexArray = (COIN_PFNGLBINDVERTEXARRAYPROC)
     cc_glglue_getprocaddress(w, "glBindVertexArray");
   w->glDeleteVertexArrays = (COIN_PFNGLDELETEVERTEXARRAYSPROC)
@@ -1777,9 +1776,8 @@ glglue_resolve_symbols(cc_glglue * w)
   w->glDisableVertexAttribArray = (COIN_PFNGLDISABLEVERTEXATTRIBARRAYPROC)
     cc_glglue_getprocaddress(w, "glDisableVertexAttribArray");
 
-  /* Resolve standard GLSL entry points independently of the active profile.
-     The wrappers below fall back to the ARB_shader_objects aliases when a
-     driver only exposes those names. */
+  /* Resolve standard GLSL entry points; the wrappers below fall back to the
+     ARB_shader_objects aliases when a driver exposes only those names. */
   w->glCreateShader = (COIN_PFNGLCREATESHADERPROC) PROC(w, glCreateShader);
   w->glShaderSource = (COIN_PFNGLSHADERSOURCEPROC) PROC(w, glShaderSource);
   w->glCompileShader = (COIN_PFNGLCOMPILESHADERPROC) PROC(w, glCompileShader);
@@ -1879,9 +1877,8 @@ glglue_resolve_symbols(cc_glglue * w)
   }
 #endif /* GL_ARB_shader_objects */
 
-  /* The uniform entry points have compatible core and ARB signatures. Keep
-     the normalized pointer in the glue object so callers do not need a
-     wrapper for every trivial uniform variant. */
+  /* Core and ARB uniform signatures are compatible; keep the normalized
+     pointer in the glue so callers need no wrapper per uniform variant. */
   if (!w->glUniform1f) w->glUniform1f = w->glUniform1fARB;
   if (!w->glUniform2f) w->glUniform2f = w->glUniform2fARB;
   if (!w->glUniform3f) w->glUniform3f = w->glUniform3fARB;
@@ -2489,8 +2486,7 @@ cc_glglue_instance(int contextid)
     }
 
     gi->rendererstr = glglue_strdup((const char *)glGetString(GL_RENDERER));
-    // GL_EXTENSIONS is invalid in an OpenGL core context. Use the indexed
-    // query path below for OpenGL 3.0 and newer contexts.
+    // GL_EXTENSIONS is invalid in a core context; use the indexed query below.
     gi->extensionsstr = cc_glglue_glversion_matches_at_least(gi, 3, 0, 0) ?
       NULL : glglue_strdup((const char *)glGetString(GL_EXTENSIONS));
 
@@ -2538,9 +2534,8 @@ cc_glglue_instance(int contextid)
       }
     }
 
-    // Cache the legacy-rendering capability before querying limits. Some
-    // limits are invalid in a core profile and would otherwise leave a stale
-    // GL error for later capability queries.
+    // Cache legacy-rendering support before querying limits: some limits are
+    // invalid in a core profile and would leave a stale GL error.
     gi->context_supports_legacy_rendering =
       glglue_detect_context_legacy_rendering(gi);
     gi->legacy_rendering_support_cached = TRUE;
@@ -2760,8 +2755,7 @@ cc_glglue_context_supports_legacy_rendering(const cc_glglue * glue)
 }
 
 
-/* Standard-facing shader wrappers.  Keeping the fallback here means shader
-   code does not need to know whether the driver exposed core or ARB names. */
+/* Shader wrappers: keep the core/ARB fallback here so callers need not know. */
 GLuint
 cc_glglue_glCreateShader(const cc_glglue * glue, GLenum type)
 {
