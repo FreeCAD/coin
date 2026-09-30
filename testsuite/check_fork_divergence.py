@@ -40,10 +40,9 @@ FORBIDDEN_TOKENS = (
 
 MACRO = "COIN_BUILD_LEGACY_GL_RENDERER"
 
-# Files that legitimately name these tokens: the lint tooling itself.
+# Files that legitimately name these tokens: the lint tool itself.
 IGNORE = {
     "testsuite/check_fork_divergence.py",
-    "testsuite/check_generated_headers.cmake",
 }
 
 # Files that upstream owns and that the fork must keep byte-identical.
