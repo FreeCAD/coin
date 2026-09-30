@@ -7,7 +7,6 @@
 // per-frame eviction).
 
 #include "rendering/SoVulkanRenderBackend.h"
-#include "rendering/SoVulkanDebug.h"
 #include "rendering/SoVulkanRenderBackend/SoVulkanRenderBackendP.h"
 #include "rendering/SoVulkanShared.h"
 
@@ -30,16 +29,6 @@
 using namespace CoinVulkanDetail;
 
 namespace {
-
-long vkGeometryBreadcrumbNowUs()
-{
-  return SoVulkanShared::steadyNowUs();
-}
-
-bool vkGeometryBreadcrumbEnabled()
-{
-  return SoVulkanShared::breadcrumbsEnabled();
-}
 
 VkDeviceSize alignGeometryUpload(VkDeviceSize bytes)
 {
@@ -711,13 +700,6 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
   // pool needs no teardown, and the next frame re-stages from scratch.
   this->pendingUploads.clear();
 
-  const long cacheBcStart = vkGeometryBreadcrumbEnabled() ? vkGeometryBreadcrumbNowUs() : 0;
-  int bcCommands = 0;
-  int bcGeometryUploads = 0;
-  int bcTexturePrepares = 0;
-  size_t bcVertices = 0;
-  size_t bcIndices = 0;
-
   const uint32_t generation = drawlist.getGeneration();
 
   // Overlay-composite mode (another renderer owns the scene): the sweep must
@@ -810,16 +792,12 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       continue;
     }
     const SoGeometryDesc & geometry = command.geometry;
-    ++bcCommands;
-    bcVertices += geometry.vertexCount;
-    bcIndices += geometry.indexCount;
 
     VulkanCachedCommand & entry = this->getOrCreateCache(&command);
     // The draw-list generation changes every frame (clear() bumps it), so it is
     // only an eviction visit stamp, never a re-upload signal; re-uploads come from
     // the producer-owned content keys (content hash re-verified for in-place edits).
     if (needsGeometry[static_cast<size_t>(i)]) {
-      ++bcGeometryUploads;
       this->deferDestroyCacheEntry(entry);
       bool uploadedShared = false;
       if (geometry.retained && sharedBlockId != 0) {
@@ -871,7 +849,6 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
           upload.command = &command;
           upload.index = this->commandToTexture[&command];
           upload.texture = &texture;
-          ++bcTexturePrepares;
           if (this->prepareTextureUpload(texEntry, texture, upload.stagingOffset,
                                          upload.stagingBytes)) {
             this->pendingUploads.push_back(upload);
@@ -961,19 +938,6 @@ SoVulkanRenderBackend::updateGeometryCache(const SoDrawList & drawlist,
       else {
         upload.index = std::numeric_limits<size_t>::max();
       }
-    }
-  }
-
-  if (cacheBcStart) {
-    static int logged = 0;
-    const long now = vkGeometryBreadcrumbNowUs();
-    const long dur = now - cacheBcStart;
-    if (logged < 20 && (dur >= 5000 || bcGeometryUploads > 0)) {
-      ++logged;
-      SoVulkanDebug::post("[VKGEOMCACHE] %ld updateGeometryCache dur_us=%ld commands=%d "
-                   "uploads=%d textures=%d vertices=%zu indices=%zu\n",
-                   cacheBcStart, dur, bcCommands, bcGeometryUploads,
-                   bcTexturePrepares, bcVertices, bcIndices);
     }
   }
 }

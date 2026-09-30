@@ -36,11 +36,6 @@ using namespace CoinVulkanDetail;
 
 namespace {
 
-long vkBackendRenderNowUs()
-{
-  return SoVulkanShared::steadyNowUs();
-}
-
 double vkBackendRenderNowMs()
 {
   return SoVulkanShared::steadyNowMs();
@@ -52,19 +47,6 @@ bool vkBackendFrameTimingEnabled()
   static const bool enabled =
     SoVulkanShared::envFlagEnabled("COIN_VULKAN_FRAME_TIMING");
   return enabled;
-}
-
-bool vkBackendRenderBreadcrumbEnabled()
-{
-  return SoVulkanShared::breadcrumbsEnabled();
-}
-
-int vkBackendRenderBreadcrumbLogBudget = 0;
-
-void vkBackendRenderBreadcrumbSince(long startUs, long thresholdUs, const char* phase)
-{
-  SoVulkanShared::breadcrumbSince(vkBackendRenderBreadcrumbLogBudget,
-                                  "[VKBACKEND]", startUs, thresholdUs, phase);
 }
 
 } // namespace
@@ -693,8 +675,6 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
                                       VkRenderPass renderPass,
                                       VkFramebuffer framebuffer)
 {
-  const long externalBcStart = vkBackendRenderBreadcrumbEnabled() ? vkBackendRenderNowUs() : 0;
-
   this->debugValidateDrawList(drawlist);
 
   // GPU timestamps on the caller-owned pass: the caller must have recorded the
@@ -745,7 +725,6 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
 
   const double extPreRecEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
   const double recordT0 = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
-  const long recordBcStart = vkBackendRenderBreadcrumbEnabled() ? vkBackendRenderNowUs() : 0;
   this->recordContext.buffer = commandBuffer;
   if (gpuScopes) {
     this->gpuTimers.beginScope(commandBuffer, "renderPass");
@@ -755,7 +734,6 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
   if (gpuScopes) {
     this->gpuTimers.endScope(commandBuffer);
   }
-  vkBackendRenderBreadcrumbSince(recordBcStart, 5000, "renderExternal recordFrame end");
   this->recordContext.buffer = VK_NULL_HANDLE;
   const double recordEnd = wantCpuTiming ? vkBackendRenderNowMs() : 0.0;
 
@@ -782,7 +760,6 @@ SoVulkanRenderBackend::renderExternal(const SoDrawList & drawlist,
                  recordEnd - recordT0, extSubmitEnd - extPreRecEnd,
                  extSubmitEnd - extT0);
   }
-  vkBackendRenderBreadcrumbSince(externalBcStart, 5000, "renderExternal end");
   return recorded ? TRUE : FALSE;
 }
 
