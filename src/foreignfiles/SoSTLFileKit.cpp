@@ -43,9 +43,7 @@
 #include <Inventor/lists/SbList.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/actions/SoCallbackAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoReorganizeAction.h>
-#endif
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoShapeHints.h>
 #include <Inventor/nodes/SoTexture2.h>
@@ -449,11 +447,9 @@ SoSTLFileKit::convert()
   facets_copy->copyContents(facets_orig, FALSE);
   sceneroot->addChild(facets_copy);
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
   // optimize/reorganize mesh
   SoReorganizeAction ra;
   ra.apply(sceneroot);
-#endif
 
   // FIXME: remove redundant scene graph nodes after scene reorganization
 

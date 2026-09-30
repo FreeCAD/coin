@@ -58,5 +58,4 @@ private:
   void updategl() const;
 };
 
-
 #endif // !COIN_SOGLVIEWPORTREGIONELEMENT_H

@@ -140,9 +140,7 @@
 #include <Inventor/elements/SoFontNameElement.h>
 #include <Inventor/elements/SoFontSizeElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/lists/SbList.h>
 #include <Inventor/nodes/SoAsciiText.h>
@@ -279,7 +277,6 @@ SoVRMLText::~SoVRMLText()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLText::GLRender(SoGLRenderAction * action)
 {
@@ -524,7 +521,6 @@ SoVRMLText::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::incNumShapes(state);
   }
 }
-#endif
 
 
 // Doc in parent

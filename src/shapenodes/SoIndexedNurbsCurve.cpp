@@ -61,18 +61,14 @@
 #include <config.h>
 #endif // HAVE_CONFIG_H
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/caches/SoBoundingBoxCache.h>
 #include <Inventor/elements/SoCoordinateElement.h>
 #include <Inventor/elements/SoPickStyleElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoDrawStyleElement.h>
 #include <Inventor/SoPrimitiveVertex.h>
 #include <Inventor/elements/SoLazyElement.h>
@@ -210,7 +206,6 @@ SoIndexedNurbsCurve::computeBBox(SoAction * action,
 }
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
 {
@@ -241,7 +236,6 @@ SoIndexedNurbsCurve::GLRender(SoGLRenderAction * action)
     SoGLCacheContextElement::incNumShapes(state);
   }
 }
-#endif
 
 // doc from parent
 void

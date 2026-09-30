@@ -53,9 +53,7 @@
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoTextureUnitElement.h>
 
 #include "nodes/SoSubNodeP.h"
@@ -97,7 +95,6 @@ SoTextureCoordinateDefault::doAction(SoAction * action)
   SoMultiTextureCoordinateElement::setDefault(action->getState(), this, unit);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateDefault::GLRender(SoGLRenderAction * action)
@@ -107,7 +104,6 @@ SoTextureCoordinateDefault::GLRender(SoGLRenderAction * action)
                                                this, 0, NULL);
   SoTextureCoordinateDefault::doAction((SoAction *)action);
 }
-#endif
 
 // doc from parent
 void

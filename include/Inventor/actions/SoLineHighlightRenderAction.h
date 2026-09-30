@@ -33,8 +33,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-#include <Inventor/C/basic.h>
-
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/SbColor.h>
 

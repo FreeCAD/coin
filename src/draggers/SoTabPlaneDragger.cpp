@@ -76,9 +76,7 @@
 #include <Inventor/projectors/SbLineProjector.h>
 #include <Inventor/events/SoKeyboardEvent.h>
 #include <Inventor/sensors/SoFieldSensor.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoViewVolumeElement.h>
 #include <Inventor/elements/SoViewportRegionElement.h>
@@ -264,9 +262,7 @@ SoTabPlaneDragger::SoTabPlaneDragger(void)
 
   this->createPrivateParts();
   this->prevsizex = this->prevsizey = 0.0f;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   this->reallyAdjustScaleTabSize(NULL);
-#endif
   this->constraintState = CONSTRAINT_OFF;
   this->whatkind = WHATKIND_NONE;
   this->adjustTabs = TRUE;
@@ -375,7 +371,6 @@ SoTabPlaneDragger::valueChangedCB(void *, SoDragger * d)
 }
 
 // Doc in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTabPlaneDragger::GLRender(SoGLRenderAction * action)
 {
@@ -396,7 +391,6 @@ SoTabPlaneDragger::GLRender(SoGLRenderAction * action)
   }
   inherited::GLRender(action);
 }
-#endif
 
 /*!
   Signals the dragger to recalculate the size of its tabs. This method
@@ -415,7 +409,6 @@ SoTabPlaneDragger::adjustScaleTabSize(void)
   the current viewport, the current model matrix and the current scale
   factor. If \a action == \e NULL, a default size will be used.
 */
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTabPlaneDragger::reallyAdjustScaleTabSize(SoGLRenderAction *action)
 {
@@ -508,7 +501,6 @@ SoTabPlaneDragger::reallyAdjustScaleTabSize(SoGLRenderAction *action)
   }
   coordnode->point.finishEditing();
 }
-#endif
 
 /*!
   Not implemented.

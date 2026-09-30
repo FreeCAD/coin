@@ -257,7 +257,6 @@ SoVRMLBillboard::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBillboard::GLRender(SoGLRenderAction * action)
 {
@@ -274,7 +273,6 @@ SoVRMLBillboard::GLRender(SoGLRenderAction * action)
     break;
   }
 }
-#endif
 
 // Doc in parent
 void
@@ -325,7 +323,6 @@ SoVRMLBillboard::search(SoSearchAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBillboard::GLRenderBelowPath(SoGLRenderAction * action)
 {
@@ -376,10 +373,8 @@ SoVRMLBillboard::GLRenderBelowPath(SoGLRenderAction * action)
   action->popCurPath();
   state->pop();
 }
-#endif
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBillboard::GLRenderInPath(SoGLRenderAction * action )
 {
@@ -429,16 +424,13 @@ SoVRMLBillboard::GLRenderInPath(SoGLRenderAction * action )
     this->GLRenderBelowPath(action);
   }
 }
-#endif
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBillboard::GLRenderOffPath(SoGLRenderAction * COIN_UNUSED_ARG(action))
 {
   // do nothing
 }
-#endif
 
 // Doc in parent
 void

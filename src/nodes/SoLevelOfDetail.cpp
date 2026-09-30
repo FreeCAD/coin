@@ -422,7 +422,6 @@ SoLevelOfDetail::callback(SoCallbackAction *action)
 }
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoLevelOfDetail::GLRender(SoGLRenderAction *action)
 {
@@ -431,7 +430,6 @@ SoLevelOfDetail::GLRender(SoGLRenderAction *action)
   SoGLCacheContextElement::shouldAutoCache(action->getState(),
                                            SoGLCacheContextElement::DONT_AUTO_CACHE);
 }
-#endif
 
 // Documented in superclass.
 void

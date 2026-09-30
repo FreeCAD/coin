@@ -88,9 +88,7 @@
 #include <Inventor/SbVec4f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoEnvironmentElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLightIdElement.h>
-#endif
 #include <Inventor/system/gl.h>
 #if COIN_DEBUG
 #include <Inventor/errors/SoDebugError.h>
@@ -127,7 +125,6 @@ SoVRMLDirectionalLight::~SoVRMLDirectionalLight()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -171,6 +168,5 @@ SoVRMLDirectionalLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_LINEAR_ATTENUATION, 0);
   glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
 }
-#endif
 
 #endif // HAVE_VRML97

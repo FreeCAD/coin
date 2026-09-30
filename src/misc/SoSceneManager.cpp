@@ -59,9 +59,7 @@
 #include <Inventor/C/tidbits.h>
 #include <Inventor/SoDB.h>
 #include <Inventor/actions/SoAudioRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/actions/SoHandleEventAction.h>
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/errors/SoDebugError.h>
@@ -165,7 +163,6 @@ SoSceneManager::render(const SbBool clearwindow, const SbBool clearzbuffer)
   
   \since Coin 2.0
  */
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSceneManager::render(SoGLRenderAction * action,
                        const SbBool initmatrices,
@@ -174,7 +171,6 @@ SoSceneManager::render(SoGLRenderAction * action,
 {
   PRIVATE(this)->rendermanager->render(action, initmatrices, clearwindow, clearzbuffer);
 }
-#endif
 
 /*!
   Process the given event by applying an SoHandleEventAction on the
@@ -579,24 +575,20 @@ SoSceneManager::getAntialiasing(SbBool & smoothing, int & numpasses) const
   Set the \a action to use for rendering. Overrides the default action
   made in the constructor.
  */
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoSceneManager::setGLRenderAction(SoGLRenderAction * const action)
 {
   PRIVATE(this)->rendermanager->setGLRenderAction(action);
 }
-#endif
 
 /*!
   Returns pointer to render action.
  */
-#if COIN_BUILD_LEGACY_GL_RENDERER
 SoGLRenderAction *
 SoSceneManager::getGLRenderAction(void) const
 {
   return PRIVATE(this)->rendermanager->getGLRenderAction();
 }
-#endif
 
 /*!
   Set the \a action to use for rendering audio. Overrides the default action

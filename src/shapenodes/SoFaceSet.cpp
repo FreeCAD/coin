@@ -80,9 +80,7 @@ class SoVBO;
 #include <Inventor/SoPrimitiveVertex.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/system/gl.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoNormalBindingElement.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/elements/SoVertexAttributeBindingElement.h>
@@ -100,21 +98,15 @@ class SoVBO;
 #include <Inventor/caches/SoConvexDataCache.h>
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 
 #ifdef COIN_THREADSAFE
 #include <Inventor/threads/SbRWMutex.h>
 #endif // COIN_THREADSAFE
 
 #include "nodes/SoSubNodeP.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 #include "rendering/SoGL.h"
 
 // *************************************************************************
@@ -294,7 +286,6 @@ SoFaceSet::findNormalBinding(SoState * const state) const
   return binding;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 
 namespace { namespace SoGL { namespace FaceSet {
 
@@ -418,7 +409,6 @@ namespace { namespace SoGL { namespace FaceSet {
 
 } } } // namespace
 
-#endif
 
 /*!
   \copydetails SoNode::initClass(void)
@@ -475,7 +465,6 @@ SoFaceSet::initClass(void)
   SOGL_FACESET_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoFaceSet::GLRender(SoGLRenderAction * action)
@@ -669,7 +658,6 @@ SoFaceSet::GLRender(SoGLRenderAction * action)
   sogl_autocache_update(state, numv ?
                         (this->numVertices[0]-2)*numv : 0, didusevbo);
 }
-#endif
 
 #undef SOGL_FACESET_GLRENDER_CALL_FUNC
 #undef SOGL_FACESET_GLRENDER_RESOLVE_ARG3
@@ -944,7 +932,6 @@ SoFaceSet::notify(SoNotList * l)
 // internal method which checks if convex cache needs to be
 // used or (re)created. Renders the shape if convex cache needs to be used.
 //
-#if COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoFaceSet::useConvexCache(SoAction * action)
 {
@@ -1141,7 +1128,6 @@ SoFaceSet::useConvexCache(SoAction * action)
 
   return TRUE;
 }
-#endif
 
 #undef PRIVATE
 #undef STATUS_UNKNOWN

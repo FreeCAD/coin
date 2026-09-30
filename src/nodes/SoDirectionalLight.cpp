@@ -99,9 +99,7 @@
 #include <Inventor/SbVec4f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoEnvironmentElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLightIdElement.h>
-#endif
 #include <Inventor/elements/SoLightElement.h>
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoViewingMatrixElement.h>
@@ -158,7 +156,6 @@ SoDirectionalLight::initClass(void)
 // *************************************************************************
 
 // Doc from superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoDirectionalLight::GLRender(SoGLRenderAction * action)
 {
@@ -209,6 +206,5 @@ SoDirectionalLight::GLRender(SoGLRenderAction * action)
   glLightf(light, GL_LINEAR_ATTENUATION, 0);
   glLightf(light, GL_QUADRATIC_ATTENUATION, 0);
 }
-#endif
 
 // *************************************************************************

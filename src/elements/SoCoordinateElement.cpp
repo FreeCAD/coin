@@ -45,9 +45,7 @@
 
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/nodes/SoNode.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 
 #include "tidbitsp.h"
 #include "SbBasicP.h"
@@ -132,11 +130,9 @@ SoCoordinateElement::set3(SoState * const state,
                           const int32_t numCoords,
                           const SbVec3f * const coords)
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setVertexVBO(state, NULL);
   }
-#endif
   SoCoordinateElement * elem =
     coin_safe_cast<SoCoordinateElement *>
     (
@@ -159,11 +155,9 @@ SoCoordinateElement::set4(SoState * const state,
                           const int32_t numCoords,
                           const SbVec4f * const coords)
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
     SoGLVBOElement::setVertexVBO(state, NULL);
   }
-#endif
   SoCoordinateElement * elem = coin_safe_cast<SoCoordinateElement *>
     (
      SoElement::getElement(state, classStackIndex)

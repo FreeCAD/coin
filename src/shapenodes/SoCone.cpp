@@ -89,9 +89,7 @@
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/details/SoConeDetail.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include <Inventor/misc/SoState.h>
 
@@ -207,7 +205,6 @@ SoCone::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec3f &
 }
 
 // Doc from parent.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCone::GLRender(SoGLRenderAction * action)
 {
@@ -257,7 +254,6 @@ SoCone::GLRender(SoGLRenderAction * action)
   SoDebugError::postInfo("SoCone::GLRender", "end");
 #endif // debug
 }
-#endif
 
 /*!
   Add a \a part to the cone.

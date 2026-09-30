@@ -113,5 +113,4 @@ private:
   mutable int multimax;
 };
 
-
 #endif // !COIN_SOGLMULTITEXTURECOORDINATEELEMENT_H

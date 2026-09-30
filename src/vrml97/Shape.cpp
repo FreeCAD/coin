@@ -132,18 +132,10 @@
 #include <Inventor/elements/SoCullElement.h>
 #include <Inventor/elements/SoComplexityTypeElement.h>
 #include <Inventor/caches/SoBoundingBoxCache.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/caches/SoGLCacheList.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/caches/SoGLCacheList.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLShapeHintsElement.h>
-#endif
 #include <Inventor/system/gl.h>
 #ifdef HAVE_THREADS
 #include <Inventor/threads/SbMutex.h>
@@ -232,9 +224,7 @@ SoVRMLShape::SoVRMLShape(void)
 SoVRMLShape::~SoVRMLShape()
 {
   delete PRIVATE(this)->childlist;
-#if COIN_BUILD_LEGACY_GL_RENDERER
   delete PRIVATE(this)->cachelist;
-#endif
   delete PRIVATE(this);
 }
 
@@ -286,7 +276,6 @@ SoVRMLShape::callback(SoCallbackAction * action)
   SoVRMLShape::doAction((SoAction*) action);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLShape::GLRender(SoGLRenderAction * action)
 {
@@ -343,7 +332,6 @@ SoVRMLShape::GLRender(SoGLRenderAction * action)
   }
   state->pop();
 }
-#endif
 
 void
 SoVRMLShape::getBoundingBox(SoGetBoundingBoxAction * action)

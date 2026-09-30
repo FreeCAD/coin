@@ -184,13 +184,11 @@ SoVRMLTextureTransform::callback(SoCallbackAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLTextureTransform::GLRender(SoGLRenderAction * action)
 {
   SoVRMLTextureTransform::doAction((SoAction*)action);
 }
-#endif
 
 // Doc in parent
 void

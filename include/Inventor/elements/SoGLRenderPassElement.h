@@ -57,5 +57,4 @@ protected:
 
 };
 
-
 #endif // !COIN_SOGLRENDERPASSELEMENT_H

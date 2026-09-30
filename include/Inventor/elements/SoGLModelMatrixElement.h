@@ -68,5 +68,4 @@ private:
   SbBool stackoverflow;
 };
 
-
 #endif // !COIN_SOGLMODELMATRIXELEMENT_H

@@ -231,7 +231,6 @@ SoVRMLFog::~SoVRMLFog()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLFog::GLRender(SoGLRenderAction * action)
 {
@@ -254,7 +253,6 @@ SoVRMLFog::GLRender(SoGLRenderAction * action)
                             PRIVATE(this)->visibilityRange);
 
 }
-#endif
 
 void
 fog_fieldsensorCB(void * data, SoSensor * sensor)

@@ -97,9 +97,7 @@
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoSearchAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoLazyElement.h>
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/misc/SoChildList.h>
@@ -446,7 +444,6 @@ SoWWWInline::getReadAsSoFile(void)
 
 // Documented in superclass.  Overridden to render children and/or
 // bounding box.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoWWWInline::GLRender(SoGLRenderAction * action)
 {
@@ -511,7 +508,6 @@ SoWWWInline::GLRender(SoGLRenderAction * action)
 
   state->pop(); // restore state
 }
-#endif
 
 // doc in super
 void

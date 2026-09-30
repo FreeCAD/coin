@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21...3.31)
+cmake_minimum_required(VERSION 3.0...3.31)
 
 set(COIN_MAJOR_VERSION 4)
 set(COIN_MINOR_VERSION 0)
@@ -160,19 +160,11 @@ endif()
 option(COIN_BUILD_LEGACY_GL_RENDERER
   "Build Coin's legacy fixed-function OpenGL renderer."
   ON)
+set(COIN_HAVE_LEGACY_GL_RENDERER ${COIN_BUILD_LEGACY_GL_RENDERER})
 
 option(COIN_BUILD_VULKAN_RENDERER
   "Build Coin's experimental Vulkan retained-renderer backend."
   OFF)
-
-# Make the renderer selection explicit for every Coin translation unit and
-# generated public header.  This keeps core-only declarations and definitions
-# in sync even when the build uses separate object-library targets.
-if(COIN_BUILD_LEGACY_GL_RENDERER)
-  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 1)
-else()
-  set(COIN_BUILD_LEGACY_GL_RENDERER_VALUE 0)
-endif()
 
 if(COIN_BUILD_VULKAN_RENDERER)
   set(COIN_BUILD_VULKAN_RENDERER_VALUE 1)
@@ -824,111 +816,10 @@ if(UNIX AND NOT APPLE AND COIN_BUILD_GLX)
   " HAVE_GLX)
 endif()
 
-# Helpers to keep GL header logic in one place.
-macro(coin_check_gl_headers)
-  if(COIN_BUILD_LEGACY_GL_RENDERER)
-    message(STATUS "Legacy GL renderer build enabled; using compatibility headers")
-    if(HAVE_WINDOWS_H)
-      check_include_files("windows.h;GL/gl.h" HAVE_GL_GL_H)
-      check_include_files("windows.h;GL/glu.h" HAVE_GL_GLU_H)
-    elseif(APPLE AND NOT COIN_BUILD_MAC_X11)
-      check_include_file(OpenGL/gl.h HAVE_OPENGL_GL_H)
-      check_include_file(OpenGL/glu.h HAVE_OPENGL_GLU_H)
-      check_include_file(OpenGL/glext.h HAVE_OPENGL_GLEXT_H)
-    else()
-      check_include_files("GL/gl.h" HAVE_GL_GL_H)
-      check_include_files("GL/glu.h" HAVE_GL_GLU_H)
-      check_include_files("GL/gl.h;GL/glext.h" HAVE_GL_GLEXT_H)
-    endif()
-  else()
-    message(STATUS "Legacy GL renderer build disabled; using core profile headers")
-    if(APPLE AND NOT COIN_BUILD_MAC_X11)
-      check_include_file(OpenGL/gl3.h HAVE_OPENGL_GL3_H)
-      check_include_file(OpenGL/gl3ext.h HAVE_OPENGL_GL3EXT_H)
-    else()
-      if(HAVE_WINDOWS_H)
-        # Coin uses its private Khronos snapshot for internal Windows builds.
-        # Do not make configuration depend on modern headers from the SDK.
-      else()
-        check_include_file(GL/glcorearb.h HAVE_GL_GLCOREARB_H)
-        check_include_file(GL/glext.h HAVE_GL_GLEXT_H)
-      endif()
-    endif()
-  endif()
-endmacro()
-
-macro(coin_configure_gl_include_strings)
-  set(CMAKE_REQUIRED_INCLUDES)
-  set(CMAKE_REQUIRED_LIBRARIES)
-
-  if(HAVE_WINDOWS_H)
-    set(SIM_INCLUDE_WINDOWS_H "#include <windows.h>")
-  else()
-    set(SIM_INCLUDE_WINDOWS_H "/* #include <windows.h> - not needed on system */")
-  endif()
-
-  if(COIN_BUILD_LEGACY_GL_RENDERER)
-    if(HAVE_GL_GL_H)
-      set(SIM_INCLUDE_GL_H "#include <GL/gl.h>")
-    elseif(HAVE_OPENGL_GL_H)
-      set(SIM_INCLUDE_GL_H "#include <OpenGL/gl.h>")
-    else()
-      set(SIM_INCLUDE_GL_H "#error \"don't know how to include gl.h header\"")
-    endif()
-    if(HAVE_SUPERGLU)
-      set(SIM_INCLUDE_GLU_H "/* #include <GL/glu.h> - not used, Coin linked with embedded SuperGLU */")
-    elseif(HAVE_GL_GLU_H)
-      set(SIM_INCLUDE_GLU_H "#include <GL/glu.h>")
-    elseif(HAVE_OPENGL_GLU_H)
-      set(SIM_INCLUDE_GLU_H "#include <OpenGL/glu.h>")
-    else()
-      set(SIM_INCLUDE_GLU_H "/* #include <GL/glu.h> - not found on system */")
-    endif()
-    if(HAVE_GL_GLEXT_H)
-      set(SIM_INCLUDE_GLEXT_H "#include <GL/glext.h>")
-    elseif(HAVE_OPENGL_GLEXT_H)
-      set(SIM_INCLUDE_GLEXT_H "#include <OpenGL/glext.h>")
-    else()
-      set(SIM_INCLUDE_GLEXT_H "/* #include <GL/glext.h> - not found on system */")
-    endif()
-  else()
-    if(APPLE AND NOT COIN_BUILD_MAC_X11)
-      if(HAVE_OPENGL_GL3_H)
-        set(SIM_INCLUDE_GL_H "#include <OpenGL/gl3.h>")
-      else()
-        set(SIM_INCLUDE_GL_H "#error \"OpenGL/gl3.h is required for core profile\"")
-      endif()
-      if(HAVE_OPENGL_GL3EXT_H)
-        set(SIM_INCLUDE_GLEXT_H "#include <OpenGL/gl3ext.h>")
-      else()
-        set(SIM_INCLUDE_GLEXT_H "/* #include <OpenGL/gl3ext.h> - not found on system */")
-      endif()
-    elseif(HAVE_WINDOWS_H)
-      # This is only the public-header fallback. Internal Coin compilation
-      # selects the private Khronos glcorearb.h in gl-headers.h.cmake.in.
-      set(SIM_INCLUDE_GL_H "#include <GL/glcorearb.h>")
-      set(SIM_INCLUDE_GLEXT_H "/* glcorearb.h provides the core-profile declarations */")
-    else()
-      if(HAVE_GL_GLCOREARB_H)
-        set(SIM_INCLUDE_GL_H "#include <GL/glcorearb.h>")
-      else()
-        set(SIM_INCLUDE_GL_H "#error \"GL/glcorearb.h is required for core profile\"")
-      endif()
-      set(SIM_INCLUDE_GLEXT_H "/* glcorearb.h provides the core-profile declarations */")
-    endif()
-    set(SIM_INCLUDE_GLU_H "/* #include <GL/glu.h> - not used with core profile */")
-  endif()
-endmacro()
-
-# Checks specific OpenGL configurations
-coin_check_gl_headers()
-
 if(APPLE AND NOT COIN_BUILD_MAC_X11)
   check_include_file(OpenGL/glu.h HAVE_OPENGL_GLU_H)
   check_include_file(OpenGL/CGLCurrent.h HAVE_OPENGL_CGLCURRENT_H)
 endif()
-
-coin_configure_gl_include_strings()
 
 check_symbol_exists(va_copy stdarg.h HAVE_VA_COPY_MACRO)
 check_symbol_exists(strncasecmp string.h HAVE_STRNCASECMP)
@@ -1063,7 +954,6 @@ else()
 endif()
 
 add_compile_definitions(
-  COIN_BUILD_LEGACY_GL_RENDERER=${COIN_BUILD_LEGACY_GL_RENDERER_VALUE}
   COIN_BUILD_VULKAN_RENDERER=${COIN_BUILD_VULKAN_RENDERER_VALUE}
 )
 

@@ -173,7 +173,6 @@ SoCallback::callback(SoCallbackAction * action)
 }
 
 // Doc from superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCallback::GLRender(SoGLRenderAction * action)
 {
@@ -184,7 +183,6 @@ SoCallback::GLRender(SoGLRenderAction * action)
 
   SoCallback::doAction(action);
 }
-#endif
 
 // Doc from superclass.
 void

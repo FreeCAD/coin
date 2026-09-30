@@ -93,15 +93,11 @@ class SoVBO;
 #include <Inventor/nodes/SoVertexProperty.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoMultiTextureEnabledElement.h>
 #include <Inventor/elements/SoNormalBindingElement.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/caches/SoNormalCache.h>
 #include <Inventor/details/SoPointDetail.h>
@@ -110,21 +106,15 @@ class SoVBO;
 #include <Inventor/SbColor4f.h>
 #include <Inventor/elements/SoOverrideElement.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #if COIN_DEBUG
 #include <Inventor/errors/SoDebugError.h>
 #endif // COIN_DEBUG
 
 #include "nodes/SoSubNodeP.h"
 #include "rendering/SoGL.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 static SbBool
 is_material_per_vertex(SoVRMLPointSet * ps, SoState * state)
@@ -164,7 +154,6 @@ SoVRMLPointSet::~SoVRMLPointSet()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPointSet::GLRender(SoGLRenderAction * action)
 {
@@ -239,7 +228,6 @@ SoVRMLPointSet::GLRender(SoGLRenderAction * action)
   // send approx number of points for autocache handling
   sogl_autocache_update(state, numpts, didrenderasvbo); 
 }
-#endif
 
 // Doc in parent
 void

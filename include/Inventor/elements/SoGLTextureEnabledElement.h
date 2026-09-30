@@ -33,8 +33,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-#include <Inventor/C/basic.h>
-
 #ifdef COIN_INTERNAL
 #error Do not use this typedef internally
 #endif

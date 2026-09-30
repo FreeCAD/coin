@@ -60,5 +60,4 @@ private:
   void updategl(void);
 };
 
-
 #endif // !COIN_SOGLLINEWIDTHELEMENT_H

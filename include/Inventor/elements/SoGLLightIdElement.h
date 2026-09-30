@@ -61,5 +61,4 @@ public:
 protected:
 };
 
-
 #endif // !COIN_SOGLLIGHTIDELEMENT_H

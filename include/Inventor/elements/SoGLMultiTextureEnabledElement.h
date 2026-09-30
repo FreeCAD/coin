@@ -61,5 +61,4 @@ private:
   uint32_t cachecontext;
 };
 
-
 #endif // !COIN_SOGLMULTITEXTUREENABLEDELEMENT_H

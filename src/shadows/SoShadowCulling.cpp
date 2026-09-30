@@ -121,7 +121,7 @@ void
 SoShadowCulling::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoShadowCulling, SO_FROM_COIN_2_5);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLShadowCullingElement);
+  SO_ENABLE(SoGLRenderAction, SoGLShadowCullingElement);
 }
 
 // Doc from superclass.

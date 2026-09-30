@@ -66,9 +66,7 @@
 #include <Inventor/actions/SoPickAction.h>
 #include <Inventor/caches/SoBoundingBoxCache.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/misc/SoState.h>
 #include <Inventor/nodes/SoNode.h>
@@ -167,7 +165,7 @@ SoTextureCoordinateCube::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTextureCoordinateCube, SO_FROM_COIN_2_3);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
+  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureCoordinateElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureCoordinateElement);
   SO_ENABLE(SoPickAction, SoMultiTextureCoordinateElement);
 }
@@ -291,7 +289,6 @@ SoTextureCoordinateCube::doAction(SoAction * action)
 }
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureCoordinateCube::GLRender(SoGLRenderAction * action)
 {
@@ -309,7 +306,6 @@ SoTextureCoordinateCube::GLRender(SoGLRenderAction * action)
                                                  PRIVATE(this));
   }
 }
-#endif
 
 // Documented in superclass.
 void

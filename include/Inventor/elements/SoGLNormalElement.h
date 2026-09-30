@@ -50,5 +50,4 @@ public:
 
 };
 
-
 #endif // !COIN_SOGLNORMALELEMENT_H

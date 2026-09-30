@@ -206,9 +206,7 @@
 
 #include <cassert>
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
@@ -258,7 +256,7 @@ SoShaderProgram::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoShaderProgram,
                               SO_FROM_COIN_2_5|SO_FROM_INVENTOR_5_0);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLShaderProgramElement);
+  SO_ENABLE(SoGLRenderAction, SoGLShaderProgramElement);
 }
 
 /*!
@@ -287,14 +285,12 @@ SoShaderProgram::~SoShaderProgram()
 }
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShaderProgram::GLRender(SoGLRenderAction * action)
 {
   if (!action) return;
   PRIVATE(this)->render(action->getState());
 }
-#endif
 
 void
 SoShaderProgram::render(SoState * state)

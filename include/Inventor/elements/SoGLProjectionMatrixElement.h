@@ -55,5 +55,4 @@ private:
   void updategl();
 };
 
-
 #endif // !COIN_SOGLPROJECTIONMATRIXELEMENT_H

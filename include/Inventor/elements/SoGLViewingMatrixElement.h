@@ -64,5 +64,4 @@ private:
   void updategl(void);
 };
 
-
 #endif // !COIN_SOGLVIEWINGMATRIXELEMENT_H

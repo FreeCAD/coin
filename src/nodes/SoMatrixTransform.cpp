@@ -114,13 +114,11 @@ SoMatrixTransform::doAction(SoAction * action)
 }
 
 // Doc from superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoMatrixTransform::GLRender(SoGLRenderAction * action)
 {
   SoMatrixTransform::doAction((SoAction *)action);
 }
-#endif
 
 // Doc from superclass.
 void

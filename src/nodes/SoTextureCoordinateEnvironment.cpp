@@ -81,9 +81,7 @@
 
 #include <Inventor/SbVec3f.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureCoordinateElement.h>
-#endif
 #include <Inventor/elements/SoModelMatrixElement.h>
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
@@ -187,7 +185,6 @@ SoTextureCoordinateEnvironment::doAction(SoAction * action)
                                                action->getState());
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // doc from parent
 void
 SoTextureCoordinateEnvironment::GLRender(SoGLRenderAction * action)
@@ -208,7 +205,6 @@ SoTextureCoordinateEnvironment::GLRender(SoGLRenderAction * action)
                                                  action->getState());
   }
 }
-#endif
 
 // doc from parent
 void
@@ -224,7 +220,6 @@ SoTextureCoordinateEnvironment::pick(SoPickAction * action)
   SoTextureCoordinateEnvironment::doAction((SoAction *)action);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTextureCoordinateEnvironment::handleTexgen(void * /* data */)
 {
@@ -249,4 +244,3 @@ SoTextureCoordinateEnvironment::handleTexgen(void * /* data */)
   glTexGenfv(GL_R, GL_OBJECT_PLANE, plane);
   glTexGenfv(GL_Q, GL_OBJECT_PLANE, plane);
 }
-#endif

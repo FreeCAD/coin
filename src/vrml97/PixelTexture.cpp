@@ -103,20 +103,14 @@
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureImageElement.h>
-#endif
 #include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoTextureOverrideElement.h>
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/elements/SoCacheElement.h>
 #include <Inventor/errors/SoReadError.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/misc/SoGLBigImage.h>
-#endif
 #include <Inventor/sensors/SoFieldSensor.h>
 #include <Inventor/errors/SoDebugError.h>
 #include <Inventor/SbImage.h>
@@ -188,20 +182,16 @@ SoVRMLPixelTexture::SoVRMLPixelTexture(void)
 */
 SoVRMLPixelTexture::~SoVRMLPixelTexture()
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (PRIVATE(this)->glimage) PRIVATE(this)->glimage->unref(NULL);
-#endif
   delete PRIVATE(this);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 static SoGLImage::Wrap
 pixeltexture_translate_wrap(const SbBool repeat)
 {
   if (repeat) return SoGLImage::REPEAT;
   return SoGLImage::CLAMP_TO_EDGE;
 }
-#endif
 
 // Doc in parent
 void
@@ -245,7 +235,6 @@ SoVRMLPixelTexture::rayPick(SoRayPickAction * action)
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLPixelTexture::GLRender(SoGLRenderAction * action)
 {
@@ -314,7 +303,6 @@ SoVRMLPixelTexture::GLRender(SoGLRenderAction * action)
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
 }
-#endif
 
 // doc in parent
 void

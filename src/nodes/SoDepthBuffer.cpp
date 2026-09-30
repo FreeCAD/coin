@@ -69,9 +69,7 @@
 #include <Inventor/nodes/SoDepthBuffer.h>
 #include <Inventor/elements/SoDepthBufferElement.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLDepthBufferElement.h>
-#endif
 #include <Inventor/system/gl.h>
 
 #include "nodes/SoSubNodeP.h"
@@ -156,7 +154,7 @@ SoDepthBuffer::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoDepthBuffer, SO_FROM_COIN_3_0);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLDepthBufferElement);
+  SO_ENABLE(SoGLRenderAction, SoGLDepthBufferElement);
 }
 
 /*!
@@ -216,7 +214,6 @@ SoDepthBuffer::doAction(SoAction * action)
                             function, depthrange);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from parent
 void
 SoDepthBuffer::GLRender(SoGLRenderAction * action)
@@ -248,4 +245,3 @@ SoDepthBuffer::GLRender(SoGLRenderAction * action)
   SoDepthBufferElement::set(state, testenable, writeenable,
                             function, depthrange);
 }
-#endif

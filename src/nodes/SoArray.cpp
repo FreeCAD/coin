@@ -341,13 +341,11 @@ SoArray::getBoundingBox(SoGetBoundingBoxAction * action)
 }
 
 // Doc in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoArray::GLRender(SoGLRenderAction * action)
 {
   SoArray::doAction(action);
 }
-#endif
 
 // Doc in superclass.
 SbBool

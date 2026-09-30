@@ -78,5 +78,4 @@ class COIN_DLL_API SoGLVBOElement : public SoElement {
   SoGLVBOElementP * pimpl;
 };
 
-
 #endif // COIN_SOGLVBOELEMENT_H

@@ -37,6 +37,7 @@
 
 class SoState;
 class SoGLDisplayListP;
+
 // *************************************************************************
 
 class COIN_DLL_API SoGLDisplayList {
@@ -74,6 +75,5 @@ private:
 
   friend class SoGLCacheContextElement;
 };
-
 
 #endif // !COIN_SOGLDISPLAYLIST_H

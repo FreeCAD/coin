@@ -59,9 +59,7 @@
 
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLEnvironmentElement.h>
-#endif
 #include <Inventor/elements/SoLightAttenuationElement.h>
 
 #include "nodes/SoSubNodeP.h"
@@ -184,14 +182,13 @@ SoEnvironment::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoEnvironment, SO_FROM_INVENTOR_2_0);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLEnvironmentElement);
+  SO_ENABLE(SoGLRenderAction, SoGLEnvironmentElement);
   SO_ENABLE(SoCallbackAction, SoEnvironmentElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoLightAttenuationElement);
+  SO_ENABLE(SoGLRenderAction, SoLightAttenuationElement);
   SO_ENABLE(SoCallbackAction, SoLightAttenuationElement);
 }
 
 // Doc from superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoEnvironment::GLRender(SoGLRenderAction * action)
 {
@@ -206,7 +203,6 @@ SoEnvironment::GLRender(SoGLRenderAction * action)
                             this->fogColor.getValue(),
                             this->fogVisibility.getValue());
 }
-#endif
 
 // Doc from superclass.
 void

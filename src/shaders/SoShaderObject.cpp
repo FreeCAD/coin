@@ -106,9 +106,7 @@
 
 #include <cassert>
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
-#endif
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoGLShaderProgramElement.h>
@@ -174,9 +172,7 @@ public:
   SoShaderObjectP(SoShaderObject *ownerptr);
   ~SoShaderObjectP();
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction *action);
-#endif
   void render(SoState * state);
 
   SoGLShaderObject * getGLShaderObject(const uint32_t cachecontext) {
@@ -314,13 +310,11 @@ SoShaderObject::~SoShaderObject()
 }
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShaderObject::GLRender(SoGLRenderAction * action)
 {
   PRIVATE(this)->GLRender(action);
 }
-#endif
 
 // doc from parent
 void
@@ -428,13 +422,11 @@ SoShaderObjectP::~SoShaderObjectP()
   delete this->sensor;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoShaderObjectP::GLRender(SoGLRenderAction * action)
 {
   this->render(action ? action->getState() : NULL);
 }
-#endif
 
 void
 SoShaderObjectP::render(SoState * state)

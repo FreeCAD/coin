@@ -109,9 +109,7 @@
 #include <Inventor/details/SoCylinderDetail.h>
 #include <Inventor/elements/SoComplexityTypeElement.h>
 #include <Inventor/elements/SoMaterialBindingElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
 #include <Inventor/elements/SoMultiTextureCoordinateElement.h>
 #include <Inventor/misc/SoState.h>
 
@@ -237,7 +235,6 @@ SoCylinder::computeBBox(SoAction * COIN_UNUSED_ARG(action), SbBox3f & box, SbVec
 }
 
 // Doc in parent.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoCylinder::GLRender(SoGLRenderAction * action)
 {
@@ -282,7 +279,6 @@ SoCylinder::GLRender(SoGLRenderAction * action)
                        &mb,
                        flags, state);
 }
-#endif
 
 /*!
   Add a \a part to the cylinder.

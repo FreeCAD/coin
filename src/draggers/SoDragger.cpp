@@ -516,7 +516,6 @@ SoDragger::callback(SoCallbackAction * action)
 
 // Doc in superclass. Overridden to initialize some elements before
 // traversing children.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoDragger::GLRender(SoGLRenderAction * action)
 {
@@ -526,7 +525,6 @@ SoDragger::GLRender(SoGLRenderAction * action)
   inherited::GLRender(action);
   state->pop();
 }
-#endif
 
 // Doc in superclass. Overridden to initialize some elements before
 // traversing children.

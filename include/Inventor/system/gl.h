@@ -45,5 +45,6 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include <Inventor/system/gl-headers.h>
+#include <Inventor/system/gl-fallbacks.h>
 
 #endif /* ! COIN_GL_H */

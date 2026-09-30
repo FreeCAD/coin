@@ -33,14 +33,6 @@
 #ifndef COIN_BASIC_H
 #define COIN_BASIC_H
 
-/* LegacyGL default for non-CMake builds; internal decision separate from installed contract. */
-#ifndef COIN_BUILD_LEGACY_GL_RENDERER
-#define COIN_BUILD_LEGACY_GL_RENDERER 1
-#endif
-#define COIN_HAVE_LEGACY_GL_RENDERER 1
-/* This template predates the Vulkan renderer; a non-CMake build has none. */
-#define COIN_HAVE_VULKAN_RENDERER 0
-
 /*
   NOTE: basic.h is automatically generated from basic.h.in, so don't
   edit basic.h directly.

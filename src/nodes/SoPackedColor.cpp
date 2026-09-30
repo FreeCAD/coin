@@ -66,18 +66,12 @@ class SoVBO;
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/elements/SoOverrideElement.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLVBOElement.h>
-#endif
 #include <Inventor/C/tidbits.h>
 
 #include "nodes/SoSubNodeP.h"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "rendering/SoVBO.h"
-#endif
 
 
 // *************************************************************************
@@ -100,9 +94,7 @@ class SoPackedColorP {
  public:
   SoPackedColorP() : vbo(NULL) { }
   ~SoPackedColorP() {
-#if COIN_BUILD_LEGACY_GL_RENDERER
     delete this->vbo;
-#endif
   }
   SbBool transparent;
   SbBool checktransparent;
@@ -144,17 +136,15 @@ SoPackedColor::initClass(void)
   SO_NODE_INTERNAL_INIT_CLASS(SoPackedColor, SO_FROM_INVENTOR_2_1);
 
   SO_ENABLE(SoCallbackAction, SoLazyElement);
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLLazyElement);
+  SO_ENABLE(SoGLRenderAction, SoGLLazyElement);
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 // Doc from superclass.
 void
 SoPackedColor::GLRender(SoGLRenderAction * action)
 {
   SoPackedColor::doAction(action);
 }
-#endif
 
 // Doc from superclass.
 void
@@ -172,7 +162,6 @@ SoPackedColor::doAction(SoAction * action)
                              this->orderedRGBA.getValues(0),
                              PRIVATE(this)->transparent);
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
     if (state->isElementEnabled(SoGLVBOElement::getClassStackIndex())) {
       SoBase::staticDataLock();
       SbBool setvbo = FALSE;
@@ -217,7 +206,6 @@ SoPackedColor::doAction(SoAction * action)
         SoGLVBOElement::setColorVBO(state, PRIVATE(this)->vbo);
       }    
     }
-#endif
     if (this->isOverride()) {
       SoOverrideElement::setDiffuseColorOverride(state, this, TRUE);
     }

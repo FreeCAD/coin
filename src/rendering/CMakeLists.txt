@@ -1,9 +1,12 @@
 # source files
 set(COIN_RENDERING_FILES
-	SoGLContext.cpp
+	SoGL.cpp
+	SoGLBigImage.cpp
 	SoGLDriverDatabase.cpp
+	SoGLImage.cpp
+	SoGLCubeMapImage.cpp
+	SoGLContext.cpp
 	SoGLNurbs.cpp
-	CoinOffscreenGLCanvas.cpp
 	SoRenderManager.cpp
 	SoRenderManagerP.cpp
 	SoRenderIR.cpp
@@ -14,6 +17,13 @@ set(COIN_RENDERING_FILES
 	# IR, so the class is compiled into the GL testsuite targets instead (see
 	# testsuite/CMakeLists.txt). This keeps the installed renderer surface the
 	# Vulkan path only.
+	SoOffscreenRenderer.cpp
+	SoOffscreenCGData.cpp
+	SoOffscreenGLXData.cpp
+	SoOffscreenWGLData.cpp
+	SoVBO.cpp
+	SoVertexArrayIndexer.cpp
+	CoinOffscreenGLCanvas.cpp
 )
 
 if(COIN_BUILD_VULKAN_RENDERER)
@@ -32,23 +42,6 @@ if(COIN_BUILD_VULKAN_RENDERER)
 		SoVulkanRenderBackend/SoVulkanRenderBackendFrame.cpp
 		SoVulkanRenderManager.cpp
 		SoVulkanRenderBackend/VmaImpl.cpp
-	)
-endif()
-
-if(COIN_BUILD_LEGACY_GL_RENDERER)
-	list(APPEND COIN_RENDERING_FILES
-		SoGL.cpp
-		SoGLBigImage.cpp
-		SoGLImage.cpp
-		SoGLCubeMapImage.cpp
-		SoOffscreenRenderer.cpp
-		SoOffscreenCGData.cpp
-		SoOffscreenGLXData.cpp
-		SoOffscreenWGLData.cpp
-		# These belong to the legacy renderer's resource/draw architecture.
-		# VBOs themselves are not unsupported by core OpenGL.
-		SoVBO.cpp
-		SoVertexArrayIndexer.cpp
 	)
 endif()
 

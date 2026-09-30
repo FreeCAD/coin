@@ -64,5 +64,4 @@ private:
   SoState * state;
 };
 
-
 #endif // !COIN_SOGLSHAPEHINTSELEMENT_H

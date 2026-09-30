@@ -183,12 +183,8 @@
 #include <Inventor/bundles/SoTextureCoordinateBundle.h>
 #include <Inventor/caches/SoNormalCache.h>
 #include <Inventor/details/SoFaceDetail.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLCoordinateElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLLazyElement.h>
-#endif
 #include <Inventor/elements/SoMaterialBindingElement.h>
 #include <Inventor/elements/SoNormalBindingElement.h>
 #include <Inventor/elements/SoShapeHintsElement.h>
@@ -352,7 +348,6 @@ static SbBool qmeshNormalize(SbVec3f & v, float toLength2)
   return FALSE;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 
 namespace { namespace SoGL { namespace QuadMesh {
 
@@ -791,7 +786,6 @@ namespace { namespace SoGL { namespace QuadMesh {
 
 } } } // namespace
 
-#endif
 
 /*!
   \copydetails SoNode::initClass(void)
@@ -859,7 +853,6 @@ SoQuadMesh::initClass(void)
   SOGL_QUADMESH_GLRENDER_RESOLVE_ARG1(normalbinding, materialbinding, texturing, args)
 
 // Documented in superclass.
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoQuadMesh::GLRender(SoGLRenderAction * action)
 {
@@ -991,7 +984,6 @@ SoQuadMesh::GLRender(SoGLRenderAction * action)
 
   if (didpush) state->pop();
 }
-#endif
 
   #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC
 #undef SOGL_QUADMESH_GLRENDER_CALL_FUNC

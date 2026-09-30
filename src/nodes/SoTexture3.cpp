@@ -83,20 +83,14 @@
 #include <Inventor/SoInput.h>
 #include <Inventor/actions/SoCallbackAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureEnabledElement.h>
-#endif
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLMultiTextureImageElement.h>
-#endif
 #include <Inventor/elements/SoGLCacheContextElement.h>
 #include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoTextureOverrideElement.h>
 #include <Inventor/elements/SoTextureUnitElement.h>
 #include <Inventor/errors/SoReadError.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/misc/SoGLBigImage.h>
-#endif
 #include <Inventor/misc/SoGLDriverDatabase.h>
 #include <Inventor/sensors/SoFieldSensor.h>
 #include <Inventor/lists/SbStringList.h>
@@ -236,9 +230,7 @@ SoTexture3::SoTexture3(void)
 */
 SoTexture3::~SoTexture3()
 {
-#if COIN_BUILD_LEGACY_GL_RENDERER
   if (this->glimage) this->glimage->unref(NULL);
-#endif
   delete this->filenamesensor;
 }
 
@@ -251,7 +243,7 @@ SoTexture3::initClass(void)
 {
   SO_NODE_INTERNAL_INIT_CLASS(SoTexture3, SO_FROM_INVENTOR_2_6|SO_FROM_COIN_2_0);
 
-  SO_ENABLE_LEGACY_GL(SoGLRenderAction, SoGLMultiTextureImageElement);
+  SO_ENABLE(SoGLRenderAction, SoGLMultiTextureImageElement);
   SO_ENABLE(SoCallbackAction, SoMultiTextureImageElement);
 }
 
@@ -275,17 +267,14 @@ SoTexture3::readInstance(SoInput * in, unsigned short flags)
   return readOK;
 }
 
-#if COIN_BUILD_LEGACY_GL_RENDERER
 static SoGLImage::Wrap
 translateWrap(const SoTexture3::Wrap wrap)
 {
   if (wrap == SoTexture3::REPEAT) return SoGLImage::REPEAT;
   return SoGLImage::CLAMP;
 }
-#endif
 
 // doc from parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoTexture3::GLRender(SoGLRenderAction * action)
 {
@@ -367,7 +356,6 @@ SoTexture3::GLRender(SoGLRenderAction * action)
     SoTextureOverrideElement::setImageOverride(state, TRUE);
   }
 }
-#endif
 
 // doc from parent
 void

@@ -47,9 +47,7 @@
 
 #include <Inventor/VRMLnodes/SoVRMLParent.h>
 #include <Inventor/VRMLnodes/SoVRMLMacros.h>
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/elements/SoGLShapeHintsElement.h>
-#endif
 #include <Inventor/elements/SoOverrideElement.h>
 #include <Inventor/fields/SoSFNode.h>
 #include <Inventor/misc/SoChildList.h>
@@ -117,13 +115,11 @@ SoVRMLGeometry::~SoVRMLGeometry()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 SbBool
 SoVRMLGeometry::shouldGLRender(SoGLRenderAction * action)
 {
   return inherited::shouldGLRender(action);
 }
-#endif
  
 /*!
   Convenience method that updates the shape hints element.

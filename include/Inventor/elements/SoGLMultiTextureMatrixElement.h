@@ -60,5 +60,4 @@ private:
   uint32_t cachecontext;
 };
 
-
 #endif // !COIN_SOGLMULTITEXTUREMATRIXELEMENT_H

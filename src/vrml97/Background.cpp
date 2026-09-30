@@ -516,7 +516,6 @@ SoVRMLBackground::~SoVRMLBackground()
 }
 
 // Doc in parent
-#if COIN_BUILD_LEGACY_GL_RENDERER
 void
 SoVRMLBackground::GLRender(SoGLRenderAction * action)
 {
@@ -601,7 +600,6 @@ SoVRMLBackground::GLRender(SoGLRenderAction * action)
   // pop back to the old model matrix
   state->pop();
 }
-#endif
 
 
 void

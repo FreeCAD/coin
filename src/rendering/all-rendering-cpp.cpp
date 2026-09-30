@@ -32,7 +32,6 @@
 
 #include "CoinOffscreenGLCanvas.cpp"
 #include "SoGLContext.cpp"
-#if COIN_BUILD_LEGACY_GL_RENDERER
 #include "SoGL.cpp"
 #include "SoGLBigImage.cpp"
 #include "SoGLCubeMapImage.cpp"
@@ -44,7 +43,6 @@
 #include "SoOffscreenWGLData.cpp"
 #include "SoVBO.cpp"
 #include "SoVertexArrayIndexer.cpp"
-#endif
 #include "SoRenderManager.cpp"
 #include "SoRenderManagerP.cpp"
 #include "SoGLDriverDatabase.cpp"

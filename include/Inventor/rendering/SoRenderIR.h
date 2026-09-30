@@ -14,20 +14,28 @@
 
 /*!
   \file SoRenderIR.h
-  \brief Retained intermediate representation for the Vulkan renderer.
+  \brief Retained, API-neutral intermediate representation (IR) for the Vulkan renderer.
 
-  SoIRRenderAction produces a SoDrawList while traversing a scene graph; the
-  Vulkan backend (SoVulkanRenderBackend) consumes it to produce pixels. Types use
-  semantic values instead of OpenGL enums so the IR needs no particular graphics API.
+  Data flow:
 
-  \note This is the Vulkan/retained path, not a universal Coin abstraction. The
-  production OpenGL viewport still renders through SoGLRenderAction and does not
-  traverse the IR; SoGLRenderBackend consumes a SoDrawList only as a testsuite
-  reference (testsuite/drawlist-gl-test.cpp), not built into libCoin.
+    SoIRRenderAction  --traverses scene graph-->  SoDrawList  --consumed by-->  SoVulkanRenderBackend
 
-  Geometry/texture pointers are borrowed from the producer and refer to the current
-  SoIRRenderAction frame's storage; do not retain after that frame is cleared,
-  rewound, or replaced. Device objects and caches belong to the consumer. */
+  SoIRRenderAction walks a scene graph and appends a SoRenderCommand per draw
+  call to a SoDrawList. SoVulkanRenderBackend consumes that list to produce
+  pixels. Every type here uses semantic values instead of OpenGL enums, so the IR
+  does not depend on any particular graphics API.
+
+  \note This is the Vulkan/retained path, not a general Coin abstraction:
+
+    - The production OpenGL viewport still renders through SoGLRenderAction and
+      never traverses the IR.
+    - SoGLRenderBackend consumes a SoDrawList only as a testsuite reference
+      (testsuite/drawlist-gl-test.cpp); it is not built into libCoin.
+
+  \note Lifetime: geometry and texture pointers are borrowed from the producer and
+  refer to the current SoIRRenderAction frame's storage. Do not retain them after
+  that frame is cleared, rewound, or replaced. Device objects and caches belong to
+  the consumer. */
 
 /*! \enum SoPrimitiveTopology \brief How primitives referenced by a geometry buffer are interpreted. */
 enum SoPrimitiveTopology : uint8_t {

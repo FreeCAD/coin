@@ -22,6 +22,7 @@ set(COIN_NODES_FILES
 	SoDrawStyle.cpp
 	SoEnvironment.cpp
 	SoEventCallback.cpp
+	SoExtSelection.cpp
 	SoFile.cpp
 	SoFont.cpp
 	SoFontStyle.cpp
@@ -62,6 +63,7 @@ set(COIN_NODES_FILES
 	SoRotor.cpp
 	SoScale.cpp
 	SoSceneTexture2.cpp
+	SoSceneTextureCubeMap.cpp
 	SoSelection.cpp
 	SoSeparator.cpp
 	SoShapeHints.cpp
@@ -105,13 +107,6 @@ set(COIN_NODES_FILES
 	SoWWWAnchor.cpp
 	SoWWWInline.cpp
 )
-
-if(COIN_BUILD_LEGACY_GL_RENDERER)
-	list(APPEND COIN_NODES_FILES
-		SoExtSelection.cpp
-		SoSceneTextureCubeMap.cpp
-	)
-endif()
 
 # Files excluded from public API documentation, included in complete documentation.
 set(COIN_NODES_INTERNAL_FILES
