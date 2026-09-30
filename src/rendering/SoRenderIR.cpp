@@ -875,7 +875,7 @@ fillLightingFromState(SoState * state, SoDrawList & drawlist)
     // Raw fields are light-LOCAL; the light's scene matrix maps them to world space. A scene-root
     // light (identity) keeps its raw geometry; a camera-parented headlight inherits camera rotation
     // and stays head-fixed (legacy GL modelview semantics). Stored data is view-independent:
-    // eye-space consumers use SoRenderIR::lightToEye(), the path tracer shades in world space.
+    // eye-space consumers use SoRenderIR::lightToEye(); the stored fields stay world-space.
     if (light->isOfType(SoDirectionalLight::getClassTypeId())) {
       SoDirectionalLight * directional = static_cast<SoDirectionalLight *>(light);
       lightData.type = SO_LIGHT_DIRECTIONAL;

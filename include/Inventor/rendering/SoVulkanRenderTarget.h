@@ -50,12 +50,6 @@
   rather than the renderer re-enumerating the extension list (kept in one place).
 */
 struct SoVulkanDeviceCaps {
-  bool rayTracing = false;             //!< AS + ray_tracing_pipeline + ray_query.
-  bool positionFetch = false;          //!< VK_KHR_ray_tracing_position_fetch.
-  bool opacityMicromap = false;        //!< VK_EXT_opacity_micromap.
-  bool nvCluster = false;              //!< VK_NV_cluster_acceleration_structure.
-  bool nvPartitioned = false;          //!< VK_NV_partitioned_acceleration_structure.
-  bool nvLinearSweptSpheres = false;   //!< VK_NV_ray_tracing_linear_swept_spheres.
   bool externalSemaphoreFd = false;    //!< VK_KHR_external_semaphore_fd.
   bool externalMemoryFd = false;       //!< VK_KHR_external_memory_fd.
   bool fillModeNonSolid = false;       //!< VK_POLYGON_MODE_LINE/POINT.

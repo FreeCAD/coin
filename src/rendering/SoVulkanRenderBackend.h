@@ -206,8 +206,8 @@ public:
 
   /*!
     \brief Record only the overlay pass (e.g. the navigation cube) into a
-    caller-owned command buffer/render pass.  Used in ray-tracing mode, where
-    the RT backend traces the scene but overlays are still rasterized on top.
+    caller-owned command buffer/render pass.  Used when another renderer draws
+    the scene and this backend rasterizes only the overlays on top.
   */
   SbBool renderExternalOverlay(const SoDrawList & drawlist,
                                const SoRenderParams & params,
@@ -220,18 +220,18 @@ public:
 
     Offscreen counterpart of renderExternalOverlay(): one-shot render into
     params.renderTarget touching only SO_RENDERPASS_OVERLAY commands, layerable
-    over a previously rendered (e.g. ray-traced) frame.  No-op if there are none.
+    over a previously rendered frame.  No-op if there are none.
   */
   SbBool renderOverlaysOnly(const SoDrawList & drawlist,
                             const SoRenderParams & params);
 
   /*!
     \brief Declare that this backend only composites overlays and residual
-    geometry on top of a ray-traced frame.
+    geometry on top of a frame drawn by another renderer.
 
-    While ray tracing is active the manager drives this backend through
+    While that composite mode is active the manager drives this backend through
     renderExternalOverlay()/renderOverlaysOnly() only, so updateGeometryCache()
-    also sweeps stale entries on overlays-only frames, evicting traced triangle
+    also sweeps stale entries on overlays-only frames, evicting triangle
     commands this backend no longer visits.  Must stay false for a backend that
     also does full raster renders, whose cache must survive an overlay pass.
   */
@@ -271,8 +271,8 @@ public:
 
     \a lighting is the camera-anchored world-space light set (headlight,
     backlight, fill) plus intensity-scaled ambient.  A non-empty list overrides
-    the per-command IR capture, matching the RT backend and Coin GL; empty
-    restores the per-command IR lighting.
+    the per-command IR capture, matching Coin GL; empty restores the
+    per-command IR lighting.
   */
   void setSceneLights(const SoLightingData & lighting);
 
@@ -960,8 +960,9 @@ private:
   std::unordered_map<const SoRenderCommand *, size_t> commandToTexture;
 
   // True while this backend only composites overlays/residual geometry over a
-  // ray-traced frame (setOverlayCompositeMode()); lets updateGeometryCache() sweep
-  // stale entries so RT-owned triangles aren't kept resident here too.
+  // frame drawn by another renderer (setOverlayCompositeMode()); lets
+  // updateGeometryCache() sweep stale entries so that renderer's triangles
+  // aren't kept resident here too.
   bool overlayCompositeMode = false;
   // Monotonic visit stamp for the overlay-composite sweep (compositeEpoch).
   uint32_t overlayCompositeEpoch = 0;

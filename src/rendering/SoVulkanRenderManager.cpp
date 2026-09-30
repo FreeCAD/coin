@@ -408,9 +408,10 @@ SoVulkanRenderManager::SoVulkanRenderManager()
 
 SoVulkanRenderManager::~SoVulkanRenderManager()
 {
-  // Shut down via the manager entry point so raster and RTX release resources
-  // in order and the init context is invalidated; shutting down only raster
-  // left RTX teardown to its implicit member destructor, which can run too late.
+  // Shut down through the manager entry point so the backend releases its
+  // resources while the borrowed device/queue are still valid and the init
+  // context is invalidated; relying on the member destructor alone could run
+  // after the embedder has torn the device down.
   this->shutdown();
   delete this->pimpl;
 }
@@ -658,7 +659,7 @@ SoVulkanRenderManager::initialize(SoVulkanDeviceContext * context)
   // QVulkanWindow re-enters initResources() on every Expose/Hide/Resize/Move;
   // those events only recreate the swapchain, the instance/device/queue
   // survive. An unchanged device context is NOT a device reset, so rebuilding
-  // both backends and every cached BLAS/RT pipeline would be pure waste.
+  // the backend and every cached pipeline would be pure waste.
   //
   // NOTE (known Qt artifact, not a FreeCAD defect): with validation enabled the
   // first frames may log VUID-vkQueueSubmit-pSignalSemaphores-00067. That submit

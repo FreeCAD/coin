@@ -307,6 +307,9 @@ struct Smoke {
     this->deviceContext.device = this->device;
     this->deviceContext.graphicsQueue = this->queue;
     this->deviceContext.graphicsQueueFamilyIndex = this->queueFamily;
+    VkPhysicalDeviceProperties props {};
+    vkGetPhysicalDeviceProperties(this->physicalDevice, &props);
+    this->deviceContext.apiVersion = props.apiVersion;
     this->deviceContext.capsValid = false;
 
     this->target = {};

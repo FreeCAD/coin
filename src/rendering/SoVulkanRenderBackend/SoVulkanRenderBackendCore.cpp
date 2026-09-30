@@ -187,7 +187,15 @@ SoVulkanRenderBackend::initialize(const SoRenderBackendInitParams & params)
     allocatorInfo.physicalDevice = this->physicalDevice;
     allocatorInfo.device = this->device;
     allocatorInfo.instance = this->instance;
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+    // VMA selects its 1.1+/1.2 entry points (vkBindBufferMemory2,
+    // vkGetBufferMemoryRequirements2, ...) from this; use the version the
+    // device actually reports, capped at the 1.2 the backend is written
+    // against, so a Vulkan 1.0/1.1 device is not handed 1.2 calls.
+    const uint32_t deviceApiVersion = deviceContext->apiVersion != 0
+      ? deviceContext->apiVersion
+      : VK_API_VERSION_1_0;
+    allocatorInfo.vulkanApiVersion =
+      std::min(deviceApiVersion, static_cast<uint32_t>(VK_API_VERSION_1_2));
     allocatorInfo.pAllocationCallbacks = this->allocator;
     if (vmaCreateAllocator(&allocatorInfo, &this->vmaAllocator) != VK_SUCCESS) {
       this->emitError("SoVulkanRenderBackend: vmaCreateAllocator failed");
