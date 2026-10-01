@@ -645,7 +645,9 @@ SoGLRenderAction::initClass(void)
 
   SO_ENABLE(SoGLRenderAction, SoDecimationPercentageElement);
   SO_ENABLE(SoGLRenderAction, SoDecimationTypeElement);
+#if COIN_BUILD_VULKAN_RENDERER
   SO_ENABLE(SoGLRenderAction, SoDevicePixelRatioElement);
+#endif
   SO_ENABLE(SoGLRenderAction, SoGLLightIdElement);
   SO_ENABLE(SoGLRenderAction, SoGLRenderPassElement);
   SO_ENABLE(SoGLRenderAction, SoGLUpdateAreaElement);

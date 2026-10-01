@@ -697,9 +697,11 @@ SoRenderManager::render(SoGLRenderAction * action,
       if (s->getStateFlags() & Superimposition::BACKGROUND) {
         SoState * state = action->getState();
         state->push();
+#if COIN_BUILD_VULKAN_RENDERER
         SoDevicePixelRatioElement::set(state,
                                        PRIVATE(this)->dummynode,
                                        PRIVATE(this)->devicePixelRatio);
+#endif
         s->render(action, clearwindow_tmp);
         state->pop();
         clearwindow_tmp = FALSE;
@@ -717,9 +719,11 @@ SoRenderManager::render(SoGLRenderAction * action,
       if (!(s->getStateFlags() & Superimposition::BACKGROUND)) {
         SoState * state = action->getState();
         state->push();
+#if COIN_BUILD_VULKAN_RENDERER
         SoDevicePixelRatioElement::set(state,
                                        PRIVATE(this)->dummynode,
                                        PRIVATE(this)->devicePixelRatio);
+#endif
         s->render(action);
         state->pop();
       }
@@ -848,7 +852,9 @@ SoRenderManager::renderSingle(SoGLRenderAction * action,
   state->push();
 
   SoNode * node = PRIVATE(this)->dummynode;
+#if COIN_BUILD_VULKAN_RENDERER
   SoDevicePixelRatioElement::set(state, node, PRIVATE(this)->devicePixelRatio);
+#endif
 
   if (!this->isTexturesEnabled()) {
     SoTextureQualityElement::set(state, node, 0.0f);

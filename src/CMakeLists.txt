@@ -424,15 +424,18 @@ if(COIN_INSTALL)
   # cannot shadow a platform or application-owned GL/KHR header tree. Install
   # the build-tree copy of glcorearb.h: it is the namespaced variant whose
   # platform include was rewritten to sit beside khrplatform.h, so installed
-  # consumers do not need a KHR/ directory on their include path.
-  install(FILES
-    ${COIN_KHRONOS_INCLUDE_DIR}/glcorearb.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
-    COMPONENT development)
-  install(FILES
-    ${PROJECT_SOURCE_DIR}/src/glue/khronos/KHR/khrplatform.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
-    COMPONENT development)
+  # consumers do not need a KHR/ directory on their include path. Only present
+  # for the core-profile build (see include/CMakeLists.txt).
+  if(COIN_KHRONOS_INCLUDE_DIR)
+    install(FILES
+      ${COIN_KHRONOS_INCLUDE_DIR}/glcorearb.h
+      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
+      COMPONENT development)
+    install(FILES
+      ${PROJECT_SOURCE_DIR}/src/glue/khronos/KHR/khrplatform.h
+      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Inventor/system/khronos
+      COMPONENT development)
+  endif()
 
 # ############################################################################
 # Install data files
