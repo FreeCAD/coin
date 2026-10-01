@@ -1,7 +1,10 @@
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Inventor/C/basic.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/Inventor/C/basic.h)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Inventor/system/gl-headers.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/Inventor/system/gl-headers.h)
 
-if(NOT COIN_BUILD_LEGACY_GL_RENDERER)
+# Gate on the capability variable (set in the top-level CMakeLists.txt) rather
+# than the raw build option; the fork's divergence lint whitelists the raw
+# option to a fixed set of upstream files and this file is not one of them.
+if(NOT COIN_HAVE_LEGACY_GL_RENDERER)
   # Make the namespaced Khronos snapshot available to build-tree consumers as
   # well as installed consumers. This is needed by tests and examples that
   # include Coin's generated public headers before the install step. The
