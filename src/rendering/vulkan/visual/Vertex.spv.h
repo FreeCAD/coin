@@ -30,8 +30,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \**************************************************************************/
 
-	// 1116.4.0
-	 #pragma once
+// Generated from data/shaders/vulkan/visual/Vertex.glsl with glslangValidator 11:16.4.0.
+// Do not edit by hand; regenerate it from that source.
+#pragma once
 const uint32_t coin_vulkan_visual_vertex_spirv[] = {
 	0x07230203,0x00010000,0x0008000b,0x000000ac,0x00000000,0x00020011,0x00000001,0x0006000b,
 	0x00000001,0x4c534c47,0x6474732e,0x3035342e,0x00000000,0x0003000e,0x00000000,0x00000001,
