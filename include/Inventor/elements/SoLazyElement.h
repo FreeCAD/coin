@@ -203,6 +203,8 @@ public:
   const int32_t * getColorIndexPointer(void) const;
 
   const float * getTransparencyPointer(void) const;
+  SbUniqueId getDiffuseNodeId(void) const { return this->coinstate.diffusenodeid; }
+  SbUniqueId getTransparencyNodeId(void) const { return this->coinstate.transpnodeid; }
   static void setTransparencyType(SoState * state, int32_t type);
 
 protected:

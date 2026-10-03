@@ -7,6 +7,7 @@ set(COIN_SHAPENODES_FILES
 	SoFaceSet.cpp
 	SoImage.cpp
 	SoIndexedFaceSet.cpp
+	SoIndexedFaceSetFaceMaterial.cpp
 	SoIndexedLineSet.cpp
 	SoIndexedMarkerSet.cpp
 	SoIndexedNurbsCurve.cpp
@@ -33,9 +34,20 @@ set(COIN_SHAPENODES_FILES
 	soshape_trianglesort.cpp
 )
 
+# CoinFaceMaterialTests currently observes private renderer state through
+# test-only symbols in the Coin library. Do not compile that instrumentation
+# into Windows DLL builds, where those private symbols are intentionally not
+# part of the import library.
+if(COIN_BUILD_TESTS AND NOT WIN32)
+	set_property(SOURCE SoIndexedFaceSetFaceMaterial.cpp APPEND PROPERTY
+		COMPILE_DEFINITIONS COIN_FACE_MATERIAL_TESTING)
+endif()
+
 # Files excluded from public API documentation, included in complete documentation.
 set(COIN_SHAPENODES_INTERNAL_FILES
 	SoNurbsP.h
+	SoIndexedFaceSetFaceMaterialP.h
+	SoIndexedFaceSetFaceMaterialTestP.h
 	soshape_bigtexture.h
 	soshape_bigtexture.cpp
 	soshape_bumprender.h
