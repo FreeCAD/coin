@@ -1001,6 +1001,10 @@ private:
 
   // Reusable batch-key bucket map for recordFrame()'s opaque batching (clear()+reuse).
   std::unordered_map<uint64_t, std::vector<const SoRenderCommand *>> batchBucketScratch;
+  // Separate bucket map for the wireframe/point overlay pass.  Must be distinct from
+  // batchBucketScratch: opaque work items hold pointers into the latter's vectors, so
+  // clearing it for the overlay would dangle them.
+  std::unordered_map<uint64_t, std::vector<const SoRenderCommand *>> overlayBatchBucketScratch;
   // Reusable worklist from buildWorkItems() (M1b/M1c/M1d), refilled per frame.
   std::vector<VulkanWorkItem> workItemsScratch;
 
