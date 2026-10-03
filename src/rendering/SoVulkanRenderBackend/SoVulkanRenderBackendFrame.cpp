@@ -959,6 +959,15 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
     // polygon-LINES -- that would show the raw tessellation.  Tess overlay does the opposite.
     if (!transparent && (wireframeFillMode >= 0 || tessellationOverlay)) {
       const bool isEdgeOverlay = (wireframeFillMode == SoDrawStyleElement::LINES);
+      // Bucket by the same geometry/material key as the opaque pass, then batch
+      // consecutive batchable commands into one instanced draw.  The overlay re-draws
+      // share one uniform color + fill mode, so a bucket of N identical edges collapses
+      // to a single vkCmdDraw(N instances) instead of N individual line draws.
+      // Separate map: opaque items hold pointers into batchBucketScratch's vectors, so
+      // this must not be the same storage (clearing it would dangle those pointers).
+      std::unordered_map<uint64_t, std::vector<const SoRenderCommand*>> & obuckets =
+        this->overlayBatchBucketScratch;
+      obuckets.clear();
       for (int i = 0; i < drawlist.getNumCommands(); ++i) {
         const int index = orderedIndex(i);
         const SoRenderCommand & command = drawlist.getCommand(index);
@@ -967,7 +976,8 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         if (!command.geometry.positions || command.geometry.vertexCount == 0)
           continue;
         const SoPrimitiveTopology topo = command.geometry.topology;
-        if (!this->findCachedDrawable(command)) continue;
+        const VulkanCachedCommand * cached = this->findCachedDrawable(command);
+        if (!cached) continue;
         const bool lineTopo = topo == SO_TOPOLOGY_LINES ||
           topo == SO_TOPOLOGY_LINE_STRIP;
         const bool triTopo = topo == SO_TOPOLOGY_TRIANGLES ||
@@ -981,16 +991,42 @@ SoVulkanRenderBackend::buildWorkItems(const SoDrawList & drawlist,
         const bool wantPoints = wireframeFillMode == SoDrawStyleElement::POINTS;
         const bool wantTess = tessellationOverlay && triTopo;
         if (!wantEdge && !wantPoints && !wantTess) continue;
-        VulkanWorkItem item;
-        item.single = &command;
-        item.count = 1;
-        // Tess re-draws triangles in polygon-LINES; edge/points keep their fill mode.
-        item.fillModeOverride = wantTess
-          ? SoDrawStyleElement::LINES
-          : wireframeFillMode;
-        item.uniformColorOverride = overlayColor;
-        item.slotBase = nextSlot++;
-        out.push_back(item);
+        obuckets[vkBatchKey(command, cached->contentHash)].push_back(&command);
+      }
+      for (auto & kv : obuckets) {
+        std::vector<const SoRenderCommand*> & v = kv.second;
+        int start = 0;
+        while (start < static_cast<int>(v.size())) {
+          int end = start + 1;
+          const uint64_t hStart = contentHashOf(*v[start]);
+          while (end < static_cast<int>(v.size()) &&
+                 vkCommandBatchable(*v[start], *v[end], hStart,
+                                     contentHashOf(*v[end]))) {
+            ++end;
+          }
+          const int cnt = end - start;
+          // Tess re-draws triangles in polygon-LINES; edge/points keep their fill mode.
+          // Uniform within a bucket (depends only on topology, which is part of the key).
+          const SoPrimitiveTopology t0 = (*v[start]).geometry.topology;
+          const bool tess0 = tessellationOverlay &&
+            (t0 == SO_TOPOLOGY_TRIANGLES || t0 == SO_TOPOLOGY_TRIANGLE_STRIP);
+          VulkanWorkItem item;
+          if (cnt == 1) {
+            item.single = v[start];
+          }
+          else {
+            item.commands = &v[start];
+          }
+          item.count = cnt;
+          item.fillModeOverride = tess0
+            ? SoDrawStyleElement::LINES
+            : wireframeFillMode;
+          item.uniformColorOverride = overlayColor;
+          item.slotBase = nextSlot;
+          nextSlot += static_cast<uint32_t>(cnt);
+          out.push_back(item);
+          start = end;
+        }
       }
     }
   }
@@ -1237,7 +1273,12 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
   if (canUseSecondary && secondaryItemCount > 0 && !wantParallel) {
     // M1c serial: one secondary holds the whole opaque pass, replayed in place.
     VkCommandBuffer secondary = this->currentSecondaryCommandBuffer();
-    VkCommandBuffer primary = this->currentCommandBuffer();
+    // The primary is the record context's buffer: the caller's cb on the external
+    // (FreeCAD) path, the backend's own cb internally. currentCommandBuffer() is
+    // wrong on the external path (it returns the backend's one-shot cb, which is
+    // not in the caller's render pass), so replay/overlay must target ctx.buffer.
+    // Captured before recordSecondaryChunk() re-points ctx.buffer at the secondary.
+    VkCommandBuffer primary = ctx.buffer;
     std::vector<const VulkanWorkItem *> & opaqueItems = this->opaqueItemsScratch;
     opaqueItems.clear();
     opaqueItems.reserve(static_cast<size_t>(secondaryItemCount));
@@ -1344,7 +1385,10 @@ SoVulkanRenderBackend::recordFrame(const SoDrawList & drawlist,
                    "doneCount=%d ok0=%d",
                    this->recordDoneCount.load(), this->recordJobs[0].ok ? 1 : 0);
     // Replay secondaries in order, then inline non-opaque items; a failed worker records inline.
-    VkCommandBuffer primary = this->currentCommandBuffer();
+    // Primary is the record context's buffer (caller's cb externally, backend's cb
+    // internally). Workers recorded into their own workerRecordContexts, so ctx.buffer
+    // is still the correct primary here.
+    VkCommandBuffer primary = ctx.buffer;
     ctx.buffer = primary;
     ctx.reset();
     std::vector<VkCommandBuffer> & execute = this->executeScratch;
