@@ -242,9 +242,11 @@
   Size of font. Defaults to 10.0.
 
   For 2D rendered bitmap fonts (like for SoText2), this value is the
-  height of a character in screen pixels. For 3D text, this value is
-  the world space coordinates height of a character in the current
-  units setting (see documentation for SoUnits node).
+  height of a character in logical screen pixels. Coin converts this
+  to framebuffer pixels using the current viewport device pixel ratio.
+  For 3D text, this value is the world space coordinates height of a
+  character in the current units setting (see documentation for SoUnits
+  node).
 */
 
 // *************************************************************************
