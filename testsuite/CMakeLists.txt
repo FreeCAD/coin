@@ -536,3 +536,15 @@ endif()
 if(MSVC AND COIN_BUILD_SHARED_LIBS)
   add_subdirectory(ray-review)
 endif()
+
+# Compile the private capture implementation into the test to exercise its
+# ownership boundary without exporting an additional Coin symbol.
+find_package(Threads REQUIRED)
+add_executable(ray_face_provenance ray-review/face_provenance.cpp
+  "${PROJECT_SOURCE_DIR}/src/rendering/SoCpuRayOwnedSnapshot.cpp")
+target_compile_features(ray_face_provenance PRIVATE cxx_std_20)
+target_include_directories(ray_face_provenance PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  "${PROJECT_SOURCE_DIR}/include" "${PROJECT_BINARY_DIR}/include")
+target_link_libraries(ray_face_provenance PRIVATE Coin Threads::Threads)
+add_test(NAME ray_face_provenance COMMAND ray_face_provenance)
+set_tests_properties(ray_face_provenance PROPERTIES LABELS "unit" TIMEOUT 30)
