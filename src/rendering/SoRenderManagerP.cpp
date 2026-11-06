@@ -433,6 +433,7 @@ SoRenderManagerRootSensor::~SoRenderManagerRootSensor()
 void
 SoRenderManagerRootSensor::notify(SoNotList * l)
 {
+  if (this->notificationCallback) this->notificationCallback(this->notificationData);
   ++this->notificationCount;
   // Notification storms must not grow the retained patch queue without
   // bound. The total count still forces the manager down the rebuild path.

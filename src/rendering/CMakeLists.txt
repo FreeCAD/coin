@@ -10,6 +10,10 @@ set(COIN_RENDERING_FILES
 	SoRenderPlan.cpp
 	SoRenderBackend.cpp
 	SoGLRenderBackend.cpp
+	SoCpuRayOwnedSnapshot.cpp
+	SoRayTraceRenderer.cpp
+	SoCpuRayBridge.cpp
+	SoCpuRayPresenterP.cpp
 )
 
 if(COIN_BUILD_LEGACY_GL_RENDERER)
@@ -56,6 +60,10 @@ set(COIN_RENDERING_INTERNAL_FILES
 	SoTextureQualityPolicy.h
 	SoRenderBackend.h
 	SoGLRenderBackend.h
+	SoCpuRayOwnedSnapshotP.h
+	SoRayTraceRendererP.h
+	SoCpuRayBridgeP.h
+	SoCpuRayPresenterP.h
 )
 
 # build library
@@ -65,6 +73,7 @@ if(COIN_BUILD_SINGLE_LIB)
 	endforeach(SRCFILE)
 else()
 	add_library(rendering OBJECT ${COIN_RENDERING_FILES})
+	target_compile_features(rendering PRIVATE cxx_std_20)
 	add_dependencies(rendering coin_generated_gl_shaders)
 endif()
 

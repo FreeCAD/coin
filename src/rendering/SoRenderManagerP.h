@@ -66,6 +66,8 @@ class SoSearchAction;
 class SbPList;
 class SoIRRenderAction;
 class SoRenderBackend;
+class SoAlarmSensor;
+class SoCpuRayAsync;
 
 class SoRenderManagerP {
 public:
@@ -126,6 +128,12 @@ public:
   SbBool cameraInSceneGraph;
   SoRenderManager::RenderPipeline renderPipeline;
   SoRenderManager::RenderResult lastRenderResult;
+  SbBool cpuRayTracingEnabled;
+  SbBool cpuRayTracingReadback;
+  uint64_t cpuRayTracingFrameSerial;
+  SoCpuRayAsync * cpuRayAsync = nullptr;
+  SoAlarmSensor * cpuRayPoll = nullptr;
+  SoCpuRayTracingResult lastCpuRayTracingResult;
   SoRenderManager::LightingMode lightingmode;
   SoIRRenderAction * irAction;
   SoRenderBackend * renderBackend;
@@ -199,6 +207,12 @@ public:
   virtual ~SoRenderManagerRootSensor();
 
   void notify(SoNotList * l) override;
+  // Runs synchronously before delayed sensor scheduling; private manager hook.
+  using NotificationCallback = void (*)(void *) noexcept;
+  void setNotificationCallback(NotificationCallback callback, void * data) noexcept {
+    this->notificationCallback = callback;
+    this->notificationData = data;
+  }
   SoNode * getChangedNode(void) const { return this->changedNode; }
   SoField * getChangedField(void) const { return this->changedField; }
   const SoPath * getChangedPath(void) const { return this->changedPath; }
@@ -216,6 +230,8 @@ public:
 
 private:
   static int debugrootnotifications;
+  NotificationCallback notificationCallback = nullptr;
+  void * notificationData = nullptr;
   SoNode * changedNode;
   SoField * changedField;
   SoPath * changedPath;

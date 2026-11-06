@@ -36,6 +36,7 @@
 #include <Inventor/SbColor4f.h>
 #include <Inventor/SbBox2s.h>
 #include <Inventor/SbVec2s.h>
+#include <Inventor/rendering/SoCpuRayTracing.h>
 
 #include <cstdint>
 #if COIN_HAVE_LEGACY_GL_RENDERER
@@ -93,7 +94,8 @@ public:
       MANAGER_FEATURE_UNSUPPORTED,
       CONTEXT_UNSUPPORTED,
       BACKEND_INITIALIZATION_FAILED,
-      TRAVERSAL_UNSUPPORTED
+      TRAVERSAL_UNSUPPORTED,
+      BACKEND_RENDER_FAILED
     };
 
     RenderPipeline requestedPipeline;
@@ -342,6 +344,15 @@ public:
   RenderPipeline getRenderPipeline(void) const;
   SbBool isRenderPipelineAvailable(RenderPipeline pipeline) const;
   const RenderResult & getLastRenderResult(void) const;
+
+  //! Experimental diagnostic main-surface ray mode. Default is FALSE.
+  void setCpuRayTracingEnabled(SbBool enabled);
+  SbBool isCpuRayTracingEnabled(void) const;
+  //! Verification readback stalls the owning render thread; default FALSE.
+  void setCpuRayTracingReadback(SbBool enabled);
+  SbBool isCpuRayTracingReadback(void) const;
+  //! Owned last-frame values; use only on the owning GUI/render thread.
+  const SoCpuRayTracingResult & getLastCpuRayTracingResult(void) const;
 
   //! Enable coarse retained-renderer CPU timing for diagnostics.
   void setRenderPhaseTimingEnabled(SbBool enabled);

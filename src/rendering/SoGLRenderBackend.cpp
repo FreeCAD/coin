@@ -1,6 +1,7 @@
 // src/rendering/SoGLRenderBackend.cpp
 
 #include "rendering/SoGLRenderBackend.h"
+#include "rendering/SoCpuRayBridgeP.h"
 
 #include <Inventor/C/glue/gl.h>
 #include <Inventor/SbName.h>
@@ -910,6 +911,7 @@ SoGLRenderBackend::shutdown()
     this->discard();
     return;
   }
+  this->cpuRayPresenter.shutdown();
   this->invalidateCache();
   this->clearSelectionScratch();
   if (this->instanceBuffer) {
@@ -1007,6 +1009,7 @@ SoGLRenderBackend::shutdown()
 void
 SoGLRenderBackend::discard()
 {
+  this->cpuRayPresenter.discard();
   this->destroyAsyncPickResources(false);
   this->clearSelectionScratch();
   this->gpuCache.clear();
@@ -4614,6 +4617,57 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   this->statistics.selection = SoRenderBackendSelectionStatistics();
 
   this->debugValidateDrawList(drawlist);
+  SoCpuRayPreparedFrame cpuFrame;
+  bool useCpuRay = false;
+  bool cpuUploaded = false;
+  std::string cpuDetail;
+  SoCpuRayTracingResult * cpuResult = params.cpuRayTracingResult;
+  if ((params.cpuRayTracingEnabled || params.cpuRayTracingReadback) && !cpuResult) {
+    this->emitError("ray diagnostic result owner missing"); return FALSE;
+  }
+  if (cpuResult) {
+    cpuResult->contextId = this->glue ? this->glue->contextid : 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cpuResult->framebuffer);
+    glGetIntegerv(GL_SAMPLES, &cpuResult->samples);
+    cpuResult->framebufferSrgbEnabled = glIsEnabled(GL_FRAMEBUFFER_SRGB) != GL_FALSE;
+    const SbVec2s size = params.viewport.getViewportSizePixels();
+    const SbVec2s origin = params.viewport.getViewportOriginPixels();
+    cpuResult->width = size[0]; cpuResult->height = size[1];
+    cpuResult->viewportX = origin[0]; cpuResult->viewportY = origin[1];
+    cpuResult->devicePixelRatio = params.devicePixelRatio;
+    cpuResult->viewMatrix = params.viewMatrix;
+    cpuResult->projectionMatrix = params.projMatrix;
+    if (!params.cpuRayTracingEnabled) cpuResult->detail = "standard retained OpenGL frame";
+  }
+  if (params.cpuRayTracingEnabled) {
+    cpuResult->status = SoCpuRayTracingResult::FALLBACK;
+    GLint depthBits = 0; glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+    if (cpuResult->samples != 0) cpuDetail = "multisample target is outside initial CPU profile";
+    else if (depthBits < 16) cpuDetail = "CPU ray mode requires a depth-attached target";
+    else if (cpuResult->framebufferSrgbEnabled) cpuDetail = "sRGB target state is outside initial CPU profile";
+    else if (glGetError() != GL_NO_ERROR) cpuDetail = "target preflight GL error";
+    else if ((params.flags & SO_PARAM_CLEAR_DEPTH) == 0)
+      cpuDetail = "CPU ray mode requires clearing target depth before presentation";
+    if (!cpuDetail.empty()) {
+      if (params.cpuRayAsync) params.cpuRayAsync->invalidate();
+    }
+    else {
+      const bool prepared = params.cpuRayAsync
+        ? params.cpuRayAsync->prepare(drawlist, params, depthBits, cpuFrame, cpuDetail)
+        : coin_prepare_cpu_ray_frame(drawlist, params, cpuFrame, cpuDetail);
+      if (prepared) {
+        useCpuRay = this->cpuRayPresenter.prepare(this->glue, cpuDetail);
+        if (!useCpuRay && params.cpuRayAsync) params.cpuRayAsync->invalidate();
+      }
+    }
+    if (!useCpuRay) {
+      if (params.cpuRayAsync) cpuDetail += params.cpuRayAsync->telemetry();
+      cpuResult->detail = cpuDetail.c_str();
+      cpuResult->rgb.clear(); cpuResult->depth.clear(); cpuResult->coverage.clear();
+      cpuResult->sources.clear();
+      cpuResult->triangleCount = cpuResult->hitCount = cpuResult->rayTests = 0;
+    }
+  }
   const BackendPhaseClock::time_point frameSetupStart = measurePhases
     ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
   this->beginFrame(params);
@@ -4656,7 +4710,34 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
         !queuedSelection.highlighted.empty()) {
       const BackendPhaseClock::time_point selectionStart = measurePhases
         ? BackendPhaseClock::now() : BackendPhaseClock::time_point();
-      this->renderSelection(drawlist, queuedSelection, params);
+      const auto cpuTargetsOnly = [&](const std::vector<SoSelectionTarget> & targets) {
+        for (const SoSelectionTarget & target : targets) {
+          if (target.commandIndex < 0 ||
+              static_cast<uint32_t>(target.commandIndex) >= commandCount ||
+              static_cast<size_t>(target.commandIndex) >= cpuFrame.skipCommands.size() ||
+              !cpuFrame.skipCommands[static_cast<size_t>(target.commandIndex)]) {
+            return false;
+          }
+        }
+        return true;
+      };
+      if (useCpuRay && cpuUploaded &&
+          cpuTargetsOnly(queuedSelection.selected) &&
+          cpuTargetsOnly(queuedSelection.highlighted)) {
+        // CPU ray depth and GPU raster depth use different XY grids.
+        // Use two raster-subpixel quanta of slope bias, retaining a
+        // conservative precision range from GL's four-bit minimum to 16 bits.
+        ScopedGLState selectionState(this->glue);
+        GLint subpixelBits = 4;
+        glGetIntegerv(GL_SUBPIXEL_BITS, &subpixelBits);
+        const int boundedSubpixelBits = std::max(4, std::min(16, subpixelBits));
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-std::ldexp(2.0f, -boundedSubpixelBits), -1.0f);
+        this->renderSelection(drawlist, queuedSelection, params);
+      }
+      else {
+        this->renderSelection(drawlist, queuedSelection, params);
+      }
       if (measurePhases) {
         this->statistics.selection.durationNanoseconds +=
           elapsedNanoseconds(selectionStart);
@@ -4675,6 +4756,20 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
       }
       const SoRenderCommand & first = drawlist.getCommand(
         static_cast<int>(operation.commandIndex));
+      if (useCpuRay && !cpuUploaded && first.stage != SoRenderStage::Background) {
+        if (!this->cpuRayPresenter.present(cpuFrame.frame, cpuDetail)) {
+          cpuResult->status = SoCpuRayTracingResult::FAILED;
+          cpuResult->detail = cpuDetail.c_str();
+          return FALSE;
+        }
+        cpuUploaded = true;
+        ++this->statistics.submission.submittedDrawCalls;
+      }
+      if (useCpuRay && cpuFrame.skipCommands[operation.commandIndex]) {
+        ++this->statistics.submission.semanticDrawCommands;
+        queueTargets(operation.commandIndex);
+        continue;
+      }
       std::vector<uint32_t> & instanceCommands =
         this->instanceCommandScratch;
       const size_t noCache = std::numeric_limits<size_t>::max();
@@ -4688,6 +4783,7 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
           const SoRenderOperation & candidate = plan.getOperation(next);
           if (candidate.type != SoRenderOperationType::DRAW ||
               candidate.commandIndex >= commandCount) break;
+          if (useCpuRay && cpuFrame.skipCommands[candidate.commandIndex]) break;
           const SoRenderCommand & nextCommand = drawlist.getCommand(
             static_cast<int>(candidate.commandIndex));
           const size_t nextCacheIndex = candidate.commandIndex <
@@ -4741,6 +4837,31 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
     }
   }
   cc_glglue_glUseProgram(this->glue, 0);
+  if (useCpuRay) {
+    if (!cpuUploaded || glGetError() != GL_NO_ERROR) {
+      cpuResult->status = SoCpuRayTracingResult::FAILED;
+      cpuResult->detail = "CPU ray presentation or raster composition GL error";
+      return FALSE;
+    }
+    cpuResult->status = SoCpuRayTracingResult::RENDERED;
+    if (params.cpuRayAsync) {
+      params.cpuRayAsync->published();
+      cpuFrame.accelerationDetail += params.cpuRayAsync->telemetry();
+    }
+    cpuResult->detail = cpuFrame.accelerationDetail.c_str();
+  }
+  if (params.cpuRayTracingReadback) {
+    if (!coin_readback_cpu_ray_target(this->glue, *cpuResult, cpuDetail)) {
+      cpuResult->status = SoCpuRayTracingResult::FAILED;
+      cpuResult->detail = cpuDetail.c_str();
+      return FALSE;
+    }
+    if (glGetError() != GL_NO_ERROR) {
+      cpuResult->status = SoCpuRayTracingResult::FAILED;
+      cpuResult->detail = "diagnostic readback state restoration GL error";
+      return FALSE;
+    }
+  }
   if (measurePhases) {
     const uint64_t executionWithSelection = elapsedNanoseconds(executionStart);
     this->statistics.submission.commandExecutionNanoseconds =

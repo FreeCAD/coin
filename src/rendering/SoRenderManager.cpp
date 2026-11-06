@@ -63,6 +63,7 @@
 #include <algorithm>
 #include <chrono>
 #include <unordered_map>
+#include <utility>
 //FIXME:Need this include early, since including it via SoRenderManagerP.h will cause problems for cygwin. Don't understand the root cause BFG 20090629
 #include <vector>
 
@@ -97,6 +98,7 @@
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoAudioRenderAction.h>
 #include <Inventor/errors/SoDebugError.h>
+#include <Inventor/sensors/SoAlarmSensor.h>
 #include <Inventor/sensors/SoOneShotSensor.h>
 #include <Inventor/fields/SoSFTime.h>
 #include <Inventor/misc/SoAudioDevice.h>
@@ -107,6 +109,7 @@
 #include "misc/AudioTools.h"
 #include "rendering/SoGLRenderBackend.h"
 #include "rendering/SoRenderBackend.h"
+#include "rendering/SoCpuRayBridgeP.h"
 #include "rendering/SoRenderPlan.h"
 #include "glue/glp.h"
 #include "coindefs.h"
@@ -426,6 +429,8 @@ retainedRenderParams(const SoRenderManagerP * manager)
       manager->viewport, cameraViewport);
     params.viewport = cameraViewport;
     viewVolume.getMatrices(params.viewMatrix, params.projMatrix);
+    params.cameraVolume = viewVolume;
+    params.hasCameraVolume = true;
   }
   else {
     params.viewMatrix = SbMatrix::identity();
@@ -676,6 +681,17 @@ resolvePickResult(const SoRenderManagerP * manager,
 */
 
 #define PRIVATE(p) (p->pimpl)
+
+static void cancelAsyncRay(SoRenderManagerP * data)
+{
+  if (data->cpuRayPoll) data->cpuRayPoll->unschedule();
+  if (data->cpuRayAsync) data->cpuRayAsync->invalidate();
+}
+
+static void pollAsyncRay(void * manager, SoSensor *)
+{
+  static_cast<SoRenderManager *>(manager)->scheduleRedraw();
+}
 #define PUBLIC(p) (p->publ)
 
 /*!
@@ -711,6 +727,10 @@ SoRenderManager::SoRenderManager(void)
   PRIVATE(this)->lastRenderResult.rendered = FALSE;
   PRIVATE(this)->lightingmode = SoRenderManager::LIT;
   PRIVATE(this)->irAction = NULL;
+  PRIVATE(this)->cpuRayTracingEnabled = FALSE;
+  PRIVATE(this)->cpuRayTracingReadback = FALSE;
+  PRIVATE(this)->cpuRayTracingFrameSerial = 0;
+  PRIVATE(this)->lastCpuRayTracingResult = SoCpuRayTracingResult();
   PRIVATE(this)->renderBackend = NULL;
   PRIVATE(this)->renderPhaseTimingEnabled = FALSE;
   PRIVATE(this)->renderPhaseStatistics = RenderPhaseStatistics();
@@ -772,6 +792,33 @@ SoRenderManager::SoRenderManager(void)
  */
 SoRenderManager::~SoRenderManager()
 {
+  if (PRIVATE(this)->rootsensor) {
+    static_cast<SoRenderManagerRootSensor *>(PRIVATE(this)->rootsensor)
+      ->setNotificationCallback(nullptr, nullptr);
+  }
+  cancelAsyncRay(PRIVATE(this));
+  delete PRIVATE(this)->cpuRayPoll;
+  delete PRIVATE(this)->cpuRayAsync;
+  PRIVATE(this)->cpuRayPoll = nullptr;
+  PRIVATE(this)->cpuRayAsync = nullptr;
+  // Layer callbacks retain this manager as their data. Detaching a node
+  // sensor does not cancel a queued callback, so retire both sensors before
+  // releasing the backend, redraw sensor or manager state. A cleared layer
+  // can still own a sensor and must be handled independently of its root.
+  if (PRIVATE(this)->renderLayerBackgroundSensor) {
+    if (PRIVATE(this)->renderLayerBackgroundSensor->isScheduled())
+      PRIVATE(this)->renderLayerBackgroundSensor->unschedule();
+    PRIVATE(this)->renderLayerBackgroundSensor->detach();
+    delete PRIVATE(this)->renderLayerBackgroundSensor;
+    PRIVATE(this)->renderLayerBackgroundSensor = NULL;
+  }
+  if (PRIVATE(this)->renderLayerForegroundSensor) {
+    if (PRIVATE(this)->renderLayerForegroundSensor->isScheduled())
+      PRIVATE(this)->renderLayerForegroundSensor->unschedule();
+    PRIVATE(this)->renderLayerForegroundSensor->detach();
+    delete PRIVATE(this)->renderLayerForegroundSensor;
+    PRIVATE(this)->renderLayerForegroundSensor = NULL;
+  }
   if (PRIVATE(this)->renderBackend) {
     // A backend may outlive the context that created its GL objects.  The
     // final orchestration layer handles that lost-context case; this layer
@@ -801,6 +848,12 @@ SoRenderManager::~SoRenderManager()
 
   //delete PRIVATE(this)->clipsensor;
 
+  // Preserve graph lifetime through backend/action teardown, then release
+  // each layer reference acquired by setRenderLayerRoot (including aliases).
+  if (PRIVATE(this)->renderLayerBackgroundRoot)
+    PRIVATE(this)->renderLayerBackgroundRoot->unref();
+  if (PRIVATE(this)->renderLayerForegroundRoot)
+    PRIVATE(this)->renderLayerForegroundRoot->unref();
   if (PRIVATE(this)->scene)
     PRIVATE(this)->scene->unref();
   this->setCamera(NULL);
@@ -819,6 +872,7 @@ SoRenderManager::~SoRenderManager()
 void
 SoRenderManager::setSceneGraph(SoNode * const sceneroot)
 {
+  if (sceneroot != PRIVATE(this)->scene) cancelAsyncRay(PRIVATE(this));
   //this->detachClipSensor();
   this->detachRootSensor();
   // Don't unref() until after we've set up the new root, in case the
@@ -859,6 +913,7 @@ SoRenderManager::setCamera(SoCamera * camera)
 {
   // avoid unref() then ref() on the same node
   if (camera == PRIVATE(this)->camera) return;
+  cancelAsyncRay(PRIVATE(this));
 
   if (PRIVATE(this)->camera) {
     PRIVATE(this)->camera->unref();
@@ -881,6 +936,7 @@ void
 SoRenderManager::setCameraInSceneGraph(SbBool inSceneGraph)
 {
   if (PRIVATE(this)->cameraInSceneGraph == inSceneGraph) return;
+  cancelAsyncRay(PRIVATE(this));
   PRIVATE(this)->cameraInSceneGraph = inSceneGraph;
   PRIVATE(this)->drawListDirty = TRUE;
 }
@@ -923,6 +979,11 @@ SoRenderManager::attachRootSensor(SoNode * const sceneroot)
   if (!PRIVATE(this)->rootsensor) {
     PRIVATE(this)->rootsensor = new SoRenderManagerRootSensor(
       SoRenderManager::nodesensorCB, this);
+    static_cast<SoRenderManagerRootSensor *>(PRIVATE(this)->rootsensor)
+      ->setNotificationCallback([](void * raw) noexcept {
+        auto * manager = static_cast<SoRenderManager *>(raw);
+        if (PRIVATE(manager)->cpuRayAsync) PRIVATE(manager)->cpuRayAsync->requestCancel();
+      }, this);
     // set a high priority on the root sensor. The actual redraw
     // scheduling is handled by the redraw sensor at the correct
     // priority (root sensor callback triggers the redraw sensor). Set
@@ -1328,6 +1389,12 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     PRIVATE(this)->renderPhaseStatistics;
   resetRenderStatistics(phaseStatistics);
   const SbBool measurePhases = PRIVATE(this)->renderPhaseTimingEnabled;
+  PRIVATE(this)->lastCpuRayTracingResult = SoCpuRayTracingResult();
+  PRIVATE(this)->lastCpuRayTracingResult.frameSerial = ++PRIVATE(this)->cpuRayTracingFrameSerial;
+  if (PRIVATE(this)->cpuRayTracingEnabled) {
+    PRIVATE(this)->lastCpuRayTracingResult.status = SoCpuRayTracingResult::FALLBACK;
+    PRIVATE(this)->lastCpuRayTracingResult.detail = "retained ray frame not executed";
+  }
   const SoRenderManager::RenderMode renderMode = PRIVATE(this)->rendermode;
   const SoRenderManager::StereoMode stereoMode = PRIVATE(this)->stereomode;
   const SbBool hasSuperimpositions =
@@ -1343,6 +1410,7 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   // behavior when LegacyGL is available instead of silently dropping them.
   if (needsLegacyPipeline || stereoMode != SoRenderManager::MONO ||
       hasSuperimpositions) {
+    cancelAsyncRay(PRIVATE(this));
     if (currentContextSupportsLegacyRendering()) {
 #if COIN_BUILD_LEGACY_GL_RENDERER
       const SoRenderManager::RenderPipeline savedPipeline =
@@ -1457,6 +1525,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   }
 
   PRIVATE(this)->drawListCallbackScope = TRUE;
+  struct CallbackScopeReset {
+    SbBool & active;
+    ~CallbackScopeReset() { active = FALSE; }
+  } callbackScopeReset{PRIVATE(this)->drawListCallbackScope};
   PRIVATE(this)->invokePreRenderCallbacks();
 
   const SbViewportRegion viewport = PRIVATE(this)->viewport;
@@ -1738,6 +1810,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
 
   SoRenderParams params = {};
   params.viewport = viewport;
+  params.cpuRayTracingEnabled = PRIVATE(this)->cpuRayTracingEnabled != FALSE;
+  params.cpuRayTracingReadback = PRIVATE(this)->cpuRayTracingReadback != FALSE;
+  params.cpuRayTracingResult = &PRIVATE(this)->lastCpuRayTracingResult;
+  PRIVATE(this)->lastCpuRayTracingResult.cameraNodeId = PRIVATE(this)->camera ? PRIVATE(this)->camera->getNodeId() : 0;
   // The retained traversal scopes its scene roots and restores the action
   // state before the backend is invoked. Re-read the camera matrices from the
   // camera itself instead of relying on the restored state, which otherwise
@@ -1749,6 +1825,8 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
       viewport, cameraViewport);
     params.viewport = cameraViewport;
     viewVolume.getMatrices(params.viewMatrix, params.projMatrix);
+    params.cameraVolume = viewVolume;
+    params.hasCameraVolume = true;
   }
   else {
     params.viewMatrix = SbMatrix::identity();
@@ -1766,7 +1844,112 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
 
   const RenderPhaseClock::time_point submissionStart = measurePhases
     ? RenderPhaseClock::now() : RenderPhaseClock::time_point();
-  PRIVATE(this)->renderBackend->render(drawlist, plan, params);
+  SbBool backendRendered = FALSE;
+  try {
+    if (params.cpuRayTracingEnabled && coin_cpu_ray_async_enabled()) {
+      auto * data = PRIVATE(this);
+      if (!data->cpuRayAsync) data->cpuRayAsync = new SoCpuRayAsync;
+      if (!data->cpuRayPoll) data->cpuRayPoll = new SoAlarmSensor(pollAsyncRay, this);
+      params.cpuRayAsync = data->cpuRayAsync;
+      params.cpuRaySceneRevision = data->scene ? data->scene->getNodeId() : 0;
+    }
+    backendRendered = PRIVATE(this)->renderBackend->render(
+      drawlist, plan, params, &drawlist.getSelectionState());
+    if (params.cpuRayAsync && backendRendered) {
+      auto * poll = PRIVATE(this)->cpuRayPoll;
+      poll->unschedule();
+      if (const unsigned delay = params.cpuRayAsync->pollMilliseconds()) {
+        poll->setTimeFromNow(SbTime(double(delay) / 1000.0));
+        poll->schedule();
+      }
+    }
+  }
+  catch (...) {
+    PRIVATE(this)->lastCpuRayTracingResult.status = SoCpuRayTracingResult::FAILED;
+    PRIVATE(this)->lastCpuRayTracingResult.detail = "retained backend execution exception";
+  }
+  if (!backendRendered) {
+    cancelAsyncRay(PRIVATE(this));
+    // Legacy rendering does not reset CPU diagnostics. Keep the failure in
+    // place so even an exception during recovery cannot lose that evidence.
+    SoCpuRayTracingResult & failed = PRIVATE(this)->lastCpuRayTracingResult;
+    failed.status = SoCpuRayTracingResult::FAILED;
+    struct FailureScope {
+      SoRenderManagerP * data;
+      RenderPipeline saved;
+      ~FailureScope() {
+        data->renderPipeline = saved;
+        data->drawListCallbackScope = FALSE;
+        data->lastRenderResult.requestedPipeline = saved;
+        data->lastRenderResult.fallbackReason = RenderResult::FallbackReason::BACKEND_RENDER_FAILED;
+      }
+    } failureScope{PRIVATE(this), PRIVATE(this)->renderPipeline};
+    if (failed.detail.getLength() == 0) failed.detail = "retained backend render returned failure";
+#if COIN_BUILD_LEGACY_GL_RENDERER
+    PRIVATE(this)->lastRenderResult.rendered = FALSE;
+    if (currentContextSupportsLegacyRendering()) {
+      // A failed retained submission can leave GL errors behind. Bound their
+      // removal so the target query and retry have their own observable result.
+      const auto drainErrors = [](SbBool & observed) -> SbBool {
+        observed = FALSE;
+        for (unsigned int i = 0; i < 64; ++i) {
+          if (glGetError() == GL_NO_ERROR) return TRUE;
+          observed = TRUE;
+        }
+        return FALSE;
+      };
+      SbBool priorErrors = FALSE;
+      if (coin_gl_current_context() != currentContext || !currentGlue ||
+          !cc_glglue_has_framebuffer_objects(currentGlue)) {
+        failed.detail += "; LegacyGL recovery skipped: target validation unavailable";
+      }
+      else if (!drainErrors(priorErrors)) {
+        failed.detail += "; LegacyGL recovery skipped: persistent GL error state";
+      }
+      else {
+        if (priorErrors) failed.detail += "; prior GL errors cleared for recovery";
+        const GLenum targetStatus = cc_glglue_glCheckFramebufferStatus(
+          currentGlue, GL_DRAW_FRAMEBUFFER);
+        const GLenum queryError = glGetError();
+        if (targetStatus != GL_FRAMEBUFFER_COMPLETE || queryError != GL_NO_ERROR) {
+          failed.detail += "; LegacyGL recovery skipped: incomplete draw target or query error";
+          SbBool ignored = FALSE;
+          drainErrors(ignored);
+        }
+        else {
+          PRIVATE(this)->renderPipeline = RenderPipeline::LEGACY_GL;
+          this->invalidateSharedGLState();
+          try {
+            this->render(TRUE, TRUE);
+            const GLenum recoveryError = glGetError();
+            if (recoveryError != GL_NO_ERROR) {
+              PRIVATE(this)->lastRenderResult.rendered = FALSE;
+              failed.detail += "; LegacyGL recovery GL error";
+              SbBool ignored = FALSE;
+              drainErrors(ignored);
+            }
+            else if (PRIVATE(this)->lastRenderResult.rendered) {
+              failed.detail += "; complete LegacyGL frame rebuilt";
+            }
+            else {
+              failed.detail += "; LegacyGL recovery did not render";
+            }
+          }
+          catch (...) {
+            PRIVATE(this)->lastRenderResult.rendered = FALSE;
+            failed.detail += "; LegacyGL recovery exception";
+          }
+          PRIVATE(this)->lastRenderResult.usedPipeline = RenderPipeline::LEGACY_GL;
+        }
+      }
+    }
+#endif
+    PRIVATE(this)->renderPipeline = failureScope.saved;
+    PRIVATE(this)->lastRenderResult.requestedPipeline = failureScope.saved;
+    PRIVATE(this)->lastRenderResult.fallbackReason = RenderResult::FallbackReason::BACKEND_RENDER_FAILED;
+    PRIVATE(this)->invokePostRenderCallbacks();
+    return;
+  }
   if (measurePhases) {
     phaseStatistics.backendSubmissionNanoseconds =
       static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -2281,6 +2464,7 @@ SoRenderManager::initStencilBufferForInterleavedStereo(void)
 void
 SoRenderManager::reinitialize(void)
 {
+  cancelAsyncRay(PRIVATE(this));
 #if COIN_BUILD_LEGACY_GL_RENDERER
   PRIVATE(this)->glaction->invalidateState();
 #endif
@@ -2591,6 +2775,7 @@ SoRenderManager::activate(void)
 void
 SoRenderManager::deactivate(void)
 {
+  cancelAsyncRay(PRIVATE(this));
   PRIVATE(this)->isactive = FALSE;
 }
 
@@ -2802,6 +2987,7 @@ SoRenderManager::setRenderPipeline(const RenderPipeline pipeline)
   }
 #endif
   if (PRIVATE(this)->renderPipeline == pipeline) return;
+  cancelAsyncRay(PRIVATE(this));
   PRIVATE(this)->renderPipeline = pipeline;
   this->scheduleRedraw();
 }
@@ -2815,6 +3001,7 @@ SoRenderManager::getRenderPipeline(void) const
 void
 SoRenderManager::releaseRenderBackendResources(void)
 {
+  cancelAsyncRay(PRIVATE(this));
   if (PRIVATE(this)->renderBackend &&
       PRIVATE(this)->renderBackend->isInitialized()) {
     if (backendContextIsCurrent(PRIVATE(this))) {
@@ -2833,6 +3020,7 @@ SoRenderManager::releaseRenderBackendResources(void)
 void
 SoRenderManager::discardRenderBackendResources(void)
 {
+  cancelAsyncRay(PRIVATE(this));
   if (PRIVATE(this)->renderBackend &&
       PRIVATE(this)->renderBackend->isInitialized()) {
     PRIVATE(this)->renderBackend->discard();
@@ -2861,14 +3049,22 @@ SoRenderManager::setRenderLayerRoot(RenderLayer layer, SoNode * root)
   }
 
   if (*slot == root) return;
+  cancelAsyncRay(PRIVATE(this));
 
-  if (*sensorSlot) (*sensorSlot)->detach();
-  if (*slot) (*slot)->unref();
-
+  if (*sensorSlot) {
+    // The previous root may already have queued this callback. It must not
+    // survive clearing/replacement, even though detach removes its auditor.
+    if ((*sensorSlot)->isScheduled()) (*sensorSlot)->unschedule();
+    (*sensorSlot)->detach();
+  }
+  // A replacement can be owned only as a child of the old root. Retain
+  // it before releasing that graph, as setSceneGraph does for its root.
+  SoNode * oldroot = *slot;
+  if (root) root->ref();
   *slot = root;
   PRIVATE(this)->drawListDirty = TRUE;
+  if (oldroot) oldroot->unref();
   if (root) {
-    root->ref();
     if (!*sensorSlot) {
       *sensorSlot = new SoNodeSensor(SoRenderManager::nodesensorCB, this);
     }
@@ -2928,6 +3124,34 @@ SoRenderManager::isRenderPhaseTimingEnabled(void) const
 {
   return PRIVATE(this)->renderPhaseTimingEnabled;
 }
+
+void
+SoRenderManager::setCpuRayTracingEnabled(const SbBool enabled)
+{
+  if (!enabled) cancelAsyncRay(PRIVATE(this));
+  PRIVATE(this)->cpuRayTracingEnabled = enabled ? TRUE : FALSE;
+  PRIVATE(this)->lastCpuRayTracingResult = SoCpuRayTracingResult();
+  this->invalidateScene();
+}
+
+SbBool
+SoRenderManager::isCpuRayTracingEnabled(void) const
+{ return PRIVATE(this)->cpuRayTracingEnabled; }
+
+void
+SoRenderManager::setCpuRayTracingReadback(const SbBool enabled)
+{
+  PRIVATE(this)->cpuRayTracingReadback = enabled ? TRUE : FALSE;
+  this->scheduleRedraw();
+}
+
+SbBool
+SoRenderManager::isCpuRayTracingReadback(void) const
+{ return PRIVATE(this)->cpuRayTracingReadback; }
+
+const SoCpuRayTracingResult &
+SoRenderManager::getLastCpuRayTracingResult(void) const
+{ return PRIVATE(this)->lastCpuRayTracingResult; }
 
 SoRenderManager::RenderPhaseStatistics
 SoRenderManager::getRenderPhaseStatistics(void) const

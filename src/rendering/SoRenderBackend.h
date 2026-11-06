@@ -9,6 +9,8 @@
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/rendering/SoRenderIR.h>
+#include <Inventor/rendering/SoCpuRayTracing.h>
+#include <Inventor/SbViewVolume.h>
 
 #include "rendering/SoRenderPlan.h"
 
@@ -26,6 +28,8 @@ typedef void (*SoRenderBackendLogFn)(const char * message, void * userdata);
   rendered into it.  Target ownership and application orchestration remain
   outside this interface.
 */
+class SoCpuRayAsync;
+
 struct SoRenderParams {
   SbViewportRegion viewport;
   SbMatrix         viewMatrix;
@@ -34,6 +38,18 @@ struct SoRenderParams {
   SbColor4f        clearColor;
   float            clearDepth = 1.0f;
   uint32_t         flags = 0;
+  bool cpuRayTracingEnabled = false;
+  bool cpuRayTracingReadback = false;
+  bool hasCameraVolume = false;
+  SbViewVolume cameraVolume;
+  // Caller-owned synchronous output; backends must never retain this pointer.
+  SoCpuRayTracingResult * cpuRayTracingResult = nullptr;
+  SoCpuRayAsync * cpuRayAsync = nullptr;
+  uint64_t cpuRaySceneRevision = 0;
+  SoRenderParams() {
+    viewMatrix.makeIdentity(); projMatrix.makeIdentity();
+    cameraVolume.ortho(-1,1,-1,1,0,1); clearColor.setValue(0,0,0,0);
+  }
 };
 
 /*!

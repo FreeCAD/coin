@@ -3,6 +3,7 @@
 #define COIN_SOGLRENDERBACKEND_H
 
 #include "rendering/SoRenderBackend.h"
+#include "rendering/SoCpuRayPresenterP.h"
 
 #include <Inventor/C/glue/gl.h>
 #include <Inventor/rendering/SoRenderIR.h>
@@ -547,6 +548,7 @@ private:
                        const SbVec2s & viewportOrigin,
                        const SbVec2s & viewportSize);
 
+  SoCpuRayPresenter cpuRayPresenter;
   const cc_glglue * glue = nullptr;
   void * context = nullptr;
   std::vector<CachedCommand> gpuCache;
