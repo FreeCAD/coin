@@ -805,7 +805,11 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
 
   GLfloat lineRange[2] = { 1.0f, 1.0f };
   GLfloat pointRange[2] = { 1.0f, 1.0f };
-  glGetFloatv(GL_LINE_WIDTH_RANGE, lineRange);
+  // GL_LINE_WIDTH_RANGE describes the removed smooth-line path and raises
+  // GL_INVALID_ENUM in a core profile.  The retained renderer uses aliased
+  // lines, so query that actual native capability instead.  Point size remains
+  // core state and continues to use GL_POINT_SIZE_RANGE.
+  glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, lineRange);
   glGetFloatv(GL_POINT_SIZE_RANGE, pointRange);
   this->rasterPrograms.nativeLineWidthMax = std::max(1.0f, lineRange[1]);
   this->rasterPrograms.nativePointSizeMax = std::max(1.0f, pointRange[1]);
@@ -4641,7 +4645,18 @@ SoGLRenderBackend::render(const SoDrawList & drawlist,
   }
   if (params.cpuRayTracingEnabled) {
     cpuResult->status = SoCpuRayTracingResult::FALLBACK;
-    GLint depthBits = 0; glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+    GLint depthBits = 0;
+    const GLenum depthAttachment = cpuResult->framebuffer == 0
+      ? GL_DEPTH : GL_DEPTH_ATTACHMENT;
+    GLint depthObjectType = GL_NONE;
+    cc_glglue_glGetFramebufferAttachmentParameteriv(
+      this->glue, GL_DRAW_FRAMEBUFFER, depthAttachment,
+      GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &depthObjectType);
+    if (depthObjectType != GL_NONE) {
+      cc_glglue_glGetFramebufferAttachmentParameteriv(
+        this->glue, GL_DRAW_FRAMEBUFFER, depthAttachment,
+        GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
+    }
     if (cpuResult->samples != 0) cpuDetail = "multisample target is outside initial CPU profile";
     else if (depthBits < 16) cpuDetail = "CPU ray mode requires a depth-attached target";
     else if (cpuResult->framebufferSrgbEnabled) cpuDetail = "sRGB target state is outside initial CPU profile";

@@ -3,6 +3,7 @@
 #include <Inventor/SoDB.h>
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/SoRenderManager.h>
+#include <Inventor/C/glue/gl.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/system/gl.h>
@@ -1067,15 +1068,26 @@ runTest()
   }
   else {
     SbBool secondContextActive = TRUE;
+    const cc_glglue * secondGlue = cc_glglue_instance(secondContext.contextId());
+    if (!secondGlue) {
+      std::cerr << "FAIL: second context did not provide OpenGL dispatch"
+                << std::endl;
+      delete contextManager;
+      context.makeCurrent();
+      cubeRoot->unref();
+      camera->unref();
+      return 1;
+    }
     GLuint sentinelBuffer = 0;
-    glGenBuffers(1, &sentinelBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, sentinelBuffer);
-    glBufferData(GL_ARRAY_BUFFER, 16, NULL, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    cc_glglue_glGenBuffers(secondGlue, 1, &sentinelBuffer);
+    cc_glglue_glBindBuffer(secondGlue, GL_ARRAY_BUFFER, sentinelBuffer);
+    cc_glglue_glBufferData(secondGlue, GL_ARRAY_BUFFER, 16, NULL,
+                           GL_STATIC_DRAW);
+    cc_glglue_glBindBuffer(secondGlue, GL_ARRAY_BUFFER, 0);
 
     // The manager still owns resources from the first context here.
     contextManager->reinitialize();
-    if (!glIsBuffer(sentinelBuffer)) {
+    if (!cc_glglue_glIsBuffer(secondGlue, sentinelBuffer)) {
       std::cerr << "FAIL: reinitialize deleted a new-context GL buffer" << std::endl;
       result = 1;
     }
@@ -1103,7 +1115,7 @@ runTest()
       else {
         secondContextActive = TRUE;
         replacementManager->render(TRUE, TRUE);
-        if (!glIsBuffer(sentinelBuffer)) {
+        if (!cc_glglue_glIsBuffer(secondGlue, sentinelBuffer)) {
           std::cerr << "FAIL: context replacement deleted a new-context GL buffer" << std::endl;
           result = 1;
         }
@@ -1111,7 +1123,7 @@ runTest()
       delete replacementManager;
     }
     if (secondContextActive) {
-      glDeleteBuffers(1, &sentinelBuffer);
+      cc_glglue_glDeleteBuffers(secondGlue, 1, &sentinelBuffer);
     }
     secondContextActive = FALSE;
     if (!context.makeCurrent()) {

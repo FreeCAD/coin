@@ -89,7 +89,9 @@ struct State {
     dither=glIsEnabled(GL_DITHER);rasterDiscard=glIsEnabled(GL_RASTERIZER_DISCARD);
     GLint profile=0;glGetIntegerv(GL_CONTEXT_PROFILE_MASK,&profile);
     compatibility=(profile & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT)!=0;
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if(compatibility)alpha=glIsEnabled(GL_ALPHA_TEST);
+#endif
   }
   static void enabled(GLenum capability,GLboolean flag) { if(flag)glEnable(capability);else glDisable(capability); }
   void restore() {
@@ -116,7 +118,9 @@ struct State {
     enabled(GL_SCISSOR_TEST,scissor);enabled(GL_FRAMEBUFFER_SRGB,srgb);
     enabled(GL_POLYGON_OFFSET_FILL,offset);enabled(GL_STENCIL_TEST,stencil);
     enabled(GL_DITHER,dither);enabled(GL_RASTERIZER_DISCARD,rasterDiscard);
+#if COIN_BUILD_LEGACY_GL_RENDERER
     if(compatibility)enabled(GL_ALPHA_TEST,alpha);
+#endif
     restored=true;
   }
   ~State(){restore();}
@@ -245,7 +249,9 @@ bool SoCpuRayPresenter::present(const coin_raytrace::Frame & frame,std::string &
   glDisable(GL_BLEND);glDisable(GL_CULL_FACE);glDisable(GL_SCISSOR_TEST);
   glDisable(GL_FRAMEBUFFER_SRGB);glDisable(GL_POLYGON_OFFSET_FILL);glDisable(GL_STENCIL_TEST);
   glDisable(GL_DITHER);glDisable(GL_RASTERIZER_DISCARD);
+#if COIN_BUILD_LEGACY_GL_RENDERER
   if(state.compatibility)glDisable(GL_ALPHA_TEST);
+#endif
   glEnable(GL_DEPTH_TEST);glDepthFunc(GL_ALWAYS);glDepthMask(GL_TRUE);glDepthRange(0,1);
   glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
   GLenum upload=glGetError();

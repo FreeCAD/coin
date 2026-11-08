@@ -3,6 +3,7 @@
 #include "support/GLTestContext.h"
 
 #include <Inventor/SoDB.h>
+#include <Inventor/rendering/SoCpuRayTracing.h>
 #include <Inventor/system/gl.h>
 
 #include <cmath>
@@ -35,10 +36,22 @@ SbBool renderWithPlan(SoGLRenderBackend & backend,
                       const SoDrawList & drawlist,
                       const SoRenderParams & params)
 {
+  static int invocation = 0;
+  ++invocation;
   SoRenderPlanner planner;
   SoRenderPlan plan;
   planner.build(drawlist, plan);
-  return backend.render(drawlist, plan, params);
+  const SbBool rendered = backend.render(drawlist, plan, params);
+  bool clean = true;
+  for (int errorCount = 0; errorCount < 16; ++errorCount) {
+    const GLenum error = glGetError();
+    if (error == GL_NO_ERROR) break;
+    std::cerr << "FAIL: retained render call " << invocation
+              << " leaked GL error 0x" << std::hex << error << std::dec
+              << std::endl;
+    clean = false;
+  }
+  return rendered && clean;
 }
 
 std::vector<uint8_t> readPixels(const GLTestContext & context)
@@ -361,6 +374,10 @@ runTest()
     -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f,
     -1.0f,  1.0f, 0.0f
   };
+  const float replacementNormals[] = {
+    0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+    0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f
+  };
   drawlist.clear();
   SoRenderCommand replaced;
   replaced.modelMatrix.makeIdentity();
@@ -368,6 +385,8 @@ runTest()
   replaced.geometry.vertexCount = 4;
   replaced.geometry.indexCount = 6;
   replaced.geometry.positions = replacement;
+  replaced.geometry.normals = replacementNormals;
+  replaced.geometry.normalCount = 4;
   replaced.geometry.indices = indices;
   replaced.geometry.vertexStride = sizeof(float) * 3;
   replaced.material.diffuse = SbVec4f(0.0f, 0.0f, 1.0f, 1.0f);
@@ -383,6 +402,45 @@ runTest()
       std::cerr << "FAIL: clear()/generation change reused stale GPU data" << std::endl;
       result = 1;
     }
+  }
+
+  // The CPU preview preflight must query the bound FBO's depth attachment in
+  // a core profile. GL_DEPTH_BITS is not core state and cannot be used here.
+  std::vector<GLenum> preexistingErrors;
+  for (int errorCount = 0; errorCount < 16; ++errorCount) {
+    const GLenum error = glGetError();
+    if (error == GL_NO_ERROR) break;
+    preexistingErrors.push_back(error);
+  }
+  if (!preexistingErrors.empty()) {
+    std::cerr << "FAIL: retained rendering leaked GL errors before CPU preview:";
+    for (const GLenum error : preexistingErrors) {
+      std::cerr << " 0x" << std::hex << error;
+    }
+    std::cerr << std::dec << std::endl;
+    result = 1;
+  }
+  SoCpuRayTracingResult cpuResult;
+  SoRenderParams cpuParams = params;
+  cpuParams.cpuRayTracingEnabled = true;
+  cpuParams.cpuRayTracingReadback = true;
+  cpuParams.hasCameraVolume = true;
+  cpuParams.cameraVolume.getMatrices(cpuParams.viewMatrix,
+                                     cpuParams.projMatrix);
+  cpuParams.cpuRayTracingResult = &cpuResult;
+  if (!renderWithPlan(backend, drawlist, cpuParams) ||
+      cpuResult.status != SoCpuRayTracingResult::RENDERED ||
+      !cpuResult.readbackValid || cpuResult.framebuffer == 0 ||
+      cpuResult.width != 32 || cpuResult.height != 32 ||
+      cpuResult.rgb.size() != 32u * 32u * 3u ||
+      cpuResult.depth.size() != 32u * 32u ||
+      cpuResult.coverage.size() != 32u * 32u ||
+      cpuResult.readbackRgb.size() != 32u * 32u * 3u ||
+      cpuResult.readbackDepth.size() != 32u * 32u ||
+      cpuResult.triangleCount != 2 || cpuResult.hitCount == 0) {
+    std::cerr << "FAIL: core-profile CPU preview/depth attachment path failed: "
+              << cpuResult.detail.getString() << std::endl;
+    result = 1;
   }
 
   // The active context remains valid while normal GL destruction happens.

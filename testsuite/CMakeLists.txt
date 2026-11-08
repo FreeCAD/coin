@@ -178,6 +178,13 @@ if(COIN_BUILD_GL_TESTS_EFFECTIVE)
 			${COIN_TARGET_LINK_LIBRARIES})
 		if(ARG_PRIVATE_COIN_API)
 			target_compile_definitions(${ARG_NAME} PRIVATE COIN_INTERNAL)
+			if(WIN32 AND NOT COIN_BUILD_SHARED_LIBS)
+				if(MSVC)
+					target_compile_options(${ARG_NAME} PRIVATE /UCOIN_NOT_DLL)
+				else()
+					target_compile_options(${ARG_NAME} PRIVATE -UCOIN_NOT_DLL)
+				endif()
+			endif()
 		endif()
 		target_include_directories(${ARG_NAME} PRIVATE
 			${CMAKE_CURRENT_SOURCE_DIR}/support
@@ -277,6 +284,13 @@ add_executable(RenderPlanTest
 target_link_libraries(RenderPlanTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 if(NOT WIN32 OR NOT COIN_BUILD_SHARED_LIBS)
 	target_compile_definitions(RenderPlanTest PRIVATE COIN_INTERNAL)
+	if(WIN32 AND NOT COIN_BUILD_SHARED_LIBS)
+		if(MSVC)
+			target_compile_options(RenderPlanTest PRIVATE /UCOIN_NOT_DLL)
+		else()
+			target_compile_options(RenderPlanTest PRIVATE -UCOIN_NOT_DLL)
+		endif()
+	endif()
 endif()
 target_include_directories(RenderPlanTest PRIVATE
 	${PROJECT_SOURCE_DIR}/src

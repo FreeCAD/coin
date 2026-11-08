@@ -2,7 +2,10 @@
 #include "support/GLTestContext.h"
 
 #include <Inventor/SoDB.h>
+#include <Inventor/C/glue/gl.h>
 #include <Inventor/system/gl.h>
+
+#include "glue/glp.h"
 
 #include <cstdint>
 #include <iostream>
@@ -84,6 +87,10 @@ runTest()
   GLTestContext context;
   if (!context.initialize(config)) {
     return skip("core GLFW OpenGL context is unavailable");
+  }
+  const cc_glglue * glue = cc_glglue_instance(context.contextId());
+  if (!glue || !glue->glBlendEquationSeparate) {
+    return skip("required OpenGL state functions are unavailable");
   }
 
   SoGLRenderBackend backend;
@@ -305,28 +312,29 @@ runTest()
     GLuint stateReadFramebuffer = 0;
     GLuint stateColorTexture = 0;
     GLuint stateDepthBuffer = 0;
-    glGenFramebuffers(1, &stateDrawFramebuffer);
-    glGenFramebuffers(1, &stateReadFramebuffer);
+    cc_glglue_glGenFramebuffers(glue, 1, &stateDrawFramebuffer);
+    cc_glglue_glGenFramebuffers(glue, 1, &stateReadFramebuffer);
     glGenTextures(1, &stateColorTexture);
     glBindTexture(GL_TEXTURE_2D, stateColorTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 64, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, stateDrawFramebuffer);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_2D, stateColorTexture, 0);
-    glGenRenderbuffers(1, &stateDepthBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, stateDepthBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 64, 64);
-    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                              GL_RENDERBUFFER, stateDepthBuffer);
+    cc_glglue_glBindFramebuffer(glue, GL_DRAW_FRAMEBUFFER, stateDrawFramebuffer);
+    cc_glglue_glFramebufferTexture2D(glue, GL_DRAW_FRAMEBUFFER,
+      GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, stateColorTexture, 0);
+    cc_glglue_glGenRenderbuffers(glue, 1, &stateDepthBuffer);
+    cc_glglue_glBindRenderbuffer(glue, GL_RENDERBUFFER, stateDepthBuffer);
+    cc_glglue_glRenderbufferStorage(glue, GL_RENDERBUFFER,
+      GL_DEPTH_COMPONENT24, 64, 64);
+    cc_glglue_glFramebufferRenderbuffer(glue, GL_DRAW_FRAMEBUFFER,
+      GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, stateDepthBuffer);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, stateReadFramebuffer);
+    cc_glglue_glBindFramebuffer(glue, GL_READ_FRAMEBUFFER, stateReadFramebuffer);
     glReadBuffer(GL_NONE);
 
     glViewport(3, 4, 20, 21);
     glFrontFace(GL_CW);
     glEnable(GL_BLEND);
-    glBlendEquationSeparate(GL_MAX, GL_MIN);
+    glue->glBlendEquationSeparate(GL_MAX, GL_MIN);
     glEnable(GL_SCISSOR_TEST);
     glScissor(2, 3, 11, 12);
     glColorMask(GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
@@ -340,10 +348,10 @@ runTest()
     glPixelStorei(GL_PACK_IMAGE_HEIGHT, 19);
     glPixelStorei(GL_PACK_SKIP_IMAGES, 2);
     GLuint pixelPackBuffer = 0;
-    glGenBuffers(1, &pixelPackBuffer);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelPackBuffer);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 64 * 64 * sizeof(GLuint), nullptr,
-                 GL_STREAM_READ);
+    cc_glglue_glGenBuffers(glue, 1, &pixelPackBuffer);
+    cc_glglue_glBindBuffer(glue, GL_PIXEL_PACK_BUFFER, pixelPackBuffer);
+    cc_glglue_glBufferData(glue, GL_PIXEL_PACK_BUFFER,
+      64 * 64 * sizeof(GLuint), nullptr, GL_STREAM_READ);
     if (!updatePickBuffer(backend, drawlist, params)) {
       std::cerr << "FAIL: state-preservation pick update failed" << std::endl;
       result = 1;
@@ -415,13 +423,13 @@ runTest()
                 << std::endl;
       result = 1;
     }
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glDeleteBuffers(1, &pixelPackBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDeleteRenderbuffers(1, &stateDepthBuffer);
+    cc_glglue_glBindBuffer(glue, GL_PIXEL_PACK_BUFFER, 0);
+    cc_glglue_glDeleteBuffers(glue, 1, &pixelPackBuffer);
+    cc_glglue_glBindFramebuffer(glue, GL_FRAMEBUFFER, 0);
+    cc_glglue_glDeleteRenderbuffers(glue, 1, &stateDepthBuffer);
     glDeleteTextures(1, &stateColorTexture);
-    glDeleteFramebuffers(1, &stateReadFramebuffer);
-    glDeleteFramebuffers(1, &stateDrawFramebuffer);
+    cc_glglue_glDeleteFramebuffers(glue, 1, &stateReadFramebuffer);
+    cc_glglue_glDeleteFramebuffers(glue, 1, &stateDrawFramebuffer);
     glViewport(0, 0, 64, 64);
     glFrontFace(GL_CCW);
     glDisable(GL_BLEND);

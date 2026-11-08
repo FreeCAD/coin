@@ -964,7 +964,13 @@ glglue_resolve_symbols(cc_glglue * w)
   w->maxtextureunits = 1; /* when multitexturing is not available */
   if (w->glActiveTexture) {
     GLint tmp;
-    glGetIntegerv(GL_MAX_TEXTURE_COORDS_ARB, &tmp);
+    // GL_MAX_TEXTURE_COORDS_ARB belongs to the removed fixed-function
+    // texture-coordinate arrays and is invalid in a core profile.  Preserve
+    // that legacy meaning for compatibility contexts; for core contexts the
+    // fragment texture-image-unit limit is the usable modern equivalent.
+    const GLenum textureUnitLimit = w->context_supports_legacy_rendering
+      ? GL_MAX_TEXTURE_COORDS_ARB : static_cast<GLenum>(0x8872);
+    glGetIntegerv(textureUnitLimit, &tmp); // 0x8872: GL_MAX_TEXTURE_IMAGE_UNITS
     w->maxtextureunits = (int) tmp;
   }
 
@@ -2627,7 +2633,12 @@ cc_glglue_instance(int contextid)
     }
     {
       GLfloat vals[2];
-      glGetFloatv(GL_LINE_WIDTH_RANGE, vals);
+      // The smooth-line range is invalid in a core profile.  Coin's retained
+      // renderer uses aliased lines there, so query the matching capability
+      // and do not leave GL_INVALID_ENUM in the caller-owned context.
+      glGetFloatv(gi->context_supports_legacy_rendering
+                    ? GL_LINE_WIDTH_RANGE
+                    : GL_ALIASED_LINE_WIDTH_RANGE, vals);
 
       /* Matthias Koenig reported on coin-discuss that the OpenGL
          implementation on SGI Onyx 2 InfiniteReality returns 0 for the
