@@ -2,6 +2,7 @@
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/nodes/SoCoordinate3.h>
+#include <Inventor/nodes/SoCallback.h>
 #include <Inventor/nodes/SoFaceSet.h>
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 #include <Inventor/nodes/SoIndexedLineSet.h>
@@ -16,6 +17,15 @@
 
 #include <cmath>
 #include <iostream>
+
+#include "nodes/SoUnknownNode.h"
+
+static void
+retainedCallback(void * userdata, SoAction *)
+{
+  int * count = static_cast<int *>(userdata);
+  ++(*count);
+}
 
 static int
 runTest()
@@ -415,6 +425,39 @@ runTest()
     result = 1;
   }
   shader->unref();
+
+  int callbackCount = 0;
+  SoCallback * callback = new SoCallback;
+  callback->ref();
+  callback->setCallback(retainedCallback, &callbackCount);
+  action.apply(callback);
+  if (callbackCount != 1 || !action.hasUnsupportedRendering() ||
+      action.getUnsupportedNode() != callback ||
+      action.getUnsupportedReason() == NULL) {
+    std::cerr << "FAIL: dynamic retained callback was silently accepted"
+              << std::endl;
+    result = 1;
+  }
+  callback->setCallback(NULL);
+  action.apply(callback);
+  if (action.hasUnsupportedRendering()) {
+    std::cerr << "FAIL: empty callback kept stale unsupported state"
+              << std::endl;
+    result = 1;
+  }
+  callback->unref();
+
+  SoUnknownNode * unknown = new SoUnknownNode;
+  unknown->ref();
+  action.apply(unknown);
+  if (!action.hasUnsupportedRendering() ||
+      action.getUnsupportedNode() != unknown ||
+      action.getUnsupportedReason() == NULL) {
+    std::cerr << "FAIL: unknown retained node was silently accepted"
+              << std::endl;
+    result = 1;
+  }
+  unknown->unref();
 
   root->unref();
   return result;

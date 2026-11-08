@@ -69,6 +69,8 @@ public:
   void setNodeClassName(const SbName & name);
   SoChildList * getChildren(void) const override;
 
+  void IRRender(SoIRRenderAction * action) override;
+
 #if COIN_BUILD_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;
 #endif

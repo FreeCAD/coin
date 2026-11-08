@@ -265,8 +265,10 @@ add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
 add_executable(RetainedIRTest RetainedIRTest.cpp)
 target_link_libraries(RetainedIRTest Coin
 	${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedIRTest PRIVATE COIN_INTERNAL)
 target_include_directories(RetainedIRTest PRIVATE
 	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )

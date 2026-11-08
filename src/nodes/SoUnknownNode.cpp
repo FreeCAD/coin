@@ -43,6 +43,7 @@
 
 #include <Inventor/SoInput.h>
 #include <Inventor/SoOutput.h>
+#include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoGLRenderAction.h>
 #include <Inventor/actions/SoGetBoundingBoxAction.h>
 #include <Inventor/actions/SoPickAction.h>
@@ -270,6 +271,14 @@ SoUnknownNode::write(SoWriteAction * action)
 
 // Action methods overridden from SoNode to traverse alternateRep (and
 // below, if alternateRep is a group node).
+
+void
+SoUnknownNode::IRRender(SoIRRenderAction * action)
+{
+  action->markUnsupported(this,
+    "SoUnknownNode alternate representation requires native rendering");
+  PRIVATE(this)->alternate->traverse(action);
+}
 
 void
 SoUnknownNode::search(SoSearchAction * action)

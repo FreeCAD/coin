@@ -49,6 +49,7 @@ public:
   void setCallback(SoCallbackCB * function, void * userdata = NULL);
 
   void doAction(SoAction * action) override;
+  void IRRender(SoIRRenderAction * action) override;
   void callback(SoCallbackAction * action) override;
 #if COIN_HAVE_LEGACY_GL_RENDERER
   void GLRender(SoGLRenderAction * action) override;

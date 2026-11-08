@@ -56,6 +56,7 @@
 #include <Inventor/nodes/SoCallback.h>
 
 #include <Inventor/actions/SoActions.h> // SoCallback uses all of them.
+#include <Inventor/actions/SoIRRenderAction.h>
 
 #include "nodes/SoSubNodeP.h"
 
@@ -163,6 +164,19 @@ void
 SoCallback::doAction(SoAction * action)
 {
   if (this->cbfunc) this->cbfunc(this->cbdata, action);
+}
+
+// A callback can make arbitrary render-time state changes or perform drawing
+// that cannot be represented by the retained command stream. Preserve the
+// callback invocation, but require the host to use its native fallback.
+void
+SoCallback::IRRender(SoIRRenderAction * action)
+{
+  if (this->cbfunc) {
+    action->markUnsupported(this,
+      "SoCallback has dynamic retained rendering semantics");
+  }
+  this->doAction(action);
 }
 
 // Doc from superclass.
