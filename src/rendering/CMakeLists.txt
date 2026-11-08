@@ -42,6 +42,7 @@ set(COIN_RENDERING_INTERNAL_FILES
 	SoGLNurbs.cpp
 	SoRenderManagerP.h
 	SoRenderManagerP.cpp
+	SoRenderAdmissionP.h
 	SoOffscreenCGData.h
 	SoOffscreenCGData.cpp
 	SoOffscreenGLXData.h

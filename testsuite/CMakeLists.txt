@@ -362,7 +362,9 @@ add_test(NAME RenderLayerSemanticsTest COMMAND RenderLayerSemanticsTest)
 
 add_executable(RenderManagerPipelineTest RenderManagerPipelineTest.cpp)
 target_link_libraries(RenderManagerPipelineTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RenderManagerPipelineTest PRIVATE COIN_INTERNAL)
 target_include_directories(RenderManagerPipelineTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}

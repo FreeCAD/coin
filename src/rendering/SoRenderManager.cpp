@@ -92,6 +92,7 @@
 #include <Inventor/elements/SoTextureQualityElement.h>
 #include <Inventor/elements/SoLightModelElement.h>
 #include <Inventor/elements/SoLazyElement.h>
+#include "rendering/SoRenderAdmissionP.h"
 #if COIN_BUILD_LEGACY_GL_RENDERER
 #include <Inventor/actions/SoGLRenderAction.h>
 #endif
@@ -1740,8 +1741,14 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     state->pop();
   }
 
-  if (rebuildDrawList && PRIVATE(this)->irAction->hasUnsupportedRendering()) {
+  const SoRetainedFrameAdmission admission =
+    coin_evaluate_retained_frame_admission(*PRIVATE(this)->irAction);
+  if (admission != SoRetainedFrameAdmission::ADMITTED) {
     const char * reason = PRIVATE(this)->irAction->getUnsupportedReason();
+    if (!reason) reason = coin_retained_frame_admission_reason(admission);
+    PRIVATE(this)->drawListValid = FALSE;
+    PRIVATE(this)->drawListDirty = TRUE;
+    PRIVATE(this)->renderPlanValid = FALSE;
 #if COIN_BUILD_LEGACY_GL_RENDERER
     if (currentContextSupportsLegacyRendering()) {
       SoDebugError::postWarning(
