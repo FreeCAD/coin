@@ -3169,6 +3169,163 @@ const SoCpuRayTracingResult &
 SoRenderManager::getLastCpuRayTracingResult(void) const
 { return PRIVATE(this)->lastCpuRayTracingResult; }
 
+SoRetainedCommandDiagnostics
+SoRenderManager::getRetainedCommandDiagnostics(const uint32_t maxCommands) const
+{
+  SoRetainedCommandDiagnostics result;
+  if (maxCommands == 0) {
+    result.status = SoRetainedCommandDiagnostics::INVALID_LIMIT;
+    result.detail = "maxCommands must be nonzero";
+    return result;
+  }
+  if (!PRIVATE(this)->irAction ||
+      !PRIVATE(this)->lastRenderResult.rendered ||
+      PRIVATE(this)->lastRenderResult.usedPipeline != RenderPipeline::DRAW_LIST) {
+    result.detail = "no successful DrawList frame is available";
+    return result;
+  }
+
+  const SoDrawList & drawlist = PRIVATE(this)->irAction->getDrawList();
+  const int commandCount = drawlist.getNumCommands();
+  if (commandCount < 0 || static_cast<uint64_t>(commandCount) > maxCommands) {
+    result.status = SoRetainedCommandDiagnostics::LIMIT_EXCEEDED;
+    result.detail = "retained command count exceeds caller limit";
+    return result;
+  }
+
+  auto hashBytes = [](uint64_t hash, const unsigned char * bytes,
+                      const size_t count) {
+    for (size_t i = 0; i < count; ++i) {
+      hash ^= static_cast<uint64_t>(bytes[i]);
+      hash *= UINT64_C(1099511628211);
+    }
+    return hash;
+  };
+  auto hashFloatStream = [&hashBytes](const float * values,
+                                     const uint32_t count,
+                                     const uint32_t components,
+                                     const uint32_t stride) {
+    uint64_t hash = UINT64_C(1469598103934665603);
+    const size_t packed = static_cast<size_t>(components) * sizeof(float);
+    const size_t step = stride ? stride : packed;
+    const unsigned char * raw = reinterpret_cast<const unsigned char *>(values);
+    for (uint32_t i = 0; i < count; ++i) {
+      hash = hashBytes(hash, raw + static_cast<size_t>(i) * step, packed);
+    }
+    return hash;
+  };
+
+  result.generation = drawlist.getGeneration();
+  result.contentRevision = drawlist.getContentRevision();
+  result.commands.reserve(static_cast<size_t>(commandCount));
+  for (int index = 0; index < commandCount; ++index) {
+    const SoRenderCommand & command = drawlist.getCommand(index);
+    const SoGeometryDesc & geometry = command.geometry;
+    if ((geometry.vertexCount && !geometry.positions) ||
+        (geometry.normalCount && !geometry.normals) ||
+        geometry.normalCount > geometry.vertexCount) {
+      result = SoRetainedCommandDiagnostics();
+      result.status = SoRetainedCommandDiagnostics::INVALID_BORROWED_DATA;
+      result.detail = "retained command has inconsistent borrowed geometry";
+      return result;
+    }
+
+    SoRetainedCommandDiagnostic copy;
+    copy.commandIndex = static_cast<uint32_t>(index);
+    copy.sourceLightingHandle = command.lightingHandle;
+    copy.nodeId = command.nodeId;
+    copy.instanceId = command.instanceId;
+    copy.objectId = command.objectId;
+    copy.topology = static_cast<uint32_t>(geometry.topology);
+    copy.vertexCount = geometry.vertexCount;
+    copy.normalCount = geometry.normalCount;
+    copy.indexCount = geometry.indexCount;
+    copy.model = command.modelMatrix;
+    copy.ambient = command.material.ambient;
+    copy.diffuse = command.material.diffuse;
+    copy.specular = command.material.specular;
+    copy.emissive = command.material.emissive;
+    copy.shininess = command.material.shininess;
+    copy.opacity = command.material.opacity;
+    copy.sourceShadingModel = static_cast<int>(command.material.shadingModel);
+    copy.twoSidedLighting = command.material.twoSidedLighting;
+    copy.materialIndex = command.materialIndex;
+    copy.stage = static_cast<int>(command.stage);
+    copy.rasterVisible = command.state.raster.visible != FALSE;
+    copy.cullBackFaces = command.state.raster.cullBackFaces != FALSE;
+    copy.frontFaceCCW = command.state.raster.frontFaceCCW != FALSE;
+
+    const uint32_t stride = geometry.vertexStride
+      ? geometry.vertexStride : static_cast<uint32_t>(sizeof(float) * 3);
+    if (geometry.vertexCount) {
+      copy.hasPositions = true;
+      copy.positionHash = hashFloatStream(geometry.positions,
+        geometry.vertexCount, 3, stride);
+    }
+    if (geometry.normalCount) {
+      copy.hasNormals = true;
+      copy.normalHash = hashFloatStream(geometry.normals,
+        geometry.normalCount, 3, stride);
+      const unsigned char * raw =
+        reinterpret_cast<const unsigned char *>(geometry.normals);
+      for (uint32_t vertex = 0; vertex < geometry.normalCount; ++vertex) {
+        const float * normal = reinterpret_cast<const float *>(
+          raw + static_cast<size_t>(vertex) * stride);
+        const SbVec3f value(normal[0], normal[1], normal[2]);
+        if (vertex == 0) {
+          copy.normalMin = value;
+          copy.normalMax = value;
+        }
+        else {
+          for (int axis = 0; axis < 3; ++axis) {
+            if (value[axis] < copy.normalMin[axis]) copy.normalMin[axis] = value[axis];
+            if (value[axis] > copy.normalMax[axis]) copy.normalMax[axis] = value[axis];
+          }
+        }
+        copy.normalSum += value;
+      }
+    }
+    if (geometry.colors && geometry.vertexCount) {
+      copy.hasVertexColors = true;
+      copy.vertexColorHash = hashFloatStream(geometry.colors,
+        geometry.vertexCount, 4, static_cast<uint32_t>(sizeof(float) * 4));
+      copy.firstVertexColor.setValue(geometry.colors[0], geometry.colors[1],
+                                    geometry.colors[2], geometry.colors[3]);
+    }
+
+    const SoLightingData * lighting = drawlist.getLighting(command.lightingHandle);
+    if (lighting) {
+      copy.hasLightingSetup = true;
+      copy.ambientLighting = lighting->ambient;
+      copy.lights.reserve(lighting->lights.size());
+      for (const SoLightData & source : lighting->lights) {
+        SoCpuRayTracingLight light;
+        light.type = static_cast<int>(source.type);
+        light.color = source.color;
+        light.direction = source.direction;
+        light.position = source.position;
+        light.attenuation = source.attenuation;
+        light.spotCutoffCos = source.spotCutoffCos;
+        light.spotExponent = source.spotExponent;
+        copy.lights.push_back(light);
+      }
+    }
+    copy.elementRanges.reserve(command.pick.elementRanges.size());
+    for (const SoRenderElementRange & source : command.pick.elementRanges) {
+      SoCpuRayTracingElementRange range;
+      range.type = static_cast<int>(source.type);
+      range.elementIndex = source.elementIndex;
+      range.drawStart = source.drawStart;
+      range.drawCount = source.drawCount;
+      copy.elementRanges.push_back(range);
+    }
+    result.commands.push_back(copy);
+  }
+  result.status = SoRetainedCommandDiagnostics::READY;
+  result.detail = "owned retained command diagnostics ready";
+  return result;
+}
+
 SoRenderManager::RenderPhaseStatistics
 SoRenderManager::getRenderPhaseStatistics(void) const
 {

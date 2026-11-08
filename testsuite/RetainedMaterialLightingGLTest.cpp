@@ -63,6 +63,7 @@ struct RenderFixture {
 };
 
 const uint32_t quadIndices[] = { 0, 1, 2, 0, 2, 3 };
+const uint32_t reversedQuadIndices[] = { 0, 2, 1, 0, 3, 2 };
 const float quadPositions[] = {
   -0.8f, -0.8f, 0.0f,  0.8f, -0.8f, 0.0f,
    0.8f,  0.8f, 0.0f, -0.8f,  0.8f, 0.0f
@@ -378,11 +379,23 @@ bool testTwoSidedLightingUsesFacing(RenderFixture & fixture)
   SoDrawList drawlist;
   command.lightingHandle = drawlist.addLightingSetup(lighting);
   drawlist.addCommand(command);
-  const std::vector<uint8_t> rendered = fixture.render(
+  const std::vector<uint8_t> frontFacing = fixture.render(
     drawlist, SbVec4f(0, 0, 0, 1));
-  const uint8_t * pixel = pixelAt(rendered, 48, 32);
-  return check(pixel[0] > 220 && pixel[1] > 220 && pixel[2] > 220,
-               "two-sided lighting did not use the actual viewer-facing side");
+  const uint8_t * frontPixel = pixelAt(frontFacing, 48, 32);
+  if (!check(frontPixel[0] < 10 && frontPixel[1] < 10 && frontPixel[2] < 10,
+             "front-facing lighting changed when the model was translated")) {
+    return false;
+  }
+
+  drawlist.clear();
+  command.geometry.indices = reversedQuadIndices;
+  command.lightingHandle = drawlist.addLightingSetup(lighting);
+  drawlist.addCommand(command);
+  const std::vector<uint8_t> backFacing = fixture.render(
+    drawlist, SbVec4f(0, 0, 0, 1));
+  const uint8_t * backPixel = pixelAt(backFacing, 48, 32);
+  return check(backPixel[0] > 220 && backPixel[1] > 220 && backPixel[2] > 220,
+               "two-sided lighting did not reverse normals for back-facing primitives");
 }
 
 bool testExecutorLightLimit(RenderFixture & fixture)

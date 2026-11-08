@@ -19,6 +19,7 @@ uniform float u_instanced;
 
 out vec4 v_color;
 out vec3 v_litColor;
+out vec3 v_backLitColor;
 out vec2 v_texcoord;
 flat out uint v_pickId;
 
@@ -37,5 +38,6 @@ void main()
   mat3 normalMatrix = transpose(inverse(mat3(u_view * model)));
   vec3 eyeNormal = normalMatrix * a_normal;
   v_litColor = coin_surface_lit_color(v_color, eyePos.xyz, eyeNormal);
+  v_backLitColor = coin_surface_lit_color(v_color, eyePos.xyz, -eyeNormal);
   gl_Position = u_proj * eyePos;
 }

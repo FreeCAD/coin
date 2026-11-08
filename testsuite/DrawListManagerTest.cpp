@@ -293,9 +293,55 @@ runTest()
     CallbackCounts callbacks;
     manager.addPreRenderCallback(preRender, &callbacks);
     manager.addPostRenderCallback(postRender, &callbacks);
+    const SoRetainedCommandDiagnostics beforeRender =
+      manager.getRetainedCommandDiagnostics(8);
+    if (beforeRender.status != SoRetainedCommandDiagnostics::UNAVAILABLE ||
+        !beforeRender.commands.empty()) {
+      std::cerr << "FAIL: retained diagnostics escaped before a successful frame"
+                << std::endl;
+      result = 1;
+    }
     manager.render(TRUE, TRUE);
     if (callbacks.pre != 1 || callbacks.post != 1) {
       std::cerr << "FAIL: DrawList manager callbacks were not paired exactly once" << std::endl;
+      result = 1;
+    }
+    const SoRetainedCommandDiagnostics diagnostic =
+      manager.getRetainedCommandDiagnostics(8);
+    if (diagnostic.status != SoRetainedCommandDiagnostics::READY ||
+        diagnostic.commands.empty() ||
+        !diagnostic.commands[0].hasPositions ||
+        !diagnostic.commands[0].hasNormals ||
+        diagnostic.commands[0].positionHash == 0 ||
+        diagnostic.commands[0].normalHash == 0) {
+      std::cerr << "FAIL: retained diagnostics did not own the rendered command summary"
+                << std::endl;
+      result = 1;
+    }
+    const SoRetainedCommandDiagnostics commandLimit =
+      manager.getRetainedCommandDiagnostics(1);
+    if (diagnostic.commands.size() > 1 &&
+        (commandLimit.status != SoRetainedCommandDiagnostics::LIMIT_EXCEEDED ||
+         !commandLimit.commands.empty())) {
+      std::cerr << "FAIL: retained diagnostic command limit did not fail closed"
+                << std::endl;
+      result = 1;
+    }
+    const SoRetainedCommandDiagnostics invalidLimit =
+      manager.getRetainedCommandDiagnostics(0);
+    if (invalidLimit.status != SoRetainedCommandDiagnostics::INVALID_LIMIT ||
+        !invalidLimit.commands.empty()) {
+      std::cerr << "FAIL: retained diagnostic zero limit did not fail closed"
+                << std::endl;
+      result = 1;
+    }
+    const SoRetainedCommandDiagnostics recoveredDiagnostic =
+      manager.getRetainedCommandDiagnostics(8);
+    if (recoveredDiagnostic.status != SoRetainedCommandDiagnostics::READY ||
+        recoveredDiagnostic.commands.size() != diagnostic.commands.size() ||
+        recoveredDiagnostic.commands[0].normalHash != diagnostic.commands[0].normalHash) {
+      std::cerr << "FAIL: retained diagnostics did not recover after limit rejection"
+                << std::endl;
       result = 1;
     }
     const SoRenderManager::RenderPhaseStatistics renderPhases =

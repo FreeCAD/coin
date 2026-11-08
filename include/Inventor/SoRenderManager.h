@@ -353,6 +353,9 @@ public:
   SbBool isCpuRayTracingReadback(void) const;
   //! Owned last-frame values; use only on the owning GUI/render thread.
   const SoCpuRayTracingResult & getLastCpuRayTracingResult(void) const;
+  //! Copy bounded, value-only diagnostics for the last successful DrawList.
+  SoRetainedCommandDiagnostics getRetainedCommandDiagnostics(
+    uint32_t maxCommands) const;
 
   //! Enable coarse retained-renderer CPU timing for diagnostics.
   void setRenderPhaseTimingEnabled(SbBool enabled);
