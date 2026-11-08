@@ -147,8 +147,16 @@ runVisibilityPatchTest()
   (void) action.getState();
   action.beginFrame();
   action.traverseAdditionalRoot(root);
-  check(action.isApplicationCoverageReceiptCurrent(),
+  check(action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().controlDependencies.size() == 1,
         "visibility scene did not start with a current receipt", result);
+  check(action.updateCommandVisibilityForSwitchPath(switchPath, FALSE) == 0 &&
+        action.isApplicationCoverageReceiptCurrent(),
+        "visibility patch accepted a decision that disagreed with its switch",
+        result);
+  visibleSwitch->whichChild = SO_SWITCH_NONE;
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "switch edit did not stale the pre-patch receipt", result);
   const int visibilityUpdates =
     action.updateCommandVisibilityForSwitchPath(switchPath, FALSE);
   if (visibilityUpdates != 1 ||
@@ -159,6 +167,8 @@ runVisibilityPatchTest()
   }
   check(visibilityUpdates == 1 &&
         action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().controlDependencies[0].
+          rawDecision == SO_SWITCH_NONE &&
         coin_evaluate_retained_frame_admission(action) ==
           SoRetainedFrameAdmission::ADMITTED,
         "visibility patch did not commit a current coverage transaction",

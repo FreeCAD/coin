@@ -68,6 +68,7 @@
 #include <Inventor/elements/SoSoundElement.h>
 #include <Inventor/elements/SoSwitchElement.h>
 #include <Inventor/actions/SoCallbackAction.h>
+#include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/actions/SoGetPrimitiveCountAction.h>
 #include <Inventor/actions/SoWriteAction.h>
 #include <Inventor/SoOutput.h>
@@ -261,6 +262,11 @@ SoSwitch::doAction(SoAction * action)
   }
   else {
     SoSwitchElement::set(state, idx);
+  }
+
+  if (action->isOfType(SoIRRenderAction::getClassTypeId())) {
+    static_cast<SoIRRenderAction *>(action)->
+      recordSwitchControlDependency(this, idx);
   }
 
   int numindices;

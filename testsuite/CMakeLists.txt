@@ -335,6 +335,17 @@ target_include_directories(RetainedPatchReceiptTest PRIVATE
 )
 add_test(NAME RetainedPatchReceiptTest COMMAND RetainedPatchReceiptTest)
 
+add_executable(RetainedControlDependencyTest RetainedControlDependencyTest.cpp)
+target_link_libraries(RetainedControlDependencyTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedControlDependencyTest PRIVATE COIN_INTERNAL)
+target_include_directories(RetainedControlDependencyTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedControlDependencyTest COMMAND RetainedControlDependencyTest)
+
 add_executable(RetainedMaterialLightingTest RetainedMaterialLightingTest.cpp)
 target_link_libraries(RetainedMaterialLightingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RetainedMaterialLightingTest PRIVATE

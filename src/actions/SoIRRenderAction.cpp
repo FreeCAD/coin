@@ -60,6 +60,7 @@
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/nodes/SoShape.h>
+#include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/lists/SoPathList.h>
 
 #include "actions/SoSubActionP.h"
@@ -72,6 +73,7 @@
 #include <array>
 #include <chrono>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <new>
 #include <unordered_map>
@@ -359,6 +361,7 @@ SoIRRenderAction::SoIRRenderAction(const SbViewportRegion & vp)
 
 SoIRRenderAction::~SoIRRenderAction()
 {
+  this->clearControlDependencies();
   this->clearCommandPaths();
   delete PRIVATE(this);
   PRIVATE(this) = NULL;
@@ -426,6 +429,7 @@ SoIRRenderAction::beginFrame()
   this->unsupportedNode = nullptr;
   this->unsupportedReason = nullptr;
   SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  this->clearControlDependencies();
   receipt.records.clear();
   receipt.drawListGeneration = this->drawlist.getGeneration();
   receipt.drawListContentRevision = this->drawlist.getContentRevision();
@@ -656,6 +660,15 @@ SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
   this->unsupportedReason = reason ? reason : "unsupported retained rendering semantics";
 }
 
+static bool
+coin_coverage_capacity_exhausted(
+  const SoIRApplicationCoverageReceipt & receipt)
+{
+  return receipt.records.size() >= receipt.recordLimit ||
+    receipt.controlDependencies.size() >=
+      receipt.recordLimit - receipt.records.size();
+}
+
 void
 SoIRRenderAction::beginApplicationNodeCoverage(const SoNode * node,
                                                const int commandsBefore)
@@ -678,7 +691,7 @@ SoIRRenderAction::beginProducerCoverage(const SoNode * node,
   SoIRRenderActionP * pimpl = PRIVATE(this);
   SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
   receipt.sealed = false;
-  if (!node || receipt.records.size() >= receipt.recordLimit) {
+  if (!node || coin_coverage_capacity_exhausted(receipt)) {
     receipt.overflow = true;
     this->markUnsupported(node, "application coverage record limit");
     try {
@@ -715,6 +728,59 @@ SoIRRenderAction::beginProducerCoverage(const SoNode * node,
       receipt.invalid = true;
     }
   }
+}
+
+void
+SoIRRenderAction::recordSwitchControlDependency(
+  SoSwitch * node, const int effectiveDecision)
+{
+  SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  receipt.sealed = false;
+  if (!node || receipt.overflow || receipt.invalid) {
+    receipt.invalid = true;
+    this->markUnsupported(node, "invalid retained switch dependency");
+    return;
+  }
+  if (coin_coverage_capacity_exhausted(receipt)) {
+    receipt.overflow = true;
+    this->markUnsupported(node, "retained dependency limit exceeded");
+    return;
+  }
+
+  SoIRControlDependencyRecord record;
+  record.node = node;
+  record.nodeId = static_cast<uint64_t>(node->getNodeId());
+  record.rawDecision = node->whichChild.getValue();
+  record.effectiveDecision = effectiveDecision;
+  record.childCount = node->getNumChildren();
+  record.fieldIgnored = node->whichChild.isIgnored() != FALSE;
+  try {
+    receipt.controlDependencies.push_back(record);
+  }
+  catch (const std::bad_alloc &) {
+    receipt.overflow = true;
+    this->markUnsupported(node,
+      "retained switch dependency allocation failed");
+    return;
+  }
+  node->ref();
+}
+
+void
+SoIRRenderAction::truncateControlDependencies(const size_t count)
+{
+  SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  while (receipt.controlDependencies.size() > count) {
+    SoNode * node = receipt.controlDependencies.back().node;
+    receipt.controlDependencies.pop_back();
+    if (node) node->unref();
+  }
+}
+
+void
+SoIRRenderAction::clearControlDependencies()
+{
+  this->truncateControlDependencies(0);
 }
 
 void
@@ -847,8 +913,51 @@ coin_application_coverage_records_valid(
   return true;
 }
 
+static bool
+coin_control_dependency_records_valid(
+  const SoIRApplicationCoverageReceipt & receipt,
+  const bool validateValues)
+{
+  if (receipt.records.size() > receipt.recordLimit ||
+      receipt.controlDependencies.size() >
+        receipt.recordLimit - receipt.records.size()) return false;
+  for (const SoIRControlDependencyRecord & record :
+       receipt.controlDependencies) {
+    if (!record.node ||
+        record.kind != SoIRControlDependencyKind::SWITCH_DECISION ||
+        !record.node->isOfType(SoSwitch::getClassTypeId()) ||
+        record.childCount < 0) return false;
+    const SoSwitch * node = static_cast<const SoSwitch *>(record.node);
+    if (record.fieldIgnored) {
+      if (record.effectiveDecision != SO_SWITCH_NONE) return false;
+    }
+    else if (record.rawDecision != SO_SWITCH_INHERIT) {
+      if (record.effectiveDecision != record.rawDecision) return false;
+    }
+    else if (record.effectiveDecision >= record.childCount &&
+             record.effectiveDecision >= 0) {
+      return false;
+    }
+    if (validateValues &&
+        (record.nodeId != static_cast<uint64_t>(node->getNodeId()) ||
+         record.rawDecision != node->whichChild.getValue() ||
+         record.childCount != node->getNumChildren() ||
+         record.fieldIgnored != (node->whichChild.isIgnored() != FALSE))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 SbBool
 SoIRRenderAction::isApplicationCoverageReceiptCurrent() const
+{
+  return this->isApplicationCoverageReceiptCurrent(TRUE);
+}
+
+SbBool
+SoIRRenderAction::isApplicationCoverageReceiptCurrent(
+  const SbBool validateControlDependencyValues) const
 {
   const SoIRRenderActionP * pimpl = PRIVATE(this);
   const SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
@@ -863,7 +972,9 @@ SoIRRenderAction::isApplicationCoverageReceiptCurrent() const
                               coin_capture_ir_view_inputs(*this)) &&
     receipt.recordLimit == pimpl->coverageRecordLimit;
   return identityCurrent && coin_application_coverage_records_valid(
-    receipt, this->drawlist.getNumCommands());
+    receipt, this->drawlist.getNumCommands()) &&
+    coin_control_dependency_records_valid(
+      receipt, validateControlDependencyValues != FALSE);
 }
 
 void
@@ -882,7 +993,8 @@ SoIRRenderAction::sealApplicationCoverageReceipt()
 }
 
 SoIRApplicationCoveragePatchCheckpoint
-SoIRRenderAction::captureApplicationCoveragePatchCheckpoint() const
+SoIRRenderAction::captureApplicationCoveragePatchCheckpoint(
+  const SbBool allowControlDependencyRefresh) const
 {
   const SoIRRenderActionP * pimpl = PRIVATE(this);
   const SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
@@ -893,9 +1005,11 @@ SoIRRenderAction::captureApplicationCoveragePatchCheckpoint() const
   checkpoint.cameraNodeId = receipt.cameraNodeId;
   checkpoint.recordLimit = receipt.recordLimit;
   checkpoint.recordCount = receipt.records.size();
+  checkpoint.controlDependencyCount = receipt.controlDependencies.size();
   checkpoint.stackDepth = pimpl->coverageStack.size();
   checkpoint.commandCount = this->drawlist.getNumCommands();
-  checkpoint.current = this->isApplicationCoverageReceiptCurrent() != FALSE;
+  checkpoint.current = this->isApplicationCoverageReceiptCurrent(
+    allowControlDependencyRefresh ? FALSE : TRUE) != FALSE;
   checkpoint.sealed = receipt.sealed;
   checkpoint.overflow = receipt.overflow;
   checkpoint.invalid = receipt.invalid;
@@ -911,6 +1025,7 @@ SoIRRenderAction::restoreApplicationCoveragePatchCheckpoint(
   if (receipt.records.size() > checkpoint.recordCount) {
     receipt.records.resize(checkpoint.recordCount);
   }
+  this->truncateControlDependencies(checkpoint.controlDependencyCount);
   if (pimpl->coverageStack.size() > checkpoint.stackDepth) {
     pimpl->coverageStack.resize(checkpoint.stackDepth);
   }
@@ -939,6 +1054,8 @@ SoIRRenderAction::commitApplicationCoveragePatch(
       receipt.recordLimit != checkpoint.recordLimit ||
       receipt.recordLimit != pimpl->coverageRecordLimit ||
       receipt.records.size() != checkpoint.recordCount ||
+      receipt.controlDependencies.size() !=
+        checkpoint.controlDependencyCount ||
       pimpl->coverageStack.size() != checkpoint.stackDepth ||
       checkpoint.stackDepth != 0 ||
       this->drawlist.getGeneration() != checkpoint.drawListGeneration ||
@@ -1311,13 +1428,71 @@ SoIRRenderAction::updateCommandVisibilityForSwitchPath(
     switchPaths, visibilities);
 }
 
+SbBool
+SoIRRenderAction::refreshSwitchControlDependencies(
+  const std::vector<const SoPath *> & switchPaths,
+  const std::vector<SbBool> & visibilities)
+{
+  if (switchPaths.size() != visibilities.size()) return FALSE;
+  std::vector<SoSwitch *> switches;
+  try {
+    switches.reserve(switchPaths.size());
+  }
+  catch (const std::bad_alloc &) {
+    return FALSE;
+  }
+  for (size_t pathIndex = 0; pathIndex < switchPaths.size(); ++pathIndex) {
+    const SoPath * path = switchPaths[pathIndex];
+    if (!path || path->getFullLength() < 1) return FALSE;
+    SoNode * tail = path->getTail();
+    if (!tail || !tail->isOfType(SoSwitch::getClassTypeId())) return FALSE;
+    SoSwitch * node = static_cast<SoSwitch *>(tail);
+    const int rawDecision = node->whichChild.getValue();
+    if (node->whichChild.isIgnored() || node->getNumChildren() != 1 ||
+        (rawDecision != SO_SWITCH_NONE &&
+         rawDecision != SO_SWITCH_ALL && rawDecision != 0)) return FALSE;
+    if ((visibilities[pathIndex] != FALSE) !=
+        (rawDecision != SO_SWITCH_NONE)) return FALSE;
+    switches.push_back(node);
+  }
+  std::sort(switches.begin(), switches.end(), std::less<SoSwitch *>());
+  switches.erase(std::unique(switches.begin(), switches.end()), switches.end());
+
+  SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  for (SoSwitch * node : switches) {
+    bool found = false;
+    for (const SoIRControlDependencyRecord & record :
+         receipt.controlDependencies) {
+      if (record.kind == SoIRControlDependencyKind::SWITCH_DECISION &&
+          record.node == node) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) return FALSE;
+  }
+
+  for (SoIRControlDependencyRecord & record : receipt.controlDependencies) {
+    if (record.kind != SoIRControlDependencyKind::SWITCH_DECISION) continue;
+    SoSwitch * node = static_cast<SoSwitch *>(record.node);
+    if (!std::binary_search(switches.begin(), switches.end(), node,
+                            std::less<SoSwitch *>())) continue;
+    record.nodeId = static_cast<uint64_t>(node->getNodeId());
+    record.rawDecision = node->whichChild.getValue();
+    record.effectiveDecision = record.rawDecision;
+    record.childCount = node->getNumChildren();
+    record.fieldIgnored = false;
+  }
+  return TRUE;
+}
+
 int
 SoIRRenderAction::updateCommandVisibilitiesForSwitchPaths(
   const std::vector<const SoPath *> & switchPaths,
   const std::vector<SbBool> & visibilities)
 {
   const SoIRApplicationCoveragePatchCheckpoint coverageCheckpoint =
-    this->captureApplicationCoveragePatchCheckpoint();
+    this->captureApplicationCoveragePatchCheckpoint(TRUE);
   if (!coverageCheckpoint.current) return 0;
   if (switchPaths.empty() || switchPaths.size() != visibilities.size()) {
     return 0;
@@ -1390,6 +1565,9 @@ SoIRRenderAction::updateCommandVisibilitiesForSwitchPaths(
     replacements[uniqueCount++] = replacement;
   }
   replacements.resize(uniqueCount);
+
+  if (!this->refreshSwitchControlDependencies(
+        switchPaths, visibilities)) return 0;
 
   for (const VisibilityReplacement & replacement : replacements) {
     this->drawlist.getCommand(

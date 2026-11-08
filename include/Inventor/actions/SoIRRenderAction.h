@@ -17,6 +17,7 @@ class SoPath;
 class SoPathList;
 class SoCamera;
 class SoNode;
+class SoSwitch;
 class SoIRRenderActionP;
 #ifdef COIN_INTERNAL
 struct SoIRApplicationCoverageReceipt;
@@ -197,6 +198,8 @@ public:
   //! Begin/end one internal built-in drawable-shape coverage record.
   void beginBuiltInShapeCoverage(const SoNode * node, int commandsBefore);
   void endBuiltInShapeCoverage(const SoNode * node, int commandsAfter);
+  //! Record one bounded built-in switch decision and own its node lifetime.
+  void recordSwitchControlDependency(SoSwitch * node, int effectiveDecision);
   //! Explicitly classify the current application node as intentionally non-drawing.
   void markApplicationNodeNonDrawing(const SoNode * node);
   //! Internal bounded receipt for application-node admission diagnostics.
@@ -293,16 +296,24 @@ private:
     SoPath * path, const SoIRRenderContext * context);
   const SoIRRenderContext * getRenderContextOverride() const;
   void sealApplicationCoverageReceipt();
+  void clearControlDependencies();
+  void truncateControlDependencies(size_t count);
   void beginProducerCoverage(const SoNode * node, int commandsBefore,
                              SbBool applicationNode);
   void endProducerCoverage(const SoNode * node, int commandsAfter,
                            SbBool applicationNode);
   SoIRApplicationCoveragePatchCheckpoint
-    captureApplicationCoveragePatchCheckpoint() const;
+    captureApplicationCoveragePatchCheckpoint(
+      SbBool allowControlDependencyRefresh = FALSE) const;
   void restoreApplicationCoveragePatchCheckpoint(
     const SoIRApplicationCoveragePatchCheckpoint & checkpoint);
   SbBool commitApplicationCoveragePatch(
     const SoIRApplicationCoveragePatchCheckpoint & checkpoint);
+  SbBool isApplicationCoverageReceiptCurrent(
+    SbBool validateControlDependencyValues) const;
+  SbBool refreshSwitchControlDependencies(
+    const std::vector<const SoPath *> & switchPaths,
+    const std::vector<SbBool> & visibilities);
 #endif
 
   SbViewportRegion vpRegion;

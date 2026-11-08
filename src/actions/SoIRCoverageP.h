@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <vector>
 
+class SoNode;
+
 enum class SoIRApplicationCoverageClass : uint8_t {
   PENDING,
   ADMITTED_COMMANDS,
@@ -21,6 +23,21 @@ enum class SoIRApplicationCoverageClass : uint8_t {
 enum class SoIRCoverageProducerKind : uint8_t {
   APPLICATION_NODE,
   BUILT_IN_SHAPE
+};
+
+enum class SoIRControlDependencyKind : uint8_t {
+  SWITCH_DECISION
+};
+
+struct SoIRControlDependencyRecord {
+  SoNode * node = nullptr;
+  uint64_t nodeId = 0;
+  int rawDecision = 0;
+  int effectiveDecision = 0;
+  int childCount = 0;
+  SoIRControlDependencyKind kind =
+    SoIRControlDependencyKind::SWITCH_DECISION;
+  bool fieldIgnored = false;
 };
 
 struct SoIRApplicationCoverageRecord {
@@ -44,6 +61,7 @@ struct SoIRApplicationCoverageReceipt {
   bool overflow = false;
   bool invalid = false;
   std::vector<SoIRApplicationCoverageRecord> records;
+  std::vector<SoIRControlDependencyRecord> controlDependencies;
 };
 
 struct SoIRApplicationCoveragePatchCheckpoint {
@@ -53,6 +71,7 @@ struct SoIRApplicationCoveragePatchCheckpoint {
   uint64_t cameraNodeId = 0;
   size_t recordLimit = 0;
   size_t recordCount = 0;
+  size_t controlDependencyCount = 0;
   size_t stackDepth = 0;
   int commandCount = 0;
   bool current = false;
