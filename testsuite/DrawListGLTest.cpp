@@ -3,8 +3,11 @@
 #include "support/GLTestContext.h"
 
 #include <Inventor/SoDB.h>
+#include <Inventor/C/glue/gl.h>
 #include <Inventor/rendering/SoCpuRayTracing.h>
 #include <Inventor/system/gl.h>
+
+#include "glue/glp.h"
 
 #include <cmath>
 #include <cstdio>
@@ -12,6 +15,22 @@
 #include <vector>
 
 namespace {
+
+COIN_PFNGLDELETEPROGRAMPROC savedDeleteProgram = nullptr;
+int deletedPrograms = 0;
+
+void APIENTRY
+failGenBuffers(GLsizei count, GLuint * buffers)
+{
+  for (GLsizei i = 0; i < count; ++i) buffers[i] = 0;
+}
+
+void APIENTRY
+countDeleteProgram(GLuint program)
+{
+  ++deletedPrograms;
+  savedDeleteProgram(program);
+}
 
 int skip(const char * reason)
 {
@@ -143,6 +162,32 @@ runTest()
 
   SoGLRenderBackend backend;
   SoRenderBackendInitParams initparams;
+  cc_glglue * mutableGlue = const_cast<cc_glglue *>(
+    cc_glglue_instance_from_context_ptr(coin_gl_current_context()));
+  if (!mutableGlue || !mutableGlue->glGenBuffers ||
+      !mutableGlue->glDeleteProgram) {
+    std::cerr << "FAIL: allocation-failure control lacks GL dispatch"
+              << std::endl;
+    return 1;
+  }
+  const COIN_PFNGLGENBUFFERSPROC savedGenBuffers =
+    mutableGlue->glGenBuffers;
+  savedDeleteProgram = mutableGlue->glDeleteProgram;
+  deletedPrograms = 0;
+  mutableGlue->glGenBuffers = failGenBuffers;
+  mutableGlue->glDeleteProgram = countDeleteProgram;
+  const bool rejectedAllocation = !backend.initialize(initparams);
+  mutableGlue->glGenBuffers = savedGenBuffers;
+  mutableGlue->glDeleteProgram = savedDeleteProgram;
+  if (!rejectedAllocation || backend.isInitialized() ||
+      deletedPrograms == 0) {
+    std::cerr << "FAIL: failed instance-buffer allocation was not rejected "
+              << "and cleaned (rejected=" << rejectedAllocation
+              << ", initialized=" << backend.isInitialized()
+              << ", deleted-programs=" << deletedPrograms << ')'
+              << std::endl;
+    return 1;
+  }
   if (!backend.initialize(initparams)) {
     std::cerr << "FAIL: retained backend did not initialize on the verified "
               << "OpenGL 3.3/GLSL 330 context" << std::endl;

@@ -802,6 +802,15 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
     return FALSE;
   }
   cc_glglue_glGenBuffers(this->glue, 1, &this->instanceBuffer);
+  if (!this->instanceBuffer) {
+    this->emitError("failed to allocate retained instance buffer");
+    // Reuse the normal teardown path so every shader created above is
+    // released and this object can be initialized again after a transient
+    // resource failure.
+    this->setInitialized(TRUE);
+    this->shutdown();
+    return FALSE;
+  }
 
   GLfloat lineRange[2] = { 1.0f, 1.0f };
   GLfloat pointRange[2] = { 1.0f, 1.0f };
