@@ -13,6 +13,7 @@
 #include <Inventor/nodes/SoSubNode.h>
 
 #include <iostream>
+#include <cstring>
 
 #include "actions/SoIRCoverageP.h"
 
@@ -252,7 +253,14 @@ runTest()
   check(action.getDrawList().getNumCommands() == 0,
         "one-node probe left commands in the retained frame", result);
   check(action.hasUnsupportedRendering() &&
-        action.getUnsupportedNode() == probe,
+        action.getUnsupportedNode() == probe &&
+        action.getUnsupportedNode()->getNodeId() == probe->getNodeId() &&
+        std::strcmp(
+          action.getUnsupportedNode()->getTypeId().getName().getString(),
+          "PathProbe") == 0 &&
+        action.getUnsupportedReason() != NULL &&
+        std::strcmp(action.getUnsupportedReason(),
+                    "application node emitted no retained commands") == 0,
         "application node with no retained output was silently accepted",
         result);
   const SoIRApplicationCoverageReceipt & rejectedReceipt =

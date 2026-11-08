@@ -1746,6 +1746,12 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
   if (admission != SoRetainedFrameAdmission::ADMITTED) {
     const char * reason = PRIVATE(this)->irAction->getUnsupportedReason();
     if (!reason) reason = coin_retained_frame_admission_reason(admission);
+    const SoNode * unsupportedNode =
+      PRIVATE(this)->irAction->getUnsupportedNode();
+    const char * unsupportedType = unsupportedNode
+      ? unsupportedNode->getTypeId().getName().getString() : "<none>";
+    const unsigned long long unsupportedNodeId = unsupportedNode
+      ? static_cast<unsigned long long>(unsupportedNode->getNodeId()) : 0;
     PRIVATE(this)->drawListValid = FALSE;
     PRIVATE(this)->drawListDirty = TRUE;
     PRIVATE(this)->renderPlanValid = FALSE;
@@ -1753,7 +1759,10 @@ SoRenderManager::renderDrawListPipeline(const SbBool clearwindow,
     if (currentContextSupportsLegacyRendering()) {
       SoDebugError::postWarning(
         "SoRenderManager::renderDrawListPipeline",
-        "retained traversal is unsupported (%s); falling back to LegacyGL",
+        "retained traversal is unsupported at node type=%s id=%llu (%s); "
+        "falling back to LegacyGL",
+        unsupportedType,
+        unsupportedNodeId,
         reason ? reason : "unknown reason");
       const SoRenderManager::RenderPipeline savedPipeline =
         PRIVATE(this)->renderPipeline;
