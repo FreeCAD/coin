@@ -321,6 +321,15 @@ coin_add_private_unit_test(RetainedMixedTopologyTest)
 coin_add_private_unit_test(RetainedPatchReceiptTest)
 coin_add_private_unit_test(RetainedControlDependencyTest)
 
+add_executable(RetainedApplicationNodeApiTest RetainedApplicationNodeApiTest.cpp)
+target_link_libraries(RetainedApplicationNodeApiTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_include_directories(RetainedApplicationNodeApiTest PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedApplicationNodeApiTest COMMAND RetainedApplicationNodeApiTest)
+
 add_executable(RetainedMaterialLightingTest RetainedMaterialLightingTest.cpp)
 target_link_libraries(RetainedMaterialLightingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RetainedMaterialLightingTest PRIVATE

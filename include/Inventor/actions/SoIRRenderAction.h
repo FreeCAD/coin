@@ -191,6 +191,22 @@ public:
 
   //! Record a depth-clear barrier at the current traversal position.
   void requestDepthClear();
+
+  /*! Explicitly classify the active application node as intentionally
+      non-drawing.
+
+      Application-defined IRRender() implementations may call this once for
+      themselves when they intentionally emit no retained commands. The node
+      must be the application node whose coverage callback is currently
+      active. Calling this outside that callback, calling it more than once,
+      passing a different node, or emitting commands from the same callback
+      fails the retained frame closed.
+
+      This declaration is public beginning with retained-renderer API version
+      2. The implementation and its fail-closed validation existed before the
+      declaration became available to consumers.
+  */
+  void markApplicationNodeNonDrawing(const SoNode * node);
 #ifdef COIN_INTERNAL
   //! Begin/end one internal application-node coverage record.
   void beginApplicationNodeCoverage(const SoNode * node, int commandsBefore);
@@ -200,8 +216,6 @@ public:
   void endBuiltInShapeCoverage(const SoNode * node, int commandsAfter);
   //! Record one bounded built-in switch decision and own its node lifetime.
   void recordSwitchControlDependency(SoSwitch * node, int effectiveDecision);
-  //! Explicitly classify the current application node as intentionally non-drawing.
-  void markApplicationNodeNonDrawing(const SoNode * node);
   //! Internal bounded receipt for application-node admission diagnostics.
   const SoIRApplicationCoverageReceipt & getApplicationCoverageReceipt() const;
   //! Verify that the sealed receipt still describes the current DrawList.
