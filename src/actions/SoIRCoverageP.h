@@ -37,6 +37,8 @@ struct SoIRApplicationCoverageRecord {
 struct SoIRApplicationCoverageReceipt {
   uint32_t drawListGeneration = 0;
   uint64_t drawListContentRevision = 0;
+  uint64_t viewInputRevision = 0;
+  uint64_t cameraNodeId = 0;
   size_t recordLimit = 4096;
   bool sealed = false;
   bool overflow = false;
@@ -47,6 +49,8 @@ struct SoIRApplicationCoverageReceipt {
 struct SoIRApplicationCoveragePatchCheckpoint {
   uint32_t drawListGeneration = 0;
   uint64_t drawListContentRevision = 0;
+  uint64_t viewInputRevision = 0;
+  uint64_t cameraNodeId = 0;
   size_t recordLimit = 0;
   size_t recordCount = 0;
   size_t stackDepth = 0;

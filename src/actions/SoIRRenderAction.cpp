@@ -82,6 +82,18 @@ SO_ACTION_SOURCE(SoIRRenderAction);
 
 class SoIRRenderActionP {
 public:
+  struct ViewInputSnapshot {
+    SbViewportRegion viewport;
+    SbViewportRegion cameraViewport;
+    SbMatrix viewMatrix = SbMatrix::identity();
+    SbMatrix projectionMatrix = SbMatrix::identity();
+    SoCamera * camera = nullptr;
+    uint64_t cameraNodeId = 0;
+    float devicePixelRatio = 1.0f;
+    SoIRRenderAction::CameraPolicy cameraPolicy =
+      SoIRRenderAction::CameraPolicy::USE_CONFIGURED_CAMERA;
+  };
+
   struct PathRecord {
     size_t first = 0;
     size_t length = 0;
@@ -236,6 +248,8 @@ public:
   SoIRApplicationCoverageReceipt coverageReceipt;
   std::vector<size_t> coverageStack;
   size_t coverageRecordLimit = 4096;
+  uint64_t viewInputRevision = 1;
+  ViewInputSnapshot coverageViewInputs;
 
   static uint64_t mixGeometryCacheKey(uint64_t first, uint64_t second)
   {
@@ -353,7 +367,52 @@ SoIRRenderAction::~SoIRRenderAction()
 void
 SoIRRenderAction::setViewportRegion(const SbViewportRegion & vp)
 {
+  if (this->vpRegion == vp) return;
+  this->noteViewInputChange();
   this->vpRegion = vp;
+}
+
+void
+SoIRRenderAction::noteViewInputChange()
+{
+  ++PRIVATE(this)->viewInputRevision;
+  if (PRIVATE(this)->viewInputRevision == 0) {
+    PRIVATE(this)->viewInputRevision = 1;
+  }
+}
+
+static SoIRRenderActionP::ViewInputSnapshot
+coin_capture_ir_view_inputs(const SoIRRenderAction & action)
+{
+  SoIRRenderActionP::ViewInputSnapshot snapshot;
+  snapshot.viewport = action.getViewportRegion();
+  snapshot.cameraViewport = snapshot.viewport;
+  snapshot.camera = action.getCamera();
+  snapshot.devicePixelRatio = action.getDevicePixelRatio();
+  snapshot.cameraPolicy = action.getCameraPolicy();
+  if (snapshot.camera) {
+    snapshot.cameraNodeId = static_cast<uint64_t>(
+      snapshot.camera->getNodeId());
+    const SbViewVolume viewVolume = snapshot.camera->getViewVolume(
+      snapshot.viewport, snapshot.cameraViewport);
+    viewVolume.getMatrices(snapshot.viewMatrix, snapshot.projectionMatrix);
+  }
+  return snapshot;
+}
+
+static bool
+coin_ir_view_inputs_equal(
+  const SoIRRenderActionP::ViewInputSnapshot & lhs,
+  const SoIRRenderActionP::ViewInputSnapshot & rhs)
+{
+  return lhs.viewport == rhs.viewport &&
+    lhs.cameraViewport == rhs.cameraViewport &&
+    lhs.viewMatrix == rhs.viewMatrix &&
+    lhs.projectionMatrix == rhs.projectionMatrix &&
+    lhs.camera == rhs.camera &&
+    lhs.cameraNodeId == rhs.cameraNodeId &&
+    lhs.devicePixelRatio == rhs.devicePixelRatio &&
+    lhs.cameraPolicy == rhs.cameraPolicy;
 }
 
 void
@@ -370,6 +429,9 @@ SoIRRenderAction::beginFrame()
   receipt.records.clear();
   receipt.drawListGeneration = this->drawlist.getGeneration();
   receipt.drawListContentRevision = this->drawlist.getContentRevision();
+  receipt.viewInputRevision = PRIVATE(this)->viewInputRevision;
+  PRIVATE(this)->coverageViewInputs = coin_capture_ir_view_inputs(*this);
+  receipt.cameraNodeId = PRIVATE(this)->coverageViewInputs.cameraNodeId;
   receipt.recordLimit = PRIVATE(this)->coverageRecordLimit;
   receipt.sealed = false;
   receipt.overflow = false;
@@ -795,6 +857,10 @@ SoIRRenderAction::isApplicationCoverageReceiptCurrent() const
     pimpl->coverageStack.empty() && !this->hasUnsupportedRendering() &&
     receipt.drawListGeneration == this->drawlist.getGeneration() &&
     receipt.drawListContentRevision == this->drawlist.getContentRevision() &&
+    receipt.viewInputRevision == pimpl->viewInputRevision &&
+    receipt.cameraNodeId == pimpl->coverageViewInputs.cameraNodeId &&
+    coin_ir_view_inputs_equal(pimpl->coverageViewInputs,
+                              coin_capture_ir_view_inputs(*this)) &&
     receipt.recordLimit == pimpl->coverageRecordLimit;
   return identityCurrent && coin_application_coverage_records_valid(
     receipt, this->drawlist.getNumCommands());
@@ -823,6 +889,8 @@ SoIRRenderAction::captureApplicationCoveragePatchCheckpoint() const
   SoIRApplicationCoveragePatchCheckpoint checkpoint;
   checkpoint.drawListGeneration = receipt.drawListGeneration;
   checkpoint.drawListContentRevision = receipt.drawListContentRevision;
+  checkpoint.viewInputRevision = receipt.viewInputRevision;
+  checkpoint.cameraNodeId = receipt.cameraNodeId;
   checkpoint.recordLimit = receipt.recordLimit;
   checkpoint.recordCount = receipt.records.size();
   checkpoint.stackDepth = pimpl->coverageStack.size();
@@ -848,6 +916,8 @@ SoIRRenderAction::restoreApplicationCoveragePatchCheckpoint(
   }
   receipt.drawListGeneration = checkpoint.drawListGeneration;
   receipt.drawListContentRevision = checkpoint.drawListContentRevision;
+  receipt.viewInputRevision = checkpoint.viewInputRevision;
+  receipt.cameraNodeId = checkpoint.cameraNodeId;
   receipt.recordLimit = checkpoint.recordLimit;
   receipt.sealed = checkpoint.sealed;
   receipt.overflow = checkpoint.overflow;
@@ -864,6 +934,8 @@ SoIRRenderAction::commitApplicationCoveragePatch(
       receipt.invalid || this->hasUnsupportedRendering() ||
       receipt.drawListGeneration != checkpoint.drawListGeneration ||
       receipt.drawListContentRevision != checkpoint.drawListContentRevision ||
+      receipt.viewInputRevision != checkpoint.viewInputRevision ||
+      receipt.cameraNodeId != checkpoint.cameraNodeId ||
       receipt.recordLimit != checkpoint.recordLimit ||
       receipt.recordLimit != pimpl->coverageRecordLimit ||
       receipt.records.size() != checkpoint.recordCount ||

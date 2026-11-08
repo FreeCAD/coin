@@ -132,11 +132,23 @@ public:
   void setViewportRegion(const SbViewportRegion & vp);
   const SbViewportRegion & getViewportRegion(void) const { return this->vpRegion; }
 
-  void setCamera(SoCamera * camera) { this->camera = camera; }
+  void setCamera(SoCamera * camera) {
+    if (this->camera == camera) return;
+    this->noteViewInputChange();
+    this->camera = camera;
+  }
   SoCamera * getCamera(void) const { return this->camera; }
-  void setCameraPolicy(CameraPolicy policy) { this->cameraPolicy = policy; }
+  void setCameraPolicy(CameraPolicy policy) {
+    if (this->cameraPolicy == policy) return;
+    this->noteViewInputChange();
+    this->cameraPolicy = policy;
+  }
   CameraPolicy getCameraPolicy(void) const { return this->cameraPolicy; }
-  void setDevicePixelRatio(float dpr) { this->devicePixelRatio = dpr; }
+  void setDevicePixelRatio(float dpr) {
+    if (this->devicePixelRatio == dpr) return;
+    this->noteViewInputChange();
+    this->devicePixelRatio = dpr;
+  }
   float getDevicePixelRatio(void) const { return this->devicePixelRatio; }
 
   // Standard entry points, mirroring SoGLRenderAction
@@ -268,6 +280,7 @@ protected:
 
 private:
   void initializeCameraState(CameraPolicy policy);
+  void noteViewInputChange();
   void resetFrameResources();
   void clearCommandPaths();
 #ifdef COIN_INTERNAL

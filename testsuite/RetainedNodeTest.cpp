@@ -7,6 +7,7 @@
 #include <Inventor/nodes/SoCube.h>
 #include <Inventor/nodes/SoFaceSet.h>
 #include <Inventor/nodes/SoNode.h>
+#include <Inventor/nodes/SoPerspectiveCamera.h>
 #include <Inventor/nodes/SoPickStyle.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSubNode.h>
@@ -107,6 +108,79 @@ runTest()
   check(action.isApplicationCoverageReceiptCurrent(),
         "built-in coverage did not recover after producer-kind corruption",
         result);
+
+  const uint64_t initialViewRevision =
+    action.getApplicationCoverageReceipt().viewInputRevision;
+  const SbViewportRegion initialViewport = action.getViewportRegion();
+  action.setViewportRegion(SbViewportRegion(80, 64));
+  check(!action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().viewInputRevision ==
+          initialViewRevision,
+        "viewport change did not stale the sealed coverage receipt", result);
+  action.setViewportRegion(initialViewport);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "view-input round trip rebound a stale receipt", result);
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after viewport rebuild", result);
+  action.setViewportRegion(action.getViewportRegion());
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "identical viewport setter invalidated current coverage", result);
+
+  action.setDevicePixelRatio(2.0f);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "device-pixel-ratio change did not stale coverage", result);
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after device-pixel-ratio rebuild", result);
+
+  SoPerspectiveCamera * camera = new SoPerspectiveCamera;
+  camera->ref();
+  action.setCamera(camera);
+  action.apply(root);
+  const uint64_t initialCameraNodeId =
+    action.getApplicationCoverageReceipt().cameraNodeId;
+  SoIRApplicationCoverageReceipt & corruptCameraReceipt =
+    const_cast<SoIRApplicationCoverageReceipt &>(
+      action.getApplicationCoverageReceipt());
+  ++corruptCameraReceipt.cameraNodeId;
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "camera identity corruption did not invalidate coverage", result);
+  action.apply(root);
+  camera->position.setValue(SbVec3f(0.0f, 0.0f, 4.0f));
+  check(!action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().cameraNodeId ==
+          initialCameraNodeId,
+        "published camera edit did not stale coverage", result);
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after camera rebuild", result);
+
+  const SbBool cameraNotify = camera->enableNotify(FALSE);
+  camera->position.setValue(SbVec3f(0.0f, 0.0f, 5.0f));
+  camera->enableNotify(cameraNotify);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "suppressed camera edit escaped exact view-input validation", result);
+  camera->touch();
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after suppressed camera edit publication",
+        result);
+
+  action.setCameraPolicy(
+    SoIRRenderAction::CameraPolicy::CAMERA_IN_ROOT);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "camera-policy change did not stale coverage", result);
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after camera-policy rebuild", result);
+  action.setCamera(nullptr);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "camera replacement did not stale coverage", result);
+  camera->unref();
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "coverage did not recover after camera removal", result);
   check(action.getCommandPath(0) != NULL &&
         action.getCommandPath(0)->getTail() == firstCube &&
         action.getCommandPath(1) != NULL &&
