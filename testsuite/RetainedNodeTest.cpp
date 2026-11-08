@@ -123,6 +123,10 @@ runTest()
         "one-node SoPath did not use BELOW_PATH traversal", result);
   check(action.getDrawList().getNumCommands() == 0,
         "one-node probe left commands in the retained frame", result);
+  check(action.hasUnsupportedRendering() &&
+        action.getUnsupportedNode() == probe,
+        "application node with no retained output was silently accepted",
+        result);
   oneNodePath->unref();
 
   SoPath * firstListPath = new SoPath(root);
@@ -146,6 +150,9 @@ runTest()
   action.apply(static_cast<SoNode *>(probe));
   check(action.getDrawList().getNumCommands() == 0,
         "repeated apply() did not clear the previous frame", result);
+  check(action.hasUnsupportedRendering() &&
+        action.getUnsupportedNode() == probe,
+        "repeated application-node traversal lost fallback status", result);
 
   SoSeparator * unpickableRoot = new SoSeparator;
   unpickableRoot->ref();

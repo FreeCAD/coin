@@ -88,6 +88,12 @@ runTest()
 
   SoIRRenderAction action(SbViewportRegion(64, 64));
   action.apply(root);
+  if (action.hasUnsupportedRendering()) {
+    std::cerr << "FAIL: command-emitting application shape was rejected"
+              << std::endl;
+    root->unref();
+    return 1;
+  }
 
   int result = 0;
   const SoDrawList & drawlist = action.getDrawList();

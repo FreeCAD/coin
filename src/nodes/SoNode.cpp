@@ -874,7 +874,16 @@ SoNode::IRRenderS(SoAction * action, SoNode * node)
 {
   assert(action != NULL);
   assert(node != NULL);
-  node->IRRender(static_cast<SoIRRenderAction *>(action));
+  SoIRRenderAction * retained = static_cast<SoIRRenderAction *>(action);
+  const bool auditApplicationNode = node->getIsBuiltIn() == FALSE;
+  const int commandsBefore = auditApplicationNode
+    ? retained->getDrawList().getNumCommands() : 0;
+  node->IRRender(retained);
+  if (auditApplicationNode && !retained->hasUnsupportedRendering() &&
+      retained->getDrawList().getNumCommands() == commandsBefore) {
+    retained->markUnsupported(node,
+      "application node emitted no retained commands");
+  }
 }
 
 // Note that this documentation will also be used for all subclasses
