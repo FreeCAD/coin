@@ -34,7 +34,7 @@
 
 #include <cassert>
 
-#include <Inventor/SoFullPath.h>
+#include <Inventor/SoPath.h>
 #include <Inventor/lists/SoPathList.h>
 #include <Inventor/errors/SoDebugError.h>
 
@@ -54,7 +54,7 @@
 
 */
 
-#define FULL_PATH(list, i) ((SoFullPath *) list[i])
+#define FULL_PATH(list, i) (list[i])
 
 /*!
   Constructor.
@@ -68,7 +68,7 @@ SoCompactPathList::SoCompactPathList(const SoPathList & list)
 
   for (int i = 0; i < list.getLength(); i++) {
     assert(FULL_PATH(list, i)->getHead() == head);
-    numnodes += FULL_PATH(list, i)->getLength() - 1;
+    numnodes += FULL_PATH(list, i)->getFullLength() - 1;
   }
   // 3 entries for each node + one extra for the root. This is a
   // worst-case size, but memory usage isn't an issue for this class
@@ -159,7 +159,7 @@ SoCompactPathList::createLookupTable(int curidx, int depth,
 {
   // When we get to the tail, store a 0 for no children. The traversal
   // will switch to BELOW_PATH when this happens.
-  if (depth >= FULL_PATH(list, firstpath)->getLength()) {
+  if (depth >= FULL_PATH(list, firstpath)->getFullLength()) {
     this->lookuptable[curidx] = 0;
     return curidx + 1;
   }

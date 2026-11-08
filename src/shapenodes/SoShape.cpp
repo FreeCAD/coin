@@ -451,6 +451,10 @@ private:
         this->action->allocateGeometryStorage(sizeof(float) * 4 * count));
     }
 
+    const SoLazyElement * lazy = SoLazyElement::getInstance(state);
+    const int numDiffuse = std::max(1, lazy->getNumDiffuse());
+    const int numTransparency = std::max(1, lazy->getNumTransparencies());
+
     for (size_t i = 0; i < count; ++i) {
       const SoIRVertex & vertex = this->vertices[i];
       positions[i * 3 + 0] = vertex.position[0];
@@ -465,8 +469,11 @@ private:
       texcoords[i * 4 + 3] = vertex.texcoord[3];
       if (colors) {
         const int materialIndex = std::max(vertex.materialIndex, 0);
-        const SbColor & color = SoLazyElement::getDiffuse(state, materialIndex);
-        const float alpha = 1.0f - SoLazyElement::getTransparency(state, materialIndex);
+        const int diffuseIndex = std::min(materialIndex, numDiffuse - 1);
+        const int transparencyIndex = std::min(materialIndex, numTransparency - 1);
+        const SbColor & color = SoLazyElement::getDiffuse(state, diffuseIndex);
+        const float alpha = 1.0f -
+          SoLazyElement::getTransparency(state, transparencyIndex);
         colors[i * 4 + 0] = color[0];
         colors[i * 4 + 1] = color[1];
         colors[i * 4 + 2] = color[2];

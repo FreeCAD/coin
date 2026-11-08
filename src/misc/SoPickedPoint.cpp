@@ -119,7 +119,7 @@ SoPickedPoint::SoPickedPoint(const SoPath * const pathptr, SoState * const state
   this->onGeometry = TRUE;
   this->viewport = SoViewportRegionElement::get(stateptr);
 
-  int pathlen = ((SoFullPath*)this->path)->getLength();
+  int pathlen = this->path->getFullLength();
   for (int i = 0; i < pathlen; i++) {
     this->detailList.append(NULL);
   }
@@ -150,7 +150,7 @@ SoPickedPoint::SoPickedPoint(const SoPath * const pathptr,
   this->materialIndex = 0;
   this->onGeometry = TRUE;
 
-  const int pathlen = ((SoFullPath *)this->path)->getLength();
+  const int pathlen = this->path->getFullLength();
   for (int i = 0; i < pathlen; ++i) {
     this->detailList.append(NULL);
   }
@@ -243,7 +243,7 @@ const SoDetail *
 SoPickedPoint::getDetail(const SoNode * const node) const
 {
   int idx = node ? this->path->findNode(node) :
-    ((SoFullPath*)this->path)->getLength() - 1;
+    this->path->getFullLength() - 1;
   return idx >= 0 ? this->detailList[idx] : NULL;
 }
 
@@ -306,7 +306,7 @@ SoPickedPoint::getImageToObject(const SoNode * const node) const
 SbVec3f
 SoPickedPoint::getObjectPoint(const SoNode * const node) const
 {
-  if (node && node != ((SoFullPath*)this->path)->getTail()) {
+  if (node && node != this->path->getTail()) {
     SbVec3f ret;
     this->getWorldToObject(node).multVecMatrix(this->point, ret);
     return ret;
@@ -322,7 +322,7 @@ SoPickedPoint::getObjectPoint(const SoNode * const node) const
 SbVec3f
 SoPickedPoint::getObjectNormal(const SoNode * const node) const
 {
-  if (node && node != ((SoFullPath*)this->path)->getTail()) {
+  if (node && node != this->path->getTail()) {
     SbVec3f ret;
     this->getWorldToObject(node).multDirMatrix(this->normal, ret);
     return ret;
@@ -337,7 +337,7 @@ SoPickedPoint::getObjectNormal(const SoNode * const node) const
 SbVec4f
 SoPickedPoint::getObjectTextureCoords(const SoNode * const node) const
 {
-  if (node && node != ((SoFullPath*)this->path)->getTail()) {
+  if (node && node != this->path->getTail()) {
     SbVec4f ret;
     this->getImageToObject(node).multVecMatrix(this->texCoords, ret);
     return ret;
@@ -412,7 +412,7 @@ void
 SoPickedPoint::applyMatrixAction(const SoNode * const node) const
 {
   if (node) {
-    SoFullPath *fullpath = (SoFullPath*) this->path;
+    SoPath * fullpath = this->path;
     int idx = fullpath->findNode(node);
     assert(idx >= 0);
     SoTempPath subpath(idx+1);

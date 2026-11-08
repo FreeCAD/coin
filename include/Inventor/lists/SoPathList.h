@@ -52,6 +52,9 @@ public:
   int findPath(const SoPath & path) const;
   void sort(void);
   void uniquify(void);
+
+private:
+  static int comparePaths(const void * lhs, const void * rhs);
 };
 
 #endif // !COIN_SOPATHLIST_H

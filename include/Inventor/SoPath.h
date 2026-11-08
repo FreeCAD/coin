@@ -48,6 +48,8 @@ class SoNotList;
 class SoInput;
 class SoPathList;
 class SoIRRenderAction;
+class SoPickedPoint;
+class SoCompactPathList;
 
 
 class COIN_DLL_API SoPath : public SoBase {
@@ -125,7 +127,10 @@ private:
   friend class SoFullPath;
   friend class SoNodeKitPath;
   friend class SoAction;
+  friend class SoCompactPathList;
   friend class SoIRRenderAction;
+  friend class SoPathList;
+  friend class SoPickedPoint;
   friend class SoTempPath;
 };
 

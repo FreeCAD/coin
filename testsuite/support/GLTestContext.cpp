@@ -4,6 +4,7 @@
 
 #include <Inventor/system/gl.h>
 #include <Inventor/C/glue/gl.h>
+#include <Inventor/misc/SoContextHandler.h>
 
 namespace {
 
@@ -132,6 +133,9 @@ GLTestContext::shutdown()
   if (window_ != NULL) {
     glfwMakeContextCurrent(window_);
     framebuffer_.shutdown();
+    if (contextId_ != 0) {
+      SoContextHandler::destructingContext(contextId_);
+    }
     glfwDestroyWindow(window_);
     window_ = NULL;
   }

@@ -400,6 +400,8 @@ runTest()
   invalidatedAlphaRoot->addChild(invalidatedAlphaVertexProperty);
 
   SoMaterial * replacementMaterial = new SoMaterial;
+  const SbColor replacementDiffuse(0.13f, 0.27f, 0.41f);
+  replacementMaterial->diffuseColor = replacementDiffuse;
   replacementMaterial->transparency = 0.0f;
   invalidatedAlphaRoot->addChild(replacementMaterial);
   SoFaceSet * invalidatedAlphaFaces = new SoFaceSet;
@@ -414,6 +416,29 @@ runTest()
     std::cerr << "FAIL: ordinary material state did not clear packed-color provenance"
               << std::endl;
     result = 1;
+  }
+  else {
+    const SoGeometryDesc & geometry =
+      invalidatedAlphaAction.getDrawList().getCommand(0).geometry;
+    if (!geometry.colors) {
+      std::cerr << "FAIL: material replacement did not retain per-vertex color storage"
+                << std::endl;
+      result = 1;
+    }
+    else {
+      for (uint32_t vertex = 0; vertex < geometry.vertexCount; ++vertex) {
+        const float * color = geometry.colors + vertex * 4;
+        if (!nearlyEqual(color[0], replacementDiffuse[0]) ||
+            !nearlyEqual(color[1], replacementDiffuse[1]) ||
+            !nearlyEqual(color[2], replacementDiffuse[2]) ||
+            !nearlyEqual(color[3], 1.0f)) {
+          std::cerr << "FAIL: out-of-range vertex material index was not clamped"
+                    << std::endl;
+          result = 1;
+          break;
+        }
+      }
+    }
   }
   invalidatedAlphaRoot->unref();
 

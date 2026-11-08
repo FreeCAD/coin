@@ -71,16 +71,19 @@ int main()
   config.height = 16;
   GLTestContext context;
   if (!context.initialize(config)) {
+    context.shutdown();
     SoDB::finish();
     return skip("core OpenGL test context is unavailable");
   }
   if (!context.makeCurrent()) {
+    context.shutdown();
     SoDB::finish();
     return skip("core OpenGL test context could not be made current");
   }
 
   const cc_glglue * glue = cc_glglue_instance(context.contextId());
   if (glue == NULL || glue->contextid == 0) {
+    context.shutdown();
     SoDB::finish();
     return skip("GL glue instance is unavailable");
   }
@@ -152,6 +155,7 @@ int main()
   } while (false);
 
   SoDebugError::setHandlerCallback(previousCallback, previousData);
+  context.shutdown();
   SoDB::finish();
   return result;
 }
