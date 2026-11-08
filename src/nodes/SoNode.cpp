@@ -878,11 +878,13 @@ SoNode::IRRenderS(SoAction * action, SoNode * node)
   const bool auditApplicationNode = node->getIsBuiltIn() == FALSE;
   const int commandsBefore = auditApplicationNode
     ? retained->getDrawList().getNumCommands() : 0;
+  if (auditApplicationNode) {
+    retained->beginApplicationNodeCoverage(node, commandsBefore);
+  }
   node->IRRender(retained);
-  if (auditApplicationNode && !retained->hasUnsupportedRendering() &&
-      retained->getDrawList().getNumCommands() == commandsBefore) {
-    retained->markUnsupported(node,
-      "application node emitted no retained commands");
+  if (auditApplicationNode) {
+    retained->endApplicationNodeCoverage(
+      node, retained->getDrawList().getNumCommands());
   }
 }
 

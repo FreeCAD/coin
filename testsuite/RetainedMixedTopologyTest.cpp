@@ -10,6 +10,8 @@
 
 #include <iostream>
 
+#include "actions/SoIRCoverageP.h"
+
 class MixedPrimitiveShape : public SoShape {
   SO_NODE_HEADER(MixedPrimitiveShape);
 
@@ -90,6 +92,18 @@ runTest()
   action.apply(root);
   if (action.hasUnsupportedRendering()) {
     std::cerr << "FAIL: command-emitting application shape was rejected"
+              << std::endl;
+    root->unref();
+    return 1;
+  }
+  const SoIRApplicationCoverageReceipt & coverage =
+    action.getApplicationCoverageReceipt();
+  if (!action.isApplicationCoverageReceiptCurrent() ||
+      coverage.records.size() != 1 ||
+      coverage.records[0].classification !=
+        SoIRApplicationCoverageClass::ADMITTED_COMMANDS ||
+      coverage.records[0].commandCount != 3) {
+    std::cerr << "FAIL: command-emitting application shape lacked a current receipt"
               << std::endl;
     root->unref();
     return 1;

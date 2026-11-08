@@ -63,6 +63,7 @@
 #include <Inventor/lists/SoPathList.h>
 
 #include "actions/SoSubActionP.h"
+#include "actions/SoIRCoverageP.h"
 #include "elements/SoRenderPlacementElement.h"
 #include "rendering/SoRenderIRP.h"
 
@@ -72,6 +73,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -231,6 +233,9 @@ public:
   SoRenderStage renderStage = SoRenderStage::Main;
   SoIRRenderContext renderContextOverride;
   bool hasRenderContextOverride = false;
+  SoIRApplicationCoverageReceipt coverageReceipt;
+  std::vector<size_t> coverageStack;
+  size_t coverageRecordLimit = 4096;
 
   static uint64_t mixGeometryCacheKey(uint64_t first, uint64_t second)
   {
@@ -361,6 +366,15 @@ SoIRRenderAction::beginFrame()
   this->unsupportedRendering = false;
   this->unsupportedNode = nullptr;
   this->unsupportedReason = nullptr;
+  SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  receipt.records.clear();
+  receipt.drawListGeneration = this->drawlist.getGeneration();
+  receipt.drawListContentRevision = this->drawlist.getContentRevision();
+  receipt.recordLimit = PRIVATE(this)->coverageRecordLimit;
+  receipt.sealed = false;
+  receipt.overflow = false;
+  receipt.invalid = false;
+  PRIVATE(this)->coverageStack.clear();
 }
 
 SoLightingHandle
@@ -580,6 +594,154 @@ SoIRRenderAction::markUnsupported(const SoNode * node, const char * reason)
   this->unsupportedReason = reason ? reason : "unsupported retained rendering semantics";
 }
 
+void
+SoIRRenderAction::beginApplicationNodeCoverage(const SoNode * node,
+                                               const int commandsBefore)
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  receipt.sealed = false;
+  if (!node || receipt.records.size() >= receipt.recordLimit) {
+    receipt.overflow = true;
+    this->markUnsupported(node, "application coverage record limit");
+    try {
+      pimpl->coverageStack.push_back(std::numeric_limits<size_t>::max());
+    }
+    catch (...) {
+      receipt.invalid = true;
+    }
+    return;
+  }
+
+  SoIRApplicationCoverageRecord record;
+  record.nodeId = static_cast<uint64_t>(node->getNodeId());
+  record.typeName = node->getTypeId().getName();
+  record.firstCommand = commandsBefore;
+  const size_t recordCountBefore = receipt.records.size();
+  try {
+    receipt.records.push_back(record);
+    pimpl->coverageStack.push_back(receipt.records.size() - 1);
+  }
+  catch (const std::bad_alloc &) {
+    if (receipt.records.size() > recordCountBefore) {
+      receipt.records.pop_back();
+    }
+    receipt.overflow = true;
+    this->markUnsupported(node, "application coverage allocation failure");
+    try {
+      pimpl->coverageStack.push_back(std::numeric_limits<size_t>::max());
+    }
+    catch (...) {
+      receipt.invalid = true;
+    }
+  }
+}
+
+void
+SoIRRenderAction::markApplicationNodeNonDrawing(const SoNode * node)
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  if (!node || pimpl->coverageStack.empty()) {
+    receipt.invalid = true;
+    this->markUnsupported(node, "application coverage marker outside traversal");
+    return;
+  }
+  const size_t index = pimpl->coverageStack.back();
+  if (index >= receipt.records.size()) {
+    receipt.invalid = true;
+    this->markUnsupported(node, "application coverage marker after overflow");
+    return;
+  }
+  SoIRApplicationCoverageRecord & record = receipt.records[index];
+  if (record.nodeId != static_cast<uint64_t>(node->getNodeId()) ||
+      record.classification != SoIRApplicationCoverageClass::PENDING) {
+    receipt.invalid = true;
+    record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
+    this->markUnsupported(node, "duplicate or mismatched application coverage marker");
+    return;
+  }
+  record.classification = SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING;
+}
+
+void
+SoIRRenderAction::endApplicationNodeCoverage(const SoNode * node,
+                                             const int commandsAfter)
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  if (pimpl->coverageStack.empty()) {
+    receipt.invalid = true;
+    this->markUnsupported(node, "unbalanced application coverage traversal");
+    return;
+  }
+  const size_t index = pimpl->coverageStack.back();
+  pimpl->coverageStack.pop_back();
+  if (index >= receipt.records.size()) return;
+
+  SoIRApplicationCoverageRecord & record = receipt.records[index];
+  if (!node || record.nodeId != static_cast<uint64_t>(node->getNodeId()) ||
+      commandsAfter < record.firstCommand) {
+    receipt.invalid = true;
+    record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
+    this->markUnsupported(node, "invalid application coverage traversal");
+    return;
+  }
+  record.commandCount = commandsAfter - record.firstCommand;
+  if (record.classification ==
+        SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING) {
+    if (record.commandCount != 0) {
+      receipt.invalid = true;
+      record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
+      this->markUnsupported(node,
+        "non-drawing application node emitted retained commands");
+    }
+  }
+  else if (this->hasUnsupportedRendering()) {
+    record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
+  }
+  else if (record.commandCount > 0) {
+    record.classification = SoIRApplicationCoverageClass::ADMITTED_COMMANDS;
+  }
+  else {
+    record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
+    this->markUnsupported(node, "application node emitted no retained commands");
+  }
+}
+
+const SoIRApplicationCoverageReceipt &
+SoIRRenderAction::getApplicationCoverageReceipt() const
+{
+  return PRIVATE(this)->coverageReceipt;
+}
+
+SbBool
+SoIRRenderAction::isApplicationCoverageReceiptCurrent() const
+{
+  const SoIRRenderActionP * pimpl = PRIVATE(this);
+  const SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  return receipt.sealed && !receipt.overflow && !receipt.invalid &&
+    pimpl->coverageStack.empty() && !this->hasUnsupportedRendering() &&
+    receipt.drawListGeneration == this->drawlist.getGeneration() &&
+    receipt.drawListContentRevision == this->drawlist.getContentRevision() &&
+    receipt.recordLimit == pimpl->coverageRecordLimit;
+}
+
+void
+SoIRRenderAction::setApplicationCoverageRecordLimit(const size_t limit)
+{
+  PRIVATE(this)->coverageRecordLimit = limit;
+}
+
+void
+SoIRRenderAction::sealApplicationCoverageReceipt()
+{
+  SoIRApplicationCoverageReceipt & receipt = PRIVATE(this)->coverageReceipt;
+  receipt.drawListGeneration = this->drawlist.getGeneration();
+  receipt.drawListContentRevision = this->drawlist.getContentRevision();
+  receipt.sealed = PRIVATE(this)->coverageStack.empty();
+}
+
 const SoPath *
 SoIRRenderAction::getCommandPath(int commandIndex) const
 {
@@ -665,6 +827,7 @@ SoIRRenderAction::traverseAdditionalRoot(SoNode * root, CameraPolicy policy)
       : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   this->switchToNodeTraversal(root);
   this->state->pop();
+  this->sealApplicationCoverageReceipt();
 }
 
 void
@@ -717,6 +880,7 @@ SoIRRenderAction::traverseAdditionalPathInternal(
   if (previousHasContext) {
     PRIVATE(this)->renderContextOverride = previousContext;
   }
+  this->sealApplicationCoverageReceipt();
 }
 
 SoRenderStage
@@ -1195,6 +1359,7 @@ SoIRRenderAction::beginTraversal(SoNode * node)
       ? SoRenderMatrixPolicyElement::CAPTURE_CURRENT_MATRICES
       : SoRenderMatrixPolicyElement::INHERIT_CAMERA_MATRICES);
   inherited::beginTraversal(node);
+  this->sealApplicationCoverageReceipt();
 }
 
 void

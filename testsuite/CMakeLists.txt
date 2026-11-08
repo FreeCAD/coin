@@ -304,7 +304,9 @@ add_test(NAME RenderPlanTest COMMAND RenderPlanTest)
 
 add_executable(RetainedNodeTest RetainedNodeTest.cpp)
 target_link_libraries(RetainedNodeTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedNodeTest PRIVATE COIN_INTERNAL)
 target_include_directories(RetainedNodeTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
@@ -313,7 +315,9 @@ add_test(NAME RetainedNodeTest COMMAND RetainedNodeTest)
 
 add_executable(RetainedMixedTopologyTest RetainedMixedTopologyTest.cpp)
 target_link_libraries(RetainedMixedTopologyTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedMixedTopologyTest PRIVATE COIN_INTERNAL)
 target_include_directories(RetainedMixedTopologyTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}

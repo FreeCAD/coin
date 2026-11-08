@@ -12,6 +12,8 @@
 
 #include <iostream>
 
+#include "actions/SoIRCoverageP.h"
+
 class PathProbe : public SoNode {
   SO_NODE_HEADER(PathProbe);
 
@@ -20,10 +22,14 @@ public:
   PathProbe(void);
 
   bool sawBelowPath = false;
+  int nonDrawingMarkers = 0;
 
   void IRRender(SoIRRenderAction * action) override
   {
     this->sawBelowPath = action->getCurPathCode() == SoAction::BELOW_PATH;
+    for (int i = 0; i < this->nonDrawingMarkers; ++i) {
+      action->markApplicationNodeNonDrawing(this);
+    }
   }
 
 protected:
@@ -127,7 +133,37 @@ runTest()
         action.getUnsupportedNode() == probe,
         "application node with no retained output was silently accepted",
         result);
+  const SoIRApplicationCoverageReceipt & rejectedReceipt =
+    action.getApplicationCoverageReceipt();
+  check(rejectedReceipt.records.size() == 1 &&
+        rejectedReceipt.records[0].classification ==
+          SoIRApplicationCoverageClass::FALLBACK_REQUIRED &&
+        !action.isApplicationCoverageReceiptCurrent(),
+        "silent application-node receipt was not rejected", result);
   oneNodePath->unref();
+
+  probe->nonDrawingMarkers = 1;
+  action.apply(static_cast<SoNode *>(probe));
+  const SoIRApplicationCoverageReceipt & noOpReceipt =
+    action.getApplicationCoverageReceipt();
+  check(!action.hasUnsupportedRendering() &&
+        action.isApplicationCoverageReceiptCurrent() &&
+        noOpReceipt.records.size() == 1 &&
+        noOpReceipt.records[0].classification ==
+          SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING &&
+        noOpReceipt.records[0].commandCount == 0,
+        "explicit application-node no-op was not admitted", result);
+
+  probe->nonDrawingMarkers = 2;
+  action.apply(static_cast<SoNode *>(probe));
+  check(action.hasUnsupportedRendering() &&
+        action.getApplicationCoverageReceipt().invalid &&
+        action.getApplicationCoverageReceipt().records.size() == 1 &&
+        action.getApplicationCoverageReceipt().records[0].classification ==
+          SoIRApplicationCoverageClass::FALLBACK_REQUIRED &&
+        !action.isApplicationCoverageReceiptCurrent(),
+        "duplicate application-node classification was accepted", result);
+  probe->nonDrawingMarkers = 0;
 
   SoPath * firstListPath = new SoPath(root);
   firstListPath->append(firstCube);
@@ -153,6 +189,43 @@ runTest()
   check(action.hasUnsupportedRendering() &&
         action.getUnsupportedNode() == probe,
         "repeated application-node traversal lost fallback status", result);
+
+  SoSeparator * coverageRoot = new SoSeparator;
+  coverageRoot->ref();
+  PathProbe * noOpA = new PathProbe;
+  PathProbe * noOpB = new PathProbe;
+  noOpA->nonDrawingMarkers = 1;
+  noOpB->nonDrawingMarkers = 1;
+  coverageRoot->addChild(noOpA);
+  coverageRoot->addChild(noOpB);
+  action.setApplicationCoverageRecordLimit(4);
+  action.apply(static_cast<SoNode *>(coverageRoot));
+  check(!action.hasUnsupportedRendering() &&
+        action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().records.size() == 2,
+        "multi-entry application coverage receipt was incomplete", result);
+
+  action.setApplicationCoverageRecordLimit(1);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "coverage limit change did not stale the existing receipt", result);
+  action.apply(static_cast<SoNode *>(coverageRoot));
+  check(action.hasUnsupportedRendering() &&
+        action.getApplicationCoverageReceipt().overflow &&
+        action.getApplicationCoverageReceipt().records.size() == 1 &&
+        !action.isApplicationCoverageReceiptCurrent(),
+        "application coverage limit did not fail closed", result);
+
+  action.setApplicationCoverageRecordLimit(4);
+  action.apply(static_cast<SoNode *>(coverageRoot));
+  check(!action.hasUnsupportedRendering() &&
+        action.isApplicationCoverageReceiptCurrent() &&
+        action.getApplicationCoverageReceipt().records.size() == 2,
+        "coverage did not recover after a bounded-record failure", result);
+  action.getMutableDrawList().addCommand(SoRenderCommand());
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "DrawList mutation did not stale the application coverage receipt",
+        result);
+  coverageRoot->unref();
 
   SoSeparator * unpickableRoot = new SoSeparator;
   unpickableRoot->ref();

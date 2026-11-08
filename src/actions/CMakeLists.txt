@@ -32,6 +32,7 @@ endif()
 set(COIN_ACTIONS_INTERNAL_FILES
 	SoActionP.h
 	SoActionP.cpp
+	SoIRCoverageP.h
 	SoSubActionP.h
 )
 

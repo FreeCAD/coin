@@ -18,6 +18,9 @@ class SoPathList;
 class SoCamera;
 class SoNode;
 class SoIRRenderActionP;
+#ifdef COIN_INTERNAL
+struct SoIRApplicationCoverageReceipt;
+#endif
 
 /*!
   \class SoIRRenderAction SoIRRenderAction.h
@@ -175,6 +178,17 @@ public:
   //! Record a depth-clear barrier at the current traversal position.
   void requestDepthClear();
 #ifdef COIN_INTERNAL
+  //! Begin/end one internal application-node coverage record.
+  void beginApplicationNodeCoverage(const SoNode * node, int commandsBefore);
+  void endApplicationNodeCoverage(const SoNode * node, int commandsAfter);
+  //! Explicitly classify the current application node as intentionally non-drawing.
+  void markApplicationNodeNonDrawing(const SoNode * node);
+  //! Internal bounded receipt for application-node admission diagnostics.
+  const SoIRApplicationCoverageReceipt & getApplicationCoverageReceipt() const;
+  //! Verify that the sealed receipt still describes the current DrawList.
+  SbBool isApplicationCoverageReceiptCurrent() const;
+  //! Test-only/internal resource bound; retained across beginFrame().
+  void setApplicationCoverageRecordLimit(size_t limit);
   SoRenderStage getRenderStage() const;
   void setRenderStage(SoRenderStage stage);
   void applyRenderStage(SoRenderCommand & command);
@@ -261,6 +275,7 @@ private:
   void traverseAdditionalPathInternal(
     SoPath * path, const SoIRRenderContext * context);
   const SoIRRenderContext * getRenderContextOverride() const;
+  void sealApplicationCoverageReceipt();
 #endif
 
   SbViewportRegion vpRegion;
