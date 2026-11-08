@@ -262,17 +262,31 @@ target_include_directories(LegacyBlendingTest PRIVATE
 )
 add_test(NAME LegacyBlendingTest COMMAND LegacyBlendingTest)
 
-add_executable(RetainedIRTest RetainedIRTest.cpp)
-target_link_libraries(RetainedIRTest Coin
-	${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedIRTest PRIVATE COIN_INTERNAL)
-target_include_directories(RetainedIRTest PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedIRTest COMMAND RetainedIRTest)
+function(coin_add_private_unit_test test_name)
+	if(WIN32 AND COIN_BUILD_SHARED_LIBS)
+		message(STATUS
+			"Skipping ${test_name}: private Coin symbols are not exported by the Windows DLL")
+		return()
+	endif()
+	add_executable(${test_name} ${test_name}.cpp)
+	target_link_libraries(${test_name} Coin ${COIN_TARGET_LINK_LIBRARIES})
+	target_compile_definitions(${test_name} PRIVATE COIN_INTERNAL)
+	if(WIN32 AND NOT COIN_BUILD_SHARED_LIBS)
+		if(MSVC)
+			target_compile_options(${test_name} PRIVATE /UCOIN_NOT_DLL)
+		else()
+			target_compile_options(${test_name} PRIVATE -UCOIN_NOT_DLL)
+		endif()
+	endif()
+	target_include_directories(${test_name} PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_BINARY_DIR}/include
+		${COIN_TARGET_INCLUDE_DIRECTORIES})
+	add_test(NAME ${test_name} COMMAND ${test_name})
+endfunction()
+
+coin_add_private_unit_test(RetainedIRTest)
 
 add_executable(SbInlineVectorTest SbInlineVectorTest.cpp)
 target_include_directories(SbInlineVectorTest PRIVATE
@@ -302,49 +316,10 @@ target_include_directories(RenderPlanTest PRIVATE
 )
 add_test(NAME RenderPlanTest COMMAND RenderPlanTest)
 
-add_executable(RetainedNodeTest RetainedNodeTest.cpp)
-target_link_libraries(RetainedNodeTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedNodeTest PRIVATE COIN_INTERNAL)
-target_include_directories(RetainedNodeTest PRIVATE
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedNodeTest COMMAND RetainedNodeTest)
-
-add_executable(RetainedMixedTopologyTest RetainedMixedTopologyTest.cpp)
-target_link_libraries(RetainedMixedTopologyTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedMixedTopologyTest PRIVATE COIN_INTERNAL)
-target_include_directories(RetainedMixedTopologyTest PRIVATE
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
-
-add_executable(RetainedPatchReceiptTest RetainedPatchReceiptTest.cpp)
-target_link_libraries(RetainedPatchReceiptTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedPatchReceiptTest PRIVATE COIN_INTERNAL)
-target_include_directories(RetainedPatchReceiptTest PRIVATE
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedPatchReceiptTest COMMAND RetainedPatchReceiptTest)
-
-add_executable(RetainedControlDependencyTest RetainedControlDependencyTest.cpp)
-target_link_libraries(RetainedControlDependencyTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RetainedControlDependencyTest PRIVATE COIN_INTERNAL)
-target_include_directories(RetainedControlDependencyTest PRIVATE
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RetainedControlDependencyTest COMMAND RetainedControlDependencyTest)
+coin_add_private_unit_test(RetainedNodeTest)
+coin_add_private_unit_test(RetainedMixedTopologyTest)
+coin_add_private_unit_test(RetainedPatchReceiptTest)
+coin_add_private_unit_test(RetainedControlDependencyTest)
 
 add_executable(RetainedMaterialLightingTest RetainedMaterialLightingTest.cpp)
 target_link_libraries(RetainedMaterialLightingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
@@ -382,16 +357,7 @@ target_include_directories(RenderLayerSemanticsTest PRIVATE
 )
 add_test(NAME RenderLayerSemanticsTest COMMAND RenderLayerSemanticsTest)
 
-add_executable(RenderManagerPipelineTest RenderManagerPipelineTest.cpp)
-target_link_libraries(RenderManagerPipelineTest Coin ${COIN_TARGET_LINK_LIBRARIES})
-target_compile_definitions(RenderManagerPipelineTest PRIVATE COIN_INTERNAL)
-target_include_directories(RenderManagerPipelineTest PRIVATE
-	${PROJECT_SOURCE_DIR}/src
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_BINARY_DIR}/include
-	${COIN_TARGET_INCLUDE_DIRECTORIES}
-)
-add_test(NAME RenderManagerPipelineTest COMMAND RenderManagerPipelineTest)
+coin_add_private_unit_test(RenderManagerPipelineTest)
 
 add_executable(LegacyGLABITest LegacyGLABITest.cpp)
 target_link_libraries(LegacyGLABITest Coin ${COIN_TARGET_LINK_LIBRARIES})
