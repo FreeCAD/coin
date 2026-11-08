@@ -20,6 +20,7 @@ class SoNode;
 class SoIRRenderActionP;
 #ifdef COIN_INTERNAL
 struct SoIRApplicationCoverageReceipt;
+struct SoIRApplicationCoveragePatchCheckpoint;
 #endif
 
 /*!
@@ -276,6 +277,12 @@ private:
     SoPath * path, const SoIRRenderContext * context);
   const SoIRRenderContext * getRenderContextOverride() const;
   void sealApplicationCoverageReceipt();
+  SoIRApplicationCoveragePatchCheckpoint
+    captureApplicationCoveragePatchCheckpoint() const;
+  void restoreApplicationCoveragePatchCheckpoint(
+    const SoIRApplicationCoveragePatchCheckpoint & checkpoint);
+  SbBool commitApplicationCoveragePatch(
+    const SoIRApplicationCoveragePatchCheckpoint & checkpoint);
 #endif
 
   SbViewportRegion vpRegion;

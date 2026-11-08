@@ -37,4 +37,17 @@ struct SoIRApplicationCoverageReceipt {
   std::vector<SoIRApplicationCoverageRecord> records;
 };
 
+struct SoIRApplicationCoveragePatchCheckpoint {
+  uint32_t drawListGeneration = 0;
+  uint64_t drawListContentRevision = 0;
+  size_t recordLimit = 0;
+  size_t recordCount = 0;
+  size_t stackDepth = 0;
+  int commandCount = 0;
+  bool current = false;
+  bool sealed = false;
+  bool overflow = false;
+  bool invalid = false;
+};
+
 #endif // COIN_SOIRCOVERAGEP_H

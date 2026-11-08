@@ -322,6 +322,19 @@ target_include_directories(RetainedMixedTopologyTest PRIVATE
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
+add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
+
+add_executable(RetainedPatchReceiptTest RetainedPatchReceiptTest.cpp)
+target_link_libraries(RetainedPatchReceiptTest Coin ${COIN_TARGET_LINK_LIBRARIES})
+target_compile_definitions(RetainedPatchReceiptTest PRIVATE COIN_INTERNAL)
+target_include_directories(RetainedPatchReceiptTest PRIVATE
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_BINARY_DIR}/include
+	${COIN_TARGET_INCLUDE_DIRECTORIES}
+)
+add_test(NAME RetainedPatchReceiptTest COMMAND RetainedPatchReceiptTest)
+
 add_executable(RetainedMaterialLightingTest RetainedMaterialLightingTest.cpp)
 target_link_libraries(RetainedMaterialLightingTest Coin ${COIN_TARGET_LINK_LIBRARIES})
 target_include_directories(RetainedMaterialLightingTest PRIVATE
@@ -329,8 +342,6 @@ target_include_directories(RetainedMaterialLightingTest PRIVATE
 	${PROJECT_BINARY_DIR}/include
 	${COIN_TARGET_INCLUDE_DIRECTORIES}
 )
-add_test(NAME RetainedMixedTopologyTest COMMAND RetainedMixedTopologyTest)
-
 add_test(NAME RetainedMaterialLightingTest COMMAND RetainedMaterialLightingTest)
 
 add_executable(RetainedRasterTextTest RetainedRasterTextTest.cpp)

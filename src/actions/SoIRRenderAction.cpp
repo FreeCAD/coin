@@ -715,16 +715,44 @@ SoIRRenderAction::getApplicationCoverageReceipt() const
   return PRIVATE(this)->coverageReceipt;
 }
 
+static bool
+coin_application_coverage_records_valid(
+  const SoIRApplicationCoverageReceipt & receipt, const int commandCount)
+{
+  for (const SoIRApplicationCoverageRecord & record : receipt.records) {
+    if (record.firstCommand < 0 || record.commandCount < 0 ||
+        record.firstCommand > commandCount ||
+        record.commandCount > commandCount - record.firstCommand) {
+      return false;
+    }
+    if (record.classification ==
+          SoIRApplicationCoverageClass::ADMITTED_COMMANDS) {
+      if (record.commandCount == 0) return false;
+    }
+    else if (record.classification ==
+               SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING) {
+      if (record.commandCount != 0) return false;
+    }
+    else {
+      return false;
+    }
+  }
+  return true;
+}
+
 SbBool
 SoIRRenderAction::isApplicationCoverageReceiptCurrent() const
 {
   const SoIRRenderActionP * pimpl = PRIVATE(this);
   const SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
-  return receipt.sealed && !receipt.overflow && !receipt.invalid &&
+  const bool identityCurrent =
+    receipt.sealed && !receipt.overflow && !receipt.invalid &&
     pimpl->coverageStack.empty() && !this->hasUnsupportedRendering() &&
     receipt.drawListGeneration == this->drawlist.getGeneration() &&
     receipt.drawListContentRevision == this->drawlist.getContentRevision() &&
     receipt.recordLimit == pimpl->coverageRecordLimit;
+  return identityCurrent && coin_application_coverage_records_valid(
+    receipt, this->drawlist.getNumCommands());
 }
 
 void
@@ -740,6 +768,72 @@ SoIRRenderAction::sealApplicationCoverageReceipt()
   receipt.drawListGeneration = this->drawlist.getGeneration();
   receipt.drawListContentRevision = this->drawlist.getContentRevision();
   receipt.sealed = PRIVATE(this)->coverageStack.empty();
+}
+
+SoIRApplicationCoveragePatchCheckpoint
+SoIRRenderAction::captureApplicationCoveragePatchCheckpoint() const
+{
+  const SoIRRenderActionP * pimpl = PRIVATE(this);
+  const SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  SoIRApplicationCoveragePatchCheckpoint checkpoint;
+  checkpoint.drawListGeneration = receipt.drawListGeneration;
+  checkpoint.drawListContentRevision = receipt.drawListContentRevision;
+  checkpoint.recordLimit = receipt.recordLimit;
+  checkpoint.recordCount = receipt.records.size();
+  checkpoint.stackDepth = pimpl->coverageStack.size();
+  checkpoint.commandCount = this->drawlist.getNumCommands();
+  checkpoint.current = this->isApplicationCoverageReceiptCurrent() != FALSE;
+  checkpoint.sealed = receipt.sealed;
+  checkpoint.overflow = receipt.overflow;
+  checkpoint.invalid = receipt.invalid;
+  return checkpoint;
+}
+
+void
+SoIRRenderAction::restoreApplicationCoveragePatchCheckpoint(
+  const SoIRApplicationCoveragePatchCheckpoint & checkpoint)
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  if (receipt.records.size() > checkpoint.recordCount) {
+    receipt.records.resize(checkpoint.recordCount);
+  }
+  if (pimpl->coverageStack.size() > checkpoint.stackDepth) {
+    pimpl->coverageStack.resize(checkpoint.stackDepth);
+  }
+  receipt.drawListGeneration = checkpoint.drawListGeneration;
+  receipt.drawListContentRevision = checkpoint.drawListContentRevision;
+  receipt.recordLimit = checkpoint.recordLimit;
+  receipt.sealed = checkpoint.sealed;
+  receipt.overflow = checkpoint.overflow;
+  receipt.invalid = checkpoint.invalid;
+}
+
+SbBool
+SoIRRenderAction::commitApplicationCoveragePatch(
+  const SoIRApplicationCoveragePatchCheckpoint & checkpoint)
+{
+  SoIRRenderActionP * pimpl = PRIVATE(this);
+  SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
+  if (!checkpoint.current || !receipt.sealed || receipt.overflow ||
+      receipt.invalid || this->hasUnsupportedRendering() ||
+      receipt.drawListGeneration != checkpoint.drawListGeneration ||
+      receipt.drawListContentRevision != checkpoint.drawListContentRevision ||
+      receipt.recordLimit != checkpoint.recordLimit ||
+      receipt.recordLimit != pimpl->coverageRecordLimit ||
+      receipt.records.size() != checkpoint.recordCount ||
+      pimpl->coverageStack.size() != checkpoint.stackDepth ||
+      checkpoint.stackDepth != 0 ||
+      this->drawlist.getGeneration() != checkpoint.drawListGeneration ||
+      this->drawlist.getNumCommands() != checkpoint.commandCount) {
+    return FALSE;
+  }
+
+  if (!coin_application_coverage_records_valid(
+        receipt, checkpoint.commandCount)) return FALSE;
+
+  receipt.drawListContentRevision = this->drawlist.getContentRevision();
+  return this->isApplicationCoverageReceiptCurrent();
 }
 
 const SoPath *
@@ -913,6 +1007,9 @@ int
 SoIRRenderAction::updateCommandMatricesForStatePaths(
   const std::vector<const SoPath *> & statePaths)
 {
+  const SoIRApplicationCoveragePatchCheckpoint coverageCheckpoint =
+    this->captureApplicationCoveragePatchCheckpoint();
+  if (!coverageCheckpoint.current) return 0;
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   SoGetMatrixAction matrixAction(this->vpRegion);
@@ -945,7 +1042,9 @@ SoIRRenderAction::updateCommandMatricesForStatePaths(
           static_cast<int>(commandIndices[i]));
     command.modelMatrix = replacements[i];
   }
-  return static_cast<int>(commandIndices.size());
+  const int updated = static_cast<int>(commandIndices.size());
+  return updated > 0 &&
+    this->commitApplicationCoveragePatch(coverageCheckpoint) ? updated : 0;
 }
 
 void
@@ -1035,6 +1134,9 @@ int
 SoIRRenderAction::updateCommandMaterialsForStatePaths(
   const std::vector<const SoPath *> & statePaths, bool opacityMayChange)
 {
+  const SoIRApplicationCoveragePatchCheckpoint coverageCheckpoint =
+    this->captureApplicationCoveragePatchCheckpoint();
+  if (!coverageCheckpoint.current) return 0;
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   std::vector<MaterialReplay> replacements;
@@ -1077,7 +1179,9 @@ SoIRRenderAction::updateCommandMaterialsForStatePaths(
     if (command.finalizationEnabledBlend) command.state.blend = SoBlendState();
     SoRenderIR::finalizeCommand(command);
   }
-  return static_cast<int>(commandIndices.size());
+  const int updated = static_cast<int>(commandIndices.size());
+  return updated > 0 &&
+    this->commitApplicationCoveragePatch(coverageCheckpoint) ? updated : 0;
 }
 
 int
@@ -1095,6 +1199,9 @@ SoIRRenderAction::updateCommandVisibilitiesForSwitchPaths(
   const std::vector<const SoPath *> & switchPaths,
   const std::vector<SbBool> & visibilities)
 {
+  const SoIRApplicationCoveragePatchCheckpoint coverageCheckpoint =
+    this->captureApplicationCoveragePatchCheckpoint();
+  if (!coverageCheckpoint.current) return 0;
   if (switchPaths.empty() || switchPaths.size() != visibilities.size()) {
     return 0;
   }
@@ -1172,7 +1279,9 @@ SoIRRenderAction::updateCommandVisibilitiesForSwitchPaths(
       static_cast<int>(replacement.commandIndex)).state.raster.visible =
         replacement.visible;
   }
-  return static_cast<int>(replacements.size());
+  const int updated = static_cast<int>(replacements.size());
+  return updated > 0 &&
+    this->commitApplicationCoveragePatch(coverageCheckpoint) ? updated : 0;
 }
 
 int
@@ -1187,6 +1296,9 @@ int
 SoIRRenderAction::updateCommandGeometryForStatePaths(
   const std::vector<const SoPath *> & statePaths)
 {
+  const SoIRApplicationCoveragePatchCheckpoint coverageCheckpoint =
+    this->captureApplicationCoveragePatchCheckpoint();
+  if (!coverageCheckpoint.current) return 0;
   std::vector<size_t> commandIndices;
   this->findCommandsAffectedByStatePaths(statePaths, commandIndices);
   if (commandIndices.empty()) return 0;
@@ -1315,6 +1427,7 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
   this->unsupportedRendering = wasUnsupported;
   this->unsupportedNode = unsupportedNode;
   this->unsupportedReason = unsupportedReason;
+  this->restoreApplicationCoveragePatchCheckpoint(coverageCheckpoint);
 
   if (!valid) {
     PRIVATE(this)->geometryPool.rewind(geometryCheckpoint);
@@ -1344,7 +1457,9 @@ SoIRRenderAction::updateCommandGeometryForStatePaths(
     }
   }
   this->drawlist.markGeometryResourcesChanged();
-  return updatedCommands;
+  return updatedCommands > 0 &&
+    this->commitApplicationCoveragePatch(coverageCheckpoint)
+      ? updatedCommands : 0;
 }
 
 void
