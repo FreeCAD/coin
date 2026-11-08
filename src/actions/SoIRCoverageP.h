@@ -18,11 +18,18 @@ enum class SoIRApplicationCoverageClass : uint8_t {
   FALLBACK_REQUIRED
 };
 
+enum class SoIRCoverageProducerKind : uint8_t {
+  APPLICATION_NODE,
+  BUILT_IN_SHAPE
+};
+
 struct SoIRApplicationCoverageRecord {
   uint64_t nodeId = 0;
   SbName typeName;
   int firstCommand = 0;
   int commandCount = 0;
+  SoIRCoverageProducerKind producerKind =
+    SoIRCoverageProducerKind::APPLICATION_NODE;
   SoIRApplicationCoverageClass classification =
     SoIRApplicationCoverageClass::PENDING;
 };

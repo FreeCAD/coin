@@ -598,6 +598,21 @@ void
 SoIRRenderAction::beginApplicationNodeCoverage(const SoNode * node,
                                                const int commandsBefore)
 {
+  this->beginProducerCoverage(node, commandsBefore, TRUE);
+}
+
+void
+SoIRRenderAction::beginBuiltInShapeCoverage(const SoNode * node,
+                                             const int commandsBefore)
+{
+  this->beginProducerCoverage(node, commandsBefore, FALSE);
+}
+
+void
+SoIRRenderAction::beginProducerCoverage(const SoNode * node,
+                                        const int commandsBefore,
+                                        const SbBool applicationNode)
+{
   SoIRRenderActionP * pimpl = PRIVATE(this);
   SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
   receipt.sealed = false;
@@ -617,6 +632,9 @@ SoIRRenderAction::beginApplicationNodeCoverage(const SoNode * node,
   record.nodeId = static_cast<uint64_t>(node->getNodeId());
   record.typeName = node->getTypeId().getName();
   record.firstCommand = commandsBefore;
+  record.producerKind = applicationNode
+    ? SoIRCoverageProducerKind::APPLICATION_NODE
+    : SoIRCoverageProducerKind::BUILT_IN_SHAPE;
   const size_t recordCountBefore = receipt.records.size();
   try {
     receipt.records.push_back(record);
@@ -655,6 +673,7 @@ SoIRRenderAction::markApplicationNodeNonDrawing(const SoNode * node)
   }
   SoIRApplicationCoverageRecord & record = receipt.records[index];
   if (record.nodeId != static_cast<uint64_t>(node->getNodeId()) ||
+      record.producerKind != SoIRCoverageProducerKind::APPLICATION_NODE ||
       record.classification != SoIRApplicationCoverageClass::PENDING) {
     receipt.invalid = true;
     record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
@@ -667,6 +686,21 @@ SoIRRenderAction::markApplicationNodeNonDrawing(const SoNode * node)
 void
 SoIRRenderAction::endApplicationNodeCoverage(const SoNode * node,
                                              const int commandsAfter)
+{
+  this->endProducerCoverage(node, commandsAfter, TRUE);
+}
+
+void
+SoIRRenderAction::endBuiltInShapeCoverage(const SoNode * node,
+                                           const int commandsAfter)
+{
+  this->endProducerCoverage(node, commandsAfter, FALSE);
+}
+
+void
+SoIRRenderAction::endProducerCoverage(const SoNode * node,
+                                      const int commandsAfter,
+                                      const SbBool applicationNode)
 {
   SoIRRenderActionP * pimpl = PRIVATE(this);
   SoIRApplicationCoverageReceipt & receipt = pimpl->coverageReceipt;
@@ -681,6 +715,9 @@ SoIRRenderAction::endApplicationNodeCoverage(const SoNode * node,
 
   SoIRApplicationCoverageRecord & record = receipt.records[index];
   if (!node || record.nodeId != static_cast<uint64_t>(node->getNodeId()) ||
+      record.producerKind != (applicationNode
+        ? SoIRCoverageProducerKind::APPLICATION_NODE
+        : SoIRCoverageProducerKind::BUILT_IN_SHAPE) ||
       commandsAfter < record.firstCommand) {
     receipt.invalid = true;
     record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
@@ -705,7 +742,9 @@ SoIRRenderAction::endApplicationNodeCoverage(const SoNode * node,
   }
   else {
     record.classification = SoIRApplicationCoverageClass::FALLBACK_REQUIRED;
-    this->markUnsupported(node, "application node emitted no retained commands");
+    this->markUnsupported(node, applicationNode
+      ? "application node emitted no retained commands"
+      : "built-in shape emitted no retained commands");
   }
 }
 
@@ -720,6 +759,10 @@ coin_application_coverage_records_valid(
   const SoIRApplicationCoverageReceipt & receipt, const int commandCount)
 {
   for (const SoIRApplicationCoverageRecord & record : receipt.records) {
+    if (record.producerKind != SoIRCoverageProducerKind::APPLICATION_NODE &&
+        record.producerKind != SoIRCoverageProducerKind::BUILT_IN_SHAPE) {
+      return false;
+    }
     if (record.firstCommand < 0 || record.commandCount < 0 ||
         record.firstCommand > commandCount ||
         record.commandCount > commandCount - record.firstCommand) {
@@ -731,7 +774,9 @@ coin_application_coverage_records_valid(
     }
     else if (record.classification ==
                SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING) {
-      if (record.commandCount != 0) return false;
+      if (record.producerKind !=
+            SoIRCoverageProducerKind::APPLICATION_NODE ||
+          record.commandCount != 0) return false;
     }
     else {
       return false;

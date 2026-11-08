@@ -876,14 +876,24 @@ SoNode::IRRenderS(SoAction * action, SoNode * node)
   assert(node != NULL);
   SoIRRenderAction * retained = static_cast<SoIRRenderAction *>(action);
   const bool auditApplicationNode = node->getIsBuiltIn() == FALSE;
-  const int commandsBefore = auditApplicationNode
+  const bool auditBuiltInShape = !auditApplicationNode &&
+    node->isOfType(SoShape::getClassTypeId());
+  const bool auditProducer = auditApplicationNode || auditBuiltInShape;
+  const int commandsBefore = auditProducer
     ? retained->getDrawList().getNumCommands() : 0;
   if (auditApplicationNode) {
     retained->beginApplicationNodeCoverage(node, commandsBefore);
   }
+  else if (auditBuiltInShape) {
+    retained->beginBuiltInShapeCoverage(node, commandsBefore);
+  }
   node->IRRender(retained);
   if (auditApplicationNode) {
     retained->endApplicationNodeCoverage(
+      node, retained->getDrawList().getNumCommands());
+  }
+  else if (auditBuiltInShape) {
+    retained->endBuiltInShapeCoverage(
       node, retained->getDrawList().getNumCommands());
   }
 }

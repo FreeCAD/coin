@@ -5,6 +5,7 @@
 #include <Inventor/actions/SoIRRenderAction.h>
 #include <Inventor/lists/SoPathList.h>
 #include <Inventor/nodes/SoCube.h>
+#include <Inventor/nodes/SoFaceSet.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/nodes/SoPickStyle.h>
 #include <Inventor/nodes/SoSeparator.h>
@@ -79,6 +80,33 @@ runTest()
   action.apply(static_cast<SoNode *>(root));
   check(action.getDrawList().getNumCommands() == 2,
         "apply(SoNode*) did not traverse both cubes", result);
+  const SoIRApplicationCoverageReceipt & builtInReceipt =
+    action.getApplicationCoverageReceipt();
+  check(action.isApplicationCoverageReceiptCurrent() &&
+        builtInReceipt.records.size() == 2 &&
+        builtInReceipt.records[0].producerKind ==
+          SoIRCoverageProducerKind::BUILT_IN_SHAPE &&
+        builtInReceipt.records[0].classification ==
+          SoIRApplicationCoverageClass::ADMITTED_COMMANDS &&
+        builtInReceipt.records[0].firstCommand == 0 &&
+        builtInReceipt.records[0].commandCount == 1 &&
+        builtInReceipt.records[1].producerKind ==
+          SoIRCoverageProducerKind::BUILT_IN_SHAPE &&
+        builtInReceipt.records[1].classification ==
+          SoIRApplicationCoverageClass::ADMITTED_COMMANDS &&
+        builtInReceipt.records[1].firstCommand == 1 &&
+        builtInReceipt.records[1].commandCount == 1,
+        "built-in shape commands lacked terminal producer records", result);
+  SoIRApplicationCoverageReceipt & corruptedBuiltInReceipt =
+    const_cast<SoIRApplicationCoverageReceipt &>(builtInReceipt);
+  corruptedBuiltInReceipt.records[0].producerKind =
+    static_cast<SoIRCoverageProducerKind>(255);
+  check(!action.isApplicationCoverageReceiptCurrent(),
+        "unknown producer kind did not invalidate coverage", result);
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "built-in coverage did not recover after producer-kind corruption",
+        result);
   check(action.getCommandPath(0) != NULL &&
         action.getCommandPath(0)->getTail() == firstCube &&
         action.getCommandPath(1) != NULL &&
@@ -89,6 +117,26 @@ runTest()
         action.getCommandPath(0)->getTail() == firstCube,
         "scene mutation changed a retained frame's path snapshot", result);
   root->insertChild(firstCube, 0);
+
+  SoSeparator * emptyRoot = new SoSeparator;
+  emptyRoot->ref();
+  SoFaceSet * emptyFaceSet = new SoFaceSet;
+  emptyRoot->addChild(emptyFaceSet);
+  action.apply(emptyRoot);
+  check(action.hasUnsupportedRendering() &&
+        action.getUnsupportedNode() == emptyFaceSet &&
+        action.getApplicationCoverageReceipt().records.size() == 1 &&
+        action.getApplicationCoverageReceipt().records[0].producerKind ==
+          SoIRCoverageProducerKind::BUILT_IN_SHAPE &&
+        action.getApplicationCoverageReceipt().records[0].classification ==
+          SoIRApplicationCoverageClass::FALLBACK_REQUIRED &&
+        !action.isApplicationCoverageReceiptCurrent(),
+        "zero-command built-in shape was silently admitted", result);
+  emptyRoot->unref();
+  action.apply(root);
+  check(action.isApplicationCoverageReceiptCurrent(),
+        "ordinary built-in shapes did not recover after empty-shape fallback",
+        result);
 
   // Path nodes must remain alive even before a consumer asks the action to
   // materialize a complete SoPath from its compact frame storage.
@@ -149,6 +197,8 @@ runTest()
   check(!action.hasUnsupportedRendering() &&
         action.isApplicationCoverageReceiptCurrent() &&
         noOpReceipt.records.size() == 1 &&
+        noOpReceipt.records[0].producerKind ==
+          SoIRCoverageProducerKind::APPLICATION_NODE &&
         noOpReceipt.records[0].classification ==
           SoIRApplicationCoverageClass::EXPLICIT_NON_DRAWING &&
         noOpReceipt.records[0].commandCount == 0,

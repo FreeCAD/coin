@@ -100,6 +100,8 @@ runTest()
     action.getApplicationCoverageReceipt();
   if (!action.isApplicationCoverageReceiptCurrent() ||
       coverage.records.size() != 1 ||
+      coverage.records[0].producerKind !=
+        SoIRCoverageProducerKind::APPLICATION_NODE ||
       coverage.records[0].classification !=
         SoIRApplicationCoverageClass::ADMITTED_COMMANDS ||
       coverage.records[0].commandCount != 3) {

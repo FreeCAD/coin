@@ -170,6 +170,48 @@ runVisibilityPatchTest()
 }
 
 static int
+runBuiltInGeometryPatchTest()
+{
+  int result = 0;
+  SoSeparator * root = new SoSeparator;
+  root->ref();
+  SoSeparator * branch = new SoSeparator;
+  SoCoordinate3 * coordinates = new SoCoordinate3;
+  coordinates->point.set1Value(0, SbVec3f(-1.0f, -1.0f, 0.0f));
+  coordinates->point.set1Value(1, SbVec3f(1.0f, -1.0f, 0.0f));
+  coordinates->point.set1Value(2, SbVec3f(0.0f, 1.0f, 0.0f));
+  SoFaceSet * faceSet = new SoFaceSet;
+  faceSet->numVertices.set1Value(0, 3);
+  branch->addChild(coordinates);
+  branch->addChild(faceSet);
+  root->addChild(branch);
+
+  SoPath * coordinatePath = makePath(root, branch, coordinates);
+  SoIRRenderAction action(SbViewportRegion(64, 64));
+  (void) action.getState();
+  action.beginFrame();
+  action.traverseAdditionalRoot(root);
+  check(action.getApplicationCoverageReceipt().records.size() == 1 &&
+        action.getApplicationCoverageReceipt().records[0].producerKind ==
+          SoIRCoverageProducerKind::BUILT_IN_SHAPE &&
+        action.isApplicationCoverageReceiptCurrent(),
+        "built-in geometry lacked an initial producer record", result);
+
+  coordinates->point.set1Value(0, SbVec3f(-0.75f, -1.0f, 0.0f));
+  check(action.updateCommandGeometryForStatePath(coordinatePath) == 1 &&
+        action.getApplicationCoverageReceipt().records.size() == 1 &&
+        action.getApplicationCoverageReceipt().records[0].producerKind ==
+          SoIRCoverageProducerKind::BUILT_IN_SHAPE &&
+        action.isApplicationCoverageReceiptCurrent(),
+        "built-in geometry replay leaked or replaced producer accounting",
+        result);
+
+  coordinatePath->unref();
+  root->unref();
+  return result;
+}
+
+static int
 runGeometryPatchTests()
 {
   int result = 0;
@@ -194,6 +236,8 @@ runGeometryPatchTests()
   const SoIRApplicationCoverageReceipt & initialReceipt =
     action.getApplicationCoverageReceipt();
   check(initialReceipt.records.size() == 1 &&
+        initialReceipt.records[0].producerKind ==
+          SoIRCoverageProducerKind::APPLICATION_NODE &&
         initialReceipt.records[0].classification ==
           SoIRApplicationCoverageClass::ADMITTED_COMMANDS &&
         action.isApplicationCoverageReceiptCurrent(),
@@ -269,6 +313,7 @@ main()
   ApplicationFaceSet::initClass();
   const int result = runStatePatchTests() |
     runVisibilityPatchTest() |
+    runBuiltInGeometryPatchTest() |
     runGeometryPatchTests();
   SoDB::finish();
   return result;

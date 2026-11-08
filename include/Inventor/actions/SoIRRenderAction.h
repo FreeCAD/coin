@@ -182,6 +182,9 @@ public:
   //! Begin/end one internal application-node coverage record.
   void beginApplicationNodeCoverage(const SoNode * node, int commandsBefore);
   void endApplicationNodeCoverage(const SoNode * node, int commandsAfter);
+  //! Begin/end one internal built-in drawable-shape coverage record.
+  void beginBuiltInShapeCoverage(const SoNode * node, int commandsBefore);
+  void endBuiltInShapeCoverage(const SoNode * node, int commandsAfter);
   //! Explicitly classify the current application node as intentionally non-drawing.
   void markApplicationNodeNonDrawing(const SoNode * node);
   //! Internal bounded receipt for application-node admission diagnostics.
@@ -277,6 +280,10 @@ private:
     SoPath * path, const SoIRRenderContext * context);
   const SoIRRenderContext * getRenderContextOverride() const;
   void sealApplicationCoverageReceipt();
+  void beginProducerCoverage(const SoNode * node, int commandsBefore,
+                             SbBool applicationNode);
+  void endProducerCoverage(const SoNode * node, int commandsAfter,
+                           SbBool applicationNode);
   SoIRApplicationCoveragePatchCheckpoint
     captureApplicationCoveragePatchCheckpoint() const;
   void restoreApplicationCoveragePatchCheckpoint(
