@@ -37,6 +37,7 @@
 #include <Inventor/SbBox2s.h>
 #include <Inventor/SbVec2s.h>
 #include <Inventor/rendering/SoCpuRayTracing.h>
+#include <Inventor/rendering/SoRetainedCommandDiagnostics.h>
 
 #include <cstdint>
 #if COIN_HAVE_LEGACY_GL_RENDERER
