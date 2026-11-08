@@ -589,8 +589,9 @@ runTest()
       result = 1;
     }
 
-    // Shared indexed edges use the same instance identity path as surfaces
-    // for visual rendering, picking, and selection overlays.
+    // Shared indexed edges retain visual and whole-command selection
+    // instancing. Picking deliberately uses per-command ID draws because
+    // some core-profile drivers lose flat per-instance values on lines.
     const float indexedEdgePositions[] = {
       0.0f, -0.5f, 0.0f,
       0.0f,  0.5f, 0.0f
@@ -603,6 +604,13 @@ runTest()
     leftEdge.geometry.indices = lineIndices;
     leftEdge.geometry.indexCount = 2;
     leftEdge.geometry.cacheKey = 0x45444745494e5354ULL;
+    leftEdge.pick.elementRanges.clear();
+    SoRenderElementRange edgeRange;
+    edgeRange.type = SO_PICK_EDGE;
+    edgeRange.elementIndex = 0;
+    edgeRange.drawStart = 0;
+    edgeRange.drawCount = 2;
+    leftEdge.pick.elementRanges.push_back(edgeRange);
     leftEdge.modelMatrix.setTranslate(SbVec3f(-0.25f, 0.0f, 0.0f));
     SoRenderCommand rightEdge = leftEdge;
     rightEdge.objectId += 1;
@@ -613,14 +621,69 @@ runTest()
     drawlist.addCommand(rightEdge);
     SoSelectionState edgeSelection;
     SoSelectionTarget edgeTarget;
+    edgeTarget.commandIndex = 0;
+    edgeSelection.selected.push_back(edgeTarget);
     edgeTarget.commandIndex = 1;
     edgeSelection.selected.push_back(edgeTarget);
     SoPickResult edgeHit;
-    if (!render(backend, drawlist, params) ||
-        !updatePickBuffer(backend, drawlist, params) ||
-        !backend.pick(24, 32, 1, edgeHit) || edgeHit.commandIndex != 0 ||
-        !backend.renderSelection(drawlist, edgeSelection, params)) {
-      std::cerr << "FAIL: instanced indexed-edge semantics failed"
+    const bool edgeRendered = render(backend, drawlist, params);
+    const SoRenderBackendStatistics edgeRenderStatistics =
+      backend.getStatistics();
+    const bool edgePickUpdated = updatePickBuffer(backend, drawlist, params);
+    const bool edgePicked = backend.pick(24, 32, 1, edgeHit);
+    const bool edgeSelected = backend.renderSelection(
+      drawlist, edgeSelection, params);
+    const SoRenderBackendStatistics edgeStatistics = backend.getStatistics();
+    SoSelectionState edgePrimitiveSelection;
+    SoSelectionTarget edgePrimitiveTarget;
+    edgePrimitiveTarget.type = SO_PICK_EDGE;
+    edgePrimitiveTarget.elementIndex = 0;
+    edgePrimitiveTarget.commandIndex = 0;
+    edgePrimitiveSelection.selected.push_back(edgePrimitiveTarget);
+    edgePrimitiveTarget.commandIndex = 1;
+    edgePrimitiveSelection.selected.push_back(edgePrimitiveTarget);
+    const bool edgePrimitivesSelected = backend.renderSelection(
+      drawlist, edgePrimitiveSelection, params);
+    const SoRenderBackendStatistics edgePrimitiveStatistics =
+      backend.getStatistics();
+    if (!edgeRendered || !edgePickUpdated || !edgePicked ||
+        edgeHit.commandIndex != 0 || !edgeSelected ||
+        edgeRenderStatistics.submission.instancedLineBatches != 1 ||
+        edgeRenderStatistics.submission.instancedLineCommands != 2 ||
+        edgeStatistics.closestPick.instancedBatches != 0 ||
+        edgeStatistics.closestPick.instancedCommands != 0 ||
+        edgeStatistics.selection.instancedBatches != 1 ||
+        edgeStatistics.selection.instancedCommands != 2 ||
+        !edgePrimitivesSelected ||
+        edgePrimitiveStatistics.selection.instancedBatches !=
+          edgeStatistics.selection.instancedBatches ||
+        edgePrimitiveStatistics.selection.instancedCommands !=
+          edgeStatistics.selection.instancedCommands ||
+        edgePrimitiveStatistics.selection.drawCalls !=
+          edgeStatistics.selection.drawCalls + 2) {
+      std::cerr << "FAIL: instanced indexed-edge semantics failed: render="
+                << edgeRendered << " update=" << edgePickUpdated
+                << " picked=" << edgePicked << " command="
+                << edgeHit.commandIndex << " selected=" << edgeSelected
+                << " render-line-batches="
+                << edgeRenderStatistics.submission.instancedLineBatches
+                << " render-line-commands="
+                << edgeRenderStatistics.submission.instancedLineCommands
+                << " pick-batches="
+                << edgeStatistics.closestPick.instancedBatches
+                << " pick-commands="
+                << edgeStatistics.closestPick.instancedCommands
+                << " selection-batches="
+                << edgeStatistics.selection.instancedBatches
+                << " selection-commands="
+                << edgeStatistics.selection.instancedCommands
+                << " primitive-selected=" << edgePrimitivesSelected
+                << " primitive-batches="
+                << edgePrimitiveStatistics.selection.instancedBatches
+                << " primitive-commands="
+                << edgePrimitiveStatistics.selection.instancedCommands
+                << " primitive-draws="
+                << edgePrimitiveStatistics.selection.drawCalls
                 << std::endl;
       result = 1;
     }

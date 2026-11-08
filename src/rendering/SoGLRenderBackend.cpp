@@ -3673,7 +3673,11 @@ SoGLRenderBackend::updatePickBuffer(const SoDrawList & drawlist,
       const SoRenderCommand & first = drawlist.getCommand(
         static_cast<int>(operation.commandIndex));
       bool primitivePickIds = false;
-      if (this->canInstanceCommand(drawlist, first) &&
+      // Flat per-instance values are not propagated reliably for native
+      // lines by every core-profile driver. Preserve visual line instancing,
+      // but submit line pick IDs per command for portable correctness.
+      if (drawlist.getCommandGeometry(first).topology != SO_TOPOLOGY_LINES &&
+          this->canInstanceCommand(drawlist, first) &&
           first.state.depth.enabled &&
           (lookupByCommand[operation.commandIndex].size() == 1 ||
            primitiveMapped(operation.commandIndex))) {
@@ -4275,7 +4279,8 @@ SoGLRenderBackend::pickDepthStack(const int x, const int y, const int radius,
         this->pickTarget.lookup[firstEntries.front()].elementIndex == -1;
       std::vector<uint32_t> instanceCommands;
       std::vector<GLuint> instanceIds;
-      if (this->canInstanceCommand(drawlist, first) &&
+      if (drawlist.getCommandGeometry(first).topology != SO_TOPOLOGY_LINES &&
+          this->canInstanceCommand(drawlist, first) &&
           first.state.depth.enabled &&
           (primitiveMapped || objectMapped)) {
         instanceCommands.push_back(firstIndex);
@@ -4528,7 +4533,10 @@ SoGLRenderBackend::renderSelection(const SoDrawList & drawlist,
       const bool primitiveSelection = !wholeCommand && selectionPrimitiveId(
         drawlist, command, target, primitiveId);
       const auto cacheIt = this->commandToCache.find(&command);
+      const bool linePrimitiveSelection = primitiveSelection &&
+        drawlist.getCommandGeometry(command).topology == SO_TOPOLOGY_LINES;
       if (!this->canInstanceCommand(drawlist, command) ||
+          linePrimitiveSelection ||
           (!wholeCommand && !primitiveSelection) ||
           cacheIt == this->commandToCache.end()) {
         SelectionBatchScratch & batch =
