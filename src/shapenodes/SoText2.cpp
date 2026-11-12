@@ -226,6 +226,7 @@ public:
   SbBool shouldBuildGlyphCache(SoState * state);
   void dumpBuffer(unsigned char * buffer, SbVec2s size, SbVec2s pos, SbBool mono);
   void computeBBox(SoAction * action, SbBox3f & box, SbVec3f & center);
+  static float getDevicePixelRatio(SoState * state);
   static void setRasterPos3f(GLfloat x, GLfloat y, GLfloat z);
 
 
@@ -390,7 +391,7 @@ SoText2::GLRender(SoGLRenderAction * action)
     glOrtho(0, vpsize[0], 0, vpsize[1], -1.0f, 1.0f);
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 
-    float fontsize = SoFontSizeElement::get(state);
+    float fontsize = fontspec->size;
     int xpos = 0;
     int ypos = 0;
     int rasterx, rastery;
@@ -852,15 +853,14 @@ SoText2P::buildGlyphCache(SoState * state)
   this->cache = new SoGlyphCache(state);
   this->cache->ref();
   SoCacheElement::set(state, this->cache);
-  this->cache->readFontspec(state);
+  this->cache->readFontspec(state, SoText2P::getDevicePixelRatio(state));
 
-  float fontsize = SoFontSizeElement::get(state);
+  const cc_font_specification * fontspec = this->cache->getCachedFontspec();
+  float fontsize = fontspec->size;
   int ypos = 0;
   int maxoverhang = INT_MIN;
 
   const int nrlines = PUBLIC(this)->string.getNum();
-
-  const cc_font_specification * fontspec = this->cache->getCachedFontspec();
 
   this->bbox.makeEmpty();
 
@@ -946,6 +946,16 @@ SoText2P::buildGlyphCache(SoState * state)
   SoCacheElement::setInvalid(storedinvalid);
 
   if (oldcache) oldcache->unref();
+}
+
+float
+SoText2P::getDevicePixelRatio(SoState * state)
+{
+  if (state->isElementEnabled(SoViewportRegionElement::getClassStackIndex())) {
+    const float scale = SoViewportRegionElement::get(state).getDevicePixelRatio();
+    return scale > 0.0f ? scale : 1.0f;
+  }
+  return 1.0f;
 }
 
 void

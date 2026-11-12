@@ -119,10 +119,12 @@ SoGlyphCache::addGlyph(cc_glyph3d * glyph)
   Read and store current font specification. Will create cache dependencies
   since some elements are read. We can't read the font specification in the
   constructor since we need to update SoCacheElement before reading
-  the elements.
+  the elements. The optional size factor is used by screen-space text nodes
+  that need to rasterize glyphs in framebuffer pixels while keeping the
+  public SoFont::size value in logical pixels.
 */
 void
-SoGlyphCache::readFontspec(SoState * state)
+SoGlyphCache::readFontspec(SoState * state, float sizefactor)
 {
   if (PRIVATE(this)->fontspec) {
     cc_fontspec_clean(PRIVATE(this)->fontspec);
@@ -130,10 +132,13 @@ SoGlyphCache::readFontspec(SoState * state)
     PRIVATE(this)->fontspec = NULL;
   }
   if (state) {
+    float fontsize = SoFontSizeElement::get(state);
+    if (sizefactor > 0.0f) fontsize *= sizefactor;
+
     PRIVATE(this)->fontspec = new cc_font_specification;
     cc_fontspec_construct(PRIVATE(this)->fontspec,
                           SoFontNameElement::get(state).getString(),
-                          SoFontSizeElement::get(state),
+                          fontsize,
                           SoComplexityElement::get(state));
   }
 }
