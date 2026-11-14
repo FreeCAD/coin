@@ -1,4 +1,5 @@
 set(COIN_TEST_SKIP_RETURN_CODE 77)
+include(fonts/Tests.cmake)
 
 macro(create_testsuite input)
 	get_filename_component(FLNAME "${input}" NAME_WE)
