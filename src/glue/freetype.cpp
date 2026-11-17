@@ -51,6 +51,7 @@
 #include <sys/types.h>
 
 #ifdef HAVE_FONTCONFIG
+#define FONTCONFIGGLUE_ASSUME_FONTCONFIG 1
 #include <fontconfig/fontconfig.h>
 #endif
 
