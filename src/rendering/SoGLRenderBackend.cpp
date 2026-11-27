@@ -60,6 +60,14 @@ static constexpr GLuint LINE_DISTANCE_ATTRIBUTE = 4;
 static constexpr GLuint INSTANCE_MODEL_ATTRIBUTE = 5;
 static constexpr GLuint INSTANCE_PICK_ID_ATTRIBUTE = 10;
 
+bool
+requiresLineShader(const float pixelWidth, const uint16_t pattern)
+{
+  // Some core-profile drivers report wide-line support but draw one pixel.
+  // Use the same physical stroke for color, picking and selection.
+  return pixelWidth > 1.0f || pattern != 0xFFFF;
+}
+
 struct InstanceRecord {
   float model[16];
   float color[4];
@@ -764,11 +772,8 @@ SoGLRenderBackend::initialize(const SoRenderBackendInitParams & params)
   }
   cc_glglue_glGenBuffers(this->glue, 1, &this->instanceBuffer);
 
-  GLfloat lineRange[2] = { 1.0f, 1.0f };
   GLfloat pointRange[2] = { 1.0f, 1.0f };
-  glGetFloatv(GL_LINE_WIDTH_RANGE, lineRange);
   glGetFloatv(GL_POINT_SIZE_RANGE, pointRange);
-  this->rasterPrograms.nativeLineWidthMax = std::max(1.0f, lineRange[1]);
   this->rasterPrograms.nativePointSizeMax = std::max(1.0f, pointRange[1]);
   this->setInitialized(TRUE);
   return TRUE;
@@ -2547,18 +2552,12 @@ SoGLRenderBackend::selectRasterPath(const CachedCommand & entry,
   path.pointPrimitive = pointTopology ||
     (fillMode == SO_RASTER_POINTS && triangleTopology);
   path.filledPrimitive = !path.linePrimitive && !path.pointPrimitive;
-  // Core-profile drivers may report a broad GL_LINE_WIDTH_RANGE while still
-  // rasterizing ordinary wide lines as one pixel. Use the retained line
-  // shader for every non-default width so compat and core profiles execute
-  // the same semantic raster state.
-  const bool lineEmulationRequired =
-    path.lineWidth > 1.0f ||
-    command.state.raster.linePattern != 0xFFFF;
   path.usePointShader = !path.pixelRaster && path.pointPrimitive &&
     this->rasterPrograms.point.handle != 0 &&
     path.pointSize > this->rasterPrograms.nativePointSizeMax;
   path.useLineShader = !path.pixelRaster && path.linePrimitive &&
-    this->rasterPrograms.line.handle != 0 && lineEmulationRequired;
+    this->rasterPrograms.line.handle != 0 &&
+    requiresLineShader(path.lineWidth, command.state.raster.linePattern);
   path.lineTriangleInput = path.useLineShader &&
     fillMode == SO_RASTER_LINES && triangleTopology;
   path.pointTriangleInput = path.usePointShader &&
@@ -3514,8 +3513,6 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
     (fillMode == SO_RASTER_LINES && triangleTopology);
   const bool pointRaster = pointTopology ||
     (fillMode == SO_RASTER_POINTS && triangleTopology);
-  const bool lineEmulationRequired = lineWidth > this->rasterPrograms.nativeLineWidthMax ||
-    command.state.raster.linePattern != 0xFFFF;
   const PickPrograms * programSet = selection
     ? &this->selectionPrograms : &this->pickPrograms;
   const bool usePointShader = !pixelRaster && pointRaster &&
@@ -3523,7 +3520,7 @@ SoGLRenderBackend::drawCoverageEntry(const SoDrawList & drawlist,
     pointSize > this->rasterPrograms.nativePointSizeMax;
   const bool useLineShader = !pixelRaster && lineRaster &&
     programSet->line.handle != 0 &&
-    lineEmulationRequired;
+    requiresLineShader(lineWidth, command.state.raster.linePattern);
   const bool lineTriangleInput = useLineShader &&
     fillMode == SO_RASTER_LINES &&
     triangleTopology;

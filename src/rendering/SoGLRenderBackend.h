@@ -246,7 +246,6 @@ private:
     PointProgram point;
     PointProgram trianglePoint;
     PixelProgram pixel;
-    float nativeLineWidthMax = 1.0f;
     float nativePointSizeMax = 1.0f;
   } rasterPrograms;
 
