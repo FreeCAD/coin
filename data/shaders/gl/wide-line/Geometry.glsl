@@ -36,8 +36,9 @@ void main()
   vec4 p1 = gl_in[1].gl_Position;
   vec2 ndc0 = p0.xy / p0.w;
   vec2 ndc1 = p1.xy / p1.w;
-  vec2 delta = ndc1 - ndc0;
-  vec2 dir = length(delta) > 0.000001 ? normalize(delta) : vec2(1.0, 0.0);
+  // Determine the perpendicular after converting to framebuffer pixels.
+  vec2 deltaPixels = (ndc1 - ndc0) * (0.5 * u_vpSize);
+  vec2 dir = length(deltaPixels) > 0.000001 ? normalize(deltaPixels) : vec2(1.0, 0.0);
   vec2 perp = vec2(-dir.y, dir.x);
   vec2 offset = perp * u_lineWidth / u_vpSize;
 

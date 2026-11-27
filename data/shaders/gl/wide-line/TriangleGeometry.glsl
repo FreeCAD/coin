@@ -37,9 +37,10 @@ void coin_emit_edge(int first, int second)
   vec4 p1 = gl_in[second].gl_Position;
   vec2 ndc0 = p0.xy / p0.w;
   vec2 ndc1 = p1.xy / p1.w;
-  vec2 delta = ndc1 - ndc0;
-  float edgeLength = length(delta * (0.5 * u_vpSize));
-  vec2 dir = length(delta) > 0.000001 ? normalize(delta) : vec2(1.0, 0.0);
+  // Determine the perpendicular after converting to framebuffer pixels.
+  vec2 deltaPixels = (ndc1 - ndc0) * (0.5 * u_vpSize);
+  float edgeLength = length(deltaPixels);
+  vec2 dir = length(deltaPixels) > 0.000001 ? normalize(deltaPixels) : vec2(1.0, 0.0);
   vec2 offset = vec2(-dir.y, dir.x) * u_lineWidth / u_vpSize;
   coin_emit_edge_vertex(first, offset, 0.0);
   coin_emit_edge_vertex(first, -offset, 0.0);

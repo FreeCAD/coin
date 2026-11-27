@@ -68,6 +68,80 @@ pixelAt(const std::vector<uint8_t> & pixels, const int x, const int y)
   return &pixels[static_cast<size_t>(y * 64 + x) * 4];
 }
 
+bool
+solidLineCoverageMatches(const GLTestContext & context, SoGLRenderBackend & backend)
+{
+  SoDrawList drawlist;
+  int squareCoverage[2] = {};
+  for (const SbVec2s size : {SbVec2s(64, 64), SbVec2s(64, 32), SbVec2s(32, 64)}) {
+    SoRenderParams params = renderParams();
+    params.viewport.setViewportPixels(SbVec2s(0, 0), size);
+    // Keep the diagonal in the same framebuffer-pixel coordinates in each viewport.
+    const float x = 24.0f / size[0];
+    const float y = 24.0f / size[1];
+    const float positions[] = {-x, -y, 0.0f, x, y, 0.0f, -x, y, 0.0f};
+    for (const bool triangle : {false, true}) {
+      SoRenderCommand command;
+      command.modelMatrix.makeIdentity();
+      command.geometry.topology = triangle ? SO_TOPOLOGY_TRIANGLES : SO_TOPOLOGY_LINES;
+      command.geometry.vertexCount = triangle ? 3 : 2;
+      command.geometry.positions = positions;
+      command.geometry.vertexStride = 3 * sizeof(float);
+      command.material.shadingModel = SO_SHADING_UNLIT;
+      command.material.diffuse = SbVec4f(1.0f, 0.0f, 0.0f, 1.0f);
+      command.state.raster.fillMode = triangle ? SO_RASTER_LINES : SO_RASTER_FILL;
+      command.state.raster.lineWidth = 4.0f;
+      drawlist.clear();
+      drawlist.addCommand(command);
+
+      if (!render(backend, drawlist, params) || !updatePickBuffer(backend, drawlist, params)) {
+        std::cerr << "FAIL: solid wide-line coverage setup failed" << std::endl;
+        return false;
+      }
+      const auto color = readPixels(context);
+      SoSelectionState selection;
+      SoSelectionTarget target;
+      target.commandIndex = 0;
+      target.color = SbColor4f(1.0f, 0.0f, 1.0f, 1.0f);
+      selection.selected.push_back(target);
+      if (!backend.renderSelection(drawlist, selection, params)) {
+        std::cerr << "FAIL: solid wide-line selection setup failed" << std::endl;
+        return false;
+      }
+      const auto selected = readPixels(context);
+      int covered = 0;
+      for (int row = -3; row <= 3; ++row) {
+        const int py = size[1] / 2 + row;
+        for (int offset = -6; offset <= 6; ++offset) {
+          const int px = size[0] / 2 + row + offset;
+          const bool visible = pixelAt(color, px, py)[0] != 0;
+          const bool highlighted = pixelAt(selected, px, py)[2] != 0;
+          SoPickResult hit;
+          const bool picked = backend.pick(px, py, 0, hit);
+          covered += visible;
+          if (visible != picked || visible != highlighted || (picked && hit.id != 1)) {
+            std::cerr << "FAIL: solid wide-line pick/selection coverage differs at "
+                      << px << ',' << py << " in " << size[0] << 'x' << size[1]
+                      << (triangle ? " triangle wireframe" : " segment") << std::endl;
+            return false;
+          }
+        }
+      }
+      if (covered == 0 || glGetError() != GL_NO_ERROR) {
+        std::cerr << "FAIL: solid wide-line sample has no valid coverage" << std::endl;
+        return false;
+      }
+      if (size[0] == size[1]) squareCoverage[triangle] = covered;
+      else if (covered != squareCoverage[triangle]) {
+        std::cerr << "FAIL: solid wide-line width depends on viewport aspect ratio"
+                  << std::endl;
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 } // namespace
 
 static int
@@ -858,6 +932,7 @@ runTest()
     }
   }
 
+  if (!solidLineCoverageMatches(context, backend)) result = 1;
   backend.shutdown();
   return result;
 }
